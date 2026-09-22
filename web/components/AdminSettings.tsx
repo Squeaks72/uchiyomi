@@ -60,7 +60,83 @@ export function AdminSettings() {
           Scanlators: Server must stay first (run.mjs), and settingsConsole.test.ts pins the four above in
           their order. Its rows and its one dialog live in their own file; it reads its own endpoint. */}
       <NotificationsSection />
+      <AdultFilterSection data={data} save={save} />
     </div>
+  );
+}
+
+/**
+ * What the "Show 18+" switch hides, beyond libraries rated 18+.
+ *
+ * Before this the only way to keep a genre off the shelf was to move its series into an 18+ library --
+ * a filing decision made to get a display outcome, which the scanner then argued with on every rescan.
+ * Naming the genres says the same thing directly, and leaves filing alone.
+ *
+ * Nothing here is a permission. Everything listed is still openable by anyone who may open it, still
+ * reachable by link, and still returned by the by-id routes; the switch only decides what turns up
+ * unasked. The permission is an account's age limit, which lives on the member, not here.
+ */
+function AdultFilterSection({ data, save }: { data: any; save: Save }) {
+  const genres: string[] = Array.isArray(data.adult_genres) ? data.adult_genres : [];
+  const sources: string[] = Array.isArray(data.adult_sources) ? data.adult_sources : [];
+  // The genres actually present in this library, so the list offers what can match rather than a
+  // vocabulary. Cheap and cached; a failure just leaves the picker empty rather than breaking the tab.
+  const { data: overview } = useQuery({
+    queryKey: ['genres-overview'],
+    // `key` is the genre folded to lower case -- the form the filter stores and matches on -- and `label`
+    // is how it is written in the library. Storing the key keeps "Sci-Fi" and "sci-fi" one entry.
+    queryFn: () => api<{ content: Array<{ key: string; label: string }> }>('/api/genres/overview'),
+    staleTime: 5 * 60_000,
+  });
+  const { data: srcList } = useQuery({
+    queryKey: ['sources-for-adult'],
+    queryFn: () => api<{ content: Array<{ id: string; name: string }> }>('/api/sources'),
+    staleTime: 5 * 60_000,
+  });
+  const allGenres = (overview?.content ?? []).filter((g) => g?.key);
+  const has = (list: string[], v: string) => list.includes(v.toLowerCase());
+  const toggle = (list: string[], v: string) => {
+    const k = v.toLowerCase();
+    return list.includes(k) ? list.filter((x) => x !== k) : [...list, k];
+  };
+
+  return (
+    <Section title={tr('18+ filter')} icon={<IcSettings width={18} height={18} />}>
+      <div className="py-3">
+        <p className="mb-2 max-w-prose text-[11px] leading-relaxed text-fog-500">
+          {tr('Genres to keep off the shelf while “Show 18+” is off. This hides nothing from anyone who goes looking: links, bookmarks, downloads and reading progress are unaffected.')}
+        </p>
+        <div className="flex flex-wrap gap-1.5">
+          {allGenres.length === 0 && <span className="text-[11px] text-fog-600">{tr('No genres yet.')}</span>}
+          {allGenres.map((g) => (
+            <button key={g.key} type="button"
+              onClick={() => save({ adultGenres: toggle(genres, g.key) })}
+              aria-pressed={has(genres, g.key)}
+              className={`chip whitespace-nowrap ${has(genres, g.key) ? 'chip-active' : ''}`}>
+              {g.label || g.key}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="py-3">
+        <p className="mb-2 max-w-prose text-[11px] leading-relaxed text-fog-500">
+          {tr('Sources to treat as adult, on top of the ones their extension already declares.')}
+        </p>
+        <div className="flex flex-wrap gap-1.5">
+          {(srcList?.content ?? []).map((src) => (
+            <button key={src.id} type="button"
+              onClick={() => save({ adultSources: toggle(sources, src.id) })}
+              aria-pressed={has(sources, src.id)}
+              className={`chip whitespace-nowrap ${has(sources, src.id) ? 'chip-active' : ''}`}>
+              {src.name}
+            </button>
+          ))}
+        </div>
+      </div>
+      <p className="py-3 text-[11px] leading-relaxed text-fog-500">
+        {tr('One series can be let through on its own page — Edit details ▸ “Always show”.')}
+      </p>
+    </Section>
   );
 }
 
