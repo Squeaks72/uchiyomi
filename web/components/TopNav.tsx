@@ -9,7 +9,6 @@ import { triggerRefresh } from '@/lib/refresh';
 import { api } from '@/lib/api';
 import { useAuth, canDownload } from '@/lib/auth';
 import { Avatar } from './Avatar';
-import { AdultToggle } from './AdultToggle';
 import { useToast } from './Toast';
 import { keys, t as tr } from '@/lib/i18n';
 
@@ -74,14 +73,6 @@ export function TopNav({ onSearchFocus }: { onSearchFocus?: () => void }) {
           <span className="w-full text-sm text-fog-500">{tr('Search…')}</span>
           <kbd className="shrink-0 rounded-md border border-ink-700 px-1.5 py-0.5 text-[10px] text-fog-500">⌘K</kbd>
         </button>
-        {/*
-          The 18+ reveal, beside the other session-wide controls rather than inside one page.
-          It governs every browsing surface there is -- the home rails, search, Discover's sources,
-          updates, history, bookmarks, collections -- so having it only in the Library header meant
-          navigating back to Library to change something that was already in force everywhere else. It
-          renders nothing at all for an account with no 18+ library to reveal.
-        */}
-        <AdultToggle className="shrink-0" />
         {/* Secondary destination, so it sits in the right-hand cluster with Updates rather than becoming a
             sixth primary nav item -- the five on the left are the shape of the library, and Moments is a
             view of what you saved out of it. */}

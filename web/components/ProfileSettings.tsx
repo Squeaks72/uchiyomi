@@ -10,6 +10,7 @@ import { readShownOnce } from '@/lib/shownOnce';
 import { ReaderPrefs, loadPrefs, savePrefs, syncPrefsFromServer } from '@/lib/readerPrefs';
 import { Avatar, AVATAR_EMOJIS, AVATAR_COLORS } from '@/components/Avatar';
 import { ProgressBar } from '@/components/ui';
+import { AdultSwitchRow, useLibraries } from '@/components/AdultToggle';
 import { useToast } from '@/components/Toast';
 import { IcBell, IcCheck, IcDownload, IcMoments, IcSparkle } from '@/components/icons';
 import { t as tr, LOCALES, keys } from '@/lib/i18n';
@@ -431,11 +432,18 @@ function DeviceSection() {
     setCanInstall(false);
   };
 
-  // Nothing to decide here: push is not configured on the server and the app is already installed.
-  if (!enabledSrv && standalone) return null;
+  // The 18+ reveal is device-scoped in the same way these are -- a cookie this browser holds until it signs
+  // out -- so it sits here rather than in a card of its own, and it counts as something left to decide.
+  const { data: libs } = useLibraries();
+  const hasAdult = (libs ?? []).some((l) => l.adult);
+
+  // Nothing to decide here: push is not configured on the server, the app is already installed, and there is
+  // no 18+ library to reveal.
+  if (!enabledSrv && standalone && !hasAdult) return null;
 
   return (
     <Section id="device" title={tr('This device')} icon={<IcBell width={18} height={18} />}>
+      <AdultSwitchRow />
       {enabledSrv && (
         <SwitchRow label={tr('New-chapter alerts')}
           help={supported ? tr('Get a push notification when one of your favorites gets a new chapter.') : tr('Not supported on this browser.')}

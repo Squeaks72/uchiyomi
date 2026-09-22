@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { adultShown, setAdultShown, onAdultChange } from '@/lib/adult';
+import { SwitchRow } from '@/components/settings';
 import { t as tr } from '@/lib/i18n';
 
 export interface LibraryRow { id: string; name: string; adult?: boolean }
@@ -69,5 +70,32 @@ export function AdultToggle({ className = '', alsoWhen = false }: { className?: 
     >
       {tr('Show 18+')}
     </button>
+  );
+}
+
+/**
+ * The same reveal as {@link AdultToggle}, worn as a settings row instead of a chip.
+ *
+ * The chip is a loud way to carry this: it sits in a filter bar, on screen the whole time, telling anyone
+ * looking over your shoulder that there is an 18+ shelf here and whether you have opened it. In the profile
+ * it is one switch among the other per-browser settings, and nothing about it shows while you browse.
+ *
+ * Both forms read and write the one cookie, so flipping either moves the other -- and both vanish for an
+ * account with no 18+ library to reveal.
+ */
+export function AdultSwitchRow() {
+  const qc = useQueryClient();
+  const { data: libs } = useLibraries();
+  const on = useAdultShown();
+
+  if (!(libs ?? []).some((l) => l.adult)) return null;
+
+  return (
+    <SwitchRow
+      label={tr('Show 18+ libraries')}
+      help={tr('Reveals 18+ content in this browser. Other devices stay hidden.')}
+      on={on}
+      onChange={(next) => { setAdultShown(next); qc.invalidateQueries(); }}
+    />
   );
 }
