@@ -684,10 +684,19 @@ function ReaderInner() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const el = scrollRef.current;
+      const paged = prefs.mode === 'paged';
+      // Paged mode turns its own pages instead of leaving arrows to the browser: the track is a
+      // snap-x container, and a native arrow keypress only nudges it a few pixels before the snap
+      // pulls it back, so it took two presses to land on the next page. This is the same scrollBy
+      // the tap zones use, so keys and taps advance identically -- the track always runs
+      // left-to-right, only the page order inside an RTL spread flips.
+      const page = (dir: 1 | -1) => { if (el) el.scrollBy({ left: dir * (el.clientWidth || window.innerWidth), behavior: 'smooth' }); };
       if (e.key === '[') goChapter(prevId);
       else if (e.key === ']') goChapter(nextId);
       else if (e.key === 'f') toggleFullscreen();
       else if (e.key === 'Escape') back();
+      else if (el && paged && (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === 'PageDown' || e.key === ' ')) { e.preventDefault(); page(1); }
+      else if (el && paged && (e.key === 'ArrowLeft' || e.key === 'ArrowUp' || e.key === 'PageUp')) { e.preventDefault(); page(-1); }
       else if (el && prefs.mode === 'vertical' && (e.key === ' ' || e.key === 'ArrowDown')) { e.preventDefault(); el.scrollBy({ top: el.clientHeight * 0.88, behavior: 'smooth' }); }
       else if (el && prefs.mode === 'vertical' && e.key === 'ArrowUp') { e.preventDefault(); el.scrollBy({ top: -el.clientHeight * 0.88, behavior: 'smooth' }); }
     };
