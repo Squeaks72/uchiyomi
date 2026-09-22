@@ -1,0 +1,105 @@
+name: Fork sync
+
+# Keeps this fork current with upstream, then rebuilds the image.
+#
+# `main` is a pure mirror of upstream and is never committed to directly, so it
+# can always be fast-forwarded. `tim` is upstream plus the local patches, and is
+# rebased onto the new `main` on every sync -- rebase rather than merge so the
+# patch set stays a readable list of commits on top of a known upstream, and so
+# a patch that upstream has since adopted disappears on its own instead of
+# conflicting forever.
+#
+# Timing: 06:00 UTC is 01:00 in America/Chicago, three hours ahead of the 04:00
+# CA Auto Update run on the Unraid box. That gap is the point -- the image has to
+# exist before anything tries to pull it.
+#
+# A rebase that does not apply cleanly stops here and opens an issue rather than
+# forcing anything: a silently dropped patch is worse than a stale image.
+
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: fork-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      changed: ${{ steps.rebase.outputs.changed }}
+      version: ${{ steps.rebase.outputs.version }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # Full history: a rebase needs the merge base, and a shallow clone
+          # cannot find one.
+          fetch-depth: 0
+          ref: tim
+
+      - name: Rebase the patches onto upstream
+        id: rebase
+        run: |
+          set -euo pipefail
+          git config user.name  "Squeaks72"
+          git config user.email "Squeaks72@users.noreply.github.com"
+          git remote add upstream https://github.com/AngeloSha/uchiyomi.git
+          git fetch --tags upstream main
+
+          before=$(git rev-parse upstream/main)
+          # Mirror upstream onto our own main. Always a fast-forward, because
+          # nothing ever commits to main here.
+          git push --force origin "upstream/main:refs/heads/main"
+
+          if git merge-base --is-ancestor "$before" HEAD; then
+            echo "already on top of upstream/main"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if ! git rebase upstream/main; then
+            git rebase --abort || true
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "conflict=true" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+
+          git push --force-with-lease origin tim
+          version=$(node -p "require('./bff/package.json').version")
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "::notice title=Synced::now on upstream v${version}"
+
+      - name: Open an issue when the rebase conflicts
+        if: failure() && steps.rebase.outputs.conflict == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue create \
+            --title "Fork sync: patches no longer rebase onto upstream" \
+            --body "The nightly sync could not rebase \`tim\` onto \`upstream/main\`; the fork is still on its previous commit and the image was not rebuilt.
+
+          Fix it locally:
+
+          \`\`\`sh
+          git fetch upstream && git checkout tim && git rebase upstream/main
+          # resolve, then
+          git push --force-with-lease origin tim
+          \`\`\`
+
+          Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+  build:
+    needs: sync
+    if: needs.sync.outputs.changed == 'true'
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/fork-build.yml
