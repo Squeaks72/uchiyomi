@@ -51,6 +51,9 @@ interface SeriesRow {
   name_donor: { source?: string; sourceId?: string } | null;
 }
 
+/** Titles compared the way the rest of the app compares them: case and punctuation folded away. */
+const normTitle = (t: string | undefined | null) => (t ?? '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+
 /** A title that just restates its own number, in any of the usual spellings. */
 const isBare = (title: string | null, number: number) => !chapterName(title, number);
 
@@ -118,12 +121,15 @@ export async function borrowChapterNames(seriesId: string): Promise<BorrowResult
     if (pool.length) {
       const health = new Map((await healthAll().catch(() => [])).map((h) => [h.source_id, h] as const));
       const answer = await searchAll(s.title, pool, { waitMs: SEARCH_WAIT_MS, health }).catch(() => null);
-      // The hits whose title matches ours, in the order the search ranked them, capped.
+      // Only a hit whose title matches ours EXACTLY once punctuation and case are folded away. A fuzzy
+      // match would be a second way to be wrong on top of the numbering, and the numbering check cannot
+      // catch it: a different work with a similar name can easily number 1..N the same way.
+      const want = normTitle(s.title);
       const cands: { source: string; sourceId: string }[] = [];
-      for (const group of answer?.content ?? []) {
-        for (const p of group.providers ?? []) {
-          if (p.source && p.sourceId && !tried.has(p.source)) cands.push({ source: p.source, sourceId: p.sourceId });
-        }
+      for (const [sourceId, r] of answer?.per ?? new Map()) {
+        if (tried.has(sourceId)) continue;
+        const hit = (r.items ?? []).find((it: { id?: string; title?: string }) => normTitle(it.title) === want);
+        if (hit?.id) cands.push({ source: sourceId, sourceId: hit.id });
       }
       for (const c of cands.slice(0, MAX_DONORS)) {
         if (tried.has(c.source)) continue;
