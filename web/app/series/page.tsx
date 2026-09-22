@@ -542,19 +542,29 @@ function ChapterRow({ book, downloaded, sourceNames, primarySource, versions, on
     // the dot, the date and two 36-px buttons -- exactly a group name with its avatar -- and a two-digit
     // day ("29d") took 4 of them back. Five gaps at 10 rather than 12 return ten. GhostRow matches.
     <div id={`ch-${book.number}`} className="border-b border-ink-800/70">
-    <div className="flex items-center gap-3 py-2.5 lg:gap-2.5">
+    {/*
+      Desktop rows are deliberately leaner than touch ones. A chapter list is hundreds of rows of the same
+      series, so anything repeated per row is repeated hundreds of times: the cover is the same picture
+      every time, and the two round buttons are a pair of targets that only one row at a time can be the
+      subject of. Both are for pointers -- `group-hover` brings the buttons back, `focus-within` brings
+      them back for the keyboard -- and touch keeps all of it, where there is no hover and the cover is
+      the thing you aim at.
+    */}
+    <div className="group flex items-center gap-3 py-2.5 lg:gap-2.5 lg:py-1.5">
       {/* In select mode a pruned chapter is still selectable -- Mark read and Fetch again are exactly the
           things one wants for it -- so the disable only applies to opening. */}
       <button onClick={selectable ? onToggle : onReader} disabled={pruned && !selectable} aria-pressed={selectable ? !!selected : undefined}
         className="flex min-w-0 flex-1 items-center gap-3 text-start disabled:cursor-default">
-        <div className={`relative h-14 w-10 shrink-0 overflow-hidden rounded-lg border ${state === 'read' ? 'border-ink-800 opacity-45' : 'border-ink-700'} ${book.pruned && !downloaded ? 'border-dashed border-ink-600' : ''}`}>
+        <div className={`relative h-14 w-10 shrink-0 ${selectable ? '' : 'lg:hidden'} overflow-hidden rounded-lg border ${state === 'read' ? 'border-ink-800 opacity-45' : 'border-ink-700'} ${book.pruned && !downloaded ? 'border-dashed border-ink-600' : ''}`}>
           {/* A tombstone has no file to draw a thumbnail from; asking would be a 404 per row on every visit.
               The dashed empty box is the ghost row's, so "no pages here" reads the same in both places. */}
           {!(book.pruned && !downloaded) && <Img src={img.bookThumb(book.id)} alt="" className="h-full w-full" />}
           {state === 'reading' && <span className="absolute inset-x-0 bottom-0 h-0.5 bg-accent" />}
           {selectable && <SelectBubble selected={!!selected} />}
         </div>
-        <span className={`h-2 w-2 shrink-0 rounded-full ${state === 'read' ? 'bg-ink-600' : state === 'reading' ? 'bg-accent' : 'bg-accent/40'}`} />
+        {/* On touch, where the cover is on screen, the dot said what the cover's dimming and its accent bar
+            already say. On desktop the state is the title's colour and the accent "page x/y" line under it. */}
+        <span className={`h-2 w-2 shrink-0 rounded-full lg:hidden ${state === 'read' ? 'bg-ink-600' : state === 'reading' ? 'bg-accent' : 'bg-accent/40'}`} />
         <div className="min-w-0">
           <p className={`truncate text-sm ${state === 'read' ? 'text-fog-500' : 'text-fog-100'}`}>
             {chapterLabel(book)}
@@ -569,6 +579,13 @@ function ChapterRow({ book, downloaded, sourceNames, primarySource, versions, on
       </button>
       {book.metadata?.releaseDate && <RowDate iso={book.metadata.releaseDate} />}
       {!selectable && <>
+      {/*
+        Two round buttons on every row is two targets per row that only one row at a time is ever the
+        subject of. On a pointer they appear for the row under the cursor; `group-focus-within` does the
+        same for the keyboard, and an open menu pins them so the dropdown does not vanish when the pointer
+        leaves to reach it. Touch has no hover, so there they stay as they were.
+      */}
+      <div className={`flex shrink-0 items-center gap-3 lg:gap-2.5 lg:transition-opacity lg:group-hover:opacity-100 lg:group-focus-within:opacity-100 ${menu ? 'lg:opacity-100' : 'lg:opacity-0'}`}>
       {/* Not on Uchiyomi Desktop (lib/desktop.ts): the chapter is already a file on this computer. */}
       {!isDesktop() && <button
         onClick={async () => {
@@ -617,6 +634,7 @@ function ChapterRow({ book, downloaded, sourceNames, primarySource, versions, on
             </div>
           </>
         )}
+      </div>
       </div>
       </>}
     </div>
