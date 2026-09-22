@@ -1,5 +1,5 @@
 import { q, one } from './db';
-import { getSource, listSources, type SourceAdapter } from './sources';
+import { getSource, listSources, type SourceAdapter, type SourceSeries } from './sources';
 import { searchAll } from './searchAll';
 import { healthAll, isDisabled } from './sourceHealth';
 import { assess, verdict, followable } from './fill';
@@ -126,10 +126,13 @@ export async function borrowChapterNames(seriesId: string): Promise<BorrowResult
       // catch it: a different work with a similar name can easily number 1..N the same way.
       const want = normTitle(s.title);
       const cands: { source: string; sourceId: string }[] = [];
-      for (const [sourceId, r] of answer?.per ?? new Map()) {
+      for (const [sourceId, r] of answer?.per ?? new Map<string, { items?: SourceSeries[] }>()) {
         if (tried.has(sourceId)) continue;
-        const hit = (r.items ?? []).find((it: { id?: string; title?: string }) => normTitle(it.title) === want);
-        if (hit?.id) cands.push({ source: sourceId, sourceId: hit.id });
+        // `SourceSeries.sourceId` is the id WITHIN that source, which is what listChapters takes. Typing
+        // this loosely once cost a silent no-op: `.id` is not a field, so every candidate was dropped and
+        // the feature looked switched off.
+        const hit = (r.items ?? []).find((it: SourceSeries) => normTitle(it.title) === want);
+        if (hit?.sourceId) cands.push({ source: sourceId, sourceId: hit.sourceId });
       }
       for (const c of cands.slice(0, MAX_DONORS)) {
         if (tried.has(c.source)) continue;
