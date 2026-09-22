@@ -17,6 +17,7 @@ import { effectivePrefsFor, readSeriesPrefs } from './scanlatorPrefs';
 import { copyToChapter, listingRows, replaceListing, type ListingCopy } from './seriesListing';
 import { heldBooks } from './chapterCleanup';
 import { downloadWithFallback, type FallbackOutcome } from './chapterFallback';
+import { effectiveSourcePriority } from './sourcePrefs';
 import { huntSource, seriesIsAdult, sweepAllowedFor, HUNT_MAX_PER_SWEEP } from './sourceHunt';
 import { completePartial, PARTIAL_COMPLETE_MAX } from './partial';
 
@@ -153,7 +154,7 @@ const nothing = (title: string, outcome: UpdateOutcome): UpdateResult =>
   ({ title, added: 0, available: 0, outcome, failed: 0, waiting: 0, switched: 0, partial: 0, landed: [], asked: false });
 
 export async function updateSeries(seriesId: string, maxNew = 10, opts: UpdateOpts = {}): Promise<UpdateResult> {
-  const s = await one<any>(`SELECT id,title,source_id,source_series_id,web,folder,summary,author,genres,status,chapter_floor,scanlator_prefs FROM lib_series s WHERE s.id=$1 AND ${visibleToAll('s')}`, [seriesId]);
+  const s = await one<any>(`SELECT id,title,source_id,source_series_id,web,folder,summary,author,genres,status,chapter_floor,scanlator_prefs,source_prefs FROM lib_series s WHERE s.id=$1 AND ${visibleToAll('s')}`, [seriesId]);
   if (!s) return nothing('', 'gone');
 
   // Everything the series is followed on: the primary pair first, then series_sources in the order they
@@ -244,7 +245,7 @@ export async function updateSeries(seriesId: string, maxNew = 10, opts: UpdateOp
   // again is the recovery. heldBooks in lib/chapterCleanup.ts is that rule, in one place.
   // Reintroduce by dropping the heldBooks predicate: "the sweep fetches a chapter the verify task marked
   // missing" in verifyFiles.int.test.ts asks for nothing.
-  const heldRows = await q<{ number: number; pruned_at: string | null }>(`SELECT number, pruned_at FROM lib_books WHERE series_id=$1 AND ${heldBooks()}`, [seriesId]);
+  const heldRows = await q<{ number: number; pruned_at: string | null; source_id: string | null }>(`SELECT number, pruned_at, source_id FROM lib_books WHERE series_id=$1 AND ${heldBooks()}`, [seriesId]);
   const have = new Set(heldRows.map((r) => Number(r.number)));
   // The held numbers a LIVE row stands behind. The sweep needs only `have`; "Fetch newest" tells a
   // number we hold as pages apart from one we hold only as a deliberate tombstone (see the verdict below).
@@ -275,6 +276,26 @@ export async function updateSeries(seriesId: string, maxNew = 10, opts: UpdateOp
   // not fetched: the whole point of the hold is that the copy on offer is not the one wanted yet.
   const heldNums = new Set(held);
   const eligible = missing.filter((c) => !cappedNums.has(c.number) && !heldNums.has(c.number));
+
+  // Upgrades: a chapter we already hold, listed now by a source that outranks the one the held copy came
+  // from. The rule above -- what is on disk is never replaced -- is right when the ranking is about who
+  // translated it, and wrong here: a series that followed a mediocre source while the preferred one was
+  // behind would keep those copies for good, with no way back short of deleting them by hand.
+  //
+  // Only LIVE rows: a tombstone is a chapter deliberately removed, and re-fetching it under the guise of
+  // an upgrade would undo that. The file lands at the same path (named from the number alone), so chapter
+  // ids, reading progress and bookmarks survive the replacement.
+  const priority = await effectiveSourcePriority(s.source_prefs).catch(() => null);
+  const heldFrom = new Map(heldRows.filter((r) => r.pruned_at == null).map((r) => [Number(r.number), r.source_id] as const));
+  const upgrades = new Set<number>();
+  if (priority?.order.length) {
+    for (const c of wanted) {
+      if (!heldFrom.has(c.number)) continue;
+      if (cappedNums.has(c.number) || heldNums.has(c.number)) continue;
+      if (priority.outranks((c as { source?: string }).source, heldFrom.get(c.number))) upgrades.add(c.number);
+    }
+  }
+  const upgradeChapters = upgrades.size ? wanted.filter((c) => upgrades.has(c.number)).sort((a, b) => a.number - b.number) : [];
   const capped = missing.filter((c) => cappedNums.has(c.number)).length;
   const waiting = missing.filter((c) => heldNums.has(c.number)).length;
 
@@ -299,7 +320,9 @@ export async function updateSeries(seriesId: string, maxNew = 10, opts: UpdateOp
   // the series page). A live row beside a tombstone of the same number is simply held: live wins.
   // Reintroduce by answering `up_to_date` for every held number (dropping the `live.has` test): "a newest
   // chapter deleted on purpose is told apart from one we hold" in updater.int.test.ts reads up_to_date.
-  let queue = eligible;
+  // New chapters first: they share one `maxNew` budget with the upgrades, and a missing chapter is worth
+  // more than a better copy of one already readable.
+  let queue = upgradeChapters.length ? [...eligible, ...upgradeChapters] : eligible;
   let newest: NewestVerdict | undefined;
   if (opts.newestOnly) {
     const top = releases.reduce<SourceChapter | null>((best, c) => (best && best.number >= c.number ? best : c), null);
@@ -377,6 +400,9 @@ export async function updateSeries(seriesId: string, maxNew = 10, opts: UpdateOp
       out = await downloadWithFallback({
         seriesId, title: s.title, folder: s.folder, meta,
         chapter: ch.source ? ch : { ...ch, source: via },
+        // An upgrade REPLACES: the point is to overwrite the copy already there, and without this the
+        // downloader's own "already present" check would skip it and the queue entry would be a no-op.
+        replace: upgrades.has(ch.number),
         alternates: async () => copiesOf(tagged, ch.number, prefs, chooseOpts).filter((c) => c !== ch),
         refusing, allowed,
         hunt: huntBudget ? async () => (await huntSource(seriesId, ch.number, { allowed, budget: huntBudget })).chapter : undefined,

@@ -508,6 +508,11 @@ ALTER TABLE server_settings ADD COLUMN IF NOT EXISTS auto_follow_on_failure bool
 -- series is filed or who may open it. Empty by default, so an existing install behaves exactly as before.
 ALTER TABLE server_settings ADD COLUMN IF NOT EXISTS adult_genres  jsonb NOT NULL DEFAULT '[]'::jsonb;
 ALTER TABLE server_settings ADD COLUMN IF NOT EXISTS adult_sources jsonb NOT NULL DEFAULT '[]'::jsonb;
+-- Which sources a series is preferred to come from, most preferred first. Server-wide, overridable per
+-- series. A chapter already held from a lower-ranked source is re-fetched from a higher-ranked one; see
+-- lib/sourcePrefs.ts for why that is an upgrade rather than the "never replace what is on disk" rule.
+ALTER TABLE server_settings ADD COLUMN IF NOT EXISTS source_prefs jsonb NOT NULL DEFAULT '{"priority": []}'::jsonb;
+ALTER TABLE lib_series      ADD COLUMN IF NOT EXISTS source_prefs jsonb;
 
 -- v0.41.0: the nightly library repair (lib/repair.ts), which fixes what the Health page could only report.
 --
