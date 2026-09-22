@@ -1781,7 +1781,7 @@ export default async function sourceRoutes(app: FastifyInstance) {
    * polls the same URL with a short `wait` until it is 0.
    */
   app.get('/api/sources/search-all', async (req) => {
-    const { q: rawQ, groupBy, wait } = req.query as { q?: string; groupBy?: string; wait?: string };
+    const { q: rawQ, groupBy, wait, source } = req.query as { q?: string; groupBy?: string; wait?: string; source?: string };
     const term = (rawQ || '').trim();
     if (!term) return { content: [], sources: [], pending: 0, asked: 0 };
     // Absent means the full first-answer wait, so a caller written before `wait` existed gets the most
@@ -1795,7 +1795,16 @@ export default async function sourceRoutes(app: FastifyInstance) {
     // "Show 18+" chip. The chip belongs here and not only in the shaping below, because a source left in
     // `ask` is a source this request STARTS -- an outbound query to an adult site on behalf of someone who
     // asked not to see one, and its results would then also land in the shared entry under this term.
-    const ask = surfaceable(req);
+    const all = surfaceable(req);
+    // `source` narrows the fan-out to one source, for a search made while Discover is filtered to it. The
+    // filter was display-only before, and did not survive a search at all: submitting a term asked every
+    // source and answered with everything, so choosing a source and then searching within it was not
+    // possible. Narrowing here rather than filtering the answer also makes it one outbound request instead
+    // of a dozen, which is the difference between an instant answer and the slowest source's timeout.
+    //
+    // An id outside the surfaceable set simply leaves `ask` empty and the search answers with nothing
+    // found -- the same shape the comment above describes for a capped account, and for the same reason.
+    const ask = source ? all.filter((s) => s.id === source) : all;
     const health = new Map((await healthAll().catch(() => [])).map((h) => [h.source_id, h] as const));
     const ans = await searchAll(term, ask, { waitMs, health });
     const byId = new Map(ask.map((s) => [s.id, s] as const));
