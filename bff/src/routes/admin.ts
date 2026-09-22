@@ -37,6 +37,7 @@ import { writePreflight } from '../lib/fsGuard';
 // Admin stats report on the whole library by definition; this route is already behind requireAdmin.
 import { NO_LIBRARIES, SYSTEM_CTX, visibleToAll, sanitiseAdultList, invalidateAdultFilter } from '../lib/visibility';
 import { invalidateSourcePrefs } from '../lib/sourcePrefs';
+import { borrowChapterNames, clearBorrowedNames } from '../lib/borrowNames';
 import { addSeriesFromSource, findBestMatch, resolveCandidate, norm, jobBusy, startDownloadJob, FILL_MAX_CHAPTERS, REFRESH_BUDGET_MS } from './sources';
 import { confirmsTitle } from '../lib/confirmTitle';
 import { chapterFileRel } from '../lib/downloader';
@@ -416,7 +417,7 @@ export default async function adminRoutes(app: FastifyInstance) {
   // ---- server settings ----
   const SETTINGS_COLS = 'server_name, allow_registration, updater_hours, extension_hours, extension_auto_update, '
     + 'update_check, install_ping, install_ping_last, scanlator_prefs, cleanup_read, cleanup_read_days, backup_hour, auto_follow_on_failure, '
-    + 'repair_enabled, komga_ghost_chapters, adult_genres, adult_sources, source_prefs';
+    + 'repair_enabled, komga_ghost_chapters, adult_genres, adult_sources, source_prefs, borrow_names';
   // `extensions_configured` is not a column: extension_hours has a NOT NULL default, so its presence says
   // nothing about whether there is an engine to check. The settings page needs to know, or it offers two
   // controls for a job that can never run.
@@ -515,6 +516,8 @@ export default async function adminRoutes(app: FastifyInstance) {
       adultSources: z.array(z.string().min(1).max(120)).max(200).optional(),
       /** Source ids, most preferred first. A chapter held from a lower-ranked source is re-fetched. */
       sourcePrefs: z.object({ priority: z.array(z.string().min(1).max(120)).max(100) }).optional(),
+      /** Borrow chapter names from a source whose numbering was verified to match. Off by default. */
+      borrowNames: z.boolean().optional(),
     }).parse(req.body);
     if (b.serverName !== undefined) await q('UPDATE server_settings SET server_name = $1, updated_at = now() WHERE id = 1', [b.serverName]);
     if (b.allowRegistration !== undefined) await q('UPDATE server_settings SET allow_registration = $1, updated_at = now() WHERE id = 1', [b.allowRegistration]);
@@ -546,6 +549,9 @@ export default async function adminRoutes(app: FastifyInstance) {
     // The view context caches these for a few seconds; a save must take effect on the next request,
     // not whenever that window happens to lapse.
     if (b.adultGenres !== undefined || b.adultSources !== undefined) invalidateAdultFilter();
+    if (b.borrowNames !== undefined) {
+      await q('UPDATE server_settings SET borrow_names = $1, updated_at = now() WHERE id = 1', [b.borrowNames]);
+    }
     if (b.sourcePrefs !== undefined) {
       await q('UPDATE server_settings SET source_prefs = $1::jsonb, updated_at = now() WHERE id = 1',
         [JSON.stringify({ priority: b.sourcePrefs.priority })]);
@@ -873,9 +879,12 @@ export default async function adminRoutes(app: FastifyInstance) {
        * from a higher-ranked one on the next sweep, over the same path, so progress survives.
        */
       sourcePrefs: z.object({ priority: z.array(z.string().min(1).max(120)).max(100) }).nullable().optional(),
+      /** Borrow names for THIS series; null follows the server setting. */
+      borrowNames: z.boolean().nullable().optional(),
     }).strict().safeParse(req.body);
     if (!b.success) return reply.code(400).send({ error: 'bad_request' });
-    if (b.data.autoUpdate === undefined && b.data.scanlatorPrefs === undefined && b.data.sourcePrefs === undefined) {
+    if (b.data.autoUpdate === undefined && b.data.scanlatorPrefs === undefined
+        && b.data.sourcePrefs === undefined && b.data.borrowNames === undefined) {
       return reply.code(400).send({ error: 'bad_request', message: 'Nothing to change.' });
     }
     const row = await getSeriesRow(id);
@@ -884,6 +893,14 @@ export default async function adminRoutes(app: FastifyInstance) {
     if (b.data.autoUpdate !== undefined) {
       await q('UPDATE lib_series SET auto_update = $2 WHERE id = $1', [id, b.data.autoUpdate]);
       detail.autoUpdate = b.data.autoUpdate;
+    }
+    if (b.data.borrowNames !== undefined) {
+      await q('UPDATE lib_series SET borrow_names = $2 WHERE id = $1', [id, b.data.borrowNames]);
+      detail.borrowNames = b.data.borrowNames;
+      // Switching it ON is a request for names now, not at 04:00 tomorrow; switching it OFF takes back
+      // every name this feature wrote, which is the only honest meaning of "stop doing that".
+      if (b.data.borrowNames) void borrowChapterNames(id).catch(() => {});
+      else await clearBorrowedNames(id).catch(() => 0);
     }
     if (b.data.sourcePrefs !== undefined) {
       await q('UPDATE lib_series SET source_prefs = $2::jsonb WHERE id = $1',

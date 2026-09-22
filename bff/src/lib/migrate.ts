@@ -513,6 +513,15 @@ ALTER TABLE server_settings ADD COLUMN IF NOT EXISTS adult_sources jsonb NOT NUL
 -- lib/sourcePrefs.ts for why that is an upgrade rather than the "never replace what is on disk" rule.
 ALTER TABLE server_settings ADD COLUMN IF NOT EXISTS source_prefs jsonb NOT NULL DEFAULT '{"priority": []}'::jsonb;
 ALTER TABLE lib_series      ADD COLUMN IF NOT EXISTS source_prefs jsonb;
+-- Borrowing chapter names from a source whose numbering was verified to line up (lib/borrowNames.ts).
+-- Off by default everywhere: it is outbound traffic to a source that carries nothing else for you.
+ALTER TABLE server_settings ADD COLUMN IF NOT EXISTS borrow_names boolean NOT NULL DEFAULT false;
+ALTER TABLE lib_series      ADD COLUMN IF NOT EXISTS borrow_names boolean;
+-- The donor whose numbering matched, so the nightly run does not re-search to reach the same answer.
+ALTER TABLE lib_series      ADD COLUMN IF NOT EXISTS name_donor jsonb;
+-- Which source a borrowed name came from. NULL means the chapter's own source supplied it (or nobody did),
+-- which is what makes a bad donor identifiable and clearable in bulk.
+ALTER TABLE lib_books       ADD COLUMN IF NOT EXISTS title_source text;
 
 -- v0.41.0: the nightly library repair (lib/repair.ts), which fixes what the Health page could only report.
 --

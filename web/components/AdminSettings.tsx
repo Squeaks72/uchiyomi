@@ -178,6 +178,9 @@ function SourceOrderSection({ data, save }: { data: any; save: Save }) {
 
   return (
     <Section title={tr('Source order')} icon={<IcRefresh width={18} height={18} />}>
+      <SwitchRow label={tr('Borrow chapter names from another source')}
+        help={tr('When a source only ever says “Chapter 12”, take the names from one whose numbering was checked against yours. A source whose numbering does not line up is never used — no names rather than names shifted by one.')}
+        on={!!data.borrow_names} onChange={(next) => save({ borrowNames: next })} />
       <p className="py-3 max-w-prose text-[11px] leading-relaxed text-fog-500">
         {tr('Most preferred first. New chapters are taken from the highest-ranked source that has them, and a chapter already on disk from a lower-ranked source is fetched again from a higher-ranked one. A series can override this on its own Sources sheet.')}
       </p>

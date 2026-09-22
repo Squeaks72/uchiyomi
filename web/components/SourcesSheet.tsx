@@ -410,6 +410,20 @@ export function SourcesSheet({ id, series, groups, admin, error, isLoading, have
     setSavingPref(false);
   };
 
+  /** Null on the series means "follow the server setting", which is off unless an admin turned it on. */
+  const borrowOn = series?.borrowNames ?? false;
+  const setBorrow = async (on: boolean) => {
+    setSavingPref(true);
+    try {
+      await api(`/api/admin/series/${encodeURIComponent(id)}`, { method: 'PATCH', json: { borrowNames: on } });
+      onSaved();
+      toast(on ? tr('Looking for names…') : tr('Borrowed names removed'), 'success');
+    } catch (e) {
+      toast(msgOf(e, tr('Could not save that')), 'error');
+    }
+    setSavingPref(false);
+  };
+
   const main = sources.find((s) => s.primary) ?? sources[0];
   // A site read by the built-in engine cannot say who translated a chapter; an extension or MangaDex series
   // with no groups yet simply has not been checked (or nothing on it is tagged).
@@ -464,6 +478,16 @@ export function SourcesSheet({ id, series, groups, admin, error, isLoading, have
           followed a mediocre source while the good one was behind had no way back short of deleting
           chapters by hand.
         */}
+        {isAdmin && (
+          <label className="mt-3 flex items-start gap-2 text-[11px] leading-relaxed text-fog-500">
+            <input type="checkbox" className="mt-0.5 accent-[rgb(var(--accent))]"
+              checked={borrowOn} disabled={savingPref}
+              onChange={(e) => setBorrow(e.target.checked)} />
+            <span>
+              {tr('Borrow chapter names from another source for this series. Only a source whose numbering matches yours is used; switching this off takes those names back.')}
+            </span>
+          </label>
+        )}
         {isAdmin && sources.length > 1 && (
           <div className="mt-3">
             <p className="mb-1.5 max-w-prose text-[11px] leading-relaxed text-fog-500">
