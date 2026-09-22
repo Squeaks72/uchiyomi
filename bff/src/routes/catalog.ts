@@ -359,6 +359,11 @@ export default async function catalogRoutes(app: FastifyInstance) {
     );
     const out: any = (await enrichSeries(req, [series]))[0];
     // apply admin metadata overrides (title/summary shown here; cover/banner are handled by the image server)
+    // The series' own source order, for the Sources sheet. Read separately because the DTO comes from the
+    // backend adapter and carries only what both backends can answer; this column is ours.
+    const sp = await one<{ source_prefs: unknown }>(
+      'SELECT source_prefs FROM lib_series WHERE id = $1', [id]).catch(() => null);
+    (out as any).sourcePrefs = (sp?.source_prefs as { priority?: string[] } | null) ?? null;
     const ov = await one<{ title: string | null; summary: string | null; cover: string | null; banner: string | null;
                           author: string | null; status: string | null; genres: string[] | null;
                           age_rating: number | null; v: string }>(

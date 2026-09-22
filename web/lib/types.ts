@@ -129,6 +129,8 @@ export interface Series {
   };
   /** Every source the updater asks for this series, primary first. Sent to every viewer. */
   sources?: SeriesSource[];
+  /** This series' own source order, most preferred first. Null means the server-wide order applies. */
+  sourcePrefs?: { priority?: string[] } | null;
   /** This series' own scanlator overrides, or null when it follows the server defaults. Admins only. */
   scanlatorPrefs?: StoredPrefs | null;
 }

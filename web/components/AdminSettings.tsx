@@ -61,6 +61,7 @@ export function AdminSettings() {
           their order. Its rows and its one dialog live in their own file; it reads its own endpoint. */}
       <NotificationsSection />
       <AdultFilterSection data={data} save={save} />
+      <SourceOrderSection data={data} save={save} />
     </div>
   );
 }
@@ -136,6 +137,80 @@ function AdultFilterSection({ data, save }: { data: any; save: Save }) {
       <p className="py-3 text-[11px] leading-relaxed text-fog-500">
         {tr('One series can be let through on its own page — Edit details ▸ “Always show”.')}
       </p>
+    </Section>
+  );
+}
+
+/**
+ * The server-wide source order, and what it means.
+ *
+ * Ranking sources is not the same as ranking scanlation groups, which is why it is its own control: the
+ * group ranking decides which copy of a chapter you have not got yet to take, and never touches what is
+ * already on disk. This one does. A chapter held from a source further down the list is fetched again
+ * from one further up on the next check, over the same file -- so it is the answer to "this series
+ * followed a mediocre source for two hundred chapters and the good one has caught up", which previously
+ * had no answer short of deleting them by hand.
+ *
+ * Drag-free on purpose: this is a short list that changes rarely, and two arrows are reachable on a phone,
+ * by keyboard and by a screen reader, none of which is true of a drag handle without a lot more code.
+ */
+function SourceOrderSection({ data, save }: { data: any; save: Save }) {
+  const order: string[] = Array.isArray(data.source_prefs?.priority) ? data.source_prefs.priority : [];
+  const { data: srcList } = useQuery({
+    queryKey: ['sources-for-order'],
+    queryFn: () => api<{ content: Array<{ id: string; name: string }> }>('/api/sources'),
+    staleTime: 5 * 60_000,
+  });
+  const all = srcList?.content ?? [];
+  const nameOf = (id: string) => all.find((x) => x.id === id)?.name ?? id;
+  // Only sources that still exist: an extension removed since the order was set would otherwise sit in the
+  // list forever as a raw id, outranking things for a source nothing can fetch from.
+  const ranked = order.filter((id) => all.some((x) => x.id === id));
+  const rest = all.filter((x) => !ranked.includes(x.id));
+
+  const move = (i: number, by: number) => {
+    const next = [...ranked];
+    const j = i + by;
+    if (j < 0 || j >= next.length) return;
+    [next[i], next[j]] = [next[j], next[i]];
+    save({ sourcePrefs: { priority: next } });
+  };
+
+  return (
+    <Section title={tr('Source order')} icon={<IcRefresh width={18} height={18} />}>
+      <p className="py-3 max-w-prose text-[11px] leading-relaxed text-fog-500">
+        {tr('Most preferred first. New chapters are taken from the highest-ranked source that has them, and a chapter already on disk from a lower-ranked source is fetched again from a higher-ranked one. A series can override this on its own Sources sheet.')}
+      </p>
+      {ranked.length === 0 && (
+        <p className="pb-3 text-[11px] text-fog-600">{tr('No order set — sources are all equal and nothing is ever replaced.')}</p>
+      )}
+      <ol className="space-y-1 pb-3">
+        {ranked.map((id, i) => (
+          <li key={id} className="flex items-center gap-2 rounded-lg bg-ink-900/60 px-3 py-2">
+            <span className="w-5 shrink-0 text-[11px] tabular-nums text-fog-600">{i + 1}</span>
+            <span className="truncate text-sm text-fog-200">{nameOf(id)}</span>
+            <span className="ms-auto flex shrink-0 gap-1">
+              <button type="button" onClick={() => move(i, -1)} disabled={i === 0}
+                aria-label={tr('Move up')} className="chip px-2 py-0.5 text-xs disabled:opacity-30">↑</button>
+              <button type="button" onClick={() => move(i, 1)} disabled={i === ranked.length - 1}
+                aria-label={tr('Move down')} className="chip px-2 py-0.5 text-xs disabled:opacity-30">↓</button>
+              <button type="button" onClick={() => save({ sourcePrefs: { priority: ranked.filter((x) => x !== id) } })}
+                aria-label={tr('Remove')} className="chip px-2 py-0.5 text-xs">✕</button>
+            </span>
+          </li>
+        ))}
+      </ol>
+      {rest.length > 0 && (
+        <div className="pb-3">
+          <p className="mb-1.5 text-[11px] text-fog-500">{tr('Add a source to the order')}</p>
+          <div className="flex flex-wrap gap-1.5">
+            {rest.map((x) => (
+              <button key={x.id} type="button" onClick={() => save({ sourcePrefs: { priority: [...ranked, x.id] } })}
+                className="chip text-xs">{x.name}</button>
+            ))}
+          </div>
+        </div>
+      )}
     </Section>
   );
 }
