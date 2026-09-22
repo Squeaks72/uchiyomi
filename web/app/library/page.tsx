@@ -295,7 +295,9 @@ function LibraryInner() {
             {tr('Filters')}{activeCount > 0 ? ` · ${activeCount}` : ''}
           </button>
           {/* A session reveal, not a filter: it is not in the panel because `Clear all` cannot clear it. */}
-          <AdultToggle />
+          {/* Desktop has it in the top bar now; keeping both would be the same switch twice on one screen.
+              Touch has no top bar, so this stays there. */}
+          <AdultToggle className="lg:hidden" />
           {/* A mode, not a filter, for the same reason. */}
           <button onClick={() => { setSelecting((v) => !v); setPicked(new Set()); }}
             className={`chip whitespace-nowrap ${selecting ? 'chip-active' : ''}`}>
