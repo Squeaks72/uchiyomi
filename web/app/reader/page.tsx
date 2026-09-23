@@ -1081,7 +1081,11 @@ function ReaderInner() {
 
             <motion.footer initial={{ y: 64, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 64, opacity: 0 }}
               className="absolute inset-x-0 bottom-0 z-40 bg-linear-to-t from-black/90 via-black/55 to-transparent px-4 pt-10 pb-[max(0.9rem,calc(env(safe-area-inset-bottom)+0.4rem))]">
-              <div className="relative mx-auto flex max-w-3xl items-center gap-2">
+              {/* `dir` mirrors the bar with the track on a right-to-left read: previous chapter on the right, next
+                  on the left, and the slider fills from the right, so dragging it moves the same way the pages
+                  do. The chevrons swap to keep pointing outwards; the counter stays LTR so "12/40" never
+                  reorders. */}
+              <div dir={pagedRtl ? 'rtl' : 'ltr'} className="relative mx-auto flex max-w-3xl items-center gap-2">
                 {/* scrubber preview: a small render of the target page while dragging */}
                 {scrubbing && flat[current] && (() => {
                   const it = flat[current];
@@ -1102,11 +1106,11 @@ function ReaderInner() {
                 })()}
                 <button onClick={() => goChapter(prevId)} disabled={!prevId}
                   className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-black/45 text-white backdrop-blur disabled:opacity-30">
-                  <IcChevronLeft width={18} height={18} />
+                  {pagedRtl ? <IcChevronRight width={18} height={18} /> : <IcChevronLeft width={18} height={18} />}
                 </button>
                 {/* The counter is the button. A long-press would be invisible on a phone, which this repo
                     already learned once from a hover-only affordance nobody found. */}
-                <button onClick={() => setShowPages(true)} aria-label={tr('Jump to a page')}
+                <button dir="ltr" onClick={() => setShowPages(true)} aria-label={tr('Jump to a page')}
                   className="shrink-0 rounded-full px-1.5 py-0.5 text-[11px] tabular-nums text-fog-300 transition hover:bg-white/10 hover:text-white">
                   {chapterPageCount ? `${pageInChapter}/${chapterPageCount}` : `${current + 1}/${total}`}
                 </button>
@@ -1118,7 +1122,7 @@ function ReaderInner() {
                   className="h-1 flex-1 accent-[rgb(var(--accent))]" />
                 <button onClick={() => goChapter(nextId)} disabled={!nextId}
                   className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-black/45 text-white backdrop-blur disabled:opacity-30">
-                  <IcChevronRight width={18} height={18} />
+                  {pagedRtl ? <IcChevronLeft width={18} height={18} /> : <IcChevronRight width={18} height={18} />}
                 </button>
               </div>
             </motion.footer>
