@@ -13,6 +13,7 @@ import { classify, reportOk, reportFail, SourceStatus } from './sourceHealth';
 import { withGate } from './gate';
 import { imageExt } from './imageExt';
 import { writeAtomic } from './fsAtomic';
+import { one } from './db';
 import { paceFor, paceLevel, noteRateLimited, MAX_PAGE_GAP_MS } from './pace';
 import { pageName, placeholderPng, PARTIAL_MANIFEST, type PartialManifest } from './partial';
 
@@ -229,6 +230,32 @@ async function assertFreeSpace(): Promise<void> {
 export const chapterFileRel = (seriesFolder: string, number: number): string => posix.join(seriesFolder, `Chapter ${number}.cbz`);
 
 /**
+ * Does a live `lib_books` row already cover this chapter number for this series folder?
+ *
+ * Resolved through the folder rather than a series id because that is all a `DownloadInput` carries, and
+ * `lib_series.folder` is uniquely indexed per library. `number` is a `real`, so it is compared with a
+ * tolerance rather than `=`: the value came back through JSON on its way here, and a chapter that failed
+ * to match by a float hair would be re-downloaded, which is the bug this guards.
+ *
+ * Failure is treated as "not held". A database hiccup should cost a redundant download, never a silently
+ * skipped chapter.
+ */
+async function alreadyHeld(seriesFolder: string, number: number): Promise<boolean> {
+  const row = await one<{ ok: number }>(
+    `SELECT 1 AS ok
+       FROM lib_books b
+       JOIN lib_series s ON s.id = b.series_id
+      WHERE s.folder = $1
+        AND s.deleted_at IS NULL AND s.merged_into IS NULL
+        AND b.pruned_at IS NULL
+        AND abs(b.number - $2::real) < 0.001
+      LIMIT 1`,
+    [seriesFolder, number],
+  ).catch(() => null);
+  return !!row;
+}
+
+/**
  * The per-source chapter gate every download path runs under: at most DL_CONCURRENCY chapters at once and
  * a gap between their starts that doubles per pace level (1200 → 2400 → 4800 ms), so a source that has
  * answered 429 sees fewer chapters as well as slower pages until it has been quiet for a while.
@@ -261,6 +288,22 @@ export async function downloadChapter(input: DownloadInput, opts: { replace?: bo
   // this here is deliberate; `replace` is what the admin refetch and the completion pass (lib/partial.ts)
   // use to write over a file they know to be stale or partial, and those paths never consult the have-set.
   if (!opts.replace && await stat(abs).then(() => true).catch(() => false)) return null;
+  // ...and then the one the path check cannot make. `chapterFileRel` names a file from the number alone,
+  // so the stat above only ever finds a copy THIS downloader wrote. A chapter the scanner indexed under
+  // any other name -- a read-only library mounted at LIBRARY_ROOT, files adopted from another app, a
+  // scanlator-tagged filename -- is invisible to it, and the add path then fetches the whole series again
+  // over the top of chapters the library already lists. That is not theoretical: re-adding a 1,193-chapter
+  // series whose files sat in the read-only root as `Official_Chapter <n>.cbz` re-downloaded every one of
+  // them, 8 GB across six hours, and left the series listing each chapter twice.
+  //
+  // The updater has never had this problem, because it asks `lib_books` what it holds (its `have` set)
+  // rather than the filesystem. This is the same question, asked per chapter: does a LIVE row for this
+  // series already cover this number, under any name, in any root?
+  //
+  // A tombstone (`pruned_at`) deliberately does not count. It means the file was removed on purpose and
+  // the sweep should leave it alone -- but someone asking for the chapter again is exactly the recovery
+  // that mark allows, and the path check would have re-fetched it too.
+  if (!opts.replace && await alreadyHeld(input.seriesFolder, input.chapter.number)) return null;
   await assertFreeSpace();
 
   return underGate(input.sourceId, () => fetchChapter(src, input, rel));
