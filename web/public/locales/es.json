@@ -1113,5 +1113,12 @@
   "New version available": "Nueva versión disponible",
   "Restart to update": "Reiniciar para actualizar",
   "Download": "Descargar",
-  "If the PC is off then, it runs the next time Uchiyomi opens.": "Si el PC está apagado a esa hora, se hace la próxima vez que se abra Uchiyomi."
+  "If the PC is off then, it runs the next time Uchiyomi opens.": "Si el PC está apagado a esa hora, se hace la próxima vez que se abra Uchiyomi.",
+  "Reading direction": "Dirección de lectura",
+  "Right to left": "De derecha a izquierda",
+  "Left to right": "De izquierda a derecha",
+  "Chapter pages": "Páginas de capítulos",
+  "First page": "Primera página",
+  "Last page": "Última página",
+  "of {n}": "de {n}"
 }

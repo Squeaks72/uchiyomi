@@ -1113,5 +1113,12 @@
   "New version available": "يتوفر إصدار جديد",
   "Restart to update": "أعِد التشغيل للتحديث",
   "Download": "تنزيل",
-  "If the PC is off then, it runs the next time Uchiyomi opens.": "إذا كان الكمبيوتر مطفأً في ذلك الوقت، فستعمل في المرة التالية التي يُفتح فيها Uchiyomi."
+  "If the PC is off then, it runs the next time Uchiyomi opens.": "إذا كان الكمبيوتر مطفأً في ذلك الوقت، فستعمل في المرة التالية التي يُفتح فيها Uchiyomi.",
+  "Reading direction": "اتجاه القراءة",
+  "Right to left": "من اليمين إلى اليسار",
+  "Left to right": "من اليسار إلى اليمين",
+  "Chapter pages": "صفحات الفصول",
+  "First page": "الصفحة الأولى",
+  "Last page": "الصفحة الأخيرة",
+  "of {n}": "من {n}"
 }

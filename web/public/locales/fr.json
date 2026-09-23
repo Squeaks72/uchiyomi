@@ -1113,5 +1113,12 @@
   "New version available": "Nouvelle version disponible",
   "Restart to update": "Redémarrer pour mettre à jour",
   "Download": "Télécharger",
-  "If the PC is off then, it runs the next time Uchiyomi opens.": "Si le PC est éteint à ce moment-là, elle s’exécute au prochain lancement d’Uchiyomi."
+  "If the PC is off then, it runs the next time Uchiyomi opens.": "Si le PC est éteint à ce moment-là, elle s’exécute au prochain lancement d’Uchiyomi.",
+  "Reading direction": "Sens de lecture",
+  "Right to left": "De droite à gauche",
+  "Left to right": "De gauche à droite",
+  "Chapter pages": "Pages de chapitres",
+  "First page": "Première page",
+  "Last page": "Dernière page",
+  "of {n}": "sur {n}"
 }

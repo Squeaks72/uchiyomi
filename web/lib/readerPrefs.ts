@@ -19,6 +19,12 @@ export interface ReaderPrefs {
   fitWidth: boolean;
   theme: ReaderTheme;
   spread: boolean; // paged mode: two pages side by side (manga double-page convention)
+  /**
+   * Paged mode turns pages right-to-left, the manga way: the next page is to the LEFT (swipe right, tap the
+   * left edge, ←), and a double spread puts its first page on the right. On by default; stored settings
+   * without the key pick up the default through the spread in `migratePrefs`.
+   */
+  pagedRtl: boolean;
   junkPages: JunkPages; // what to do with pages that repeat across chapters
   /**
    * @deprecated Superseded by `junkPages`, and kept ONLY so that an older build does not fight this one.
@@ -37,6 +43,7 @@ export const DEFAULT_PREFS: ReaderPrefs = {
   fitWidth: true,
   theme: 'amoled',
   spread: false,
+  pagedRtl: true,
 };
 
 const KEY = 'yomi_reader_prefs';

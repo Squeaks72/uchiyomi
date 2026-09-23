@@ -1113,5 +1113,12 @@
   "New version available": "新しいバージョンがあります",
   "Restart to update": "再起動して更新",
   "Download": "ダウンロード",
-  "If the PC is off then, it runs the next time Uchiyomi opens.": "その時刻に PC の電源が切れている場合は、次に Uchiyomi を開いたときに実行されます。"
+  "If the PC is off then, it runs the next time Uchiyomi opens.": "その時刻に PC の電源が切れている場合は、次に Uchiyomi を開いたときに実行されます。",
+  "Reading direction": "読む方向",
+  "Right to left": "右から左",
+  "Left to right": "左から右",
+  "Chapter pages": "章のページ",
+  "First page": "最初のページ",
+  "Last page": "最後のページ",
+  "of {n}": "/ {n}"
 }

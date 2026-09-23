@@ -91,6 +91,17 @@ export function ReaderSettings({
           </Row>
         )}
 
+        {prefs.mode === 'paged' && (
+          <Row label={tr('Reading direction')}>
+            <div className="grid grid-cols-2 gap-2">
+              <button onClick={() => set({ pagedRtl: true })}
+                className={`rounded-2xl border py-3 text-sm ${prefs.pagedRtl ? 'border-accent bg-accent-soft text-accent' : 'border-ink-700 text-fog-300'}`}>{tr('Right to left')}</button>
+              <button onClick={() => set({ pagedRtl: false })}
+                className={`rounded-2xl border py-3 text-sm ${!prefs.pagedRtl ? 'border-accent bg-accent-soft text-accent' : 'border-ink-700 text-fog-300'}`}>{tr('Left to right')}</button>
+            </div>
+          </Row>
+        )}
+
         {/* Set in both modes. ⚠️ It cannot LOOK the same in both: a page-by-page view has no thin slide --
             every slide is exactly one viewport wide -- so Collapse falls back to removing there, where an
             unwanted page costs one swipe rather than a scroll and there is no flow to interrupt. */}

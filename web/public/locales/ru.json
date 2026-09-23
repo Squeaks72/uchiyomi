@@ -1113,5 +1113,12 @@
   "New version available": "Доступна новая версия",
   "Restart to update": "Перезапустить и обновить",
   "Download": "Скачать",
-  "If the PC is off then, it runs the next time Uchiyomi opens.": "Если в это время ПК выключен, копия будет создана при следующем запуске Uchiyomi."
+  "If the PC is off then, it runs the next time Uchiyomi opens.": "Если в это время ПК выключен, копия будет создана при следующем запуске Uchiyomi.",
+  "Reading direction": "Направление чтения",
+  "Right to left": "Справа налево",
+  "Left to right": "Слева направо",
+  "Chapter pages": "Страницы глав",
+  "First page": "Первая страница",
+  "Last page": "Последняя страница",
+  "of {n}": "из {n}"
 }

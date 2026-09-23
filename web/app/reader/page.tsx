@@ -6,6 +6,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
 import { api, img } from '@/lib/api';
+import { fetchAllBooks } from '@/lib/seriesBooks';
 import { chapterOutcome } from '@/lib/readerState';
 import { openableChapters } from '@/lib/chapterRows';
 import { buildFlow, startIndex, renderWindow } from '@/lib/readerFlow';
@@ -98,6 +99,10 @@ function ReaderInner() {
   const [prefs, setPrefs] = useState<ReaderPrefs>(loadPrefs());
   const [zoom, setZoom] = useState(1);
   const [rtl, setRtl] = useState(false); // series reads right-to-left → double-spread pair order flips
+  // Paged mode's track direction, a reader setting (lib/readerPrefs.ts `pagedRtl`), independent of the series
+  // metadata above. `trackSign` turns a slide index into a scrollLeft: an RTL track scrolls negative.
+  const pagedRtl = prefs.mode === 'paged' && prefs.pagedRtl !== false;
+  const trackSign = pagedRtl ? -1 : 1;
   const [scrubbing, setScrubbing] = useState(false); // slider drag in progress → show the page preview
 
   const [chrome, setChrome] = useState(true);
@@ -195,7 +200,7 @@ function ReaderInner() {
       }
       // chapter list for prev/next/jump
       try {
-        const list = await api<Page<Book>>(`/api/series/${first.seriesId}/books?size=1000&sort=metadata.numberSort,asc`);
+        const list = await fetchAllBooks(first.seriesId);
         // ⚠️ A chapter the server's cleanup deleted is still a row in that list -- it has to be, it carries
         // everyone's progress -- and the first cut of "Chapter deleted" only handled the failure screen, so
         // next/prev walked straight onto the tombstone and showed it in the middle of a series that was
@@ -425,7 +430,7 @@ function ReaderInner() {
     const idx = Math.max(0, Math.min(flat.length - 1, startIndex(flat, 0, startPage)));
     if (prefs.mode === 'vertical' && scrollRef.current && idx > 0) scrollRef.current.scrollTop = tops[idx];
     if (prefs.mode === 'paged' && scrollRef.current && idx > 0)
-      scrollRef.current.scrollLeft = (slideOf[idx] ?? idx) * scrollRef.current.clientWidth;
+      scrollRef.current.scrollLeft = trackSign * (slideOf[idx] ?? idx) * scrollRef.current.clientWidth;
     setCurrent(idx);
     // Seed the dedupe key so landing here does not immediately ping progress. Opening a saved Moment is
     // looking something up, not reading it, and it should not move where you were or add a reading event.
@@ -435,12 +440,23 @@ function ReaderInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, colW, tops]);
 
+  // Flipping the direction mid-chapter mirrors the track, and the old scrollLeft now points at another page
+  // (or clamps to page 1). Put the reader back on the page they were looking at.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el || !didInitScroll.current || prefs.mode !== 'paged') return;
+    el.scrollLeft = trackSign * (slideOf[current] ?? current) * el.clientWidth;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trackSign]);
+
   // ---- track current page on scroll ----
   const onScroll = useCallback(() => {
     const el = scrollRef.current;
     if (!el) return;
     if (prefs.mode === 'paged') {
-      const s = Math.round(el.scrollLeft / Math.max(1, el.clientWidth));
+      // Math.abs: an RTL track scrolls from 0 into NEGATIVE scrollLeft (the spec'd behaviour every current
+      // engine follows), so page n sits at -n × width.
+      const s = Math.round(Math.abs(el.scrollLeft) / Math.max(1, el.clientWidth));
       const idxs = slides[Math.max(0, Math.min(slides.length - 1, s))];
       const i = idxs ? idxs[idxs.length - 1] : 0; // last page of a spread → completion fires on the final spread
       setCurrent((c) => (c === i ? c : i));
@@ -450,7 +466,7 @@ function ReaderInner() {
     let lo = 0, hi = tops.length - 1, ans = 0;
     while (lo <= hi) { const mid = (lo + hi) >> 1; if (tops[mid] <= probe) { ans = mid; lo = mid + 1; } else hi = mid - 1; }
     setCurrent((c) => (c === ans ? c : ans));
-  }, [tops, prefs.mode, slides]);
+  }, [tops, prefs.mode, slides]); // the sign-free Math.abs above needs no trackSign dep
 
   // ---- continuous reading: append next chapter near the end ----
   useEffect(() => {
@@ -568,8 +584,8 @@ function ReaderInner() {
     setCurrent(i);
     if (!el) return;
     if (prefs.mode === 'vertical') el.scrollTo({ top: tops[i] || 0 });
-    else el.scrollTo({ left: (slideOf[i] ?? i) * (el.clientWidth || 0) });
-  }, [flat.length, prefs.mode, tops, slideOf]);
+    else el.scrollTo({ left: trackSign * (slideOf[i] ?? i) * (el.clientWidth || 0) });
+  }, [flat.length, prefs.mode, tops, slideOf, trackSign]);
 
   /**
    * Mark or un-mark one page by hand, from the page grid.
@@ -689,21 +705,26 @@ function ReaderInner() {
       // snap-x container, and a native arrow keypress only nudges it a few pixels before the snap
       // pulls it back, so it took two presses to land on the next page. This is the same scrollBy
       // the tap zones use, so keys and taps advance identically -- the track always runs
-      // left-to-right, only the page order inside an RTL spread flips.
+      // left-to-right unless `pagedRtl` lays it out right-to-left.
+      // `page` is PHYSICAL (+1 = reveal what is to the right), so ←/→ need no flipping: on an RTL track the
+      // next page is on the left and ← reveals it. Only the direction-free keys (Space, PageDown, ↓/↑,
+      // PageUp) mean "next"/"previous" and are mapped through `trackSign`.
       const page = (dir: 1 | -1) => { if (el) el.scrollBy({ left: dir * (el.clientWidth || window.innerWidth), behavior: 'smooth' }); };
       if (e.key === '[') goChapter(prevId);
       else if (e.key === ']') goChapter(nextId);
       else if (e.key === 'f') toggleFullscreen();
       else if (e.key === 'Escape') back();
-      else if (el && paged && (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === 'PageDown' || e.key === ' ')) { e.preventDefault(); page(1); }
-      else if (el && paged && (e.key === 'ArrowLeft' || e.key === 'ArrowUp' || e.key === 'PageUp')) { e.preventDefault(); page(-1); }
+      else if (el && paged && e.key === 'ArrowRight') { e.preventDefault(); page(1); }
+      else if (el && paged && e.key === 'ArrowLeft') { e.preventDefault(); page(-1); }
+      else if (el && paged && (e.key === 'ArrowDown' || e.key === 'PageDown' || e.key === ' ')) { e.preventDefault(); page(trackSign); }
+      else if (el && paged && (e.key === 'ArrowUp' || e.key === 'PageUp')) { e.preventDefault(); page(-trackSign as 1 | -1); }
       else if (el && prefs.mode === 'vertical' && (e.key === ' ' || e.key === 'ArrowDown')) { e.preventDefault(); el.scrollBy({ top: el.clientHeight * 0.88, behavior: 'smooth' }); }
       else if (el && prefs.mode === 'vertical' && e.key === 'ArrowUp') { e.preventDefault(); el.scrollBy({ top: -el.clientHeight * 0.88, behavior: 'smooth' }); }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prevId, nextId, prefs.mode, seriesId]);
+  }, [prevId, nextId, prefs.mode, seriesId, trackSign]);
 
   // ---- tap / double-tap / pinch (no overlay -> native scroll works) ----
   const onPointerDown = (e: React.PointerEvent) => {
@@ -969,9 +990,12 @@ function ReaderInner() {
         </div>
       ) : (
         <div ref={scrollRef} data-lenis-prevent onScroll={onScroll} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerEnd} onPointerCancel={onPointerEnd}
+          dir={pagedRtl ? 'rtl' : 'ltr'}
           className="hide-scrollbar flex h-screen-d snap-x snap-mandatory overflow-x-auto overflow-y-hidden" style={{ filter: THEME_FILTER[prefs.theme] }}>
           {slides.map((idxs) => {
-            const shown = rtl && idxs.length === 2 ? [idxs[1], idxs[0]] : idxs; // RTL manga: right page reads first
+            // RTL manga: right page reads first. On an RTL track `dir` already lays a spread out right to
+            // left, so flipping here as well would put it back the wrong way round.
+            const shown = rtl && !pagedRtl && idxs.length === 2 ? [idxs[1], idxs[0]] : idxs;
             return (
               <div key={flat[idxs[0]].key} className="relative flex h-full w-full shrink-0 snap-center items-center justify-center gap-1">
                 {shown.map((i) => {
