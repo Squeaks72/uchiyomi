@@ -44,8 +44,9 @@ test('the chip is anchored where a search cannot unmount it', () => {
   const header = page.slice(page.indexOf('<header'), page.indexOf('</header>'));
   assert.ok(header.includes('<AdultToggle alsoWhen={showAdultChip}'),
     'the reveal chip is not in the Discover header any more');
-  assert.match(page, /\{mode === 'newest' && \(\s*<SourcePicker/,
-    'SourcePicker is no longer the newest-only component this anchor exists to avoid');
+  // Fork: SourcePicker is deliberately mounted in search mode too (the source filter survives a search),
+  // so upstream's "newest-only" premise does not hold here. The header anchor below is what matters.
+  assert.ok(page.includes('<SourcePicker'), 'SourcePicker is gone from Discover');
   assert.ok(page.indexOf('<AdultToggle alsoWhen={showAdultChip}') < page.indexOf('<SourcePicker'),
     'the chip is rendered inside the newest-only region');
 });
