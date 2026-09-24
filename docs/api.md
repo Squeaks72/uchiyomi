@@ -587,7 +587,12 @@ GET    /api/sources/search-all    GET    /api/sources/latest
 GET    /api/sources/jobs          POST   /api/sources/add
 GET    /api/discover/trending     POST   /api/sources/fill/scan
 POST   /api/sources/fill          POST   /api/sources/fetch
+GET    /api/sources/preview/chapters  GET    /api/sources/preview/pages
 ```
+
+**Previewing before adding (this fork).** `GET /api/sources/preview/chapters?source=&sourceId=` lists a
+source's chapters, one copy per number; `GET /api/sources/preview/pages?source=&chapterId=` answers the page
+URLs, which the reader renders through `/img/sources/cover` so the proxy's auth and SSRF guard still apply.
 
 **Filling a series' gaps.** `POST /api/sources/fill/scan` takes `{seriesId, altTitle?}` and answers with what
 is missing, a short-lived `planId`, and every source that was checked — including the ones it refused, with
