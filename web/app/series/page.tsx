@@ -34,7 +34,7 @@ import { useAccountPref } from '@/lib/useAccountPref';
 import { fetchAllBooks } from '@/lib/seriesBooks';
 import { fetchingToast } from '@/lib/jobs';
 import { ALL_GROUPS, copySourceId, groupsOfRow, matchesGroup } from '@/lib/groupFilter';
-import { SourcesSheet, useSeriesGroups } from '@/components/SourcesSheet';
+import { SourcesSheet, useCheckNow, useSeriesGroups } from '@/components/SourcesSheet';
 import { SourcesExplainer } from '@/components/SourcesExplainer';
 import { SupplyLine } from '@/components/SupplyLine';
 import { ChapterFilterSheet } from '@/components/ChapterFilterSheet';
@@ -716,6 +716,9 @@ function SeriesInner() {
   const qc = useQueryClient();
   const toast = useToast();
   const { isAdmin, user } = useAuth();
+  const { checking, checkNow } = useCheckNow(id, () => {
+    for (const k of [['series', id], ['series-books', id], ['series-listing', id], ['series-groups', id], ['series-versions', id], ['library'], ['home']]) qc.invalidateQueries({ queryKey: k });
+  });
   const [editChapter, setEditChapter] = useState<Book | null>(null);
   const [removing, setRemoving] = useState<number | null>(null);
   // Chapters asked for from this page: `fetching` until the job is over, then `landed` for a few seconds once the
@@ -1648,6 +1651,9 @@ function SeriesInner() {
       {mayArchive && <p data-archive-why className="mt-1 text-xs leading-relaxed text-fog-500">{archiveWhy()}</p>}
       {isAdmin && (
         <>
+          <button type="button" onClick={checkNow} disabled={checking} data-check-new
+            className="btn-key mt-1 h-auto w-full py-2.5 text-sm font-normal text-fog-300 disabled:opacity-60">
+            <IcRefresh width={16} height={16} className={checking ? 'animate-spin' : ''} />{checking ? tr('Checking for new chapters…') : tr('Check for new chapters')}</button>
           <button onClick={() => setEditing('details')} className="mt-1 flex items-center justify-center gap-2 rounded-full border border-ink-700 py-2.5 text-sm text-fog-300">
             <svg aria-hidden width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>{tr('Edit details')}</button>
           {/* Only while the hero is an automatic one: a real banner is changed in Edit details. */}
