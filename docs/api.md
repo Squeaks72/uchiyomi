@@ -258,6 +258,13 @@ extension (`done: switched_off`; the extension stays installed), and only turns 
 turned_off`). It answers `{ok, done, followsDropped}`, audited `source.retire`. `DELETE /api/admin/sources/custom/:id`
 answers the same **409** `in_use` while the site is some series' main source.
 
+**Fork change.** `PUT /api/admin/sources/:id/age-rating {ageRating: 0-18 | null}` (admin) sets an age rating on a whole
+source; `GET /api/admin/sources/overview` reports it as `ageRating` (null when none) beside `defaultAgeRating` (18 for an
+extension that declares itself adult). 0 is all ages and cancels an extension's adult flag; 1-17 is the youngest account
+allowed in; 18 is adult, which also hides the source from Discover and search while "Show 18+" is off, exactly as naming it
+on the 18+ source list does. `null` goes back to the extension's flag. Library series keep their own ratings. Audited
+`source.age_rating`.
+
 `PATCH /api/admin/sources/custom/:id` (admin) changes a custom site's `base` address and nothing else. The
 source id is derived from its name and the library is keyed on that id, so editing in place is the only way
 to follow a site to a new domain without orphaning every series that came from it.
@@ -1461,6 +1468,7 @@ GET    /img/sources/preview
 POST   /api/sources/runs/:kind/cancel
 DELETE /api/sources/runs/:kind
 GET    /api/admin/sources         POST   /api/admin/sources/:id/:action
+PUT    /api/admin/sources/:id/age-rating
 POST   /api/admin/sources/:id/test
 POST   /api/admin/sources/:id/retire GET    /api/admin/sources/overview
 POST   /api/admin/sources/check   GET    /api/admin/sources/check

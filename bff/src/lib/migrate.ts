@@ -1162,6 +1162,9 @@ END $$;
 -- series is filed or who may open it. Empty by default, so an existing install behaves exactly as before.
 ALTER TABLE server_settings ADD COLUMN IF NOT EXISTS adult_genres  jsonb NOT NULL DEFAULT '[]'::jsonb;
 ALTER TABLE server_settings ADD COLUMN IF NOT EXISTS adult_sources jsonb NOT NULL DEFAULT '[]'::jsonb;
+
+-- The admin's own age rating for a whole source (lib/sourceRatings.ts): {"sw:123": 13}, 0 = all ages. Absent = the default.
+ALTER TABLE server_settings ADD COLUMN IF NOT EXISTS source_ratings jsonb NOT NULL DEFAULT '{}'::jsonb;
 -- "Hide everything tagged Mature, except this one." Without it the genre list is all-or-nothing, and one
 -- wrongly-tagged classic is enough to make somebody turn the whole filter off.
 ALTER TABLE series_overrides ADD COLUMN IF NOT EXISTS adult_exempt boolean;

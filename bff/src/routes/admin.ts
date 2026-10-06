@@ -39,6 +39,7 @@ import { testSource } from '../lib/sourceCheck';
 import { currentFailures, stageLines } from '../lib/sourceEvidence';
 import { runExtensionMonitor, runExtensionCheck, extState, liveStore as extensionStore } from '../lib/extensionMonitor';
 import { readSites, writeSites } from '../lib/sources/customSites';
+import { setSourceRating, MAX_SOURCE_AGE } from '../lib/sourceRatings';
 import { reloadAll, listSources, getSource, detectEngine, listRemoteSources, suwayomiConfigured, suwayomiAbout, swAdapterId, withTimeout } from '../lib/sources';
 import {
   listExtensions, refreshExtensions, setExtensionState, sourcesOfExtension, getRepos, setRepos, altRepoUrl,
@@ -4430,6 +4431,23 @@ export default async function adminRoutes(app: FastifyInstance) {
     const r = await retireSource(id, { how: b.data.how ?? 'off', userId: userIdOf(req), req });
     if ('inUse' in r) return reply.code(409).send(inUse(r.inUse));
     return r;
+  });
+
+  /**
+   * Set the age rating of a whole source, or clear it with `null` (lib/sourceRatings.ts). 0 is all ages (and cancels an
+   * extension's adult flag), 1-17 is the youngest account that may use it, 18 is adult. Its own route, ranked above
+   * `/:id/:action`. The id need not be loaded now: an extension's source is only registered while the engine is up.
+   */
+  app.put('/api/admin/sources/:id/age-rating', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const b = z.object({ ageRating: z.number().int().min(0).max(MAX_SOURCE_AGE).nullable() }).strict().safeParse(req.body ?? {});
+    if (!b.success || !/^[\p{L}\p{N}_.:\-]{1,120}$/u.test(id)) {
+      return reply.code(400).send({ error: 'bad_request', message: 'Send {ageRating: 0-18 | null}.' });
+    }
+    await setSourceRating(id, b.data.ageRating);
+    invalidateAdultFilter();
+    await logAudit('source.age_rating', { userId: userIdOf(req), detail: { source: id, ageRating: b.data.ageRating }, req });
+    return reply.send({ ok: true, ageRating: b.data.ageRating });
   });
 
   app.post('/api/admin/sources/:id/:action', async (req, reply) => {

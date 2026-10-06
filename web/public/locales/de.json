@@ -2,7 +2,7 @@
   "_meta": {
     "language": "de",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 3555
+    "strings": 3564
   },
   "1 check found something": "1 Prüfung hat etwas gefunden",
   "1 member": "1 Mitglied",
@@ -3558,5 +3558,14 @@
   "Detach {name}? The next source takes over as main. Downloaded chapters and your progress stay.": "{name} trennen? Die nächste Quelle wird Hauptquelle. Heruntergeladene Kapitel und dein Fortschritt bleiben erhalten.",
   "Detach {name}? The series keeps its chapters and progress but will have no source to update from.": "{name} trennen? Die Serie behält ihre Kapitel und deinen Fortschritt, hat aber keine Quelle zum Aktualisieren.",
   "Detach": "Trennen",
-  "Add more sources…": "Weitere Quellen hinzufügen…"
+  "Add more sources…": "Weitere Quellen hinzufügen…",
+  "Default": "Standard",
+  "All ages": "Alle Altersstufen",
+  "Back to the default rating": "Zurück zur Standardeinstufung",
+  "Rating saved": "Einstufung gespeichert",
+  "Open to every account, whatever its extension says.": "Für alle Konten offen, unabhängig von der Angabe der Erweiterung.",
+  "Open to every account. Its titles are judged one by one.": "Für alle Konten offen. Die Titel werden einzeln beurteilt.",
+  "Adult. Accounts limited below 18 can’t use it, and with Show 18+ off it leaves Discover and search entirely.": "Ab 18. Konten mit Altersgrenze unter 18 können sie nicht nutzen, und bei ausgeschaltetem „18+ anzeigen“ verschwindet sie ganz aus Entdecken und Suche.",
+  "Its extension says it can carry adult titles, so accounts limited below 18 can’t use it. With Show 18+ off its titles are judged one by one.": "Laut Erweiterung kann sie Titel ab 18 enthalten, daher können Konten mit Altersgrenze unter 18 sie nicht nutzen. Bei ausgeschaltetem „18+ anzeigen“ werden ihre Titel einzeln beurteilt.",
+  "Accounts limited below {age}+ can’t use this source.": "Konten mit Altersgrenze unter {age}+ können diese Quelle nicht nutzen."
 }

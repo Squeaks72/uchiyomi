@@ -2,7 +2,7 @@
   "_meta": {
     "language": "fr",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 3555
+    "strings": 3564
   },
   "1 check found something": "1 vérification a trouvé quelque chose",
   "1 member": "1 membre",
@@ -3558,5 +3558,14 @@
   "Detach {name}? The next source takes over as main. Downloaded chapters and your progress stay.": "Détacher {name} ? La source suivante devient la principale. Les chapitres téléchargés et votre progression sont conservés.",
   "Detach {name}? The series keeps its chapters and progress but will have no source to update from.": "Détacher {name} ? La série garde ses chapitres et votre progression, mais n’aura plus de source pour se mettre à jour.",
   "Detach": "Détacher",
-  "Add more sources…": "Ajouter d’autres sources…"
+  "Add more sources…": "Ajouter d’autres sources…",
+  "Default": "Par défaut",
+  "All ages": "Tous âges",
+  "Back to the default rating": "Revenir à la classification par défaut",
+  "Rating saved": "Classification enregistrée",
+  "Open to every account, whatever its extension says.": "Ouverte à tous les comptes, quoi qu’en dise son extension.",
+  "Open to every account. Its titles are judged one by one.": "Ouverte à tous les comptes. Ses titres sont jugés un par un.",
+  "Adult. Accounts limited below 18 can’t use it, and with Show 18+ off it leaves Discover and search entirely.": "Adulte. Les comptes limités en dessous de 18 ne peuvent pas l’utiliser et, avec « Afficher 18+ » désactivé, elle disparaît entièrement de Découvrir et de la recherche.",
+  "Its extension says it can carry adult titles, so accounts limited below 18 can’t use it. With Show 18+ off its titles are judged one by one.": "Son extension indique qu’elle peut contenir des titres pour adultes : les comptes limités en dessous de 18 ne peuvent donc pas l’utiliser. Avec « Afficher 18+ » désactivé, ses titres sont jugés un par un.",
+  "Accounts limited below {age}+ can’t use this source.": "Les comptes limités en dessous de {age}+ ne peuvent pas utiliser cette source."
 }

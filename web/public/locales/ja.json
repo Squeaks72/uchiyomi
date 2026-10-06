@@ -2,7 +2,7 @@
   "_meta": {
     "language": "ja",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 3555
+    "strings": 3564
   },
   "1 check found something": "1 件のチェックで問題を検出",
   "1 member": "メンバー 1 人",
@@ -3558,5 +3558,14 @@
   "Detach {name}? The next source takes over as main. Downloaded chapters and your progress stay.": "{name} を切り離しますか？次のソースがメインになります。ダウンロード済みの章と進捗は残ります。",
   "Detach {name}? The series keeps its chapters and progress but will have no source to update from.": "{name} を切り離しますか？シリーズの章と進捗は残りますが、更新元のソースがなくなります。",
   "Detach": "切り離す",
-  "Add more sources…": "ソースをさらに追加…"
+  "Add more sources…": "ソースをさらに追加…",
+  "Default": "デフォルト",
+  "All ages": "全年齢",
+  "Back to the default rating": "デフォルトの年齢区分に戻しました",
+  "Rating saved": "年齢区分を保存しました",
+  "Open to every account, whatever its extension says.": "拡張機能の指定にかかわらず、すべてのアカウントが利用できます。",
+  "Open to every account. Its titles are judged one by one.": "すべてのアカウントが利用できます。作品は 1 件ずつ判定されます。",
+  "Adult. Accounts limited below 18 can’t use it, and with Show 18+ off it leaves Discover and search entirely.": "成人向けです。年齢制限が 18 未満のアカウントは利用できず、「18+ を表示」がオフのときは「見つける」と検索から完全に除外されます。",
+  "Its extension says it can carry adult titles, so accounts limited below 18 can’t use it. With Show 18+ off its titles are judged one by one.": "拡張機能が成人向け作品を含みうると申告しているため、年齢制限が 18 未満のアカウントは利用できません。「18+ を表示」がオフのときは、作品は 1 件ずつ判定されます。",
+  "Accounts limited below {age}+ can’t use this source.": "年齢制限が {age}+ 未満のアカウントはこのソースを利用できません。"
 }

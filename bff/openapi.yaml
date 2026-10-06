@@ -11220,6 +11220,8 @@ paths:
                         lastTestedAt: { type: [string, "null"], format: date-time, description: The last deliberate live check (Test or the daily check). }
                         icon: { type: boolean, description: "GET /img/sources/icon/{id} serves an extension's logo." }
                         address: { type: string, description: A site added by address only. }
+                        ageRating: { type: [integer, "null"], minimum: 0, maximum: 18, description: "Fork change. The admin's own age rating for the whole source (0 = all ages), null when none is set (PUT .../age-rating)." }
+                        defaultAgeRating: { type: [integer, "null"], description: "Fork change. What the source is held to without a rating of the admin's: 18 for an extension that declares itself adult, else null." }
                         overLimit:
                           type: object
                           required: [limit]
@@ -11237,6 +11239,53 @@ paths:
                       replace: { type: array, items: { type: string } }
                       failingUnused: { type: array, items: { type: string } }
                       updates: { type: integer, minimum: 0 }
+        "401":
+          description: Not authenticated
+        "403":
+          description: "Forbidden: token scope, account permission or age limit"
+  /api/admin/sources/{id}/age-rating:
+    put:
+      tags:
+        - admin
+      summary: "Set the age rating of a whole source, or clear it (fork change)."
+      operationId: putApiAdminSourcesIdAgeRating
+      description: >-
+        Requires an admin account and a token carrying the admin scope. `ageRating` 0 is all ages (and cancels an
+        extension's own adult flag), 1-17 is the youngest account that may use the source (an account whose age limit is
+        below it is refused the source, as it is an adult one), 18 is adult: accounts limited below 18 are refused it, and
+        with "Show 18+" off it leaves Discover, search and the latest and popular lists as a source on the 18+ source list
+        does. `null` removes the rating, so the source is held to its extension's flag again. Library series from the
+        source keep their own ratings. The id need not be loaded now. Audited as `source.age_rating` {source, ageRating}.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [ageRating]
+              properties:
+                ageRating: { type: [integer, "null"], minimum: 0, maximum: 18 }
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: Saved.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, ageRating]
+                properties:
+                  ok: { type: boolean }
+                  ageRating: { type: [integer, "null"] }
+        "400":
+          description: "`bad_request`: not a whole number 0-18 or null, or an id that is not a source id"
         "401":
           description: Not authenticated
         "403":

@@ -2,7 +2,7 @@
   "_meta": {
     "language": "es",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 3555
+    "strings": 3564
   },
   "1 check found something": "1 comprobación encontró algo",
   "1 member": "1 miembro",
@@ -3558,5 +3558,14 @@
   "Detach {name}? The next source takes over as main. Downloaded chapters and your progress stay.": "¿Desvincular {name}? La siguiente fuente pasa a ser la principal. Los capítulos descargados y tu progreso se conservan.",
   "Detach {name}? The series keeps its chapters and progress but will have no source to update from.": "¿Desvincular {name}? La serie conserva sus capítulos y tu progreso, pero no tendrá fuente para actualizarse.",
   "Detach": "Desvincular",
-  "Add more sources…": "Añadir más fuentes…"
+  "Add more sources…": "Añadir más fuentes…",
+  "Default": "Predeterminado",
+  "All ages": "Todas las edades",
+  "Back to the default rating": "Volver a la clasificación predeterminada",
+  "Rating saved": "Clasificación guardada",
+  "Open to every account, whatever its extension says.": "Abierta a todas las cuentas, diga lo que diga su extensión.",
+  "Open to every account. Its titles are judged one by one.": "Abierta a todas las cuentas. Sus títulos se juzgan uno por uno.",
+  "Adult. Accounts limited below 18 can’t use it, and with Show 18+ off it leaves Discover and search entirely.": "Adulta. Las cuentas limitadas por debajo de 18 no pueden usarla y, con «Mostrar 18+» desactivado, desaparece por completo de Descubrir y de la búsqueda.",
+  "Its extension says it can carry adult titles, so accounts limited below 18 can’t use it. With Show 18+ off its titles are judged one by one.": "Su extensión indica que puede contener títulos para adultos, así que las cuentas limitadas por debajo de 18 no pueden usarla. Con «Mostrar 18+» desactivado, sus títulos se juzgan uno por uno.",
+  "Accounts limited below {age}+ can’t use this source.": "Las cuentas limitadas por debajo de {age}+ no pueden usar esta fuente."
 }
