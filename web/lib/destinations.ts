@@ -20,13 +20,13 @@ const LABELS = keys(
   'Overview', 'Tasks', 'Settings', 'Members', 'Sessions', 'Activity', 'Library', 'Health', 'Art', 'Sources',
   // The sections of Admin → Settings, in their order.
   'General', 'Privacy & access', 'Updates & schedules', 'Library housekeeping', 'Chapters & naming', 'Scanlators', 'Notifications',
-  'Downloads', 'Downloads & politeness', 'Content ratings', 'Source order', 'Notice chapters',
+  'Fetching', 'Fetching & politeness', 'Content ratings', 'Source order', 'Notice chapters',
   // Settings people ask for by name.
   'Check for updates', 'Open registration', 'Backup time', 'Delete read chapters', 'Show missing chapters in Mihon',
   'Slow archive', 'Cloudflare solver', 'Version', 'Import a list', 'Rescan everything', 'Backups',
   // The profile: its tabs, its cards and its settings by name.
   'You', 'Connections', 'Account', 'Badges', 'Reading studio', 'Appearance', 'Language', 'Reduce effects', 'Reading',
-  'Weekly goal', 'Reading direction', 'Offline downloads', 'Notifications & install', 'New-chapter alerts', 'Progress tracking',
+  'Weekly goal', 'Reading direction', 'Saved on this device', 'Notifications & install', 'New-chapter alerts', 'Progress tracking',
   'External readers (OPDS)', 'API tokens', 'Change password', 'Two-factor authentication', 'Active sessions',
   // Where each one is.
   'Admin', 'Profile',
@@ -82,7 +82,7 @@ export const DESTINATIONS: readonly Destination[] = [
   // ---- Admin → Settings' sections (components/AdminSettings.tsx), each by its `id` ----
   // (v0.55.x fork) General is the server's name; Privacy & access took the update check, the install count and registration;
   // Chapters & naming holds Scanlators, Source order and Notice chapters (their own ids still scroll to them);
-  // Content ratings is the old 18+ filter; Downloads & politeness is the env-only limits and the blocked sources.
+  // Content ratings is the old 18+ filter; Fetching & politeness is the env-only limits and the blocked sources.
   { key: 'settings-server', label: 'General', where: ADMIN_SETTINGS, href: settings('server'), admin: true, keywords: ['server name', 'server'] },
   { key: 'settings-privacy', label: 'Privacy & access', where: ADMIN_SETTINGS, href: settings('privacy'), admin: true,
     keywords: ['telemetry', 'install count', 'ping', 'registration', 'sign up', 'update check'] },
@@ -96,11 +96,11 @@ export const DESTINATIONS: readonly Destination[] = [
     keywords: ['groups', 'scanlation', 'translation groups', 'blocked groups'] },
   { key: 'settings-notifications', label: 'Notifications', where: ADMIN_SETTINGS, href: settings('notifications'), admin: true,
     keywords: ['webhook', 'discord', 'ntfy', 'home assistant', 'alerts'] },
-  { key: 'settings-downloads', label: 'Downloads', where: ADMIN_SETTINGS, href: settings('downloads'), admin: true,
+  { key: 'settings-downloads', label: 'Fetching', where: ADMIN_SETTINGS, href: settings('downloads'), admin: true,
     keywords: ['chapters an hour', 'pace', 'free space'] },
   { key: 'settings-adult', label: 'Content ratings', where: ADMIN_SETTINGS, href: settings('content-ratings'), admin: true,
     keywords: ['18+ filter', 'adult', 'nsfw', 'mature', 'show 18+', 'age rating', 'source rating', 'age cap'] },
-  { key: 'settings-politeness', label: 'Downloads & politeness', where: ADMIN_SETTINGS, href: settings('politeness'), admin: true,
+  { key: 'settings-politeness', label: 'Fetching & politeness', where: ADMIN_SETTINGS, href: settings('politeness'), admin: true,
     keywords: ['limits', 'environment variables', 'concurrency', 'timeout', 'blocked sources', 'unblock', 'cache size', 'backup keep'] },
   { key: 'settings-source-order', label: 'Source order', where: ADMIN_SETTINGS, href: settings('source-order'), admin: true,
     keywords: ['priority', 'preferred source'] },
@@ -154,7 +154,7 @@ export const DESTINATIONS: readonly Destination[] = [
   { key: 'weekly-goal', label: 'Weekly goal', where: PROFILE_SETTINGS, href: '/profile/?tab=Settings&section=reading', keywords: ['goal'] },
   { key: 'reading-direction', label: 'Reading direction', where: PROFILE_SETTINGS, href: '/profile/?tab=Settings&section=reading',
     keywords: ['right to left', 'left to right', 'rtl'] },
-  { key: 'offline-downloads', label: 'Offline downloads', where: PROFILE_SETTINGS, href: '/profile/?tab=Settings&section=downloads',
+  { key: 'offline-downloads', label: 'Saved on this device', where: PROFILE_SETTINGS, href: '/profile/?tab=Settings&section=downloads',
     desktopHidden: true, keywords: ['offline', 'keep favorites offline', 'storage'] },
   { key: 'this-device', label: 'Notifications & install', where: PROFILE_SETTINGS, href: '/profile/?tab=Settings&section=device',
     desktopHidden: true, keywords: ['this device', 'install app', 'pwa'] },

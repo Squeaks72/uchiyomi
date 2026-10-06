@@ -1713,7 +1713,7 @@ function LibraryPanel() {
                 </p>
                 {filesGone(r) && (
                   <p className="col-span-2 col-start-1 row-start-3 min-w-0 text-[11px] text-fog-400 lg:col-span-1 lg:col-start-2 lg:row-start-2">
-                    {tr('The chapter files are gone. Put back restores the series with its chapters marked as deleted. Use Fetch again on the series page to download them once more.')}
+                    {tr('The chapter files are gone. Put back restores the series with its chapters marked as deleted. Use Fetch again on the series page to fetch them once more.')}
                   </p>
                 )}
                 <div className="col-start-2 row-span-2 row-start-1 flex shrink-0 gap-1.5 justify-self-end lg:col-start-3 lg:row-span-1">

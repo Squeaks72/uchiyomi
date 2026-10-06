@@ -1182,7 +1182,7 @@ function ReaderInner() {
     <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}
       className="mx-auto w-full max-w-3xl px-6 py-16 text-center">
       <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-fog-500">
-        {offlineEnd ? tr('End of your downloads') : tr('You finished')}
+        {offlineEnd ? tr('End of your saved chapters') : tr('You finished')}
       </p>
       <h2 className="mt-1.5 font-display text-2xl font-bold text-white">{activeChapter?.seriesTitle || tr('This series')}</h2>
       {offlineEnd && (

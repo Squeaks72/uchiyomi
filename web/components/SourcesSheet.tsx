@@ -781,7 +781,7 @@ export function SourcesSheet({ id, title: seriesTitle, series, groups, admin, er
           <div role="alertdialog" aria-labelledby={`detach-q-${id}`} className="mt-2 border-s-2 border-rose-400/70 bg-ink-850/80 py-2 pe-2 ps-2.5" data-detach-confirm>
             <p id={`detach-q-${id}`} className="text-[12px] leading-relaxed text-fog-100">
               {sources.length > 1
-                ? tr('Detach {name}? The next source takes over as main. Downloaded chapters and your progress stay.', { name: main.name })
+                ? tr('Detach {name}? The next source takes over as main. Fetched chapters and your progress stay.', { name: main.name })
                 : tr('Detach {name}? The series keeps its chapters and progress but will have no source to update from.', { name: main.name })}
             </p>
             <div className="mt-2 flex flex-wrap gap-2">

@@ -380,7 +380,7 @@ function ReviewCard({
           series and its chapter list, one title at a time, so two hundred rows is minutes, not a database
           write. */}
       <p className="mb-3 text-[11px] text-fog-500">
-        {tr('Selected titles are added to your library without downloading any chapters. Each title is looked up on its source, so a long list takes a few minutes. New chapters arrive automatically; fetch older ones from the series page.')}
+        {tr('Selected titles are added to your library without fetching any chapters. Each title is looked up on its source, so a long list takes a few minutes. New chapters arrive automatically; fetch older ones from the series page.')}
       </p>
 
       <div className="mb-2 flex flex-wrap gap-2">

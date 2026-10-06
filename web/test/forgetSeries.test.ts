@@ -125,7 +125,7 @@ test('every string on the Removed row and in the two dialogs is translated, and 
     assert.ok(label in es, `"${label}" renders through tr() but is in no locale file`);
   }
   // and the caption that NAMES the chip names its translated label, not the English one
-  const gone = es['The chapter files are gone. Put back lists them as deleted from the server; Fetch again on the series page brings back the ones Uchiyomi downloaded.'];
+  const gone = es['The chapter files are gone. Put back lists them as deleted from the server; Fetch again on the series page brings back the ones Uchiyomi fetched.'];
   assert.ok(gone.includes(es['Put back']) && !gone.includes('Put back'), 'the files-gone caption still says «Put back» in English beside a translated chip');
 });
 

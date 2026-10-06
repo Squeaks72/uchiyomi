@@ -20,7 +20,7 @@ export default async function downloadRoutes(app: FastifyInstance) {
   //
   // This called the raw Komga HTTP client (`lib/komga`) rather than the configured backend, and had done
   // since the first commit. In owned mode -- the default, and what every self-hosted install runs -- there
-  // is no Komga to call, so every request threw, hit the catch, and returned 404. Offline downloads have
+  // is no Komga to call, so every request threw, hit the catch, and returned 404. Saved on this device have
   // been unavailable for the entire life of the project; `web/lib/downloads.ts` asks for this manifest
   // first and gives up when it 404s.
   //

@@ -217,14 +217,14 @@ test('"Save offline" and the Offline tab are hidden on desktop, and smart offlin
   assert.match(nav, /href: '\/downloads'/, 'the Offline tab is gone from the server build too');
   assert.match(nav, /const shown = isDesktop\(\) \? allowed\.filter\(\(i\) => !\(DESKTOP_HIDDEN\.navHrefs as readonly string\[\]\)\.includes\(i\.href\)\) : allowed;/, 'the Offline tab shows on desktop');
   const pal = code(read('components/CommandPalette.tsx'));
-  assert.match(pal, /key: 'downloads'/, 'the palette lost Offline downloads on the server build too');
-  assert.match(pal, /\.filter\(\(a\) => !hiddenOnDesktop\(DESKTOP_HIDDEN\.paletteKeys, a\.key\)\)/, 'the palette offers Offline downloads on desktop');
+  assert.match(pal, /key: 'downloads'/, 'the palette lost Saved on this device on the server build too');
+  assert.match(pal, /\.filter\(\(a\) => !hiddenOnDesktop\(DESKTOP_HIDDEN\.paletteKeys, a\.key\)\)/, 'the palette offers Saved on this device on desktop');
   assert.match(code(read('components/AppShell.tsx')), /if \(status !== 'authed' \|\| !so\?\.enabled \|\| isDesktop\(\)\) return;/, 'smart offline runs on desktop');
 });
 
 test('nothing on desktop lands on the hidden Offline page: a first add opens Library -> Downloads, a deep link is redirected', () => {
   // The first add on a fresh desktop, "Open in library" before the first chapter is scanned, fell back to
-  // /downloads/: "Offline · No downloads yet · Tap the download icon on any chapter", pointing only at controls the
+  // /downloads/: "Offline · Nothing saved yet · Tap the download icon on any chapter", pointing only at controls the
   // app hides -- on the main first-use path. Since v0.49.0 both builds go to Library -> Downloads, which exists
   // on both, so the dialog has no desktop arm and no /downloads/ at all. Reintroduce '/downloads/' in openIt: "a
   // first add lands on the Offline tab" fails; delete the page's redirect: "the Offline page renders on desktop".

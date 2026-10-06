@@ -101,7 +101,7 @@ test('it covers every admin tab, every section of Admin → Settings, the profil
   assert.ok(DESTINATIONS.some((d) => d.href === '/admin/import/' && d.label === 'Import a list'), 'the import page is not a destination');
   for (const name of ['Check for updates', 'Notice chapters', 'Content ratings', 'Source order', 'Slow archive', 'Backup time', 'Delete read chapters',
     'Scanlators', 'Cloudflare solver', 'Version', 'Rescan everything', 'General', 'Privacy & access', 'Chapters & naming',
-    'Downloads & politeness', 'Backups']) {
+    'Fetching & politeness', 'Backups']) {
     assert.ok(DESTINATIONS.some((d) => d.label === name), `"${name}" is not found by name`);
   }
 });

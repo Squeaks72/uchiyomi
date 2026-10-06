@@ -62,21 +62,21 @@ test('one chapter reads as one chapter, in the dialog, the toasts and the pill, 
   assert.equal(fetchingToast(1), 'Fetching 1 chapter…');
   assert.equal(fetchingToast(3), 'Fetching 3 chapters…');
   assert.equal(fetchingLabel(1), 'Fetching 1 chapter');
-  assert.equal(joinSentences('Downloading 1 chapter.', '1 could not be fetched now.'), 'Downloading 1 chapter. 1 could not be fetched now.');
+  assert.equal(joinSentences('Fetching 1 chapter.', '1 could not be fetched now.'), 'Fetching 1 chapter. 1 could not be fetched now.');
   assert.equal(joinSentences('正在下载 2 章。', '1 章暂时无法获取。'), '正在下载 2 章。1 章暂时无法获取。', 'a CJK full stop took a space after it');
   const root = join(__dirname, '..');
   const src = readFileSync(join(root, 'components', 'FindMissingDialog.tsx'), 'utf8');
   const singulars = [
-    'Follow {s} and download 1 chapter', 'Fetch 1 chapter from {s}', 'Download 1 chapter', '1 chapter newer than yours',
-    'Has 1 chapter newer than yours; an admin can follow it', 'Downloading 1 chapter.', '1 is not listed yet and comes with the next check.',
+    'Follow {s} and fetch 1 chapter', 'Fetch 1 chapter from {s}', 'Fetch 1 chapter', '1 chapter newer than yours',
+    'Has 1 chapter newer than yours; an admin can follow it', 'Fetching 1 chapter.', '1 is not listed yet and comes with the next check.',
     '1 could not be fetched now.', 'Fetch 1 older chapter from {s}', 'You have 1 chapter',
   ];
   for (const k of singulars) assert.ok(src.includes(`tr('${k}'`), `the dialog never says "${k}"`);
   // Every "Fetching n chapters" goes through lib/jobs.ts, which knows about one.
   for (const f of ['app/series/page.tsx', 'components/FindMissingDialog.tsx', 'components/AddSeriesDialog.tsx', 'components/ServerDownloadsView.tsx', 'components/SeriesServerDownloads.tsx']) {
-    assert.doesNotMatch(readFileSync(join(root, f), 'utf8'), /tr\('Fetching \{n\} chapters/, `${f} counts chapters itself`);
+    assert.doesNotMatch(readFileSync(join(root, f), 'utf8'), /tr\('Fetching \{n\} chapters(?!\.)/, `${f} counts chapters itself`);
   }
-  const keys = [...singulars, 'Fetching 1 chapter…', 'Fetching 1 chapter', 'Downloading {n} chapters.', '{m} are not listed yet and come with the next check.', '{m} could not be fetched now.'];
+  const keys = [...singulars, 'Fetching 1 chapter…', 'Fetching 1 chapter', 'Fetching {n} chapters.', '{m} are not listed yet and come with the next check.', '{m} could not be fetched now.'];
   for (const f of readdirSync(join(root, 'public', 'locales')).filter((x) => x.endsWith('.json'))) {
     const d = JSON.parse(readFileSync(join(root, 'public', 'locales', f), 'utf8'));
     for (const k of keys) {

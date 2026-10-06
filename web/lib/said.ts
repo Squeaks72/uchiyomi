@@ -286,7 +286,7 @@ const WORDS: Record<string, (p: P) => string | null> = {
   'numbering.since': (p) => tr('numbered by posting order since {date}.', { date: dayText(p.at) }),
   'numbering.hint': () => tr('they may be different chapters listed as versions of one.'),
   'numbering.kept': () => tr('you chose to keep the source\'s own numbers.'),
-  'numbering.held': () => tr('Nothing downloads for this series until then.'),
+  'numbering.held': () => tr('Nothing is fetched for this series until then.'),
 
   // ---- Suspiciously short chapters
   'short.live': (p) => (num(p, 'n') === 1 ? tr('1 chapter contains only one or two images') : tr('{n} chapters contain only one or two images', { n: num(p, 'n') })),
@@ -297,7 +297,7 @@ const WORDS: Record<string, (p: P) => string | null> = {
     ? tr('Chapter {number} has 1 page', { number: num(p, 'number') })
     : tr('Chapter {number} has {n} pages', { number: num(p, 'number'), n: num(p, 'pages') })),
 
-  // ---- Chapters that would not download
+  // ---- Chapters that could not be fetched
   'failures.live': (p) => {
     const n = num(p, 'n');
     const m = num(p, 'm');
@@ -425,7 +425,7 @@ const WORDS: Record<string, (p: P) => string | null> = {
     none: () => tr('the last test ran out of time while searching — not proof it is broken'),
   }),
   'sources.stale': (p) => tr('{stage} failed {when} and nothing has checked it since — test it again', { stage: stageName(p.stage), when: relativeTime(str(p, 'at')) }),
-  'sources.paced': () => tr('Downloading slowly: the site asked for fewer requests'),
+  'sources.paced': () => tr('Fetching slowly: the site asked for fewer requests'),
 
   // ---- Duplicate series
   'dupes.live': (p) => (num(p, 'n') === 1 ? tr('1 title appears to be in the library twice') : tr('{n} titles appear to be in the library twice', { n: num(p, 'n') })),
@@ -668,7 +668,7 @@ const WORDS: Record<string, (p: P) => string | null> = {
 
   // ---- A download job's reason. `source`, `from` and `to` are sources' names.
   'job.noSpace': (p) => tr('Not enough free space: {error}', { error: str(p, 'error') }),
-  'job.noSpaceToDownload': (p) => tr('Not enough free space to download: {error}.', { error: str(p, 'error') }),
+  'job.noSpaceToDownload': (p) => tr('Not enough free space to fetch: {error}.', { error: str(p, 'error') }),
   'job.saved': (p) => (num(p, 'total') === 1
     ? tr('{done} of 1 chapter saved.', { done: num(p, 'done') })
     : tr('{done} of {n} chapters saved.', { done: num(p, 'done'), n: num(p, 'total') })),
@@ -690,7 +690,7 @@ const WORDS: Record<string, (p: P) => string | null> = {
       : p.status === 'blocked' ? tr('{source} is currently blocking downloads.', v)
       : tr('{source} is currently unreachable for downloads.', v);
   },
-  'job.undownloadable': () => tr('No downloadable chapters here — this title may be licensed or hosted externally on this source.'),
+  'job.undownloadable': () => tr('No fetchable chapters here — this title may be licensed or hosted externally on this source.'),
   'job.failed': (p) => (num(p, 'n') === 1
     ? tr('1 chapter could not be saved: {error}', { error: str(p, 'error') })
     : tr('{n} chapters could not be saved: {error}', { n: num(p, 'n'), error: str(p, 'error') })),
@@ -772,7 +772,7 @@ const WORDS: Record<string, (p: P) => string | null> = {
   'autofix.now.retiring': (p) => tr('Turning off {name}', { name: str(p, 'name') }),
   'autofix.now.duplicates': () => tr('Merging duplicates and linking language editions'),
   'autofix.now.renumbering': () => tr('Applying safe renumbering plans'),
-  'autofix.now.failures': () => tr('Retrying chapters that would not download'),
+  'autofix.now.failures': () => tr('Retrying chapters that could not be fetched'),
   'autofix.now.short': () => tr('Looking for longer copies of short chapters'),
   'autofix.now.gaps': () => tr('Filling gaps'),
   'autofix.now.installing': (p) => tr('Installing {name}', { name: str(p, 'name') }),
@@ -805,7 +805,7 @@ const WORDS: Record<string, (p: P) => string | null> = {
   'autofix.done.merged': (p) => (num(p, 'n') === 1 ? tr('Merged 1 duplicate') : tr('Merged {n} duplicates', { n: num(p, 'n') })),
   'autofix.done.renumbered': (p) => (num(p, 'n') === 1 ? tr('Renumbered 1 series by a safe plan') : tr('Renumbered {n} series by a safe plan', { n: num(p, 'n') })),
   'autofix.done.fetched': (p) => (num(p, 'n') === 1 ? tr('Fetched 1 missing chapter') : tr('Fetched {n} missing chapters', { n: num(p, 'n') })),
-  'autofix.done.refetched': (p) => (num(p, 'n') === 1 ? tr('Downloaded 1 chapter that had failed') : tr('Downloaded {n} chapters that had failed', { n: num(p, 'n') })),
+  'autofix.done.refetched': (p) => (num(p, 'n') === 1 ? tr('Fetched 1 chapter that had failed') : tr('Fetched {n} chapters that had failed', { n: num(p, 'n') })),
   'autofix.done.failuresCleared': (p) => (num(p, 'n') === 1 ? tr('Gave 1 failed chapter another try') : tr('Gave {n} failed chapters another try', { n: num(p, 'n') })),
   'autofix.done.shortFixed': (p) => (num(p, 'n') === 1 ? tr('Found a longer copy of 1 short chapter') : tr('Found a longer copy of {n} short chapters', { n: num(p, 'n') })),
   'autofix.done.shortConfirmed': (p) => (num(p, 'n') === 1
@@ -893,7 +893,7 @@ const WORDS: Record<string, (p: P) => string | null> = {
     ? tr('1 series waits for your numbering review')
     : tr('{n} series wait for your numbering review', { n: num(p, 'n') })),
   'autofix.needs.short': (p) => (num(p, 'n') === 1 ? tr('1 short chapter needs your decision') : tr('{n} short chapters need your decision', { n: num(p, 'n') })),
-  'autofix.needs.failures': (p) => (num(p, 'n') === 1 ? tr('1 chapter no source can download') : tr('{n} chapters no source can download', { n: num(p, 'n') })),
+  'autofix.needs.failures': (p) => (num(p, 'n') === 1 ? tr('1 chapter no source can fetch') : tr('{n} chapters no source can fetch', { n: num(p, 'n') })),
   'autofix.needs.outliers': (p) => (num(p, 'n') === 1
     ? tr('1 chapter numbered impossibly is bookmarked or in your own library')
     : tr('{n} chapters numbered impossibly are bookmarked or in your own library', { n: num(p, 'n') })),

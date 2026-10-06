@@ -219,12 +219,6 @@ function AppearanceSection() {
       <SwitchRow label={tr('Right-click menus')}
         help={tr('Right-click, or press and hold, a series or chapter to see its actions. Shift+right-click opens the browser’s menu. This device only.')}
         on={contextMenus} onChange={(next) => { setContextMenusOn(next); setContextMenus(next); }} />
-
-      {/* Read-only: Show 18+ is a switch for this browser SESSION (components/AdultToggle.tsx), kept out of storage
-          on purpose, so there is nothing here to flip -- the row says where the switch is and where the
-          lasting, per-link versions live. */}
-      <LinkRow href="/profile/?tab=Connections" label={tr('18+ content')}
-        help={tr('Turn on Show 18+ content from the Library or Discover page. It lasts until you close the browser. For an e-reader or app, use Connections.')} />
     </Section>
   );
 }
@@ -383,13 +377,13 @@ function DownloadsSection() {
   const ask = async () => {
     const ok = await requestPersist();
     setPersisted(ok);
-    toast(ok ? tr('Your downloads are protected') : tr('The browser did not grant it.'), ok ? 'success' : 'error');
+    toast(ok ? tr('Your saved chapters are protected') : tr('The browser did not grant it.'), ok ? 'success' : 'error');
   };
 
   return (
-    // "Offline downloads": this device's copies. Since v0.49.0 a bare "Downloads" names the server's view.
-    <Section id="downloads" title={tr('Offline downloads')} icon={<IcDownload width={18} height={18} />}>
-      <SwitchRow label={tr('Keep favorites offline')} help={tr('Downloads the latest unread chapters of your favorites. Applies on each device where you turn it on.')}
+    // "Saved on this device": this device's copies. Since v0.49.0 a bare "Downloads" names the server's view.
+    <Section id="downloads" title={tr('Saved on this device')} icon={<IcDownload width={18} height={18} />}>
+      <SwitchRow label={tr('Keep favorites offline')} help={tr('Saves the latest unread chapters of your favorites to the device. Applies on each device where you turn it on.')}
         on={!!so.enabled} onChange={(enabled) => set({ enabled })} />
       {so.enabled && (
         <Choice<PerSeries> label={tr('Chapters kept per series')} value={String(so.perSeries || 3) as PerSeries}
@@ -399,11 +393,11 @@ function DownloadsSection() {
         <p className="font-display text-xl font-bold tabular-nums text-fog-50">{bytes(usage.usage)}</p>
         <div className="mt-2"><ProgressBar value={usage.quota ? Math.min(1, usage.usage / usage.quota) : 0} /></div>
       </Row>
-      <Row label={tr('Protect downloads')}
-        help={persisted ? tr('Your downloads are protected') : tr('Ask the browser not to delete your downloads when storage runs low.')}>
-        {!persisted && <button type="button" onClick={ask} className="btn-key text-xs">{tr('Protect downloads')}</button>}
+      <Row label={tr('Protect saved chapters')}
+        help={persisted ? tr('Your saved chapters are protected') : tr('Ask the browser not to delete your saved chapters when storage runs low.')}>
+        {!persisted && <button type="button" onClick={ask} className="btn-key text-xs">{tr('Protect saved chapters')}</button>}
       </Row>
-      <LinkRow href="/downloads/" label={tr('Offline downloads')} />
+      <LinkRow href="/downloads/" label={tr('Saved on this device')} />
     </Section>
   );
 }
@@ -538,7 +532,7 @@ function DeviceSection() {
             <div className="max-w-prose text-sm text-fog-300">
               <p className="mb-1 font-medium text-fog-100">{tr('Add to your iPhone')}</p>
               <p>{tr('Tap Share in Safari, then Add to Home Screen.')}</p>
-              <p className="mt-2 text-xs text-fog-500">{tr('On iOS, the system may clear offline downloads when storage runs low.')}</p>
+              <p className="mt-2 text-xs text-fog-500">{tr('On iOS, the system may clear saved chapters when storage runs low.')}</p>
             </div>
           ) : (
             <p className="max-w-prose text-sm text-fog-400">{tr('Open in Chrome/Edge and use “Install app” from the menu.')}</p>

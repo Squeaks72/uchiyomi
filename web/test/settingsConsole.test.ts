@@ -630,7 +630,7 @@ test('Admin → Settings notes are readable and its group inputs are named', () 
   assert.ok(house.length > 0, 'no HousekeepingSection');
   assert.doesNotMatch(house, /text-fog-600/, 'a housekeeping note is below AA');
   assert.match(house, /text-\[11px\] leading-relaxed text-fog-400">\s*\{cur === 0/, 'the line that says what the number means is not fog-400');
-  assert.match(house, /<p className="mt-1 max-w-prose text-\[11px\] leading-relaxed text-fog-500">\s*\{tr\('Only chapters Uchiyomi downloaded itself/, 'the line that says what is spared is not fog-500');
+  assert.match(house, /<p className="mt-1 max-w-prose text-\[11px\] leading-relaxed text-fog-500">\s*\{tr\('Only chapters Uchiyomi fetched itself/, 'the line that says what is spared is not fog-500');
   const chips = src.slice(src.indexOf('function GroupChips('), src.indexOf('function ScanlatorsBlock('));
   assert.ok(chips.length > 0, 'no GroupChips');
   assert.match(chips, /<input\s*value=\{draft\}\s*aria-label=\{label\}/, 'the group input has no accessible name');
@@ -647,7 +647,7 @@ test('Admin → Settings → Downloads comes after the pinned sections, and save
   assert.match(grid, /<ChaptersSection [^\n]*\/>\s*\{\}\s*<NotificationsSection \/>\s*\{\}\s*<DownloadsSection data=\{data\} save=\{save\} \/>\s*<PolitenessSection \/>/,
     'the Downloads section is not after the pinned sections');
   const src = code(read('components/ArchiveSettings.tsx'));
-  assert.match(src, /<Section id="downloads" title=\{tr\('Downloads'\)\}/, 'the section is not Downloads');
+  assert.match(src, /<Section id="downloads" title=\{tr\('Fetching'\)\}/, 'the section is not Fetching');
   assert.match(src, /on=\{data\.archive_paused !== true\} onChange=\{\(next\) => save\(\{ archivePaused: !next \}\)\}/, 'the switch pauses the archive when it is turned on');
   assert.match(src, /min=\{ARCHIVE_PACE\.perHourRange\[0\]\} max=\{ARCHIVE_PACE\.perHourRange\[1\]\}/, 'the pace row is not held to the server\'s range');
   assert.match(src, /help=\{archivePaceHelp\(perHour\)\} onSave=\{\(n\) => save\(\{ archivePerHour: n \}\)\}/, 'the pace row does not say what it comes to');

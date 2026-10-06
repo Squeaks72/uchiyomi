@@ -146,7 +146,7 @@ const EN = {
   'numbering.since': ({ at }: { at: string }) => `numbered by posting order since ${day(at)}.`,
   'numbering.hint': () => 'they may be different chapters listed as versions of one.',
   'numbering.kept': () => "you chose to keep the source's own numbers.",
-  'numbering.held': () => 'Nothing downloads for this series until then.',
+  'numbering.held': () => 'Nothing is fetched for this series until then.',
 
   // ---- Suspiciously short chapters
   'short.live': ({ n }: { n: number }) => `${n} chapter${s(n, '', 's')} contain only one or two images`,
@@ -159,7 +159,7 @@ const EN = {
     'this short, and the nightly stops looking at it.',
   'short.detail': ({ number, pages }: { number: number; pages: number }) => `Chapter ${number} has ${pages} page${s(pages, '', 's')}`,
 
-  // ---- Chapters that would not download
+  // ---- Chapters that could not be fetched
   'failures.live': ({ n, m }: { n: number; m: number }) => `${n} chapter${s(n, '', 's')} across ${m} source${s(m, '', 's')} keep failing`,
   'failures.none': () => 'Every attempted chapter landed',
   // v0.55.1: a source whose every failing chapter was refused for room (HTTP 429) is waiting, not failing.
@@ -260,7 +260,7 @@ const EN = {
     `${STAGE_LABEL[stage]} failed ${days} days ago and nothing has checked it since — test it again`,
   // v0.55.3: the source downloads at a raised pace (lib/pace.ts): one chapter at a time, longer gaps, until it has gone
   // a while without a 429. The whole of a `slowed` row, and a sentence after the rest on any other row.
-  'sources.paced': () => 'Downloading slowly: the site asked for fewer requests',
+  'sources.paced': () => 'Fetching slowly: the site asked for fewer requests',
 
   // ---- Duplicate series
   'dupes.live': ({ n }: { n: number }) => `${n} title${s(n, ' appears', 's appear')} to be in the library twice`,
@@ -485,9 +485,9 @@ const EN = {
   'engine.solverQuietDetail': () =>
     'It is connected to Uchiyomi’s own Cloudflare helper, which is not answering (the Cloudflare solver row says what to do). Extension sources on Cloudflare-protected sites fail until it answers again.',
 
-  // ---- A download job's reason (Library → Downloads, the series band, Discover). `source` is a source's name.
+  // ---- A download job's reason (Library → Fetching, the series band, Discover). `source` is a source's name.
   'job.noSpace': ({ error }: { error: string }) => `Not enough free space: ${error}`,
-  'job.noSpaceToDownload': ({ error }: { error: string }) => `Not enough free space to download: ${error}.`,
+  'job.noSpaceToDownload': ({ error }: { error: string }) => `Not enough free space to fetch: ${error}.`,
   'job.saved': ({ done, total }: { done: number; total: number }) => `${done} of ${total} chapters saved.`,
   'job.slowedDown': ({ from, to }: { from: string; to: string }) => `${from} asked us to slow down — continued from ${to}`,
   'job.switched': ({ from, number, to }: { from: string; number: number; to: string }) =>
@@ -496,7 +496,7 @@ const EN = {
   'job.stopped': ({ source }: { source: string }) => `${source} stopped part-way`,
   'job.stoppedRefusing': ({ source, status }: { source: string; status: string }) => `${source} stopped part-way: it is ${statusWord(status)} downloads`,
   'job.refusing': ({ source, status }: { source: string; status: string }) => `${source} is currently ${statusWord(status)} downloads.`,
-  'job.undownloadable': () => 'No downloadable chapters here — this title may be licensed or hosted externally on this source.',
+  'job.undownloadable': () => 'No fetchable chapters here — this title may be licensed or hosted externally on this source.',
   'job.failed': ({ n, error }: { n: number; error: string }) => `${n} chapter${s(n, '', 's')} could not be saved: ${error}`,
   'job.cancelled': ({ done, total }: { done: number; total: number }) => `Cancelled after ${done} of ${total} chapter${s(total, '', 's')}.`,
   'job.notSaved': ({ n }: { n: number }) => `${n} could not be saved.`,
@@ -571,7 +571,7 @@ const EN = {
   'autofix.now.retiring': ({ name }: { name: string }) => `Turning off ${name}`,
   'autofix.now.duplicates': () => 'Merging duplicates and linking language editions',
   'autofix.now.renumbering': () => 'Applying safe renumbering plans',
-  'autofix.now.failures': () => 'Retrying chapters that would not download',
+  'autofix.now.failures': () => 'Retrying chapters that could not be fetched',
   'autofix.now.short': () => 'Looking for longer copies of short chapters',
   'autofix.now.gaps': () => 'Filling gaps',
   'autofix.now.installing': ({ name }: { name: string }) => `Installing ${name}`,
@@ -595,7 +595,7 @@ const EN = {
   'autofix.done.merged': ({ n }: { n: number }) => `Merged ${n} duplicate${s(n, '', 's')}`,
   'autofix.done.renumbered': ({ n }: { n: number }) => `Renumbered ${n} series by a safe plan`,
   'autofix.done.fetched': ({ n }: { n: number }) => `Fetched ${n} missing chapter${s(n, '', 's')}`,
-  'autofix.done.refetched': ({ n }: { n: number }) => `Downloaded ${n} chapter${s(n, '', 's')} that had failed`,
+  'autofix.done.refetched': ({ n }: { n: number }) => `Fetched ${n} chapter${s(n, '', 's')} that had failed`,
   'autofix.done.failuresCleared': ({ n }: { n: number }) => `Gave ${n} failed chapter${s(n, '', 's')} another try`,
   'autofix.done.shortFixed': ({ n }: { n: number }) => `Found a longer copy of ${n} short chapter${s(n, '', 's')}`,
   'autofix.done.shortConfirmed': ({ n }: { n: number }) => `${n} short chapter${s(n, '', 's')} really ${s(n, 'is', 'are')} that short at every source`,
@@ -658,7 +658,7 @@ const EN = {
   'autofix.needs.duplicates': ({ n }: { n: number }) => `${n} duplicate${s(n, '', 's')} ${s(n, 'needs', 'need')} your decision`,
   'autofix.needs.numbering': ({ n }: { n: number }) => `${n} series ${s(n, 'waits', 'wait')} for your numbering review`,
   'autofix.needs.short': ({ n }: { n: number }) => `${n} short chapter${s(n, '', 's')} ${s(n, 'needs', 'need')} your decision`,
-  'autofix.needs.failures': ({ n }: { n: number }) => `${n} chapter${s(n, '', 's')} no source can download`,
+  'autofix.needs.failures': ({ n }: { n: number }) => `${n} chapter${s(n, '', 's')} no source can fetch`,
   'autofix.needs.outliers': ({ n }: { n: number }) => `${n} chapter${s(n, '', 's')} numbered impossibly ${s(n, 'is', 'are')} bookmarked or in your own library`,
   'autofix.needs.twice': ({ n }: { n: number }) => `${n} chapter${s(n, '', 's')} saved twice ${s(n, 'needs', 'need')} you to choose the copy to keep`,
   'autofix.needs.gapsPaused': ({ n }: { n: number }) => `${n} series with missing chapters ${s(n, 'has', 'have')} updates paused`,

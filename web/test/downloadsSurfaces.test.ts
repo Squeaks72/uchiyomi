@@ -35,7 +35,7 @@ test('the floating pill is gone, and the Offline tab is this device only', () =>
   assert.doesNotMatch(offline, /ServerDownloads\b|\/api\/sources\/jobs|useServerDownloads|source-jobs/, 'server downloads on the device tab');
   // One line points the way, online and signed in only: offline there is no server to show.
   assert.match(offline, /\{online && status === 'authed' && canDownload\(user\) && \(\s*<p data-server-downloads-pointer/, 'the pointer shows offline, or to a viewer who may not download');
-  assert.match(offline, /tr\('What the server fetches is under Library → Downloads\.'\)/);
+  assert.match(offline, /tr\('What the server fetches is under Library → Fetching\.'\)/);
 });
 
 test('ONE poller: only AppShell polls the jobs, and only the two dialogs keep a poll of their own', () => {
@@ -91,7 +91,7 @@ test('the Library ring: on the phone\'s Library tab, beside the desktop bell, ne
   assert.match(map, /glyph: ring\.slow \? <IcHourglass/);
   // The palette's way in, for the same viewers only, and kept on desktop.
   const pal = code(read('components/CommandPalette.tsx'));
-  assert.match(pal, /\.\.\.\(mayDownload \? \[\{ key: 'server-downloads', label: tr\('Server downloads'\)/, 'the palette offers Server downloads to a viewer who may not download');
+  assert.match(pal, /\.\.\.\(mayDownload \? \[\{ key: 'server-downloads', label: tr\('Server fetching'\)/, 'the palette offers Server fetching to a viewer who may not download');
   assert.match(pal, /const mayDownload = status === 'authed' && canDownload\(user\);/);
   assert.match(pal, /run: \(\) => go\(downloadsHref\(\)\)/);
 });
@@ -119,18 +119,18 @@ test('no pill clearance is left: the select bars no longer make room for a pill 
 });
 
 test("'Downloads' names the server's view only: the reader's way to this device's chapters says Offline", () => {
-  // The critic's vocabulary ruling (v0.49.0): the Library switch keeps "Downloads"; the reader's button to
+  // The critic's vocabulary ruling (v0.49.0): the Library switch is now "Fetching"; the reader's button to
   // /downloads/ and the profile's section are about THIS DEVICE's copies. Reintroduce tr('Downloads') on either:
   // "a second meaning of Downloads" fails.
   const reader = code(read('app/reader/page.tsx'));
   assert.match(reader, /router\.push\('\/downloads\/'\)\} className="[^"]*">\{tr\('Offline'\)\}<\/button>/, "the reader's button to the Offline tab is not called Offline");
-  assert.match(code(read('components/ProfileSettings.tsx')), /<Section id="downloads" title=\{tr\('Offline downloads'\)\}/,
+  assert.match(code(read('components/ProfileSettings.tsx')), /<Section id="downloads" title=\{tr\('Saved on this device'\)\}/,
     "the profile's section about this device's copies is called Downloads");
   const users: string[] = [];
   for (const f of ['app/reader/page.tsx', 'components/ProfileSettings.tsx', 'app/library/page.tsx', 'app/downloads/page.tsx', 'components/BottomNav.tsx', 'components/TopNav.tsx']) {
     if (/tr\('Downloads'\)/.test(code(read(f)))) users.push(f);
   }
-  assert.deepEqual(users, ['app/library/page.tsx'], 'a second meaning of Downloads');
+  assert.deepEqual(users, [], 'a second meaning of Downloads');
 });
 
 test('a Server tasks card is named by runName, leads to its series, and for an admin to what the repair did', () => {

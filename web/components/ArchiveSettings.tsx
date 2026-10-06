@@ -31,7 +31,7 @@ export function DownloadsSection({ data, save }: { data: any; save: Save }) {
   const freeGb: number | null = typeof data.archive_free_gb === 'number' ? data.archive_free_gb : null;
   const desktop = isDesktop();
   return (
-    <Section id="downloads" title={tr('Downloads')} icon={<IcHourglass width={18} height={18} />}
+    <Section id="downloads" title={tr('Fetching')} icon={<IcHourglass width={18} height={18} />}
       description={tr('The slow archive fetches whole series a chapter at a time, over nights or days, so a site never sees a burst. Queue a series from the add dialog, its page, or a Library selection.')}>
       {/* On is "not paused": the column is archive_paused, and the switch says what an admin wants to know. */}
       <SwitchRow label={tr('Slow archive')}
@@ -96,7 +96,7 @@ function limitText(l: Limit): string {
 }
 
 /**
- * Downloads & politeness (fork change): what keeps the server gentle with sites, in one place. The numbers that can only be
+ * Fetching & politeness (fork change): what keeps the server gentle with sites, in one place. The numbers that can only be
  * set by environment variables, shown read-only with the value this server is running on (GET /api/admin/limits, which
  * returns nothing but those numbers); and every source that is blocked right now, with the one control that lifts it.
  *
@@ -124,7 +124,7 @@ export function PolitenessSection() {
     }
   };
   return (
-    <Section id="politeness" title={tr('Downloads & politeness')} icon={<IcClock width={18} height={18} />}
+    <Section id="politeness" title={tr('Fetching & politeness')} icon={<IcClock width={18} height={18} />}
       description={tr('How hard this server leans on sites, and which sources are being left alone right now.')}>
       <div className="py-3 first:pt-1">
         <h3 className="text-sm font-semibold text-fog-100">{tr('Limits set by the server')}</h3>

@@ -139,7 +139,7 @@ export function ServerDownloadsView({ focusFolder }: { focusFolder?: string | nu
     return (
       <div data-downloads-error role="alert" className="flex flex-col items-center px-6 py-16 text-center">
         <IcAlert width={28} height={28} className="text-amber-300" aria-hidden />
-        <p className="mt-3 font-display text-lg font-semibold text-fog-50">{tr('Could not load the downloads')}</p>
+        <p className="mt-3 font-display text-lg font-semibold text-fog-50">{tr('Could not load what the server is fetching')}</p>
         <p className="mt-1 max-w-xs text-sm text-fog-400">{tr('The server did not answer. Try again in a moment.')}</p>
         <button type="button" onClick={() => void refetch()} className="btn-key btn-key-primary mt-4">{tr('Try again')}</button>
       </div>

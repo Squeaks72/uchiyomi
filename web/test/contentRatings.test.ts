@@ -78,7 +78,7 @@ test('Admin has an Import entry in the Content group, and Settings links to Back
   assert.match(settings, /<Link href="\/admin\/\?tab=Tasks&section=task-backup"/, 'the backup hour has no Backups link');
 });
 
-test('Downloads & politeness shows the limits read-only and unblocks through the source route', () => {
+test('Fetching & politeness shows the limits read-only and unblocks through the source route', () => {
   const src = code(read('components/ArchiveSettings.tsx'));
   const section = src.slice(src.indexOf('export function PolitenessSection('));
   assert.match(section, /api<\{ limits: Limit\[\]; note: string \}>\('\/api\/admin\/limits'\)/);

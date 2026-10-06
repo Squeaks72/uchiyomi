@@ -252,16 +252,16 @@ test('a source at a raised pace says it downloads slowly: a quiet row of its own
   // said nothing of why. Reintroduce by dropping the `slowed` case in stateWord: the row falls back to its detail. Drop
   // the `pace` segment in SourceRow: the rate-limited row's line says nothing of its pace.
   const slowed = item({ sourceId: 'natomanga', title: 'Natomanga', group: 'quiet', state: 'slowed', slowed: true, info: true, series: 116 });
-  assert.equal(stateWord(slowed), 'Downloading slowly', 'a slowed row has no word of its own');
+  assert.equal(stateWord(slowed), 'Fetching slowly', 'a slowed row has no word of its own');
   assert.equal(stateReason(slowed), 'the site asked for fewer requests');
   assert.equal(paceText(slowed), '', 'said once, by its word');
   assert.equal(tileTone(slowed), 'info', 'grey: nothing to fix');
   assert.equal(primaryOf(slowed), null, 'and nothing to press in its fold');
   const limited = { ...ROWS[0], slowed: true };
-  assert.equal(paceText(limited), 'Downloading slowly', 'beside a cooldown, after its reason');
+  assert.equal(paceText(limited), 'Fetching slowly', 'beside a cooldown, after its reason');
   assert.equal(paceText(ROWS[0]), '', 'nothing for a row at its own pace');
   const html = render({ ...CHECK, items: [limited] });
-  assert.match(rowsOf(html)[0], /Rate-limited<\/span> — trying again in (19|20) minutes · Downloading slowly · 37 series/);
+  assert.match(rowsOf(html)[0], /Rate-limited<\/span> — trying again in (19|20) minutes · Fetching slowly · 37 series/);
   // In the quiet fold, closed: drawn only once it opens.
   const folded = render({ ...CHECK, items: [slowed] });
   assert.match(slice(folded, 'data-source-fold="quiet"', '</section>'), /aria-expanded="false"/);

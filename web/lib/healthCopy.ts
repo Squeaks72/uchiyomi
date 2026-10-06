@@ -29,7 +29,7 @@ import type { RepairCurrent, RepairEstimate, RepairLiveRun, RepairPhase, RepairR
  * server's own title.
  */
 const CHECK_TITLE_KEYS = keys(
-  'Chapter gaps', 'Suspiciously short chapters', 'Chapters that would not download', 'Series that can no longer update',
+  'Chapter gaps', 'Suspiciously short chapters', 'Chapters that could not be fetched', 'Series that can no longer update',
   'Source health', 'Duplicate series', 'Impossible chapter numbers', 'Cloudflare solver', 'Version',
   'Extension source limit', 'Library scan', 'Downloads missing from the library', 'Extension engine', 'Chapter numbering',
   'The same chapter saved twice', 'Folders scanned twice',
@@ -66,7 +66,7 @@ export function checkTitle(c: Pick<HealthCheck, 'id' | 'title'>): string {
 
 /**
  * How long a repair-backed action takes, said BEFORE the press: "Usually 40 sec · At most about 3 min of
- * searching and waiting · plus at most 20 chapter downloads".
+ * searching and waiting · plus at most 20 chapter fetches".
  *
  * "Usually" is the median of the last runs of the same kind (the server keeps them); "at most" sums only the
  * waits the code bounds -- page lists, listings, the search wall -- and the downloads are a COUNT, never folded
@@ -77,7 +77,7 @@ export function timeLine(est: RepairEstimate | null | undefined): string {
   const parts: string[] = [];
   if (est.typicalMs != null && est.typicalMs > 0) parts.push(tr('Usually {d}', { d: durationText(est.typicalMs) }));
   if (est.worstMs != null && est.worstMs > 0) parts.push(tr('At most about {d} of searching and waiting', { d: durationText(est.worstMs) }));
-  if (est.downloads > 0) parts.push(est.downloads === 1 ? tr('plus at most 1 chapter download') : tr('plus at most {n} chapter downloads', { n: est.downloads }));
+  if (est.downloads > 0) parts.push(est.downloads === 1 ? tr('plus at most 1 chapter fetch') : tr('plus at most {n} chapter fetches', { n: est.downloads }));
   return parts.length ? parts.join(' · ') : tr('Takes a moment');
 }
 
@@ -164,7 +164,7 @@ export const ACTION_COPY: Readonly<Record<string, ActionCopy>> = {
   },
   retry: {
     label: () => tr('Retry now'),
-    what: (c) => tr('Gives every chapter of this source that would not download another try, and re-checks up to {n} of its series straight away.', { n: lim(c, 'retrySeries', 10) }),
+    what: (c) => tr('Gives every chapter of this source that could not be fetched another try, and re-checks up to {n} of its series straight away.', { n: lim(c, 'retrySeries', 10) }),
     how: () => tr('Each chapter’s failure count goes back to zero, so the next chapter sweep tries them all again. Other sources are not searched. A source that is cooling down or switched off is reset but not asked.'),
     eta: repairEta,
     lasting: (rec) => recordOutcome(rec),
@@ -384,7 +384,7 @@ function fillLasting(rec: RepairRunRecord): { text: string; partial?: boolean } 
 
 const NOT_ELIGIBLE = keys(
   'Skipped: the chapter is no longer there', 'Skipped: it is already marked fine', 'Skipped: it has placeholder pages, which the chapter sweep re-fetches',
-  'Skipped: it was not downloaded by Uchiyomi', 'Skipped: it is no longer short', 'Skipped: it no longer qualifies',
+  'Skipped: it was not fetched by Uchiyomi', 'Skipped: it is no longer short', 'Skipped: it no longer qualifies',
 );
 const NOT_ELIGIBLE_BY: Record<string, (typeof NOT_ELIGIBLE)[number]> = {
   gone: NOT_ELIGIBLE[0], confirmed: NOT_ELIGIBLE[1], partial: NOT_ELIGIBLE[2], not_owned: NOT_ELIGIBLE[3], not_short: NOT_ELIGIBLE[4],
@@ -397,7 +397,7 @@ const until = (iso?: string): string => {
 
 export function skipLine(k: RepairSkip): string {
   switch (k.why) {
-    case 'folder_busy': return tr('Skipped: its folder is busy with another download. Try again when that finishes.');
+    case 'folder_busy': return tr('Skipped: its folder is busy with another fetch. Try again when that finishes.');
     case 'not_eligible': return tr(NOT_ELIGIBLE_BY[k.detail ?? ''] ?? NOT_ELIGIBLE[5]);
     case 'no_gaps': return tr('Nothing to fill: the series has no gaps now');
     case 'source_cooling_down': {
@@ -416,7 +416,7 @@ export function skipLine(k: RepairSkip): string {
 const PHASE_KEYS = keys(
   'Asking the solver whether it answers', 'Clearing the solver’s sessions', 'Counting pages', 'Re-checking the series',
   'Refreshing the chapter list', 'Asking the sources for their page counts', 'Searching other sources',
-  'Downloading the longer copy', 'Following a source that has them', 'Fetching the missing chapters',
+  'Fetching the longer copy', 'Following a source that has them', 'Fetching the missing chapters',
 );
 const PHASE_BY: Record<RepairPhase, (typeof PHASE_KEYS)[number]> = {
   pinging: PHASE_KEYS[0], clearing: PHASE_KEYS[1], counting: PHASE_KEYS[2], rechecking: PHASE_KEYS[3], listing: PHASE_KEYS[4],
@@ -487,7 +487,7 @@ const SHORT_WHY = keys(
   'Replaced with a longer copy', 'Every source has the same short copy', 'No source has a longer copy',
   'Some sources did not answer; the next repair asks again', 'Other sources were searched recently; the next repair searches again',
   'This run was out of searches; the next repair searches again', 'Searching other sources is switched off',
-  'A longer copy was found but would not download',
+  'A longer copy was found but could not be fetched',
 );
 const SHORT_WHY_BY: Record<string, (typeof SHORT_WHY)[number]> = {
   replaced: SHORT_WHY[0], confirmed: SHORT_WHY[1], no_longer_copy: SHORT_WHY[2], source_silent: SHORT_WHY[3],

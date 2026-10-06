@@ -18,9 +18,19 @@ test('a chapter row offers Remove from series, behind a confirmation', () => {
 
 test('Properties lists the removed chapters with a Restore for each and for all', () => {
   const sheet = read('components/SeriesPropertiesSheet.tsx');
-  assert.match(sheet, /\/chapters\/removed/);
-  assert.match(sheet, /\/chapters\/restore/);
-  assert.match(sheet, /tr\('Restore all'\)/);
+  const shared = read('components/RemovedChapters.tsx');
+  assert.match(sheet, /useRemovedChapters/);
+  assert.match(shared, /\/chapters\/removed/);
+  assert.match(shared, /\/chapters\/restore/);
+  assert.match(shared, /tr\('Restore all'\)/);
+});
+
+test('the series page has a Removed chapters button for admins, with a count, that opens the same list', () => {
+  const p = read('app/series/page.tsx');
+  assert.match(p, /data-removed-open/);
+  assert.match(p, /tr\('Removed chapters \(\{n\}\)…', \{ n: removedCount \}\)/);
+  assert.match(p, /<RemovedChaptersDialog id=\{id\}/);
+  assert.match(read('components/RemovedChapters.tsx'), /data-removed-dialog/);
 });
 
 test('the Archive slowly button says what it is for, on the series page and in the library', () => {

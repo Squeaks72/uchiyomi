@@ -266,12 +266,12 @@ export function waitingText(
     // backOff). "The site asked us to slow down" read as `pace` below, the 429 of ordinary traffic, and said nothing
     // of a refusal or an outage.
     case 'backoff': return when ? tr('A chapter failed on its site; trying again {when}', { when }) : tr('A chapter failed on its site; trying again soon');
-    case 'source_busy': return tr('Waiting for another download from the same site');
+    case 'source_busy': return tr('Waiting for another fetch from the same site');
     case 'pace': return tr('The site asked for a slower pace; waiting');
     case 'cooldown': return when ? tr('The site is cooling down; trying again {when}', { when }) : tr('The site is cooling down');
     case 'disabled': return tr('Its source is switched off');
     case 'source_missing': return tr('Its source is not available on this server');
-    case 'series_busy': return tr('Waiting for another download of this series');
+    case 'series_busy': return tr('Waiting for another fetch of this series');
     // The last read of its chapter list gave nothing; the next is on a ladder -- an hour, 3, 12, then a day
     // (bff lib/archivePlan.ts listingRetryAt).
     case 'listing': return when ? tr('Its chapter list could not be read; trying again {when}', { when }) : tr('Its chapter list could not be read; trying again soon');
@@ -395,8 +395,8 @@ export function archiveAddLine(outcome: EnqueueOutcome | 'later' | null | undefi
     case undefined: case null: return '';
     // `later`: the add's own chapters download first, and the rest is queued once they are in.
     case 'queued': case 'later': return whole
-      ? tr('Its chapters come in slowly in the background. Library → Downloads shows how far it has got.')
-      : tr('The rest comes in slowly in the background. Library → Downloads shows how far it has got.');
+      ? tr('Its chapters come in slowly in the background. Library → Fetching shows how far it has got.')
+      : tr('The rest comes in slowly in the background. Library → Fetching shows how far it has got.');
     case 'already': return tr('The rest was already being archived slowly.');
     case 'nothing': return tr('Nothing older was left to archive.');
     default: return tr('The rest could not be queued for the slow archive.');
