@@ -10,10 +10,10 @@ const ROOT = join(__dirname, '..');
 const read = (p: string) => readFileSync(join(ROOT, p), 'utf8');
 const page = read('app/series/page.tsx');
 
-test('a chapter row offers Remove from library, behind a confirmation', () => {
-  assert.match(page, /tr\('Remove from library'\)/);
+test('a chapter row offers Remove from series, behind a confirmation', () => {
+  assert.match(page, /tr\('Remove from series'\)/);
   assert.match(page, /\/chapters\/remove/);
-  assert.match(page, /tr\('Remove this chapter from the library\?'\)/);
+  assert.match(page, /tr\('Remove this chapter from the series\?'\)/);
 });
 
 test('Properties lists the removed chapters with a Restore for each and for all', () => {
