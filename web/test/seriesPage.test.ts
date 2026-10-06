@@ -414,3 +414,10 @@ test('an admin can change the cover from the series page and replace one chapter
   assert.match(cmp, /copy-page\?source=/);
   assert.match(cmp, /data-compare-replace/);
 });
+
+test('the saved-offline check on a chapter row is a status; removing the device copy is a menu item', () => {
+  const src = readFileSync(new URL('../app/series/page.tsx', import.meta.url), 'utf8');
+  assert.match(src, /disabled=\{pruned \|\| downloaded\}/);
+  assert.match(src, /label: tr\('Remove from this device'\)/);
+  assert.match(src, /downloaded \? tr\('Saved on this device'\) : tr\('Save offline'\)/);
+});
