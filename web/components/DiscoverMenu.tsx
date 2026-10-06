@@ -2,6 +2,7 @@
 import { useRouter } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { applyFavorite } from '@/lib/favoriteCache';
 import { t as tr } from '@/lib/i18n';
 import { useToast } from './Toast';
 import { useContextMenu, type MenuItem } from './ContextMenu';
@@ -40,7 +41,9 @@ export function useDiscoverMenu({ title, libraryHref, librarySeriesId, onAdd, ad
       if (next) await api('/api/favorites', { json: { seriesId: librarySeriesId } });
       else await api(`/api/favorites/${librarySeriesId}`, { method: 'DELETE' });
       toast(next ? tr('Added to favorites') : tr('Removed from favorites'), 'success');
+      applyFavorite(qc, librarySeriesId, next);
       qc.invalidateQueries({ queryKey: ['home'] });
+      qc.invalidateQueries({ queryKey: ['library'] });
     } catch {
       qc.setQueryData(['favorite-ids'], had);
       toast(tr('Could not change the favorite'), 'error');
