@@ -16,6 +16,8 @@ import { mkdtempSync, mkdirSync, writeFileSync, chmodSync, readFileSync, existsS
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+// The nss_wrapper remedy is the non-root branch (root adds a passwd entry instead), so those two tests only mean something there.
+const asRoot = process.getuid?.() === 0 ? 'the script takes its root branch' : false;
 const SCRIPT = join(__dirname, '..', 'docker-entrypoint.sh');
 
 /** A sandbox: fake binaries that log to FAKELOG, an empty PGDATA, a socket dir, and an "app" to run. */
@@ -47,6 +49,11 @@ esac; exit 0`);
 trap 'echo "app got TERM" >> "$FAKELOG"; exit 0' TERM
 if [ -n "\${FAKE_SLEEP:-}" ]; then sleep "$FAKE_SLEEP" & wait $!; fi
 exit "\${FAKE_EXIT:-0}"`);
+  // Run as root (a dev container, some CI images) the script takes its su-exec branch, and su-exec only exists in the
+  // image. A shim that drops the "uid:gid" argument and runs the rest keeps these tests runnable anywhere; unlogged,
+  // so it does not appear in the calls the tests assert on. As a non-root user the script never calls it.
+  writeFileSync(join(bin, 'su-exec'), '#!/bin/sh\nshift\nexec "$@"\n');
+  chmodSync(join(bin, 'su-exec'), 0o755);
   const pgdata = join(root, 'pg'); const sock = join(root, 'sock');
   // A stand-in for libnss_wrapper.so. The test uid has no passwd entry in the runner's container either,
   // so without this the non-root path has no remedy and refuses -- which is its own test below.
@@ -126,7 +133,7 @@ test('THE EMBEDDED PATH: initdb once, socket-only start, the app pointed at it, 
   assert.ok(!existsSync(join(sb.sock, '.embedded')), 'the healthcheck marker outlived the database');
 });
 
-test('a uid with no passwd entry is given one for Postgres, and the app is not preloaded', async () => {
+test('a uid with no passwd entry is given one for Postgres, and the app is not preloaded', { skip: asRoot }, async () => {
   // The first thing the real boot found, after every fake had passed: initdb refuses "could not look up
   // effective user ID 1003: user does not exist", and PUID is usually exactly such a uid. Not root here, so
   // the remedy under test is nss_wrapper; the root path (adduser) is exercised by the image boot.
@@ -149,7 +156,7 @@ test('a uid that already has a passwd entry needs no remedy', async () => {
   assert.ok(!/passwd entry/.test(r.out + r.err), 'a remedy was announced for a uid that needs none');
 });
 
-test('with neither remedy available it refuses, and says what to do instead', async () => {
+test('with neither remedy available it refuses, and says what to do instead', { skip: asRoot }, async () => {
   const sb = sandbox();
   rmSync(sb.nss);
   const r = await run(sb, { DATABASE_URL: undefined });
