@@ -30,6 +30,7 @@ import {
   usedBy, usedByLink, type OverviewSource, type SheetKey, type SourceEvidenceRow, type SourcesOverview,
 } from '@/lib/sourcesPanel';
 import { extSourceIdOf } from '@/lib/sourcePrefs';
+import { SOURCE_AGES, ageChoice, ageRequest, effectiveAge, type AgeFacts } from '@/lib/sourceAge';
 import { extLanguagesText, type ExtStatus, type InstalledExt } from '@/lib/extensions';
 import { Sheet } from '@/components/ui';
 import { msgOf } from '@/components/ConfirmDialog';
@@ -62,6 +63,21 @@ export function resolveTarget(target: SheetTarget, sources: readonly OverviewSou
   return { source, ext };
 }
 
+/** What the chosen rating does, in a sentence under the chips. */
+function ageNote(s: AgeFacts): string {
+  const now = effectiveAge(s);
+  const set = ageChoice(s) !== 'default';
+  if (now === null) {
+    return set ? tr('Open to every account, whatever its extension says.') : tr('Open to every account. Its titles are judged one by one.');
+  }
+  if (now >= 18) {
+    return set
+      ? tr('Adult. Accounts limited below 18 can’t use it, and with Show 18+ off it leaves Discover and search entirely.')
+      : tr('Its extension says it can carry adult titles, so accounts limited below 18 can’t use it. With Show 18+ off its titles are judged one by one.');
+  }
+  return tr('Accounts limited below {age}+ can’t use this source.', { age: String(now) });
+}
+
 export function SourceSheet({ target, overview, evidence, testMs, status, actions, installed, hiddenLangs, onClose, onReplace, onLanguages, onChanged }: {
   target: SheetTarget;
   overview: SourcesOverview | undefined;
@@ -85,10 +101,10 @@ export function SourceSheet({ target, overview, evidence, testMs, status, action
   const toast = useToast();
   const qc = useQueryClient();
   const { source: s, ext } = resolveTarget(target, overview?.sources ?? [], installed);
-  const [busy, setBusy] = useState<SheetKey | 'address' | null>(null);
+  const [busy, setBusy] = useState<SheetKey | 'address' | 'age' | null>(null);
   const [asking, setAsking] = useState<'turn-off' | 'remove' | 'address' | null>(null);
   // Said where it was asked: under the keys, or under the address form for Update address.
-  const [refusal, setRefusal] = useState<{ key: SheetKey | 'address'; text: string } | null>(null);
+  const [refusal, setRefusal] = useState<{ key: SheetKey | 'address' | 'age'; text: string } | null>(null);
   const [answer, setAnswer] = useState<(TestAnswer & { probe?: { finalUrl?: string } }) | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [testFrom, setTestFrom] = useState(0);
@@ -110,7 +126,7 @@ export function SourceSheet({ target, overview, evidence, testMs, status, action
    * in the reader's language. Remove's 409 `in_use` is `retire.inUse` ("It is the main source of n series. Replace it
    * first."): one wording, the server's, never a second one of the web's own.
    */
-  const run = async (key: SheetKey | 'address', go: () => Promise<string | null>) => {
+  const run = async (key: SheetKey | 'address' | 'age', go: () => Promise<string | null>) => {
     setBusy(key);
     setRefusal(null);
     try {
@@ -259,6 +275,32 @@ export function SourceSheet({ target, overview, evidence, testMs, status, action
                 : <SourceEvidence lines={row?.evidence} tested={row?.live} failing={!!row?.failing?.length} />}
             </Disclosure>
           </div>
+        )}
+
+        {s && (
+          <section aria-label={tr('Age rating')} className="border-t border-ink-800/70 pt-3" data-source-age>
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-fog-500 rtl:tracking-normal">{tr('Age rating')}</p>
+            <div className="mt-1.5 flex flex-wrap gap-1.5" role="radiogroup" aria-label={tr('Age rating')}>
+              {(['default', ...SOURCE_AGES] as Array<number | 'default'>).map((c) => {
+                const label = c === 'default' ? tr('Default') : c === 0 ? tr('All ages') : `${c}+`;
+                const on = ageChoice(s) === c;
+                return (
+                  <button key={c} type="button" role="radio" aria-checked={on} disabled={!!busy || on} data-source-age-choice={String(c)}
+                    onClick={() => void run('age', async () => {
+                      await api(`/api/admin/sources/${encodeURIComponent(s.id)}/age-rating`, { method: 'PUT', json: ageRequest(c) });
+                      return c === 'default' ? tr('Back to the default rating') : tr('Rating saved');
+                    })}
+                    className={`btn-key tabular-nums ${on ? 'btn-key-accent' : ''}`}>
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="mt-2 text-[12px] leading-relaxed text-fog-400" data-source-age-note>
+              {ageNote(s)}
+            </p>
+            {refusal?.key === 'age' && <p role="alert" dir="auto" className="mt-2 text-[12px] leading-relaxed text-amber-300" data-source-refusal>{refusal.text}</p>}
+          </section>
         )}
 
         {s?.kind === 'site' && (
