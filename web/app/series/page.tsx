@@ -1750,7 +1750,7 @@ function SeriesInner() {
         </p>
       )}
       {pages > 1 && <ChapterPager page={shownPage} pages={pages} rows={rows} asc={asc} total={filteredBooks.length + filteredGhosts.length} onPage={(p) => goPage(p, false)} />}
-      <div className="lg:grid lg:gap-x-8 lg:[grid-template-columns:repeat(auto-fill,minmax(250px,1fr))]">
+      <div className="lg:grid lg:gap-x-10 lg:[grid-template-columns:repeat(auto-fill,minmax(min(100%,420px),1fr))]">
         {pageRows.map((r) => {
           if (r.kind === 'book') {
             const b = r.book;
