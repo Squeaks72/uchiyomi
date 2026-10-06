@@ -1,0 +1,125 @@
+name: Fork sync
+
+# Keeps this fork current with upstream, then rebuilds the image.
+#
+# `main` is a pure mirror of upstream and is never committed to directly, so it
+# can always be fast-forwarded. `tim` is upstream plus the local patches, and is
+# rebased onto the new `main` on every sync -- rebase rather than merge so the
+# patch set stays a readable list of commits on top of a known upstream, and so
+# a patch that upstream has since adopted disappears on its own instead of
+# conflicting forever.
+#
+# Timing: 06:00 UTC is 01:00 in America/Chicago, three hours ahead of the 04:00
+# CA Auto Update run on the Unraid box. That gap is the point -- the image has to
+# exist before anything tries to pull it.
+#
+# A rebase that does not apply cleanly stops here and fails the run rather than
+# forcing anything: a silently dropped patch is worse than a stale image. (Issues
+# are disabled on this fork, so the failed run and its email are the alert.)
+#
+# Pushing needs the SYNC_TOKEN secret: a fine-grained PAT on this repo only, with
+# Contents and Workflows read/write. GITHUB_TOKEN can never push a commit that
+# adds or changes a file under .github/workflows/, and upstream does that (v0.44.0
+# added desktop.yml and engine-pack.yml), so without it the mirror is refused.
+#
+# Upstream's own workflows are kept DISABLED here. A new one arrives enabled, and
+# desktop.yml runs on every push to `main` -- so the order below is: rebase, push
+# `tim` (the default branch, which registers any new workflow), disable anything
+# that is not fork-*.yml, and only then mirror `main`.
+
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: fork-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      changed: ${{ steps.rebase.outputs.changed }}
+      version: ${{ steps.rebase.outputs.version }}
+      # A push made with a PAT triggers fork-build on its own; one made with
+      # GITHUB_TOKEN does not, and then the build job below has to call it.
+      pushed_with_pat: ${{ steps.rebase.outputs.pushed_with_pat }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # Full history: a rebase needs the merge base, and a shallow clone
+          # cannot find one.
+          fetch-depth: 0
+          ref: tim
+          token: ${{ secrets.SYNC_TOKEN || github.token }}
+
+      - name: Rebase the patches onto upstream
+        id: rebase
+        env:
+          HAS_PAT: ${{ secrets.SYNC_TOKEN != '' }}
+        run: |
+          set -euo pipefail
+          git config user.name  "Squeaks72"
+          git config user.email "Squeaks72@users.noreply.github.com"
+          git remote add upstream https://github.com/AngeloSha/uchiyomi.git
+          git fetch --tags upstream main
+          echo "pushed_with_pat=$HAS_PAT" >> "$GITHUB_OUTPUT"
+
+          if git merge-base --is-ancestor upstream/main HEAD; then
+            echo "already on top of upstream/main"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if ! git rebase upstream/main; then
+            git diff --name-only --diff-filter=U | sed 's/^/::error title=Rebase conflict::/'
+            git rebase --abort || true
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+
+          if ! git diff --quiet "$(git merge-base ORIG_HEAD upstream/main)" upstream/main -- .github/workflows \
+             && [ "$HAS_PAT" != "true" ]; then
+            echo "::error title=SYNC_TOKEN needed::upstream changed .github/workflows/, which GITHUB_TOKEN may not push. Add a SYNC_TOKEN secret (fine-grained PAT: this repo, Contents + Workflows read/write)."
+            exit 1
+          fi
+
+          git push --force-with-lease origin tim
+          version=$(node -p "require('./bff/package.json').version")
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "::notice title=Synced::now on upstream v${version}"
+
+      - name: Keep upstream's workflows disabled
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          # A workflow file new to the default branch takes a moment to register.
+          sleep 10
+          gh api "repos/${GITHUB_REPOSITORY}/actions/workflows" --paginate \
+            --jq '.workflows[] | select(.state == "active") | select(.path | test("/fork-[^/]+\\.ya?ml$") | not) | "\(.id) \(.path)"' |
+          while read -r id path; do
+            echo "::notice title=Disabled upstream workflow::$path"
+            gh api -X PUT "repos/${GITHUB_REPOSITORY}/actions/workflows/$id/disable"
+          done
+
+      - name: Mirror upstream onto main
+        run: |
+          set -euo pipefail
+          # Always a fast-forward, because nothing ever commits to main here.
+          git push --force origin "upstream/main:refs/heads/main"
+
+  build:
+    needs: sync
+    if: needs.sync.outputs.changed == 'true' && needs.sync.outputs.pushed_with_pat != 'true'
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/fork-build.yml
