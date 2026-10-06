@@ -2158,3 +2158,37 @@ export async function findingOf(check: IgnorableCheck, key: string): Promise<Fin
   }
   return ctx.found.get(`${check}\u0000${key}`) ?? null;
 }
+
+export const RECHECKABLE_CHECKS = [
+  'chapter-gaps', 'numbering', 'short-chapters', 'outliers', 'saved-twice', 'duplicates', 'sources',
+  'chapter-failures', 'frozen-series', 'solver', 'update', 'library-scan', 'downloads-missing',
+  'folders-twice', 'extension-cap', 'extension-engine',
+] as const;
+export type RecheckableCheck = typeof RECHECKABLE_CHECKS[number];
+
+/**
+ * One check, run again on its own: what a row's Recheck asks. The same function the full run calls, with the same
+ * ignore list, so the answer is what the next full run would say about this check. Null when the check has nothing
+ * to say any more (numbering with no series left to renumber, the two folders no longer side by side).
+ */
+export async function recheckCheck(id: RecheckableCheck): Promise<HealthCheck | null> {
+  const ctx = await loadIgnores();
+  switch (id) {
+    case 'chapter-gaps': return chapterGaps(await heldBySeries(), ctx);
+    case 'outliers': return outlierChapters(await heldBySeries(), ctx);
+    case 'numbering': return numberingCheck();
+    case 'short-chapters': return shortChapters();
+    case 'saved-twice': return savedTwice();
+    case 'duplicates': return duplicateSeries(ctx);
+    case 'sources': return sourceTrouble(ctx);
+    case 'chapter-failures': return chapterFailures(ctx);
+    case 'frozen-series': return frozenSeries(ctx);
+    case 'solver': return solverHealth();
+    case 'update': return updateCheck();
+    case 'library-scan': return libraryScan();
+    case 'downloads-missing': return downloadsMissing(ctx);
+    case 'folders-twice': return foldersScannedTwice().catch(() => null);
+    case 'extension-cap': return suwayomiConfigured() ? extensionCap() : null;
+    case 'extension-engine': return extensionEngineCheck().catch(() => null);
+  }
+}

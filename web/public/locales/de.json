@@ -2,7 +2,7 @@
   "_meta": {
     "language": "de",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 3857
+    "strings": 3861
   },
   "1 check found something": "1 Prüfung hat etwas gefunden",
   "1 member": "1 Mitglied",
@@ -3860,5 +3860,9 @@
   "Removed 1 chapter from the library": "1 Kapitel aus der Bibliothek entfernt",
   "Remove 1 chapter from the series?": "1 Kapitel aus der Serie entfernen?",
   "1 duplicate file will be deleted.": "1 doppelte Datei wird gelöscht.",
-  "{n} duplicate files will be deleted.": "{n} doppelte Dateien werden gelöscht."
+  "{n} duplicate files will be deleted.": "{n} doppelte Dateien werden gelöscht.",
+  "Recheck": "Erneut prüfen",
+  "Still there": "Noch vorhanden",
+  "No longer a problem": "Kein Problem mehr",
+  "Could not recheck": "Erneute Prüfung fehlgeschlagen"
 }

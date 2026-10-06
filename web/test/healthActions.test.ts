@@ -543,3 +543,12 @@ test("Health prints the server's words in their own direction: every finding's t
     for (const m of at) assert.match(m[1], /\bdir="auto"/, `${what} takes the page's direction, its full stop at its start in Arabic`);
   }
 });
+
+test('every Health row has a Recheck that reruns only its own check and patches the cached report', () => {
+  const src = readFileSync(new URL('../components/HealthActions.tsx', import.meta.url), 'utf8');
+  assert.match(src, /\/api\/admin\/health\/recheck/);
+  assert.match(src, /setQueryData[\s\S]{0,80}\['admin-health'\]/);
+  assert.match(src, /data-health-recheck/);
+  assert.match(src, /hook: 'recheck'/);
+  assert.match(src, /tr\('No longer a problem'\)/);
+});

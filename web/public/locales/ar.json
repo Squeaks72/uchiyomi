@@ -2,7 +2,7 @@
   "_meta": {
     "language": "ar",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 3857
+    "strings": 3861
   },
   "1 check found something": "فحص واحد وجد شيئًا",
   "1 member": "عضو واحد",
@@ -3860,5 +3860,9 @@
   "Removed 1 chapter from the library": "تمت إزالة فصل واحد من المكتبة",
   "Remove 1 chapter from the series?": "إزالة فصل واحد من السلسلة؟",
   "1 duplicate file will be deleted.": "سيتم حذف ملف مكرر واحد.",
-  "{n} duplicate files will be deleted.": "سيتم حذف {n} ملفًا مكررًا."
+  "{n} duplicate files will be deleted.": "سيتم حذف {n} ملفًا مكررًا.",
+  "Recheck": "إعادة الفحص",
+  "Still there": "لا تزال موجودة",
+  "No longer a problem": "لم تعد مشكلة",
+  "Could not recheck": "تعذّرت إعادة الفحص"
 }

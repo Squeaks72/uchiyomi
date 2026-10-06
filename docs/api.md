@@ -599,6 +599,9 @@ ignoring it: the finding is then reported greyed (`ignored`, `info`), stays quie
 missing runs, a folder's files) is part of what was ignored, and its ignore is forgotten once it has been gone
 for a week. Short chapters use confirm-short, which already records the same judgement.
 
+`POST /api/admin/health/recheck` takes `{check}` (a check id) and runs that one check again, read-only: `{generatedAt, check}`,
+`check` null when it has nothing to report any more. Health's Recheck beside each finding uses it.
+
 **Fix everything** (since v0.55.0). `POST /api/admin/health/autofix` (`{}`) starts one background run that drives
 every Health card it can to green -- 202 `{ok, runId}`, or 409 `{error: 'busy', running}` beside another run
 (`autofix`), a repair (`repair`), a Find or Replace (`find`) or a chapter sweep (`sweep`); a repair and a Find started
@@ -1483,6 +1486,7 @@ DELETE /api/downloads/:bookId     GET    /api/books/:id/download-manifest
 ```
 GET    /api/admin/stats           GET    /api/admin/health
 GET    /api/admin/health/summary  POST   /api/admin/health/ignore
+POST   /api/admin/health/recheck
 POST   /api/admin/health/autofix  GET    /api/admin/health/autofix
 GET    /api/admin/health/autofix/:runId POST /api/admin/health/autofix/stop
 GET    /api/admin/settings        PATCH  /api/admin/settings

@@ -91,7 +91,7 @@ import { titlesFromBackup, entriesFromBackup, type BackupEntry } from '../lib/ta
 import { linkSeries, seedTrackerFloor } from '../lib/trackers';
 import { ADAPTERS, PROVIDERS, LIST_STATUSES, TRACKER_LIST_MAX, type Provider, type LibraryEntry } from '../lib/trackerProviders';
 import { open as unseal } from '../lib/secretbox';
-import { findingOf, runHealthChecks } from '../lib/health';
+import { findingOf, recheckCheck, RECHECKABLE_CHECKS, runHealthChecks } from '../lib/health';
 import { autofixRun, autofixSeriesIds, autofixState, scrubAutofixRecord, scrubAutofixRun, startAutofix, stopAutofix } from '../lib/autofix';
 import { IGNORABLE_CHECKS, ignoreFinding, unignoreFinding } from '../lib/healthIgnore';
 import { readHealthSummary, scheduleHealthSummaryRefresh, storeHealthSummary } from '../lib/healthSummary';
@@ -3726,6 +3726,15 @@ export default async function adminRoutes(app: FastifyInstance) {
     // What the header shows (#101): refreshed whenever somebody looks, so it never disagrees with the page.
     await storeHealthSummary(report).catch(() => {});
     return report;
+  });
+  /**
+   * Run ONE check again (the Recheck beside a finding): read-only, never stored, so the header summary keeps saying
+   * what the last full run said. `check` is null when the check has nothing to report any more.
+   */
+  app.post('/api/admin/health/recheck', async (req, reply) => {
+    const b = z.object({ check: z.enum(RECHECKABLE_CHECKS) }).safeParse(req.body ?? {});
+    if (!b.success) return reply.code(400).send({ error: 'bad_request', message: b.error.issues[0]?.message ?? 'Bad body' });
+    return { generatedAt: new Date().toISOString(), check: await recheckCheck(b.data.check) };
   });
   // The header's question, answered from what is stored: never runs the checks (lib/healthSummary.ts).
   app.get('/api/admin/health/summary', async () => ({ summary: await readHealthSummary() }));

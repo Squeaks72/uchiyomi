@@ -37,6 +37,8 @@ import { t as tr } from '@/lib/i18n';
 import { deletedText, skippedBookmarkedText, skippedNotOursText } from '@/lib/counted';
 import { isDesktop } from '@/lib/desktop';
 import { languageName } from '@/lib/format';
+import { itemKey } from '@/lib/healthKeys';
+import type { HealthCheck as HealthCheckT } from '@/lib/types';
 import { IDLE, actionButton, isBusy, type ActionState } from '@/lib/actionState';
 import { triggerRefresh, type RefreshAnswer, type ScanProgress } from '@/lib/refresh';
 import {
@@ -141,6 +143,45 @@ export interface CompactRow {
   hooks?: Record<`data-${string}`, string>;
 }
 
+type RecheckNote = { kind: 'there' | 'failed'; text: string } | null;
+
+/**
+ * A row's Recheck: ONE check run again on the server (POST /api/admin/health/recheck), put into the page's cached
+ * report in place, so nothing else on the page reloads or moves. The row is looked for by the same identity its
+ * React key is made of (lib/healthKeys.ts); gone from the answer, it is resolved -- said in a notice, because the row
+ * goes with it.
+ */
+function useRowRecheck(check: HealthCheck, item: HealthItem) {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<RecheckNote>(null);
+  const run = async () => {
+    if (busy) return;
+    setBusy(true);
+    setNote(null);
+    try {
+      const r = await api<{ generatedAt: string; check: HealthCheckT | null }>('/api/admin/health/recheck', { json: { check: check.id } });
+      const want = itemKey(check.id, item);
+      const still = !!r.check?.items.some((it) => itemKey(check.id, it) === want);
+      qc.setQueryData<{ generatedAt: string; checks: HealthCheckT[] } | undefined>(['admin-health'], (old) => {
+        if (!old) return old;
+        const checks = r.check
+          ? old.checks.map((c) => (c.id === check.id ? r.check! : c))
+          : old.checks.filter((c) => c.id !== check.id);
+        return { ...old, checks };
+      });
+      if (still) setNote({ kind: 'there', text: tr('Still there') });
+      else toast(tr('No longer a problem'), 'success');
+    } catch (e) {
+      setNote({ kind: 'failed', text: msgOf(e, tr('Could not recheck')) });
+    } finally {
+      setBusy(false);
+    }
+  };
+  return { busy, note, run };
+}
+
 /**
  * One finding's row: its words (the caller's children -- title, detail, and #115's evidence), what the last
  * attempt found, what an action will not be able to do, the keys, and the status line.
@@ -180,6 +221,7 @@ export function HealthRow({ check, item, rowKey, links, children, compact }: {
   // carries it -- item.diagnosis and the stage lines, drawn by SourceEvidence among the row's children -- so there
   // is ONE verdict on screen, and it survives a reload. The Test's own fix sentence used to sit here as well.
 
+  const rc = useRowRecheck(check, item);
   const actions: HealthAction[] = (item.actions || []).filter((a) => a !== 'solver_reset');
   const bookIds = item.bookIds?.length ? item.bookIds : item.bookId ? [item.bookId] : [];
   // A chapter already said to be fine is listed as `info` with a `fixed` stamp; its key is the way back out.
@@ -581,7 +623,10 @@ export function HealthRow({ check, item, rowKey, links, children, compact }: {
         disabled: !!sp.disabled || (st.kind === 'working' && !!st.stopping) || (groupBusy && !btn.stop),
         onSelect: () => { if (btn.stop && st.kind === 'working') st.onStop?.(); else sp.onRun?.(); },
       };
-    }), { label: compact?.name ?? '' });
+    }).concat([{
+      label: rc.busy ? tr('Checking…') : tr('Recheck'), hook: 'recheck', divider: true, disabled: rc.busy,
+      onSelect: () => { void rc.run(); },
+    } as MenuItem]), { label: compact?.name ?? '' });
 
   if (compact) {
     // The name, the key and the ⋯ share the first line, and the row's line runs under them: on a phone across the
@@ -616,6 +661,7 @@ export function HealthRow({ check, item, rowKey, links, children, compact }: {
           {caveats.map((c) => (
             <p key={c.text} data-health-caveat={c.tone} className={`mt-1 text-[11px] leading-relaxed ${c.tone === 'calm' ? 'text-fog-300' : 'text-amber-300'}`}>{c.text}</p>
           ))}
+          {rc.note && <p data-health-recheck-note={rc.note.kind} role="status" className={`mt-1 text-[11px] leading-relaxed ${rc.note.kind === 'failed' ? 'text-amber-300' : 'text-fog-300'}`}>{rc.note.text}</p>}
           <ActionStatus state={rowNow} />
           {finds.length > 0 && <ActionStatus state={findNow} />}
           {actions.includes('replace_source') && <ActionStatus state={replaceNow} />}
@@ -641,12 +687,15 @@ export function HealthRow({ check, item, rowKey, links, children, compact }: {
       {caveats.map((c) => (
         <p key={c.text} data-health-caveat={c.tone} className={`mt-1 text-[11px] leading-relaxed ${c.tone === 'calm' ? 'text-fog-300' : 'text-amber-300'}`}>{c.text}</p>
       ))}
-      {(specs.length > 0 || finds.length > 0) && (
-        <div className="mt-2 flex flex-wrap items-center gap-1.5">
-          {specs.length > 0 && <ActionKeys actions={specs} />}
-          {finds.length > 0 && <ActionKeys actions={finds} />}
-        </div>
-      )}
+      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+        {specs.length > 0 && <ActionKeys actions={specs} />}
+        {finds.length > 0 && <ActionKeys actions={finds} />}
+        <button type="button" data-health-recheck onClick={() => { void rc.run(); }} disabled={rc.busy} aria-busy={rc.busy}
+          aria-label={`${tr('Recheck')}: ${item.title}`} className="btn-key text-fog-300">
+          {rc.busy ? tr('Checking…') : tr('Recheck')}
+        </button>
+      </div>
+      {rc.note && <p data-health-recheck-note={rc.note.kind} role="status" className={`mt-1 text-[11px] leading-relaxed ${rc.note.kind === 'failed' ? 'text-amber-300' : 'text-fog-300'}`}>{rc.note.text}</p>}
       <ActionStatus state={rowNow} />
       {finds.length > 0 && <ActionStatus state={findNow} />}
       {actions.includes('replace_source') && <ActionStatus state={replaceNow} />}

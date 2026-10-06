@@ -10452,6 +10452,39 @@ paths:
           description: "Forbidden: token scope, account permission or age limit"
         "404":
           description: The finding is no longer there
+  /api/admin/health/recheck:
+    post:
+      tags:
+        - admin
+      summary: "Run one Health check again, on its own."
+      operationId: postApiAdminHealthRecheck
+      description: >-
+        Requires an admin account and a token carrying the admin scope. Scopes only ever restrict.
+        Body {check}: a check id as GET /api/admin/health reports it. Answers {generatedAt, check} where `check` is
+        that one check as the next full run would report it (same ignores), or null when it has nothing to report
+        any more. Read-only: it does not refresh the header summary.
+      security:
+        - bearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [check]
+              properties:
+                check:
+                  type: string
+                  enum: [chapter-gaps, numbering, short-chapters, outliers, saved-twice, duplicates, sources, chapter-failures, frozen-series, solver, update, library-scan, downloads-missing, folders-twice, extension-cap, extension-engine]
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Not authenticated
+        "403":
+          description: "Forbidden: token scope, account permission or age limit"
   /api/admin/health/autofix:
     post:
       tags:
