@@ -1502,7 +1502,7 @@ POST   /api/admin/update          POST   /api/admin/update/:id
 GET    /api/sources/popular      GET    /img/sources/icon/:id
 DELETE /api/sources/jobs/:folder  POST   /api/sources/jobs/:folder/cancel
 GET    /api/sources/preview       GET    /api/sources/preview/pages
-GET    /img/sources/preview
+GET    /img/sources/preview       GET    /img/series/:id/copy-page
 POST   /api/sources/runs/:kind/cancel
 DELETE /api/sources/runs/:kind
 GET    /api/admin/sources         POST   /api/admin/sources/:id/:action
@@ -1553,6 +1553,8 @@ POST   /api/admin/series/:id/merge
 GET    /api/admin/series/deleted
 POST   /api/admin/series/:id/check
 GET    /api/admin/series/:id/check
+GET    /api/admin/series/:id/cover-candidates
+GET    /api/admin/series/:id/copy-pages
 GET    /api/admin/series/:id/numbering POST   /api/admin/series/:id/numbering
 GET    /api/admin/art/overview    GET    /api/admin/art/candidates/:id
 POST   /api/admin/art/backfill    GET    /api/admin/art/backfill/status

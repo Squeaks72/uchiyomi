@@ -39,6 +39,8 @@ import { SourcesExplainer } from '@/components/SourcesExplainer';
 import { SupplyLine } from '@/components/SupplyLine';
 import { ChapterFilterSheet } from '@/components/ChapterFilterSheet';
 import { ChapterVersionsSheet } from '@/components/ChapterVersionsSheet';
+import { CompareCopiesDialog } from '@/components/CompareCopiesDialog';
+import { CoverPickerSheet } from '@/components/CoverPickerSheet';
 import { GroupAvatar } from '@/components/GroupAvatar';
 import { supplyLine } from '@/lib/supplyLine';
 import { isDesktop } from '@/lib/desktop';
@@ -395,7 +397,7 @@ function ButtonsWrap({ compact, menuOpen, children }: { compact: boolean; menuOp
   return <div className={buttonsClass(menuOpen)}>{children}</div>;
 }
 
-function ChapterRow({ book, downloaded, sourceNames, primarySource, versions, onReader, onToggleDownload, onMark, onEdit, onVersions, onCopyPath, onRemove, fresh, selectable, selected, onToggle, compact, lit }: {
+function ChapterRow({ book, downloaded, sourceNames, primarySource, versions, onReader, onToggleDownload, onMark, onEdit, onVersions, onReplaceFrom, onCopyPath, onRemove, fresh, selectable, selected, onToggle, compact, lit }: {
   book: Book;
   /** Fetched from this page a moment ago: a green tick sits where the ☁ was, for a few seconds. */
   fresh?: boolean;
@@ -423,6 +425,8 @@ function ChapterRow({ book, downloaded, sourceNames, primarySource, versions, on
   onEdit?: () => void;
   /** Opens the chapter sheet with every copy of this number; absent when the sources know none. */
   onVersions?: () => void;
+  /** Admins only: compare this file with another source's copy of the same number and swap it. Absent when no other source has one. */
+  onReplaceFrom?: () => void;
 }) {
   const [busy, setBusy] = useState(false);
   const rp = book.readProgress;
@@ -433,6 +437,7 @@ function ChapterRow({ book, downloaded, sourceNames, primarySource, versions, on
     { label: rp?.completed ? tr('Mark unread') : tr('Mark read'), onSelect: () => onMark(rp?.completed ? 'unread' : 'read') },
     { label: tr('Mark previous as read'), onSelect: () => onMark('previous') },
     ...(onVersions ? [{ label: tr('Versions'), divider: true, onSelect: onVersions }] : []),
+    ...(onReplaceFrom ? [{ label: tr('Replace from another source…'), onSelect: onReplaceFrom }] : []),
     ...(onEdit ? [{ label: tr('Edit number & title'), divider: true, onSelect: onEdit }] : []),
     ...(onCopyPath ? [{ label: tr('Copy file path'), divider: !onEdit, onSelect: onCopyPath }] : []),
     ...(onRemove ? [{ label: tr('Remove from library'), divider: true, danger: true, onSelect: onRemove }] : []),
@@ -1392,6 +1397,8 @@ function SeriesInner() {
   const pickGhost = (number: number, copy: VersionCopy) =>
     startJob('/api/sources/fetch', { seriesId: id, picks: [{ number, source: copy.source, sourceId: copySourceId(copy) }] });
   const [replacing, setReplacing] = useState<{ book: Book; copy: VersionCopy } | null>(null);
+  const [comparing, setComparing] = useState<Book | null>(null);
+  const [coverPicker, setCoverPicker] = useState(false);
   const replaceWith = async () => {
     if (!replacing) return;
     await startJob(`/api/admin/series/${id}/chapters/refetch`, { picks: [{ bookId: replacing.book.id, source: replacing.copy.source, sourceId: copySourceId(replacing.copy) }] });
@@ -1772,7 +1779,8 @@ function SeriesInner() {
                 onCopyPath={isAdmin && b.path ? () => void copyPath(b.path!, toast) : undefined}
                 selectable={selecting} selected={pickedBooks.has(b.id)} onToggle={() => togglePickBook(b.id)}
                 versions={versionsOf.get(b.number)?.length}
-                onVersions={versionsOf.has(b.number) ? () => setChapterSheet({ number: b.number, book: b }) : undefined} />
+                onVersions={versionsOf.has(b.number) ? () => setChapterSheet({ number: b.number, book: b }) : undefined}
+                onReplaceFrom={isAdmin && b.owned !== false && versionsOf.get(b.number)?.some((c) => !c.onDisk) ? () => setComparing(b) : undefined} />
             );
           }
           if (r.kind === 'ghost') {
@@ -1938,7 +1946,13 @@ function SeriesInner() {
           <div className="flex items-end gap-4 lg:block">
             <motion.div initial={{ opacity: 0, y: 18, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: 0.5, ease: [0.22, 0.61, 0.36, 1] }}
               className="h-44 w-32 shrink-0 overflow-hidden rounded-2xl border border-ink-600 shadow-lift lg:h-auto lg:w-full">
-              {series && <Img src={img.seriesThumb(id, series.artVersion, 800)} alt="" className="aspect-[2/3] h-full w-full" />}
+              {series && (isAdmin ? (
+                <button type="button" onClick={() => setCoverPicker(true)} aria-label={tr('Change cover')} title={tr('Change cover')} data-cover-button
+                  className="group relative block h-full w-full focus-visible:outline-2 focus-visible:outline-accent">
+                  <Img src={img.seriesThumb(id, series.artVersion, 800)} alt="" className="aspect-[2/3] h-full w-full" />
+                  <span className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-2 pb-2 pt-6 text-center text-xs font-medium text-white opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100">{tr('Change cover')}</span>
+                </button>
+              ) : <Img src={img.seriesThumb(id, series.artVersion, 800)} alt="" className="aspect-[2/3] h-full w-full" />)}
             </motion.div>
             {/* title beside cover on mobile */}
             <div className="min-w-0 pb-1 lg:hidden">
@@ -2121,6 +2135,13 @@ function SeriesInner() {
           onConfirm={bulkRefetch}
           onClose={() => setConfirming(null)}
         />
+      )}
+      {coverPicker && <CoverPickerSheet seriesId={id} artVersion={series?.artVersion} onClose={() => setCoverPicker(false)} />}
+      {comparing && (
+        <CompareCopiesDialog seriesId={id} book={comparing} copies={versionsOf.get(comparing.number) ?? []} sourceNames={sourceNames}
+          // The compare closes FIRST, then the confirm opens: the same Modal-over-Modal rule as the versions sheet.
+          onReplace={(copy) => { const b = comparing; setComparing(null); setReplacing({ book: b, copy }); }}
+          onClose={() => setComparing(null)} />
       )}
       {replacing && (
         <ConfirmDialog

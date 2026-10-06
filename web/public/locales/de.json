@@ -2,7 +2,7 @@
   "_meta": {
     "language": "de",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 3820
+    "strings": 3835
   },
   "1 check found something": "1 Prüfung hat etwas gefunden",
   "1 member": "1 Mitglied",
@@ -3823,5 +3823,20 @@
   "Could not copy the title": "Der Titel konnte nicht kopiert werden",
   "Search all sources for this title": "Alle Quellen nach diesem Titel durchsuchen",
   "Add another edition": "Weitere Ausgabe hinzufügen",
-  "Could not change the favorite": "Favorit konnte nicht geändert werden"
+  "Could not change the favorite": "Favorit konnte nicht geändert werden",
+  "Change cover": "Cover ändern",
+  "Use this cover": "Dieses Cover verwenden",
+  "Current cover": "Aktuelles Cover",
+  "Looking for covers…": "Suche nach Covern …",
+  "None of the sources following this series has a cover to offer right now.": "Keine der Quellen, die diese Serie verfolgen, hat gerade ein Cover anzubieten.",
+  "No page {n}": "Keine Seite {n}",
+  "Could not load this page": "Diese Seite konnte nicht geladen werden",
+  "Compare copies": "Kopien vergleichen",
+  "No other source has a copy of this chapter.": "Keine andere Quelle hat eine Kopie dieses Kapitels.",
+  "Copy to compare": "Zu vergleichende Kopie",
+  "Previous page": "Vorherige Seite",
+  "Next page": "Nächste Seite",
+  "Replace with this copy": "Durch diese Kopie ersetzen",
+  "The two copies have different page counts, so later pages will not line up.": "Die beiden Kopien haben unterschiedlich viele Seiten, daher stimmen spätere Seiten nicht überein.",
+  "Replace from another source…": "Von anderer Quelle ersetzen …"
 }
