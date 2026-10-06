@@ -71,7 +71,9 @@ test('sourceBrowsableFor: named sources hide only while the switch is on, case-i
   const on = ctx([], { adultSources: ['sw:99'] });
   assert.equal(V.sourceBrowsableFor({ id: 'SW:99' }, on), false);
   assert.equal(V.sourceBrowsableFor({ id: 'sw:100' }, on), true);
-  assert.equal(V.sourceBrowsableFor({ id: 'sw:100', isNsfw: true }, on), false, 'the extension flag stopped counting');
+  assert.equal(V.sourceBrowsableFor({ id: 'sw:100', isNsfw: true }, on), true,
+    'a source whose extension merely CAN carry 18+ stays in; its titles are judged one by one, not the site as a whole');
+  assert.equal(V.sourceBrowsableFor({ id: 'SW:99', isNsfw: true }, on), false, 'a source the admin named is out, flagged or not');
   assert.equal(V.sourceBrowsableFor({ id: 'sw:99' }, { ...on, hideAdultLibraries: false }), true);
   // The permission still wins over the reveal: an account capped below 18 never reaches an NSFW source.
   assert.equal(V.sourceBrowsableFor({ id: 'x', isNsfw: true }, { ...on, hideAdultLibraries: false, maxAgeRating: 16 }), false);

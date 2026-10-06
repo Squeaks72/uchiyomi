@@ -368,9 +368,13 @@ export function adultFilterConfigured(ctx: ViewCtx): boolean {
 export function sourceBrowsableFor(src: { id?: string; isNsfw?: boolean } | null | undefined, ctx: ViewCtx): boolean {
   if (!sourceAllowedFor(src, ctx.maxAgeRating)) return false;
   if (!ctx.hideAdultLibraries) return true;
-  if (src?.isNsfw) return false;
-  // Named by the admin as adult even though its extension does not say so. The list is lowercased on the
-  // way in, so the comparison is too.
+  // The extension's own `isNsfw` is deliberately NOT a reason to hide a source here. Suwayomi sets it per
+  // EXTENSION, so it is on every site that CAN carry adult titles -- MangaDex, MangaFire, Toonily, Tapas --
+  // and hiding them wholesale left Show 18+ off with a handful of sources and no good results. Those sources
+  // stay in the fan-out and each title is judged on its own (lib/searchAll.ts ratingOf, routes/sources.ts).
+  // A site that is adult through and through is the admin's call: name it in adult_sources and it drops out
+  // here, whatever its extension says. The age cap above is unaffected: it still walls off every flagged source.
+  // The list is lowercased on the way in, so the comparison is too.
   return !(src?.id && (ctx.adultSources ?? []).includes(String(src.id).toLowerCase()));
 }
 

@@ -101,6 +101,9 @@ before(async () => {
   // The detail lookup is two calls; the one that answers last is the one a second caller would wait on.
   adapters[DETAIL].getSeries = async (sid: string) => { calls[DETAIL]++; await sleep(200); return { sourceId: sid, source: DETAIL, title: 'Detail Title' }; };
   for (const a of Object.values(adapters)) registerAdapter(a as any);
+  // ADULT is flagged by its extension AND named by the admin: the flag alone no longer keeps a source out while Show 18+ is off.
+  await q(`UPDATE server_settings SET adult_sources = $1::jsonb WHERE id = 1`, [JSON.stringify([ADULT])]);
+  (await import('../src/lib/visibility')).invalidateAdultFilter();
 
   await q('DELETE FROM source_health WHERE source_id = ANY($1)', [ALL]);
   await q('DELETE FROM users WHERE username = ANY($1)', [USERS]);
@@ -124,6 +127,7 @@ after(async () => {
   await app?.close();
   await q('DELETE FROM source_health WHERE source_id = ANY($1)', [ALL]);
   await q('DELETE FROM users WHERE username = ANY($1)', [USERS]);
+  await q(`UPDATE server_settings SET adult_sources = '[]'::jsonb WHERE id = 1`).catch(() => {});
 });
 
 test('the first answer comes a grace after the fast source, with the slow ones still pending', { skip }, async () => {
@@ -561,16 +565,23 @@ test("a site's own 18+ flag makes a card 18+ only when no unflagged site carries
     const shared = all.content.find((g: any) => g.title === 'Flag Shared');
     assert.deepEqual(shared.providers.map((p: any) => [p.source, p.rating ?? '?']).sort(), [['sb-aggregator', 'adult'], ['sb-plainsite', '?']],
       'each provider still says what its own site declares');
-    assert.deepEqual(Object.keys(cards(await ask('&rating=safe'))).sort(), ['Flag Safe Elsewhere', 'Flag Shared'], 'Hide 18+');
+    // Hide 18+ judges each title: a site's own flag no longer condemns what nothing else speaks against. Only the titles with
+    // a known reason go -- MangaDex's erotica, the admin's named site -- so a title only a flagged site carries is shown.
+    // Reintroduce the flag as a verdict under Hide 18+ (drop `trustFlag` from the `rated` in search-all): Flag Only Here and
+    // Flag Two Adult Sites leave, as they did before.
+    assert.deepEqual(Object.keys(cards(await ask('&rating=safe'))).sort(),
+      ['Flag Only Here', 'Flag Safe Elsewhere', 'Flag Shared', 'Flag Two Adult Sites'], 'Hide 18+');
     assert.deepEqual(Object.keys(cards(await ask('&rating=adult'))).sort(),
       ['Flag Erotica Elsewhere', 'Flag Named Elsewhere', 'Flag Only Here', 'Flag Two Adult Sites'], '18+ only');
-    // A rail is one site, and nothing vouches for a flagged site's titles there: under Hide 18+ it draws nothing.
+    // A rail is one site's own copy of each title, so under Hide 18+ the flagged site's rail draws every title it carries:
+    // that the plain site rates one of them erotica is that site's word, not this one's.
     const rails = await ask('&rating=safe&groupBy=source');
-    assert.ok(!rails.content.some((x: any) => x.source === 'sb-aggregator'), "a flagged site's rail is still 18+");
+    assert.deepEqual(rails.content.find((x: any) => x.source === 'sb-aggregator').results.map((r: any) => r.title).sort(),
+      ['Flag Erotica Elsewhere', 'Flag Named Elsewhere', 'Flag Only Here', 'Flag Safe Elsewhere', 'Flag Shared', 'Flag Two Adult Sites']);
     assert.deepEqual(rails.content.find((x: any) => x.source === 'sb-plainsite').results.map((r: any) => r.title).sort(),
       ['Flag Safe Elsewhere', 'Flag Shared']);
   } finally {
-    await q(`UPDATE server_settings SET adult_sources = '[]'::jsonb WHERE id = 1`);
+    await q(`UPDATE server_settings SET adult_sources = $1::jsonb WHERE id = 1`, [JSON.stringify([ADULT])]);
     invalidateAdultFilter();
   }
 });

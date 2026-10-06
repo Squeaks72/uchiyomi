@@ -352,9 +352,14 @@ export interface AdultLists { genres: readonly string[]; sources: readonly strin
  * match. Anything else is unknown: most extensions name no genres in a search, and an unknown result is shown under All
  * and Hide 18+, never under 18+ only. Reintroduce by matching genres without the fold: "a genre is matched as the
  * library matches it" in adultFilter.int.test.ts keeps the 18+ result under Hide 18+.
+ *
+ * `trustFlag` false ignores the extension's declaration, for a viewer who is hiding 18+: Suwayomi flags whole extensions, so
+ * most mainstream sites carry it, and the question there is whether THIS title is 18+, which the title's own signals
+ * (and the admin's source list) answer. A title nothing speaks for is then unknown, and shown.
  */
 export function ratingOf(
   item: Pick<SourceSeries, 'genres' | 'contentRating'>, src: { id?: string; isNsfw?: boolean } | null | undefined, lists: AdultLists,
+  trustFlag = true,
 ): Judged | undefined {
   if (src?.id && lists.sources.includes(String(src.id).toLowerCase())) return 'adult';
   if (item.contentRating === 'erotica' || item.contentRating === 'pornographic') return 'adult';
@@ -362,7 +367,7 @@ export function ratingOf(
   const adult = new Set(lists.genres.map(fold).filter(Boolean));
   const genres = (Array.isArray(item.genres) ? item.genres : []).filter((g): g is string => typeof g === 'string').map(fold).filter(Boolean);
   if (genres.some((g) => adult.has(g))) return 'adult';
-  if (src?.isNsfw) return 'flagged';
+  if (trustFlag && src?.isNsfw) return 'flagged';
   if (item.contentRating === 'safe' || item.contentRating === 'suggestive') return 'safe';
   if (genres.length && adult.size) return 'safe';
   return undefined;
