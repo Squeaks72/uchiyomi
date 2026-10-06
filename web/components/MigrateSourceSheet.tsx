@@ -179,7 +179,7 @@ export function MigrateSourceSheet({ id, title, attached, mainId, listed, onDone
                 <button type="button" onClick={() => setSelected(null)} className="text-accent" data-migrate-sources-all>{tr('Select all')}</button>
                 <button type="button" onClick={() => setSelected([])} className="text-accent" data-migrate-sources-none>{tr('Select none')}</button>
               </div>
-              <div className="max-h-56 overflow-y-auto">
+              <div className="max-h-56 overflow-y-auto" data-lenis-prevent>
                 {allSources.map((s) => (
                   <label key={s.id} className="flex items-center gap-2 rounded-lg px-1 py-1.5 text-xs text-fog-200">
                     <input type="checkbox" checked={pickedIds.includes(s.id)} onChange={() => toggleSource(s.id)} className="accent-[rgb(var(--accent))]" />

@@ -143,9 +143,9 @@ function toSeries(m: RemoteManga, adapterId: string): SourceSeries | null {
 }
 
 /** `position` is the row's 1-based place in the engine's answer: the order when the row carries none. */
-function toChapter(c: RemoteChapter, position: number): SourceChapter | null {
+function toChapter(c: RemoteChapter, position: number, byListOrder?: number): SourceChapter | null {
   if (c?.id == null) return null;
-  const num = typeof c.chapterNumber === 'number' ? c.chapterNumber : NaN;
+  const num = byListOrder ?? (typeof c.chapterNumber === 'number' ? c.chapterNumber : NaN);
   // A chapter with no usable number can't be ordered, named or diffed against the library — drop it rather
   // than inventing 0, which would collide with a real chapter 0.
   if (!Number.isFinite(num) || num < 0) return null;
@@ -259,13 +259,25 @@ export function makeSuwayomiAdapter(remote: RemoteSource, run: Gql = defaultGql)
       // say who released what. Sorting stays: callers diff the list in order. The position is taken BEFORE
       // the sort and before junk rows are dropped: the engine answers in sourceOrder, so a row's place in
       // its answer is its posting order when the row does not say.
-      const out = list
+      let out = list
         .map((c, i) => toChapter(c, i + 1))
         .filter((c): c is SourceChapter => !!c)
         .sort((a, b) => a.number - b.number);
       // How many rows toChapter dropped for having no usable number (#115): on the FINAL array, after the sort,
       // so the smoke test can tell "no numbers" from "no chapters". Non-enumerable (types.ts UNNUMBERED).
-      const dropped = list.filter((c) => c?.id != null).length - out.length;
+      let dropped = list.filter((c) => c?.id != null).length - out.length;
+      // Fork change: a source that gives NO chapter a number (Simply Hentai and its kind: one-shots, galleries)
+      // lists its posts in the order the site keeps them, which the engine reports oldest first. Number them
+      // 1..K by that order rather than reading the whole series as empty. Only when every row lacks a number, so
+      // a real chapter 3 can never meet a made-up 3; a list with some numbers keeps dropping the stray rows.
+      const withId = list.filter((c) => c?.id != null).length;
+      if (out.length === 0 && withId > 0) {
+        let rank = 0;
+        out = list
+          .map((c, i) => (c?.id == null ? null : toChapter(c, i + 1, ++rank)))
+          .filter((c): c is SourceChapter => !!c);
+        dropped = out.length;
+      }
       if (dropped > 0) Object.defineProperty(out, UNNUMBERED, { value: dropped });
       return out;
     },

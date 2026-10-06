@@ -190,7 +190,7 @@ its ceiling. The answer adds `{state, stage, ms, recorded}`: `state` is `pass`, 
 when the test's own deadline (`SOURCE_TEST_TIMEOUT_MS`, which now bounds every call inside it) ended it before
 anything failed, and `stage` is where (`search`, `chapters`, `pages`). `diagnosis.code` is never `ok` when
 `ok` is false; it can be `extension_error` (the extension engine answered with the extension's own error)
-or `unnumbered` (chapters listed without usable numbers), and `upstream_down` now means only that the engine
+or `unnumbered` (chapters listed without usable numbers; fork change: an extension that numbers *no* chapter now gets its list numbered 1..K by the source's own order, oldest first, so this only remains for lists that cannot be numbered), and `upstream_down` now means only that the engine
 itself did not answer or refused Uchiyomi's login. A pass reports `canClear` rather than clearing the
 block itself, because the smoke test stops at listing page URLs and never fetches an image byte. The
 `probe` is always present: `{httpStatus?, finalUrl?, transport?, looksHtml?, adapterOk, needsSolver}`,
