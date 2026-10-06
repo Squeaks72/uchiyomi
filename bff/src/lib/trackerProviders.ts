@@ -6,10 +6,10 @@
 // push progress and, since v0.36.0, read the account's list -- so those live here and the sync path and the
 // import intake pick an adapter instead of hardcoding AniList.
 //
-// All three connect by PASTING A TOKEN, which is the same honest, dependency-free path AniList already used:
-// no client registration, no redirect URLs to configure, nothing to keep secret server-side. A full OAuth
-// dance would need every self-hoster to register an application with each service and put the secret in
-// their compose file, which is a worse trade for a household app than copying a token once.
+// People connect by signing in (lib/trackerOauth.ts: AniList and MyAnimeList through a redirect back to the app,
+// Kitsu with its username and password). Pasting an access token still works for each, for anyone who already
+// has one and for installs where no admin has registered an application. Either way the token ends up in
+// the same place, so everything below this comment neither knows nor cares which way it arrived.
 
 export type Provider = 'anilist' | 'myanimelist' | 'kitsu';
 
@@ -186,7 +186,7 @@ const ANILIST_SAVE = `mutation($mediaId:Int,$progress:Int,$status:MediaListStatu
 export const anilistAdapter: TrackerAdapter = {
   id: 'anilist',
   label: 'AniList',
-  tokenHelp: 'anilist.co → Settings → Developer → create a client, then copy the access token.',
+  tokenHelp: 'Sign in with AniList, or paste an access token you already have.',
   tokenDays: 365,
   async whoAmI(token) {
     const d = await anilistCall(token, 'query{Viewer{id name}}', {});
@@ -273,7 +273,7 @@ export const malAdapter: TrackerAdapter = {
   label: 'MyAnimeList',
   // MAL issues tokens through OAuth2 with PKCE; the practical path for a self-hoster is to obtain one once
   // and paste it, exactly as with AniList.
-  tokenHelp: 'myanimelist.net → Account settings → API, create an app and obtain an access token.',
+  tokenHelp: 'Sign in with MyAnimeList, or paste an access token you already have.',
   tokenDays: 31,   // MAL access tokens are short-lived; surfacing that is the whole point of storing it
   async listLibrary(token, { statuses, max }) {
     if (!statuses.length || !(max > 0)) return [];
@@ -374,7 +374,7 @@ async function kitsuCall(token: string, path: string, init?: RequestInit): Promi
 export const kitsuAdapter: TrackerAdapter = {
   id: 'kitsu',
   label: 'Kitsu',
-  tokenHelp: 'Kitsu issues a token from its OAuth endpoint with your username and password; paste it here.',
+  tokenHelp: 'Sign in with your Kitsu username and password, or paste an access token you already have.',
   tokenDays: 30,
   async listLibrary(token, { statuses, max }) {
     if (!statuses.length || !(max > 0)) return []; // an empty filter[status] would page the whole library

@@ -83,6 +83,18 @@ The tracker calls are the only ones this server makes **with your token**: AniLi
 each connected by you under **Profile → Connections → Progress tracking**, and only for reading your list (the
 import) and reporting what you finished. Nothing carrying a token goes to a tracker you have not connected.
 
+**One-time setup, by an admin.** AniList and MyAnimeList sign people in through an application registered with
+them, so someone registers one each and gives its client ID to Uchiyomi once, under **Profile → Connections →
+Progress tracking** (admins see a *Set up sign-in* card; the redirect URL to register is shown there with a copy
+button, and is `<your Uchiyomi address>/tracker-callback/`). AniList: *Settings → Developer → Create new client*,
+paste that redirect URL, and copy the client ID. MyAnimeList: *Account settings → API → Create ID*, app type *web*,
+the same redirect URL, and copy the client ID (and the secret, if it shows one). After that every member just clicks
+**Connect**. Kitsu needs no setup: members sign in with their username and password, which is used once to get a token
+and not kept. The same IDs can come from the environment instead (`ANILIST_CLIENT_ID`, `MYANIMELIST_CLIENT_ID`,
+`MYANIMELIST_CLIENT_SECRET`); an ID saved in the app wins. The redirect address has to be the one people open
+Uchiyomi at, so a server reached by two names needs the sign-in done at the registered one. MyAnimeList tokens last
+about a month and are not refreshed yet, so MyAnimeList asks to be reconnected monthly.
+
 Two of those services are also asked **without** any token, by title, whether or not anyone has connected
 them. By default, every series added gets its title sent to AniList (`graphql.anilist.co`) once, for banner and cover
 art; a series with no art on record is looked up the same way the first time its art is requested, and that

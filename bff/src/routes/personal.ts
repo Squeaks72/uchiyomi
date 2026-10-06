@@ -16,6 +16,7 @@ import { env } from '../env';
 import { pushEnabled, vapidPublicKey, saveSubscription, removeSubscription } from '../lib/push';
 import { statusFor, saveConnection, disconnect, whoAmI, pushSeriesProgress, pushSeriesProgressAsync, clearTrackerFloor } from '../lib/trackers';
 import { ADAPTERS, isProvider, type Provider } from '../lib/trackerProviders';
+import { exchangeMalCode, kitsuPasswordLogin, type TokenGrant } from '../lib/trackerOauth';
 import { logAudit } from '../lib/audit';
 import { noticeBook } from '../lib/noticeChapters';
 import { settingsBody } from '../lib/accountSettings';
@@ -786,29 +787,62 @@ export default async function personalRoutes(app: FastifyInstance) {
   // ---- external progress trackers (AniList) ----
   app.get('/api/trackers', async (req) => ({ content: await statusFor(userIdOf(req)) }));
 
-  // Connect by pasting a token, for any provider. This is the honest, dependency-free path: a full OAuth
-  // dance would make every self-hoster register an application with each service and keep its secret in
-  // their compose file, which is a worse trade for a household app than copying a token once.
-  //
-  // The token is verified against the service before it is stored, so a typo fails here with the service's
-  // own answer rather than silently at 3am when the first chapter tries to sync.
-  const connectTracker = async (provider: Provider, req: any, reply: any) => {
-    const b = z.object({ token: z.string().min(10).max(4000) }).safeParse(req.body);
+  // Every way of connecting ends in the same place: a token the service has just vouched for. `finishConnect`
+  // proves it, records when it lapses and stores it, so signing in with a redirect, with a password or with
+  // a pasted token cannot drift apart. The token is verified before it is stored, so a typo fails here with
+  // the service's own answer rather than silently at 3am when the first chapter tries to sync.
+  const finishConnect = async (provider: Provider, req: any, reply: any, token: string, expiresInSec: number | null = null) => {
     const adapter = ADAPTERS[provider];
-    if (!b.success) return reply.code(400).send({ error: 'bad_request', message: `Paste your ${adapter.label} token.` });
     let who;
     try {
-      who = await whoAmI(b.data.token.trim(), provider);
+      who = await whoAmI(token, provider);
     } catch {
       return reply.code(400).send({ error: 'rejected', message: `${adapter.label} did not accept that token.` });
     }
     if (!who) return reply.code(400).send({ error: 'rejected', message: `${adapter.label} did not accept that token.` });
     // Record the expiry so the UI can warn before it lapses; none of these services can refresh silently.
-    const expires = adapter.tokenDays ? new Date(Date.now() + adapter.tokenDays * 86400000) : null;
-    await saveConnection(userIdOf(req), provider, b.data.token.trim(), who.name, expires);
+    const expires = expiresInSec ? new Date(Date.now() + expiresInSec * 1000)
+      : adapter.tokenDays ? new Date(Date.now() + adapter.tokenDays * 86400000) : null;
+    await saveConnection(userIdOf(req), provider, token, who.name, expires);
     await logAudit('tracker.connect', { userId: userIdOf(req), detail: { provider, account: who.name }, req });
     return { ok: true, account: who.name };
   };
+
+  const grantFailed = (provider: Provider, reply: any, e: any) => {
+    const label = ADAPTERS[provider].label;
+    if (e?.rejected) return reply.code(400).send({ error: 'rejected', message: e.message || `${label} did not accept that sign-in.` });
+    return reply.code(502).send({ error: 'unreachable', message: `Could not reach ${label}. Try again in a moment.` });
+  };
+
+  const connectTracker = async (provider: Provider, req: any, reply: any) => {
+    const b = z.object({ token: z.string().min(10).max(4000) }).safeParse(req.body);
+    if (!b.success) return reply.code(400).send({ error: 'bad_request', message: `Paste your ${ADAPTERS[provider].label} token.` });
+    return finishConnect(provider, req, reply, b.data.token.trim());
+  };
+
+  // MyAnimeList, second half of the redirect: the callback page sends the code it was given and the verifier it
+  // kept, and the server swaps them for a token (the client secret, if there is one, never leaves the server).
+  app.post('/api/trackers/myanimelist/oauth', async (req, reply) => {
+    const b = z.object({
+      code: z.string().min(5).max(2000), verifier: z.string().min(43).max(128), redirectUri: z.string().url().max(500),
+    }).safeParse(req.body);
+    if (!b.success) return reply.code(400).send({ error: 'bad_request', message: 'The sign-in did not come back complete. Start again.' });
+    let grant: TokenGrant;
+    try { grant = await exchangeMalCode(b.data.code, b.data.verifier, b.data.redirectUri); }
+    catch (e) { return grantFailed('myanimelist', reply, e); }
+    return finishConnect('myanimelist', req, reply, grant.token, grant.expiresInSec);
+  });
+
+  // Kitsu has no application to register and no redirect: it trades a username and password for a token. The
+  // password is used for that one call and not stored or logged.
+  app.post('/api/trackers/kitsu/login', async (req, reply) => {
+    const b = z.object({ username: z.string().min(1).max(320), password: z.string().min(1).max(500) }).safeParse(req.body);
+    if (!b.success) return reply.code(400).send({ error: 'bad_request', message: 'Enter your Kitsu username (or email) and password.' });
+    let grant: TokenGrant;
+    try { grant = await kitsuPasswordLogin(b.data.username.trim(), b.data.password); }
+    catch (e) { return grantFailed('kitsu', reply, e); }
+    return finishConnect('kitsu', req, reply, grant.token, grant.expiresInSec);
+  });
 
   // Kept as its own path for the clients and docs that already reference it.
   app.post('/api/trackers/anilist', async (req, reply) => connectTracker('anilist', req, reply));
