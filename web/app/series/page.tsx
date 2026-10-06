@@ -17,6 +17,7 @@ import { useAuth, canDownload } from '@/lib/auth';
 import { IcChevronLeft, IcHeart, IcStar, IcPlay, IcDownload, IcCloudDownload, IcCheck, IcTrash, IcMoments, IcHourglass, IcRefresh } from '@/components/icons';
 import { t as tr } from '@/lib/i18n';
 import { statusText } from '@/lib/activity';
+import { applyFavorite } from '@/lib/favoriteCache';
 import { deletedText, selectedText, skippedBookmarkedText, skippedNotOursText } from '@/lib/counted';
 import { reasonText, type Said } from '@/lib/said';
 import { offlineOutcome } from '@/lib/notices';
@@ -1061,6 +1062,7 @@ function SeriesInner() {
     try {
       if (next) await api('/api/favorites', { json: { seriesId: id } });
       else await api(`/api/favorites/${id}`, { method: 'DELETE' });
+      applyFavorite(qc, id, next);
       qc.invalidateQueries({ queryKey: ['home'] });
     } catch { setFav(!next); }
   };

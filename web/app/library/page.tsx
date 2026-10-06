@@ -21,6 +21,7 @@ import { LibraryFilters, NO_SOURCE, SORTS, READ_STATES, STATUSES, useLibrarySour
 import { Sheet } from '@/components/ui';
 import { useArchiveEnqueue } from '@/components/ArchiveQueue';
 import { t as tr } from '@/lib/i18n';
+import { applyFavorite } from '@/lib/favoriteCache';
 import { selectedText } from '@/lib/counted';
 import { archiveWhy } from '@/lib/archive';
 import { followBulkNewest, BULK_NEWEST_POLL_MS, type BulkNewestStatus } from '@/lib/bulkNewest';
@@ -276,6 +277,7 @@ function LibraryInner() {
       const gone = r.skipped.length === 1 ? tr('1 series is no longer in the library')
         : tr('{n} series are no longer in the library', { n: r.skipped.length });
       toast(r.skipped.length ? `${updated} · ${gone}` : updated, 'success');
+      if (typeof extra.favorite === 'boolean') { const gone = new Set(r.skipped.map((x) => x.id)); for (const sid of picked) if (!gone.has(sid)) applyFavorite(qc, sid, extra.favorite); }
       settle();
     } catch { toast(tr('Could not apply that'), 'error'); }
     setActing(false);
