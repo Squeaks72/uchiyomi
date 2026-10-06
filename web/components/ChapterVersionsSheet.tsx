@@ -10,6 +10,7 @@
 // downloaded). ⚠️ Replace… CLOSES THIS SHEET before the confirm opens: the confirm is a Modal at z-50 and
 // this is a Sheet at z-60 in the same stacking context, so a confirm opened over it paints underneath the
 // backdrop and cannot be tapped. The page's `onReplace` does the closing; the sheet only asks.
+import { useId } from 'react';
 import type { Book, Ghost, VersionCopy } from '@/lib/types';
 import { Sheet } from '@/components/ui';
 import { GroupAvatar } from '@/components/GroupAvatar';
@@ -53,6 +54,7 @@ export function ChapterVersionsSheet({ number, ghost, book, copies, sourceNames,
   onNumbering?: () => void;
   onClose: () => void;
 }) {
+  const rowId = useId();
   const label = chapterLabel(book ?? { number });
   // Most sources title a chapter "Chapter 12", which under "Ch. 12" says nothing twice.
   const title = (book ? book.metadata?.title || book.name : ghost?.title)?.trim() || '';
@@ -91,13 +93,13 @@ export function ChapterVersionsSheet({ number, ghost, book, copies, sourceNames,
             <div key={c.key || `own${i}`} className="flex items-center gap-2.5 py-2.5 text-xs">
               <GroupAvatar name={who || '?'} size={18} />
               <span className="min-w-0 flex-1">
-                {titled && <span dir="auto" className="block truncate text-sm text-fog-100" data-copy-title>{c.title?.trim() || '—'}</span>}
+                {titled && <span id={`${rowId}-${i}`} dir="auto" className="block truncate text-sm text-fog-100" data-copy-title>{c.title?.trim() || '—'}</span>}
                 <span className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5">
-                  <span className={titled ? 'truncate text-[12px] text-fog-400' : 'truncate text-sm text-fog-100'}>{who || (titled ? '' : '—')}</span>
-                  {c.lang && <span className="rounded border border-ink-700 px-1 text-[10px] uppercase leading-4 text-fog-500">{c.lang}</span>}
-                  {c.onDisk && <span className="rounded-[4px] border border-ink-700 px-1.5 text-[10px] leading-4 text-fog-300">{tr('on server')}</span>}
-                  {c.chosen && <span className="rounded-[4px] border border-accent/40 px-1.5 text-[10px] leading-4 text-accent">{tr("server's pick")}</span>}
-                  {c.blocked && <span className="rounded-[4px] border border-rose-500/40 px-1.5 text-[10px] leading-4 text-rose-300">{tr('blocked group')}</span>}
+                  <span id={titled ? undefined : `${rowId}-${i}`} className={titled ? 'truncate text-[12px] text-fog-400' : 'truncate text-sm text-fog-100'}>{who || (titled ? '' : '—')}</span>
+                  {c.lang && <span className="rounded border border-ink-700 px-1 text-[11px] uppercase leading-4 text-fog-500">{c.lang}</span>}
+                  {c.onDisk && <span className="rounded-[4px] border border-ink-700 px-1.5 text-[11px] leading-4 text-fog-300">{tr('on server')}</span>}
+                  {c.chosen && <span className="rounded-[4px] border border-accent/40 px-1.5 text-[11px] leading-4 text-accent">{tr("server's pick")}</span>}
+                  {c.blocked && <span className="rounded-[4px] border border-rose-500/40 px-1.5 text-[11px] leading-4 text-rose-300">{tr('blocked group')}</span>}
                 </span>
                 <span className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-fog-500">
                   {c.pages != null && <span>{c.pages === 1 ? tr('1 page') : tr('{n} pages', { n: c.pages })}</span>}
@@ -111,12 +113,12 @@ export function ChapterVersionsSheet({ number, ghost, book, copies, sourceNames,
                 </span>
               </span>
               {mayFetch && !c.onDisk && (
-                <button type="button" onClick={() => onFetch(own ? undefined : c)} className="btn-key">
-                  <IcCloudDownload width={14} height={14} />{tr('Fetch')}
+                <button type="button" onClick={() => onFetch(own ? undefined : c)} aria-describedby={`${rowId}-${i}`} className="btn-key">
+                  <IcCloudDownload aria-hidden width={14} height={14} />{tr('Fetch')}
                 </button>
               )}
               {mayReplace && !own && (
-                <button type="button" onClick={() => onReplace(c)} disabled={c.onDisk} className="btn-key">{tr('Replace…')}</button>
+                <button type="button" onClick={() => onReplace(c)} disabled={c.onDisk} aria-describedby={`${rowId}-${i}`} className="btn-key">{tr('Replace…')}</button>
               )}
             </div>
           );

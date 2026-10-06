@@ -55,18 +55,24 @@ function SearchInner() {
   return (
     <div className="min-h-screen-d">
       <header className="safe-top sticky top-0 z-30 bg-ink-950/85 px-4 pb-3 backdrop-blur-xl lg:static lg:bg-transparent lg:px-0 lg:pt-6 lg:backdrop-blur-none">
+        <h1 className="sr-only">{tr('Search')}</h1>
         <div className="flex items-center gap-2 rounded-2xl border border-ink-600 bg-ink-850 px-3.5 py-3 focus-within:border-accent lg:max-w-xl">
           <IcSearch width={20} height={20} className="text-fog-500" />
           <input
             ref={inputRef}
+            type="search"
+            enterKeyHint="search"
+            autoComplete="off"
+            aria-label={tr('Search your library…')}
             value={q}
             onChange={(e) => setQ(e.target.value)}
             onBlur={() => remember(debounced)}
             placeholder={tr('Search your library…')}
-            className="w-full bg-transparent text-base text-fog-50 outline-hidden placeholder:text-fog-500"
+            className="w-full bg-transparent text-base text-fog-50 outline-hidden focus-visible:outline-accent focus-visible:outline-offset-0 placeholder:text-fog-500"
           />
           {q && (
-            <button onClick={() => setQ('')} className="text-fog-500">
+            <button type="button" onClick={() => { setQ(''); inputRef.current?.focus(); }} aria-label={tr('Clear search')}
+              className="relative grid h-6 w-6 place-items-center text-fog-500 before:absolute before:-inset-2">
               <IcX width={18} height={18} />
             </button>
           )}
@@ -75,8 +81,8 @@ function SearchInner() {
 
       {debounced.length < 2 && recent.length > 0 && (
         <div className="px-5 pt-5 lg:px-0">
-          <p className="mb-2 text-xs font-medium uppercase tracking-wider text-fog-500">{tr('Recent')}</p>
-          <div className="flex flex-wrap gap-2">
+          <p id="search-recent" className="mb-2 text-xs font-medium uppercase tracking-wider text-fog-500">{tr('Recent')}</p>
+          <div className="flex flex-wrap gap-2" role="group" aria-labelledby="search-recent">
             {recent.map((r) => (
               <button key={r} onClick={() => setQ(r)} className="chip">
                 {r}
@@ -89,16 +95,17 @@ function SearchInner() {
       {debounced.length >= 2 && (
         <div className="px-4 pt-4 lg:px-0">
           {isFetching && !data ? (
-            <div className="grid grid-cols-3 gap-x-3 gap-y-5 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 xl:grid-cols-8 2xl:grid-cols-9 3xl:grid-cols-10">
+            <div role="status" aria-busy="true" className="grid grid-cols-3 gap-x-3 gap-y-5 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 xl:grid-cols-8 2xl:grid-cols-9 3xl:grid-cols-10">
+              <span className="sr-only">{tr('Searching…')}</span>
               {Array.from({ length: 12 }).map((_, i) => <div key={i} className="skeleton aspect-[2/3] rounded-2xl" />)}
             </div>
           ) : (data?.content.length ?? 0) === 0 ? (
-            <p className={`${places.length ? 'py-6' : 'py-20'} text-center text-sm text-fog-500`}>
+            <p role="status" className={`${places.length ? 'py-6' : 'py-20'} text-center text-sm text-fog-500`}>
               {tr('No series match “{query}”.', { query: `\u2068${debounced}\u2069` })}
             </p>
           ) : (
             <>
-              <p className="mb-3 text-xs text-fog-500">{data?.totalElements === 1 ? tr('1 result') : tr('{n} results', { n: data?.totalElements ?? 0 })}</p>
+              <p role="status" className="mb-3 text-xs text-fog-500">{data?.totalElements === 1 ? tr('1 result') : tr('{n} results', { n: data?.totalElements ?? 0 })}</p>
               <div className="grid grid-cols-3 gap-x-3 gap-y-5 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 lg:gap-x-4 xl:grid-cols-8 2xl:grid-cols-9 3xl:grid-cols-10">
                 {data?.content.map((s, i) => <SeriesTile key={s.id} series={s} eager={i < 12} />)}
               </div>

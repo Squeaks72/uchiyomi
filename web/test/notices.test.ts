@@ -219,7 +219,7 @@ test('docked in the nav band, a notice covers the nav bar exactly: its bottom, i
   // card (or drop the measurement from BottomNav): "the docked notice is not as tall as the nav bar" fails;
   // restyle the nav's padding without this offset: the pins below fail first.
   const nav = code(read('components/BottomNav.tsx'));
-  assert.match(nav, /<nav className="safe-bottom fixed inset-x-0 bottom-0 z-40 lg:hidden">\s*<div className="mx-auto max-w-2xl px-4 pb-2">\s*<div ref=\{barRef\} className="glass grad-border [^"]*rounded-3xl/,
+  assert.match(nav, /<nav aria-label=\{tr\('Main'\)\} className="safe-bottom fixed inset-x-0 bottom-0 z-40 lg:hidden">\s*<div className="mx-auto max-w-2xl px-4 pb-2">\s*<div ref=\{barRef\} className="glass grad-border [^"]*rounded-3xl/,
     'the nav bar moved or changed shape -- redo the nav-band offset, width and corners in lib/notices.ts and Toast.tsx');
   assert.match(nav, /useLayer\('nav', true, \{ ref: barRef \}\);/, 'the nav bar is not measured');
   const css = read('app/globals.css');

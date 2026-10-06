@@ -48,25 +48,25 @@ export function BottomNav() {
   // Uchiyomi Desktop has no Offline tab: the chapters are already on this disk (lib/desktop.ts).
   const shown = isDesktop() ? allowed.filter((i) => !(DESKTOP_HIDDEN.navHrefs as readonly string[]).includes(i.href)) : allowed;
   return (
-    <nav className="safe-bottom fixed inset-x-0 bottom-0 z-40 lg:hidden">
+    <nav aria-label={tr('Main')} className="safe-bottom fixed inset-x-0 bottom-0 z-40 lg:hidden">
       <div className="mx-auto max-w-2xl px-4 pb-2">
-        <div ref={barRef} className="glass grad-border flex items-center justify-around rounded-3xl px-2 py-1.5 shadow-lift">
+        <div ref={barRef} className="glass grad-border flex items-center justify-around rounded-3xl px-1 py-1.5 shadow-lift">
           {shown.map(({ href, label, Icon, match }) => {
             const active = match(path);
             const dead = offline && href !== '/downloads';
             const ringed = href === '/library' && ring.show;
             return (
-              <Link key={href} href={href} aria-disabled={dead || undefined}
+              <Link key={href} href={href} aria-disabled={dead || undefined} aria-current={active ? 'page' : undefined}
                 onClick={dead ? (e) => e.preventDefault() : undefined}
                 aria-label={ringed && ring.label ? `${tr(label)} · ${ring.label}` : undefined}
-                className={`group relative flex flex-1 flex-col items-center gap-1 py-2${dead ? ' pointer-events-none opacity-35' : ''}`}>
+                className={`group relative flex min-w-0 flex-1 flex-col items-center gap-1 py-2${dead ? ' pointer-events-none opacity-35' : ''}`}>
                 {active && (
                   <motion.span layoutId="navpill" className="absolute inset-x-2 inset-y-1 rounded-2xl bg-accent-soft" transition={{ type: 'spring', stiffness: 420, damping: 34 }} />
                 )}
                 <span className={`relative z-10 transition ${active ? 'text-accent' : 'text-fog-500 group-active:text-fog-300'}`}>
                   {ringed ? <LibraryTabIcon ring={ring}><Icon width={22} height={22} /></LibraryTabIcon> : <Icon width={22} height={22} />}
                 </span>
-                <span className={`relative z-10 whitespace-nowrap text-[10px] font-medium ${active ? 'text-accent' : 'text-fog-500'}`}>{tr(label)}</span>
+                <span className={`relative z-10 whitespace-nowrap text-[11px] font-medium ${active ? 'text-accent' : 'text-fog-500'}`}>{tr(label)}</span>
               </Link>
             );
           })}

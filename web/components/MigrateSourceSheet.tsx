@@ -151,10 +151,10 @@ export function MigrateSourceSheet({ id, title, attached, mainId, listed, onDone
     <Sheet title={tr('Add or move source')} onClose={onClose} overBottomNav footer={footer}>
       <div className="sticky top-0 z-10 -mx-4 mb-3 bg-ink-950/90 px-4 pb-2 pt-1 backdrop-blur-xs">
         <div className="flex items-center gap-2 rounded-xl border border-ink-700 bg-ink-900/60 px-3 py-2 focus-within:border-accent">
-          <IcSearch width={17} height={17} className="text-fog-500" />
-          <input ref={inputRef} value={term} onChange={(e) => setTerm(e.target.value)} placeholder={tr('Search sources…')}
-            autoCapitalize="none" className="w-full bg-transparent text-sm text-fog-50 outline-hidden placeholder:text-fog-500" data-migrate-term />
-          {term && <button type="button" onClick={() => setTerm('')} className="text-fog-500" aria-label={tr('Clear')}><IcX width={15} height={15} /></button>}
+          <IcSearch aria-hidden width={17} height={17} className="text-fog-500" />
+          <input ref={inputRef} value={term} onChange={(e) => setTerm(e.target.value)} placeholder={tr('Search sources…')} aria-label={tr('Search sources…')}
+            autoCapitalize="none" autoComplete="off" enterKeyHint="search" className="w-full bg-transparent text-sm text-fog-50 outline-hidden focus-visible:outline-accent focus-visible:outline-offset-0 placeholder:text-fog-500" data-migrate-term />
+          {term && <button type="button" onClick={() => setTerm('')} className="text-fog-500" aria-label={tr('Clear')}><IcX aria-hidden width={15} height={15} /></button>}
         </div>
         {terms.length > 1 && (
           <div className="mt-1.5 flex flex-wrap gap-1.5">
@@ -185,7 +185,7 @@ export function MigrateSourceSheet({ id, title, attached, mainId, listed, onDone
                     <input type="checkbox" checked={pickedIds.includes(s.id)} onChange={() => toggleSource(s.id)} className="accent-[rgb(var(--accent))]" />
                     <SourceIcon id={s.id} name={s.name} size={16} />
                     <span className="truncate">{s.name}{s.lang ? ` (${s.lang.toUpperCase()})` : ''}</span>
-                    {attached.includes(s.id) && <span className="chip px-1.5 py-0 text-[9px]">{s.id === mainId ? tr('main') : tr('attached')}</span>}
+                    {attached.includes(s.id) && <span className="chip px-1.5 py-0 text-[11px]">{s.id === mainId ? tr('main') : tr('attached')}</span>}
                   </label>
                 ))}
               </div>
@@ -198,11 +198,11 @@ export function MigrateSourceSheet({ id, title, attached, mainId, listed, onDone
       )}
 
       {debounced.length < 2 ? (
-        <p className="py-10 text-center text-sm text-fog-500">{tr('Type at least 2 characters to search.')}</p>
+        <p role="status" className="py-10 text-center text-sm text-fog-500">{tr('Type at least 2 characters to search.')}</p>
       ) : error ? (
-        <p className="py-10 text-center text-sm text-fog-500">{tr('Search failed — try again.')}</p>
+        <p role="alert" className="py-10 text-center text-sm text-fog-500">{tr('Search failed — try again.')}</p>
       ) : isFetching && !data ? (
-        <div className="space-y-4">
+        <div role="status" aria-label={tr('Loading…')} className="space-y-4">
           {Array.from({ length: 2 }).map((_, i) => (
             <div key={i}>
               <div className="skeleton mb-1.5 h-4 w-32 rounded" />
@@ -211,7 +211,7 @@ export function MigrateSourceSheet({ id, title, attached, mainId, listed, onDone
           ))}
         </div>
       ) : groups.length === 0 ? (
-        <p className="py-10 text-center text-sm text-fog-500">{tr('Nobody has that title. Try another name above.')}</p>
+        <p role="status" className="py-10 text-center text-sm text-fog-500">{tr('Nobody has that title. Try another name above.')}</p>
       ) : (
         <div className="space-y-4 pb-2">
           {groups.map((g) => (
@@ -219,19 +219,19 @@ export function MigrateSourceSheet({ id, title, attached, mainId, listed, onDone
               <p className="mb-1.5 flex items-center gap-1.5 px-0.5 text-xs font-semibold text-fog-300">
                 <SourceIcon id={g.source} name={g.name} size={16} />
                 <span className="truncate">{g.name}{g.lang ? ` (${g.lang.toUpperCase()})` : ''}</span>
-                {attached.includes(g.source) && <span className="chip px-1.5 py-0 text-[9px]">{g.source === mainId ? tr('main') : tr('attached')}</span>}
+                {attached.includes(g.source) && <span className="chip px-1.5 py-0 text-[11px]">{g.source === mainId ? tr('main') : tr('attached')}</span>}
               </p>
               <ScrollRail className="flex gap-2.5 pb-3">
                 {g.results.map((r) => {
                   const selected = pick?.source === g.source && pick?.sourceId === r.sourceId;
                   return (
-                    <button key={r.sourceId} type="button" disabled={busy}
+                    <button key={r.sourceId} type="button" disabled={busy} aria-pressed={selected}
                       onClick={() => { setRefusal(null); setPick({ source: g.source, sourceId: r.sourceId, title: r.title, coverUrl: r.coverUrl, name: g.name }); }}
                       className="w-24 shrink-0 text-start disabled:opacity-50">
                       <span className="relative block">
-                        <Img src={sourceCover(g.source, r.coverUrl)} alt={r.title} fallbackSrc={r.coverUrl}
+                        <Img src={sourceCover(g.source, r.coverUrl)} alt="" fallbackSrc={r.coverUrl}
                           className={`aspect-[2/3] w-24 rounded-lg border ${selected ? 'border-accent ring-2 ring-accent' : 'border-ink-700'}`} />
-                        {selected && <span className="absolute end-1 top-1 grid size-5 place-items-center rounded-full bg-accent text-black"><IcCheck width={12} height={12} /></span>}
+                        {selected && <span className="absolute end-1 top-1 grid size-5 place-items-center rounded-full bg-accent text-black"><IcCheck aria-hidden width={12} height={12} /></span>}
                       </span>
                       <p className="mt-1 line-clamp-2 text-[11px] leading-tight text-fog-300">{r.title}</p>
                     </button>

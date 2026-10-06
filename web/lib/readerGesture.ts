@@ -118,3 +118,25 @@ export function undoWindow(at: number | null, now: number): boolean {
 export function undoLeft(at: number | null, now: number): number {
   return at == null ? 0 : Math.max(0, UNDO_WINDOW_MS + 1 - (now - at));
 }
+
+/**
+ * A press that lands while the track is still moving is the reader stopping a fling, not asking for anything.
+ * On a phone, catching a webtoon mid-scroll is the most common touch there is, and it used to toggle the
+ * interface every time.
+ */
+export const CATCH_MS = 160;
+export function isCatch(lastMovedAt: number, now: number): boolean {
+  return lastMovedAt > 0 && now - lastMovedAt < CATCH_MS;
+}
+
+/**
+ * Whether a tap in `zone` may bring the interface up or put it away. A finger only does it from the middle
+ * of the screen: where a thumb rests on the edges while swiping must stay inert. A mouse or pen still
+ * toggles from anywhere in vertical mode (paged mode already keeps the edges for turning pages).
+ */
+export function tapMayToggleChrome(pointerType: string, zone: TapZone): boolean {
+  return pointerType !== 'touch' || zone === 'chrome';
+}
+
+/** The interface should get out of the way once the page starts moving under it, after it has had a moment. */
+export const CHROME_GRACE_MS = 500;

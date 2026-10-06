@@ -45,7 +45,7 @@ function withCode(text: string, vars: Record<string, string> = {}): ReactNode[] 
     const name = /^\{([a-z]+)\}$/.exec(part)?.[1];
     return name && name in vars
       // dir="ltr" isolates it: in Arabic, `SUWAYOMI_URL=` would otherwise print its `=` on the wrong side.
-      ? <code key={i} dir="ltr" className="rounded bg-ink-800 px-1 py-0.5 font-mono text-[10.5px] text-fog-200">{vars[name]}</code>
+      ? <code key={i} dir="ltr" className="rounded bg-ink-800 px-1 py-0.5 font-mono text-[11px] text-fog-200">{vars[name]}</code>
       : part;
   });
 }
@@ -103,9 +103,20 @@ function Steps({ steps }: { steps: Step[] }) {
 /** The platform switch: filter chips (the one chip shape the owner kept), scrolling sideways on a phone. */
 function PlatformChips({ value, onChange }: { value: Platform; onChange: (p: Platform) => void }) {
   return (
-    <div role="radiogroup" aria-label={tr('Where Uchiyomi runs')} className="hide-scrollbar -mx-1 mt-3 flex gap-1.5 overflow-x-auto px-1 pb-0.5">
+    // A radio group takes the arrow keys, and only the chosen chip is a Tab stop.
+    <div role="radiogroup" aria-label={tr('Where Uchiyomi runs')} className="hide-scrollbar -mx-1 mt-3 flex gap-1.5 overflow-x-auto px-1 pb-0.5"
+      onKeyDown={(e) => {
+        const step = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0;
+        if (!step) return;
+        e.preventDefault();
+        const group = e.currentTarget;
+        const at = PLATFORM_CHIPS.indexOf(value);
+        const next = PLATFORM_CHIPS[(at + step + PLATFORM_CHIPS.length) % PLATFORM_CHIPS.length];
+        onChange(next);
+        requestAnimationFrame(() => group.querySelector<HTMLElement>('[aria-checked="true"]')?.focus());
+      }}>
       {PLATFORM_CHIPS.map((p) => (
-        <button key={p} type="button" role="radio" aria-checked={value === p} onClick={() => onChange(p)}
+        <button key={p} type="button" role="radio" aria-checked={value === p} tabIndex={value === p ? 0 : -1} onClick={() => onChange(p)}
           className={`chip shrink-0 whitespace-nowrap px-2.5 py-1 text-xs ${value === p ? 'chip-active' : ''}`}>
           {platformLabel(p)}
         </button>
@@ -214,7 +225,7 @@ export function EngineSetup({ status }: { status: EngineReport }) {
           <p className={`text-sm font-medium leading-snug ${waiting ? 'text-amber-300' : 'text-fog-100'}`}>{headlineText(h)}</p>
           {retryLine && <p className="mt-0.5 text-[11px] tabular-nums text-fog-500">{retryLine}</p>}
           {waiting && status.error && (
-            <p className="mt-0.5 break-words font-mono text-[10.5px] text-fog-600">{status.error}</p>
+            <p className="mt-0.5 break-words font-mono text-[11px] text-fog-500">{status.error}</p>
           )}
         </div>
       </div>

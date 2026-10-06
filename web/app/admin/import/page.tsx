@@ -109,7 +109,7 @@ function TrackerIntake({ starting, onStart }: {
 
   return (
     <div className="mb-4 rounded-xl border border-ink-700 bg-ink-900/50 p-2.5" data-tracker-intake>
-      <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-fog-500">{tr('From your tracker')}</p>
+      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-fog-500">{tr('From your tracker')}</p>
       {!connected.length ? (
         <Link href="/profile/?tab=Connections&card=tracking" className="block text-[11px] text-fog-500 underline decoration-ink-600 underline-offset-2 hover:text-fog-300">
           {NOT_CONNECTED()}
@@ -118,7 +118,7 @@ function TrackerIntake({ starting, onStart }: {
         <>
           {/* One chip per connected provider, single-select. Shown even when it is the only one: the chip
               names the account the list is read from, which is the thing a person with two accounts checks. */}
-          <div className="mb-2 flex flex-wrap gap-1.5">
+          <div role="group" aria-label={tr('From your tracker')} className="mb-2 flex flex-wrap gap-1.5">
             {connected.map((t) => (
               <button key={t.provider} type="button" onClick={() => setTracker(t.provider)}
                 className={`chip text-xs ${sel?.provider === t.provider ? 'chip-active' : ''}`} aria-pressed={sel?.provider === t.provider}>
@@ -127,7 +127,7 @@ function TrackerIntake({ starting, onStart }: {
               </button>
             ))}
           </div>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <div role="group" aria-label={tr('Reading')} className="flex flex-wrap items-center gap-x-3 gap-y-1">
             {/* `min-h-7 py-1`: the box is 14 px and the text 16 px, so the label was a 16 px tap target on
                 the one new phone control while every chip around it is ≥ 26 px. The padding widens what a
                 thumb can hit without changing how the row looks. */}
@@ -160,7 +160,7 @@ function OpenImports({ batches, onOpen }: { batches: ImportBatchSummary[]; onOpe
   if (!batches.length) return null;
   return (
     <div className="mb-4 rounded-xl border border-ink-700 bg-ink-900/50 p-2.5">
-      <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-fog-500">{tr('Open imports')}</p>
+      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-fog-500">{tr('Open imports')}</p>
       <ul className="space-y-1">
         {batches.map((b) => {
           const counts = b.state === 'resolving'
@@ -208,7 +208,7 @@ function IntakeCard({ backupRef, mdUrl, setMdUrl, pasted, setPasted, starting, o
       {/* Names the button that commits, not a "Continue" this page never shows -- the wording was written
           before the button was, and a promise about a control that does not exist is not a promise. */}
       <p className="mb-3 text-[11px] text-fog-500">
-        {tr('Uchiyomi matches each title against your sources and shows you the pick before anything is added — nothing lands in your library until you press Import selected.')}
+        {tr('Uchiyomi finds each title in your sources and lets you review the matches. Nothing is added until you press Import selected.')}
       </p>
 
       <div className="mb-2 flex flex-wrap items-center gap-2">
@@ -220,16 +220,16 @@ function IntakeCard({ backupRef, mdUrl, setMdUrl, pasted, setPasted, starting, o
         <span className="text-[11px] text-fog-600">{tr('or')}</span>
         {/* A floor on the link field so it wraps to its own row on a phone: `min-w-0 flex-1` let it shrink to
             55 px beside the backup button at 390 px, showing "publi" of its placeholder. */}
-        <input value={mdUrl} onChange={(e) => setMdUrl(e.target.value)} placeholder={tr('public MangaDex list link')}
-          autoCapitalize="none" className="field min-w-44 flex-1" />
+        <input value={mdUrl} onChange={(e) => setMdUrl(e.target.value)} placeholder={tr('public MangaDex list link')} aria-label={tr('public MangaDex list link')}
+          type="url" inputMode="url" autoComplete="off" autoCapitalize="none" className="field min-w-44 flex-1" />
         <button onClick={onMangadex} disabled={starting || !mdUrl.trim()} className="chip text-xs disabled:opacity-50">{tr('Load')}</button>
       </div>
-      <p className="mb-2 text-[10px] text-fog-600">
-        {tr('A .tachibk backup stays on your server — only each entry\'s title, its source and its address on that source are read.')}
+      <p className="mb-2 text-[11px] text-fog-600">
+        {tr('Your backup stays on your server. Only each title, its source and its link are read.')}
       </p>
 
       <textarea value={pasted} onChange={(e) => setPasted(e.target.value)} rows={4}
-        placeholder={tr('…or paste titles, one per line')} className="field resize-y" />
+        placeholder={tr('…or paste titles, one per line')} aria-label={tr('…or paste titles, one per line')} className="field resize-y" />
       <button onClick={onPaste} disabled={starting || !pasted.trim()} className="btn-accent mt-2 w-full py-2 text-sm disabled:opacity-50">
         {starting ? tr('Starting…') : tr('Start matching')}
       </button>
@@ -257,13 +257,13 @@ function ResolvingCard({ batch, note, onResume }: { batch: ImportBatch; note: st
   const pct = batch.total ? Math.round((batch.resolved / batch.total) * 100) : 0;
   return (
     <div className="card grad-border wide p-4">
-      <p className="mb-1 text-sm font-semibold text-fog-100">
+      <p role="status" className="mb-1 text-sm font-semibold text-fog-100">
         {batch.stale ? tr('Matching was interrupted') : tr('Matching your titles…')}<Note note={note} />
       </p>
       <p className="mb-3 text-[11px] text-fog-500">
         {batch.stale
           ? tr('The server restarted before this finished. Resume to pick up where it left off.')
-          : tr('Checking each title against your sources — this can take a few minutes for a long list. You can leave this page; your progress is saved.')}
+          : tr('Matching each title to your sources. A long list takes a few minutes. You can leave this page; your progress is saved.')}
       </p>
       <ProgressBar value={batch.total ? batch.resolved / batch.total : 0} />
       <p className="mt-1.5 text-[11px] tabular-nums text-fog-500">{tr('{done}/{total} · {pct}%', { done: batch.resolved, total: batch.total, pct })}</p>
@@ -289,7 +289,7 @@ function ReviewRow({ c, sourceName, selected, onToggle, onEdit }: {
     <div className="flex items-center gap-3 rounded-xl border border-ink-800 bg-ink-900/40 p-2.5">
       {ready ? (
         <input type="checkbox" checked={selected} onChange={() => onToggle(c.id)}
-          className="size-4 shrink-0 rounded border-ink-600 bg-ink-800 accent-accent" aria-label={tr('Select for import')} />
+          className="size-4 shrink-0 rounded border-ink-600 bg-ink-800 accent-accent" aria-label={`${tr('Select for import')}: ${c.backup_title}`} />
       ) : (
         <span className="size-4 shrink-0" aria-hidden />
       )}
@@ -341,7 +341,7 @@ function ReviewRow({ c, sourceName, selected, onToggle, onEdit }: {
           <p className="text-[11px] text-amber-400">{tr('No match found')}</p>
         )}
       </div>
-      {!c.status && <button onClick={() => onEdit(c)} className="chip shrink-0 text-xs">{tr('Change')}</button>}
+      {!c.status && <button onClick={() => onEdit(c)} aria-label={`${tr('Change')}: ${c.backup_title}`} className="chip shrink-0 text-xs">{tr('Change')}</button>}
     </div>
   );
 }
@@ -380,13 +380,13 @@ function ReviewCard({
           series and its chapter list, one title at a time, so two hundred rows is minutes, not a database
           write. */}
       <p className="mb-3 text-[11px] text-fog-500">
-        {tr('Selected titles are added to your library only — no chapters are downloaded, but each title is looked up on its source, so a long list takes a few minutes. New releases arrive through auto-update, or fetch older ones from the series page.')}
+        {tr('Selected titles are added to your library without downloading any chapters. Each title is looked up on its source, so a long list takes a few minutes. New chapters arrive automatically; fetch older ones from the series page.')}
       </p>
 
       <div className="mb-2 flex flex-wrap gap-2">
-        <button onClick={() => setFilter('all')} className={`chip text-xs ${filter === 'all' ? 'chip-active' : ''}`}>{tr('All')} · {allCount}</button>
-        <button onClick={() => setFilter('attention')} className={`chip text-xs ${filter === 'attention' ? 'chip-active' : ''}`}>{tr('Needs attention')} · {attentionCount}</button>
-        <button onClick={() => setFilter('skipped')} className={`chip text-xs ${filter === 'skipped' ? 'chip-active' : ''}`}>{tr('Skipped')} · {skippedCount}</button>
+        <button onClick={() => setFilter('all')} aria-pressed={filter === 'all'} className={`chip text-xs ${filter === 'all' ? 'chip-active' : ''}`}>{tr('All')} · {allCount}</button>
+        <button onClick={() => setFilter('attention')} aria-pressed={filter === 'attention'} className={`chip text-xs ${filter === 'attention' ? 'chip-active' : ''}`}>{tr('Needs attention')} · {attentionCount}</button>
+        <button onClick={() => setFilter('skipped')} aria-pressed={filter === 'skipped'} className={`chip text-xs ${filter === 'skipped' ? 'chip-active' : ''}`}>{tr('Skipped')} · {skippedCount}</button>
         {/* v0.51.0 (discussion #121): a long list imported again is mostly titles already here; a switch, on top of
             the filter, leaves the titles still to decide. */}
         {hereCount > 0 && (
@@ -394,7 +394,7 @@ function ReviewCard({
             className={`chip text-xs ${hideHere ? 'chip-active' : ''}`}>{tr('Hide already imported')} · {hereCount}</button>
         )}
       </div>
-      <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={tr('Filter by title…')} className="field mb-3" />
+      <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={tr('Filter by title…')} aria-label={tr('Filter by title…')} type="search" autoComplete="off" className="field mb-3" />
 
       {/* Bulk actions. "Select all" marks every row, including a skipped or still-unmatched one — Import
           selected then quietly imports only what is actually ready, so it is never a mistake to press. */}
@@ -409,7 +409,7 @@ function ReviewCard({
         {selectedIds.size > 0 && (
           <button onClick={onClearSelection} className="chip text-xs">{tr('Clear selection')}</button>
         )}
-        <span className="ms-auto text-[11px] text-fog-500">{selectedText(selectedIds.size)}</span>
+        <span role="status" className="ms-auto text-[11px] text-fog-500">{selectedText(selectedIds.size)}</span>
       </div>
 
       <div className="space-y-1.5">
@@ -456,7 +456,7 @@ function RunCard({ batch, items, runIds, runTotal, note, onStartOver }: {
   const linked = batch.state === 'done' ? linkedLine(linkedCount(items)) : null;
   return (
     <div className="card grad-border wide p-4">
-      <p className="mb-1.5 text-sm font-semibold text-fog-100">
+      <p role="status" className="mb-1.5 text-sm font-semibold text-fog-100">
         {batch.state === 'importing'
           ? tr('Importing… {done}/{total}', { done, total })
           : tr('Done — {added} added · {already} already had · {failed} failed', { added: batch.added, already: batch.already, failed: batch.failed })}
@@ -472,9 +472,10 @@ function RunCard({ batch, items, runIds, runTotal, note, onStartOver }: {
       <ul data-lenis-prevent className="mt-3 max-h-96 space-y-1 overflow-y-auto">
         {targeted.map((c) => (
           <li key={c.id} className="flex items-center gap-2 text-xs">
-            <span className={c.status === 'added' ? 'text-emerald-400' : c.status === 'already' ? 'text-fog-500' : c.status ? 'text-red-400' : 'text-fog-600'}>
+            <span aria-hidden className={c.status === 'added' ? 'text-emerald-400' : c.status === 'already' ? 'text-fog-500' : c.status ? 'text-red-400' : 'text-fog-600'}>
               {c.status === 'added' ? '✓' : c.status === 'already' ? '·' : c.status ? '✗' : '…'}
             </span>
+            {c.status && <span className="sr-only">{runStatusLabel(c.status, !!c.linked)}: </span>}
             {c.status === 'already' && c.linked ? (
               // Two lines rather than `truncate`: the suffix is long in German and Russian, and a one-line
               // ellipsis would cut the title to make room for the words that explain it.
@@ -524,7 +525,7 @@ function ImportWizardInner() {
       // again, and the box re-reads the trackers so its chips agree with what the server just said.
       let body: any = {};
       try { body = JSON.parse(e?.body || '{}'); } catch { /* not JSON */ }
-      if (body.error === 'tracker_rejected') toast(tr('The tracker rejected the saved token — reconnect it under Profile'), 'error');
+      if (body.error === 'tracker_rejected') toast(tr('Your tracker rejected the saved login. Reconnect it under Profile.'), 'error');
       else if (body.error === 'tracker_unavailable') toast(tr('Could not read your list right now'), 'error');
       else if (body.error === 'not_connected') { qc.invalidateQueries({ queryKey: ['trackers'] }); toast(NOT_CONNECTED(), 'info'); }
       else toast(msgOf(e, tr('Could not start the import')), 'error');
@@ -720,7 +721,7 @@ function ImportWizardInner() {
     <div className="min-h-screen-d px-4 pb-10 pt-4 lg:px-0">
       <div className="mb-4 flex items-center gap-2">
         <button onClick={() => router.push('/admin/')} className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-fog-400 hover:text-fog-100" aria-label={tr('Back')}>
-          <IcChevronLeft width={18} height={18} className="rtl:rotate-180" />
+          <IcChevronLeft aria-hidden width={18} height={18} className="rtl:rotate-180" />
         </button>
         <h1 className="min-w-0 truncate font-display text-lg font-semibold text-fog-50">{tr('Import & review matches')}</h1>
         {/* One Discard for all three live states (matching, review, importing): the same batch, the same
@@ -755,8 +756,8 @@ function ImportWizardInner() {
         <ConfirmDialog
           title={tr('Discard this import?')}
           body={batch.added > 0
-            ? tr('The list and every match you reviewed are thrown away. Anything this import already added ({n} so far) stays in your library.', { n: batch.added })
-            : tr('The list and every match you reviewed are thrown away. Nothing has been added to your library yet, so nothing else changes.')}
+            ? tr('This throws away the list and your reviewed matches. Titles already added ({n} so far) stay in your library.', { n: batch.added })
+            : tr('This throws away the list and your reviewed matches. Nothing has been added to your library yet.')}
           confirmLabel={tr('Discard')}
           danger
           busy={discardBusy}

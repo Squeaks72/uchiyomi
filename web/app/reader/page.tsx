@@ -10,7 +10,7 @@ import { fetchAllBooks } from '@/lib/seriesBooks';
 import { chapterOutcome } from '@/lib/readerState';
 import { openableChapters } from '@/lib/chapterRows';
 import { buildFlow, startIndex, renderWindow } from '@/lib/readerFlow';
-import { readTap, undoLeft, undoWindow, type TapZone } from '@/lib/readerGesture';
+import { CHROME_GRACE_MS, isCatch, readTap, tapMayToggleChrome, undoLeft, undoWindow, type TapZone } from '@/lib/readerGesture';
 import { ARM_MS, pagesAfter, skipNeedsConfirm, stillArmed } from '@/lib/readerNav';
 import { Book, EditionRow, Page, PageInfo, Series } from '@/lib/types';
 import { useAuth, canDownload } from '@/lib/auth';
@@ -69,6 +69,18 @@ async function untilStill(lastMoved: { current: number }, rtl: boolean): Promise
   if (!rtl) return;
   for (let i = 0; i < 40 && Date.now() - lastMoved.current < STILL_MS; i++) await new Promise((r) => setTimeout(r, 100));
 }
+
+/** Smooth page turns, unless the reader has asked their system for less motion. */
+const turnBehavior = (): ScrollBehavior =>
+  typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+
+/** True while keyboard focus is inside the reader's toolbars, which must not hide out from under it. */
+const focusInChrome = () => {
+  if (typeof document === 'undefined') return false;
+  const a = document.activeElement;
+  // Keyboard focus only: a mouse click on a button also focuses it, and that should not pin the toolbars open.
+  return !!a?.closest('[data-reader-chrome]') && a.matches(':focus-visible');
+};
 
 async function loadChapter(bookId: string): Promise<Chapter | null> {
   const off = await getOfflineChapter(bookId);
@@ -146,8 +158,21 @@ function ReaderInner() {
   // track's: an Arabic caption in an LTR paragraph, or an English one in RTL on a right-to-left read.
   const uiDir = useRtl() ? 'rtl' : 'ltr';
   const [scrubbing, setScrubbing] = useState(false); // slider drag in progress → show the page preview
+  const scrubbingRef = useRef(false);
+  scrubbingRef.current = scrubbing;
 
   const [chrome, setChrome] = useState(true);
+  // The interface is shown once per browser session, as an introduction; after that a reader opens clean and
+  // brings it up on purpose. It used to reappear on every chapter and every reopen.
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem('reader-chrome-seen')) setChrome(false);
+      else sessionStorage.setItem('reader-chrome-seen', '1');
+    } catch { /* storage blocked: keep the introduction */ }
+  }, []);
+  const chromeRef = useRef({ on: true, since: 0 });
+  /** True when this press began while the track was still moving: a catch, not a tap. */
+  const caught = useRef(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showPages, setShowPages] = useState(false);
   const [showChapters, setShowChapters] = useState(false);
@@ -576,6 +601,10 @@ function ReaderInner() {
     lastMoved.current = Date.now();
     const el = scrollRef.current;
     if (!el) return;
+    // The page is moving under the interface, so the reader is reading: put it away. The grace period lets a
+    // tap's own page turn, and the first moments after it opens, pass without dismissing it.
+    const c = chromeRef.current;
+    if (c.on && Date.now() - c.since > CHROME_GRACE_MS && !scrubbingRef.current && !focusInChrome()) setChrome(false);
     if (prefs.mode === 'paged') {
       // Math.abs: an RTL track scrolls from 0 into NEGATIVE scrollLeft (the spec'd behaviour every current
       // engine follows), so page n sits at -n × width.
@@ -871,8 +900,9 @@ function ReaderInner() {
 
   // ---- auto-hide chrome ----
   useEffect(() => {
+    chromeRef.current = { on: chrome, since: Date.now() };
     if (!chrome || showSettings) return;
-    const t = setTimeout(() => setChrome(false), 3800);
+    const t = setTimeout(() => { if (!focusInChrome()) setChrome(false); }, 3800);
     return () => clearTimeout(t);
   }, [chrome, showSettings]);
 
@@ -901,7 +931,7 @@ function ReaderInner() {
         const last = Math.max(0, el.children.length - 1); // page slides, then Up Next / the failure card
         const to = Math.max(0, Math.min(last, (slideOf[current] ?? current) + d));
         lastMoved.current = Date.now(); // before the first scroll event arrives
-        el.scrollTo({ left: trackSign * to * (el.clientWidth || window.innerWidth), behavior: 'smooth' });
+        el.scrollTo({ left: trackSign * to * (el.clientWidth || window.innerWidth), behavior: turnBehavior() });
       };
       // A focused control owns its keys: the page slider its arrows, a button or link its Space and Enter
       // (turning the page instead swallowed the click), a text field everything.
@@ -921,8 +951,8 @@ function ReaderInner() {
       else if (el && paged && !owned && e.key === 'ArrowLeft') { e.preventDefault(); step(-trackSign as 1 | -1); }
       else if (el && paged && !owned && ((e.key === ' ' && !e.shiftKey) || e.key === 'ArrowDown' || e.key === 'PageDown')) { e.preventDefault(); step(1); }
       else if (el && paged && !owned && ((e.key === ' ' && e.shiftKey) || e.key === 'ArrowUp' || e.key === 'PageUp')) { e.preventDefault(); step(-1); }
-      else if (el && prefs.mode === 'vertical' && !owned && ((e.key === ' ' && !e.shiftKey) || e.key === 'ArrowDown')) { e.preventDefault(); el.scrollBy({ top: el.clientHeight * 0.88, behavior: 'smooth' }); }
-      else if (el && prefs.mode === 'vertical' && !owned && ((e.key === ' ' && e.shiftKey) || e.key === 'ArrowUp')) { e.preventDefault(); el.scrollBy({ top: -el.clientHeight * 0.88, behavior: 'smooth' }); }
+      else if (el && prefs.mode === 'vertical' && !owned && ((e.key === ' ' && !e.shiftKey) || e.key === 'ArrowDown')) { e.preventDefault(); el.scrollBy({ top: el.clientHeight * 0.88, behavior: turnBehavior() }); }
+      else if (el && prefs.mode === 'vertical' && !owned && ((e.key === ' ' && e.shiftKey) || e.key === 'ArrowUp')) { e.preventDefault(); el.scrollBy({ top: -el.clientHeight * 0.88, behavior: turnBehavior() }); }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -932,6 +962,7 @@ function ReaderInner() {
   // ---- tap / double-tap / pinch (no overlay -> native scroll works) ----
   const onPointerDown = (e: React.PointerEvent) => {
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    caught.current = prefs.mode !== 'paged' && pointers.current.size === 1 && isCatch(lastMoved.current, Date.now());
     if (pointers.current.size === 2) {
       const p = [...pointers.current.values()];
       pinch.current = { dist: Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y), zoom };
@@ -975,6 +1006,8 @@ function ReaderInner() {
       lastDoubleAt: lastDoubleAt.current,
     });
     if (act.kind === 'none') return; // a scroll, or a press held long enough to be something else
+    // Stopping a fling is not a tap. Nothing happens: no page turn, no interface.
+    if (caught.current) { caught.current = false; return; }
     if (act.kind === 'double') {
       cancelPendingTap();
       lastTapAt.current = 0;
@@ -988,6 +1021,8 @@ function ReaderInner() {
     cancelPendingTap();
     lastTapAt.current = now;
     const zone = act.zone;
+    // A thumb on the edge of a webtoon is not asking for the interface.
+    if (prefs.mode !== 'paged' && !tapMayToggleChrome(e.pointerType, zone)) return;
     tapTimer.current = setTimeout(() => { tapTimer.current = null; runTap(zone); }, act.after);
   };
 
@@ -1016,7 +1051,7 @@ function ReaderInner() {
       const to = Math.max(0, Math.min(last, from + (zone === 'back' ? -1 : 1) * trackSign));
       acted.current = { kind: 'turn', slide: from, at: Date.now() };
       lastMoved.current = Date.now();
-      el.scrollTo({ left: trackSign * to * w, behavior: 'smooth' });
+      el.scrollTo({ left: trackSign * to * w, behavior: turnBehavior() });
       return;
     }
     acted.current = { kind: 'chrome', at: Date.now() };
@@ -1050,6 +1085,14 @@ function ReaderInner() {
 
   const total = flat.length;
   const pageInChapter = activeChapter ? (flat[current]?.number ?? 0) : 0;
+  const chapterPageCount = activeChapter?.pages.length ?? 0;
+  /** "Page 3 of 24", for screen readers: settles half a second after the page stops changing, so a scroll is not a stream of speech. */
+  const pageText = chapterPageCount && pageInChapter ? tr('Page {n} of {total}', { n: pageInChapter, total: chapterPageCount }) : '';
+  const [announced, setAnnounced] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => setAnnounced(pageText), 500);
+    return () => clearTimeout(t);
+  }, [pageText]);
 
   // ---- bookmarks ----
   // A bookmark is a note about a page, not a pointer to bytes, so it is keyed on (book, page) and survives
@@ -1079,14 +1122,13 @@ function ReaderInner() {
       setMarks((prev) => { const n = new Set(prev); on ? n.add(k) : n.delete(k); return n; });
     }
   };
-  const chapterPageCount = activeChapter?.pages.length ?? 0;
 
   // the header's two-line "what you are reading" block, wrapped in a link to the series when we know its id
   const titleBlock = (
     <>
       <p className="flex items-center gap-1 text-sm font-medium text-white transition group-hover:text-accent">
         <span className="truncate">{activeChapter?.seriesTitle || tr('Reading')}</span>
-        {seriesHref && <IcChevronRight width={14} height={14} className="shrink-0 text-fog-500 transition group-hover:text-accent" />}
+        {seriesHref && <IcChevronRight aria-hidden width={14} height={14} className="shrink-0 text-fog-500 transition group-hover:text-accent" />}
       </p>
       <p className="truncate text-[11px] text-fog-400">{activeChapter?.title}</p>
     </>
@@ -1169,6 +1211,15 @@ function ReaderInner() {
 
   return (
     <div className="fixed inset-0 z-40 bg-ink-950">
+      <h1 className="sr-only">{[activeChapter?.seriesTitle, activeChapter?.title].filter(Boolean).join(' \u2014 ') || tr('Reader')}</h1>
+      {/* The toolbars come up on a tap, which a keyboard has no equivalent of. This is that, reachable with Tab
+          and shown only while it has focus. It stays in the page whether or not the toolbars are up, so
+          focus is never left on a control that has just gone. */}
+      <button type="button" aria-expanded={chrome} onClick={() => setChrome((c) => !c)}
+        className="sr-only focus-visible:not-sr-only focus-visible:fixed focus-visible:start-3 focus-visible:top-3 focus-visible:z-50 focus-visible:rounded-full focus-visible:bg-black/80 focus-visible:px-4 focus-visible:py-2 focus-visible:text-sm focus-visible:text-white">
+        {chrome ? tr('Hide controls') : tr('Show controls')}
+      </button>
+      <p role="status" aria-live="polite" className="sr-only">{announced}</p>
       <div className="pointer-events-none absolute inset-0 z-30 bg-black" style={{ opacity: 1 - prefs.brightness }} />
       {/* Ambient cover wash framing the reader: the look, by default. Its switch (Cover colour at the edges, #170)
           removes the two bands outright rather than their colour, because with no colour they are still a 16 %
@@ -1185,7 +1236,7 @@ function ReaderInner() {
           DOM -- is the only model of the layout there is. A browser that quietly adjusts scrollTop to keep
           content in view desynchronises it from `current` with no symptom and no way to detect it. */}
       {prefs.mode === 'vertical' ? (
-        <div ref={scrollRef} data-lenis-prevent style={{ overflowAnchor: 'none' }} onScroll={onScroll} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerEnd} onPointerCancel={onPointerEnd} onDoubleClick={onTrackDoubleClick}
+        <div ref={scrollRef} role="region" aria-label={tr('Pages')} data-lenis-prevent style={{ overflowAnchor: 'none' }} onScroll={onScroll} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerEnd} onPointerCancel={onPointerEnd} onDoubleClick={onTrackDoubleClick}
           className={`h-screen-d touch-pan-y overflow-y-auto overscroll-contain ${zoom > 1 ? 'overflow-x-auto' : 'overflow-x-hidden'}`}>
           <div className="mx-auto" style={{ width: colW || '100%', filter: THEME_FILTER[prefs.theme] }}>
             <div className="h-2" />
@@ -1197,7 +1248,7 @@ function ReaderInner() {
                 {p.firstOfChapter && p.ci > 0 && (
                   <div style={{ height: DIVIDER_H }} className="flex items-center justify-center gap-3 text-xs text-fog-500">
                     <span className="h-px w-8 bg-ink-700" />
-                    <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-fog-600">{tr('Up Next')}</span>
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-fog-600">{tr('Up Next')}</span>
                     <span className="text-fog-400">{chapters[p.ci]?.title || tr('Next chapter')}</span>
                     <span className="h-px w-8 bg-ink-700" />
                   </div>
@@ -1226,7 +1277,7 @@ function ReaderInner() {
                       {stripSrc(i) && (
                         <img src={stripSrc(i)!} alt="" aria-hidden className="absolute inset-0 h-full w-full object-cover object-top opacity-50" />
                       )}
-                      <span className="absolute inset-0 flex items-center justify-center gap-2.5 bg-ink-950/45 text-[10px] font-semibold uppercase tracking-[0.16em] text-fog-400 group-hover:text-fog-200">
+                      <span className="absolute inset-0 flex items-center justify-center gap-2.5 bg-ink-950/45 text-[11px] font-semibold uppercase tracking-[0.16em] text-fog-400 group-hover:text-fog-200">
                         <span className="h-px w-6 bg-ink-600" />
                         {tr('repeated page — tap to show')}
                         <span className="h-px w-6 bg-ink-600" />
@@ -1247,7 +1298,7 @@ function ReaderInner() {
                       onPointerDown={(e) => e.stopPropagation()}
                       onPointerUp={(e) => e.stopPropagation()}
                       aria-label={tr('Collapse repeated page {n}', { n: p.number })}
-                      className="absolute end-2 top-2 rounded-full bg-ink-950/75 px-2 py-1 text-[10px] font-medium text-fog-300 backdrop-blur hover:text-white"
+                      className="absolute end-2 top-2 rounded-full bg-ink-950/75 px-2.5 py-1.5 text-[11px] font-medium text-fog-300 backdrop-blur hover:text-white"
                     >
                       {tr('collapse')}
                     </button>
@@ -1265,7 +1316,7 @@ function ReaderInner() {
           </div>
         </div>
       ) : (
-        <div ref={scrollRef} data-lenis-prevent onScroll={onScroll} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerEnd} onPointerCancel={onPointerEnd} onDoubleClick={onTrackDoubleClick}
+        <div ref={scrollRef} role="region" aria-label={tr('Pages')} data-lenis-prevent onScroll={onScroll} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerEnd} onPointerCancel={onPointerEnd} onDoubleClick={onTrackDoubleClick}
           dir={pagedRtl ? 'rtl' : 'ltr'}
           className="hide-scrollbar flex h-screen-d snap-x snap-mandatory overflow-x-auto overflow-y-hidden" style={{ filter: THEME_FILTER[prefs.theme] }}>
           {slides.map((idxs) => {
@@ -1326,8 +1377,8 @@ function ReaderInner() {
           <>
             <motion.header initial={{ y: -64, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -64, opacity: 0 }}
               className="absolute inset-x-0 top-0 z-40 flex items-center gap-2 bg-linear-to-b from-black/90 via-black/55 to-transparent px-3 pb-8 pt-[max(0.9rem,calc(env(safe-area-inset-top)+0.55rem))] before:pointer-events-none before:absolute before:inset-x-0 before:bottom-full before:h-16 before:bg-black/90">
-              <button onClick={back} className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-black/45 text-white backdrop-blur">
-                <IcChevronLeft width={22} height={22} />
+              <button onClick={back} aria-label={tr('Back')} className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-black/45 text-white backdrop-blur">
+                <IcChevronLeft width={22} height={22} aria-hidden />
               </button>
               {/* Tapping the title is the route to the series while reading, and the chevron is the whole
                   affordance -- without it this reads as inert as it used to. BOTH lines are inside the link
@@ -1348,19 +1399,19 @@ function ReaderInner() {
               {chapterRefs.length > 0 && (
                 <button onClick={() => setShowChapters(true)} aria-label={tr('Chapters')}
                   className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-black/45 text-white backdrop-blur">
-                  <IcGrid width={18} height={18} />
+                  <IcGrid width={18} height={18} aria-hidden />
                 </button>
               )}
               <button onClick={toggleBookmark} aria-label={bookmarked ? tr('Remove bookmark') : tr('Bookmark this page')}
                 aria-pressed={bookmarked}
                 className={`grid h-10 w-10 shrink-0 place-items-center rounded-full bg-black/45 backdrop-blur ${bookmarked ? 'text-accent' : 'text-white'}`}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill={bookmarked ? 'currentColor' : 'none'}
+                <svg aria-hidden width="20" height="20" viewBox="0 0 24 24" fill={bookmarked ? 'currentColor' : 'none'}
                      stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round">
                   <path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1Z" />
                 </svg>
               </button>
-              <button onClick={() => setShowSettings(true)} data-reader-settings className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-black/45 text-white backdrop-blur">
-                <IcSliders width={20} height={20} />
+              <button onClick={() => setShowSettings(true)} aria-label={tr('Reader settings')} data-reader-settings className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-black/45 text-white backdrop-blur">
+                <IcSliders width={20} height={20} aria-hidden />
               </button>
             </motion.header>
 
@@ -1387,21 +1438,22 @@ function ReaderInner() {
                       ) : (
                         <div className="grid h-44 w-32 place-items-center text-xs text-ink-600">{it.number}</div>
                       )}
-                      <p className="truncate bg-black/75 px-2 py-1 text-center text-[10px] text-fog-200">{ch.title} · {it.number}/{ch.pages.length}</p>
+                      <p className="truncate bg-black/75 px-2 py-1 text-center text-[11px] text-fog-200">{ch.title} · {it.number}/{ch.pages.length}</p>
                     </div>
                   );
                 })()}
                 <button onClick={() => goChapter(prevId, true)} disabled={!prevId} aria-label={tr('Previous chapter')}
                   className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-black/45 text-white backdrop-blur disabled:opacity-30">
-                  {pagedRtl ? <IcChevronRight width={18} height={18} /> : <IcChevronLeft width={18} height={18} />}
+                  {pagedRtl ? <IcChevronRight aria-hidden width={18} height={18} /> : <IcChevronLeft aria-hidden width={18} height={18} />}
                 </button>
                 {/* The counter is the button. A long-press would be invisible on a phone, which this repo
                     already learned once from a hover-only affordance nobody found. */}
                 <button dir="ltr" onClick={() => setShowPages(true)} aria-label={tr('Jump to a page')}
-                  className="shrink-0 rounded-full px-1.5 py-0.5 text-[11px] tabular-nums text-fog-300 transition hover:bg-white/10 hover:text-white">
+                  className="relative shrink-0 rounded-full px-1.5 py-0.5 text-[11px] tabular-nums text-fog-300 transition before:absolute before:-inset-2 hover:bg-white/10 hover:text-white">
                   {chapterPageCount ? `${pageInChapter}/${chapterPageCount}` : `${current + 1}/${total}`}
                 </button>
                 <input type="range" min={0} max={Math.max(0, total - 1)} value={current}
+                  aria-label={tr('Page')} aria-valuetext={pageText || undefined}
                   onPointerDown={() => setScrubbing(true)}
                   // Let go of focus after a drag: a slider that keeps it owns Space and the arrows, so in the
                   // webtoon column Space stopped scrolling until the controls hid. Tab still reaches it.
@@ -1411,7 +1463,7 @@ function ReaderInner() {
                   className="h-1 flex-1 accent-[rgb(var(--accent))]" />
                 <button onClick={goNext} disabled={!nextId} aria-label={armedNext != null ? tr('Tap again to skip to the next chapter') : tr('Next chapter')}
                   className={`grid h-9 w-9 shrink-0 place-items-center rounded-full text-white backdrop-blur disabled:opacity-30 ${armedNext != null ? 'bg-accent' : 'bg-black/45'}`}>
-                  {pagedRtl ? <IcChevronLeft width={18} height={18} /> : <IcChevronRight width={18} height={18} />}
+                  {pagedRtl ? <IcChevronLeft aria-hidden width={18} height={18} /> : <IcChevronRight aria-hidden width={18} height={18} />}
                 </button>
               </div>
             </motion.footer>
@@ -1505,7 +1557,7 @@ function ReaderInner() {
       )}
 
       {!ready && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-ink-950">
+        <div role="status" className="absolute inset-0 z-50 flex items-center justify-center bg-ink-950">
           <div className="animate-pulse-soft text-fog-500">{tr('Loading chapter…')}</div>
         </div>
       )}

@@ -56,7 +56,7 @@ const acrossText = (chapters: number, series: number): string =>
 export default function WrappedPage() {
   // Static export: any page reading search params needs a Suspense boundary or `next build` fails.
   return (
-    <Suspense fallback={<div className="px-4 pt-16"><div className="skeleton h-40 rounded-3xl" /></div>}>
+    <Suspense fallback={<div role="status" className="px-4 pt-16"><span className="sr-only">{tr('Loading…')}</span><div className="skeleton h-40 rounded-3xl" /></div>}>
       <Wrapped />
     </Suspense>
   );
@@ -90,22 +90,22 @@ function Wrapped() {
   return (
     <div className="min-h-screen-d">
       <header className="safe-top flex items-center gap-2 px-4 pb-2 lg:px-0">
-        <button onClick={() => router.back()} className="grid h-10 w-10 place-items-center rounded-full bg-ink-800/70 text-fog-100">
+        <button type="button" onClick={() => router.back()} aria-label={tr('Back')} className="grid h-10 w-10 place-items-center rounded-full bg-ink-800/70 text-fog-100">
           <IcChevronLeft width={22} height={22} />
         </button>
         <h1 className="font-display text-2xl font-bold">{tr('Wrapped {year}', { year: String(year) })}</h1>
       </header>
 
       {years.length > 1 && (
-        <div className="hide-scrollbar -mx-1 flex gap-1.5 overflow-x-auto px-5 pb-1 lg:mx-auto lg:max-w-2xl lg:px-0">
+        <nav aria-label={tr('Year')} className="hide-scrollbar -mx-1 flex gap-1.5 overflow-x-auto px-5 pb-1 lg:mx-auto lg:max-w-2xl lg:px-0">
           {years.map((y) => (
             <Link key={y} href={y === thisYear ? '/wrapped/' : `/wrapped/?year=${y}`} scroll={false}
-              aria-current={y === year ? 'true' : undefined}
+              aria-current={y === year ? 'page' : undefined}
               className={`chip shrink-0 text-xs tabular-nums ${y === year ? 'border-accent/50 text-accent' : 'text-fog-400'}`}>
               {y}
             </Link>
           ))}
-        </div>
+        </nav>
       )}
 
       <div className="relative mx-4 mt-2 overflow-hidden rounded-4xl border border-ink-700/60 p-6 shadow-lift lg:mx-auto lg:max-w-2xl">
@@ -135,11 +135,11 @@ function Wrapped() {
 
       <div className="px-5 pt-6 lg:mx-auto lg:max-w-2xl lg:px-0">
         <p className="mb-2 text-xs font-medium text-fog-400">{tr('By month')}</p>
-        <div className="flex h-24 items-end gap-1.5">
+        <div role="img" aria-label={`${tr('Chapters read per month')}: ${(data?.byMonth ?? Array(12).fill(0)).join(', ')}`} className="flex h-24 items-end gap-1.5">
           {(data?.byMonth ?? Array(12).fill(0)).map((v, i) => (
             <div key={i} className="flex flex-1 flex-col items-center gap-1">
               <div className="w-full rounded-t bg-accent/70" style={{ height: `${(v / maxM) * 100}%`, minHeight: 2 }} />
-              <span className="text-[9px] text-fog-600">{MON[i]}</span>
+              <span className="text-[11px] text-fog-500">{MON[i]}</span>
             </div>
           ))}
         </div>
@@ -162,15 +162,17 @@ function Wrapped() {
       {(data?.topSeries?.length ?? 0) > 0 && (
         <div className="px-5 pt-6 lg:mx-auto lg:max-w-2xl lg:px-0">
           <p className="mb-2 text-xs font-medium text-fog-400">{tr('Top series')}</p>
-          <div className="card divide-y divide-ink-800/70 overflow-hidden">
+          <ul className="card divide-y divide-ink-800/70 overflow-hidden">
             {data!.topSeries.map((s, i) => (
-              <Link key={s.id} href={`/series/?id=${s.id}`} className="flex items-center gap-3 px-4 py-3">
-                <span className="w-5 font-display text-lg font-bold text-accent">{i + 1}</span>
-                <span className="min-w-0 flex-1 truncate text-sm text-fog-100">{s.title}</span>
-                <span className="text-xs text-fog-500">{tr('{n} ch', { n: s.count })}</span>
-              </Link>
+              <li key={s.id}>
+                <Link href={`/series/?id=${s.id}`} className="flex items-center gap-3 px-4 py-3">
+                  <span className="w-5 font-display text-lg font-bold text-accent">{i + 1}</span>
+                  <span className="min-w-0 flex-1 truncate text-sm text-fog-100">{s.title}</span>
+                  <span className="text-xs text-fog-500">{tr('{n} ch', { n: s.count })}</span>
+                </Link>
+              </li>
             ))}
-          </div>
+          </ul>
         </div>
       )}
 

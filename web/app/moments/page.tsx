@@ -109,13 +109,14 @@ function Moments() {
   return (
     <div className="min-h-screen-d">
       <header className="safe-top flex items-center gap-2 px-4 pb-2 lg:px-0 lg:pt-6">
-        <button onClick={() => router.back()} aria-label={tr('Back')}
+        <button type="button" onClick={() => router.back()} aria-label={tr('Back')}
           className="grid h-10 w-10 place-items-center rounded-full bg-ink-800/70 text-fog-100">
           <IcChevronLeft width={22} height={22} />
         </button>
         <h1 className="font-display text-2xl font-bold lg:text-3xl">{tr('Moments')}</h1>
         {seriesId && (
-          <Link href="/moments" className="chip ms-auto inline-flex items-center gap-1 text-xs">
+          <Link href="/moments" aria-label={tr('Showing only {title}. Show all moments.', { title: filterTitle || tr('This series') })}
+            className="chip ms-auto inline-flex items-center gap-1 text-xs">
             <span className="max-w-[9rem] truncate">{filterTitle || tr('This series')}</span>
             <IcX width={12} height={12} />
           </Link>
@@ -127,7 +128,8 @@ function Moments() {
       {seriesId && !loading && <div className="px-4 lg:px-0"><NoteComposer seriesId={seriesId} /></div>}
 
       {loading ? (
-        <div className="grid grid-cols-3 gap-x-3 gap-y-5 px-4 pt-4 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 lg:px-0 xl:grid-cols-8">
+        <div role="status" aria-busy="true" className="grid grid-cols-3 gap-x-3 gap-y-5 px-4 pt-4 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 lg:px-0 xl:grid-cols-8">
+          <span className="sr-only">{tr('Loading…')}</span>
           {Array.from({ length: 8 }).map((_, i) => <div key={i} className="skeleton aspect-[2/3] rounded-2xl" />)}
         </div>
       ) : empty ? (
@@ -139,9 +141,9 @@ function Moments() {
           {notes.length > 0 && (
             <section className="mb-6">
               <h2 className="py-2 text-xs font-semibold uppercase tracking-widest text-fog-500">{tr('Notes')}</h2>
-              <div className="card divide-y divide-ink-800/70 overflow-hidden">
+              <ul className="card divide-y divide-ink-800/70 overflow-hidden">
                 {notes.map((n) => (
-                  <div key={n.id} className="flex items-start gap-3 px-3.5 py-3">
+                  <li key={n.id} className="flex items-start gap-3 px-3.5 py-3">
                     <div className="min-w-0 flex-1">
                       <p className="whitespace-pre-wrap text-sm text-fog-100">{n.body}</p>
                       <p className="mt-1 truncate text-[11px] text-fog-500">
@@ -149,13 +151,13 @@ function Moments() {
                         <span className="text-fog-600"> · {relativeTime(n.updated_at)}</span>
                       </p>
                     </div>
-                    <button onClick={() => confirmDelete(n.id)} aria-label={tr('Delete note')}
+                    <button type="button" onClick={() => confirmDelete(n.id)} aria-label={tr('Delete note')}
                       className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-fog-500 hover:bg-ink-800 hover:text-rose-400">
                       <IcTrash width={14} height={14} />
                     </button>
-                  </div>
+                  </li>
                 ))}
-              </div>
+              </ul>
             </section>
           )}
 
@@ -168,25 +170,25 @@ function Moments() {
                   className="min-w-0 truncate font-display text-base font-semibold text-fog-100 hover:text-white">{g.title}</Link>
                 <span className="shrink-0 text-[11px] text-fog-500">{g.items.length === 1 ? tr('1 saved') : tr('{n} saved', { n: g.items.length })}</span>
               </h2>
-              <div className="grid grid-cols-3 gap-x-3 gap-y-4 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8">
+              <ul className="grid grid-cols-3 gap-x-3 gap-y-4 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8">
                 {g.items.map((m) => (
-                  <div key={`${m.book_id}:${m.page}`} className="relative">
+                  <li key={`${m.book_id}:${m.page}`} className="relative">
                     <PageTile bookId={m.book_id} page={m.page}
                       chapter={m.number} note={m.note} seriesTitle={m.series_title} />
                     {/* Over the tile rather than inside PageTile: the tile is one big link, and a button
                         nested in an <a> is not a valid or clickable control. */}
-                    <button onClick={() => setEditing(m)} aria-label={m.note ? tr('Edit note') : tr('Add a note')}
+                    <button type="button" onClick={() => setEditing(m)} aria-haspopup="dialog" aria-label={m.note ? tr('Edit note') : tr('Add a note')}
                       className="absolute end-1.5 top-1.5 grid h-7 w-7 place-items-center rounded-full bg-black/55 text-white/85 backdrop-blur transition hover:bg-black/75 hover:text-white">
                       <IcPencil width={13} height={13} />
                     </button>
-                    <button onClick={() => confirmUnsave(m)} disabled={unsave.isPending}
+                    <button type="button" onClick={() => confirmUnsave(m)} disabled={unsave.isPending}
                       aria-label={tr('Remove from Moments')}
                       className="absolute end-1.5 top-10 grid h-7 w-7 place-items-center rounded-full bg-black/55 text-white/85 backdrop-blur transition hover:bg-black/75 hover:text-white disabled:opacity-40">
                       <IcTrash width={13} height={13} />
                     </button>
-                  </div>
+                  </li>
                 ))}
-              </div>
+              </ul>
             </section>
           ))}
         </div>
@@ -214,10 +216,10 @@ function PageNoteEditor({ mark, onClose }: { mark: Bookmark; onClose: () => void
   return (
     <Modal title={tr('Note on this page')} onClose={onClose}>
       <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={4} maxLength={500}
-        placeholder={tr('What do you want to remember?')} className="field w-full resize-y text-sm" />
+        aria-label={tr('Note on this page')} placeholder={tr('What do you want to remember?')} className="field w-full resize-y text-sm" />
       <div className="mt-3 flex justify-end gap-2">
-        <button onClick={onClose} className="chip text-xs text-fog-500">{tr('Cancel')}</button>
-        <button disabled={save.isPending} onClick={() => save.mutate()}
+        <button type="button" onClick={onClose} className="chip text-xs text-fog-500">{tr('Cancel')}</button>
+        <button type="button" disabled={save.isPending} onClick={() => save.mutate()}
           className="btn-accent text-xs disabled:opacity-50">{tr('Save')}</button>
       </div>
     </Modal>
@@ -239,7 +241,7 @@ function NoteComposer({ seriesId }: { seriesId: string }) {
 
   if (!open) {
     return (
-      <button onClick={() => setOpen(true)} className="chip mt-2 inline-flex items-center gap-1.5 text-xs">
+      <button type="button" onClick={() => setOpen(true)} className="chip mt-2 inline-flex items-center gap-1.5 text-xs">
         <IcPlus width={13} height={13} />{tr('Add a note')}
       </button>
     );
@@ -247,10 +249,10 @@ function NoteComposer({ seriesId }: { seriesId: string }) {
   return (
     <div className="card mt-2 p-3">
       <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={3} maxLength={4000}
-        placeholder={tr('What do you want to remember?')} className="field w-full resize-y text-sm" />
+        aria-label={tr('Add a note')} placeholder={tr('What do you want to remember?')} className="field w-full resize-y text-sm" />
       <div className="mt-2 flex justify-end gap-2">
-        <button onClick={() => { setOpen(false); setBody(''); }} className="chip text-xs text-fog-500">{tr('Cancel')}</button>
-        <button disabled={!body.trim() || add.isPending} onClick={() => add.mutate()}
+        <button type="button" onClick={() => { setOpen(false); setBody(''); }} className="chip text-xs text-fog-500">{tr('Cancel')}</button>
+        <button type="button" disabled={!body.trim() || add.isPending} onClick={() => add.mutate()}
           className="btn-accent text-xs disabled:opacity-50">{tr('Save')}</button>
       </div>
     </div>

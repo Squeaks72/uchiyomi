@@ -234,7 +234,7 @@ export function BrowseView({ actions, repos, adult, onAdult, onOpen, onRepos }: 
               <span className="sr-only">{tr('Search extensions…')}</span>
               <IcSearch aria-hidden width={16} height={16} className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-fog-500" />
               <input value={typed} onChange={(e) => setTyped(e.target.value)} placeholder={tr('Search extensions…')} enterKeyHint="search"
-                autoCapitalize="none" autoCorrect="off" spellCheck={false} data-ext-search
+                type="search" autoComplete="off" autoCapitalize="none" autoCorrect="off" spellCheck={false} data-ext-search
                 className="field max-w-none ps-9" />
             </label>
             <select value={f.lang} onChange={(e) => set({ lang: e.target.value })} aria-label={tr('Language')} className="field sm:w-56" data-ext-lang>
@@ -247,7 +247,7 @@ export function BrowseView({ actions, repos, adult, onAdult, onOpen, onRepos }: 
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[12px] text-fog-500" data-ext-count-line>
             <p className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1">
               {counted && (
-                <span className="tabular-nums" data-ext-count>
+                <span role="status" className="tabular-nums" data-ext-count>
                   {first.matched === 1 ? tr('1 extension matches') : tr('{n} extensions match', { n: numberText(first.matched) })}
                 </span>
               )}
@@ -273,7 +273,7 @@ export function BrowseView({ actions, repos, adult, onAdult, onOpen, onRepos }: 
 
           {isError ? (
             <div className="card px-4 py-6 text-center" data-ext-browse-error>
-              <p className="text-sm font-medium text-fog-100">{tr('Could not read the extension list')}</p>
+              <p role="alert" className="text-sm font-medium text-fog-100">{tr('Could not read the extension list')}</p>
               <p dir="auto" className="mx-auto mt-1 line-clamp-3 max-w-md break-words text-[12px] text-fog-500">{reasonLine(msgOf(error, '')) || tr('The extension engine did not answer. Try again in a moment.')}</p>
               <button type="button" onClick={() => void refetch()} className="btn-key btn-key-primary mt-3">{tr('Try again')}</button>
             </div>
@@ -376,11 +376,11 @@ function BrowseRow({ e, busy, onInstall, onUpdate, onOpen }: {
       )}
       {!e.installed ? (
         // The accent without its fill: a page of sixty would be a column of sixty bright buttons.
-        <button type="button" onClick={onInstall} disabled={!!busy} className={`btn-key btn-key-accent min-w-[5.5rem] ${busyKey(busy === 'install')}`} data-ext-install>
+        <button type="button" onClick={onInstall} disabled={!!busy} aria-label={`${tr('Install')}: ${e.name}`} className={`btn-key btn-key-accent min-w-[5.5rem] ${busyKey(busy === 'install')}`} data-ext-install>
           {busy === 'install' ? <Busy>{tr('Installing…')}</Busy> : tr('Install')}
         </button>
       ) : e.hasUpdate ? (
-        <button type="button" onClick={onUpdate} disabled={!!busy} className={`btn-key relative ${AMBER_KEY} ${busyKey(busy === 'update')}`} data-ext-update>
+        <button type="button" onClick={onUpdate} disabled={!!busy} aria-label={`${tr('Update')}: ${e.name}`} className={`btn-key relative ${AMBER_KEY} ${busyKey(busy === 'update')}`} data-ext-update>
           {busy === 'update' ? <Busy tone="amber">{tr('Updating…')}</Busy> : tr('Update')}
         </button>
       ) : null}

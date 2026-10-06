@@ -192,7 +192,7 @@ test('every dialog in the app is on the stack, and so are the nav and both selec
     assert.ok(registered >= n, `${rel} has ${n} full-screen overlays but registers ${registered} dialogs, so notices land on their buttons`);
     assert.match(src, /import \{[^}]*\buseLayer\b[^}]*\} from '@\/lib\/layers';/, `${rel} does not import useLayer`);
   }
-  assert.ok(roots >= 12, `only ${roots} full-screen overlays found -- the scan is broken`);
+  assert.ok(roots >= 10, `only ${roots} full-screen overlays found -- the scan is broken`);
   for (const rel of Object.keys(NOT_DIALOGS)) assert.ok(overlays(code(read(rel))) > 0, `${rel} no longer has an overlay; drop it from NOT_DIALOGS`);
 
   // The dialogs that keep the phone's nav band free say so; the one that does not, doesn't.

@@ -119,15 +119,15 @@ export function MangadexLanguages({ sources, onSaved, open: always = false }: {
               className={`chip whitespace-nowrap text-xs disabled:cursor-default ${lit ? 'chip-active' : ''}`}>
               {lit && <span aria-hidden>✓</span>}
               {languageName(code)}
-              {always && <span className="text-[10px] opacity-75">· {tr('always on')}</span>}
+              {always && <span className="text-[11px] opacity-75">· {tr('always on')}</span>}
             </button>
           );
         })}
-        {!data && <span className="text-[11px] text-fog-500">{tr('Loading…')}</span>}
+        {!data && <span role="status" className="text-[11px] text-fog-500">{tr('Loading…')}</span>}
       </div>
-      <p className="mt-2 max-w-prose text-[10px] leading-relaxed text-fog-500">
+      <p className="mt-2 max-w-prose text-[11px] leading-relaxed text-fog-500">
         {tr('All MangaDex sources share one rate limit: when MangaDex asks Uchiyomi to slow down, every language waits.')}
-        {' '}{tr('Languages are a server-wide choice: they apply to everyone on this server.')}
+        {' '}{tr('Languages apply to everyone on this server.')}
       </p>
       {/* The question, here rather than in a dialog: this block may be inside a sheet, which a dialog would paint under. */}
       {confirm && (
@@ -198,7 +198,7 @@ export function UnstatedLanguageRow() {
   return (
     <Row htmlFor={id} status={status} id="sources-unstated-language"
       label={tr('Sites that do not say their language')}
-      help={`${tr('Uchiyomi takes them to be in this language, and follows a source for a series automatically only when both are in the same language.')} ${tr('This is a server-wide setting.')}`}>
+      help={`${tr('Uchiyomi treats them as this language. It follows a source for a series automatically only when the languages match.')} ${tr('This is a server-wide setting.')}`}>
       <select id={id} value={value} onChange={(e) => pick(e.target.value)} className="field w-auto">
         {codes.map((c) => <option key={c} value={c}>{languageName(c)}</option>)}
       </select>

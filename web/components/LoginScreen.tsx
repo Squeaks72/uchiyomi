@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { useAuth } from '@/lib/auth';
 import { api, ApiError } from '@/lib/api';
@@ -40,6 +40,14 @@ export function LoginScreen() {
   const [errMsg, setErrMsg] = useState('');
   const [sso, setSso] = useState<{ enabled: boolean; name: string }>({ enabled: false, name: '' });
   const err = !!errMsg;
+  const errId = useId();
+  const hintId = useId();
+  const idUser = useId();
+  const idPw = useId();
+  const idConfirm = useId();
+  const idCode = useId();
+  // An error names the fields it is about, so a screen reader hears it when focus lands on one.
+  const bad = { 'aria-invalid': err || undefined, 'aria-describedby': err ? errId : undefined } as const;
   // globals.css kills CSS animation under prefers-reduced-motion, but it cannot reach framer-motion, so
   // this screen's backdrop ignored the setting until now.
   const still = useReducedMotion();
@@ -101,11 +109,11 @@ export function LoginScreen() {
     setBusy(false);
   };
 
-  const inputCls = `w-full rounded-2xl border bg-black/40 px-4 py-3.5 text-lg text-fog-50 outline-hidden transition placeholder:text-ink-500 ${err ? 'border-red-500/70' : 'border-white/10 focus:border-accent'}`;
+  const inputCls = `w-full rounded-2xl border bg-black/40 px-4 py-3.5 text-lg text-fog-50 outline-hidden focus-visible:outline-accent focus-visible:outline-offset-0 transition placeholder:text-fog-600 ${err ? 'border-red-500/70' : 'border-white/10 focus:border-accent'}`;
   const labelCls = 'mb-2 block text-xs font-medium uppercase tracking-wider text-fog-500';
 
   return (
-    <div className="relative flex min-h-screen-d flex-col items-center justify-center overflow-hidden px-6">
+    <main className="relative flex min-h-screen-d flex-col items-center justify-center overflow-hidden px-6">
       {/* A wall of cover art, tilted. Built from this app's own key art (scripts/login-wall.py), never from
           the library: this screen is pre-auth, so anything here is visible to anyone who can reach the
           server. The scrims below are what carry the form's contrast -- the image itself is deliberately
@@ -146,7 +154,7 @@ export function LoginScreen() {
       >
         <div className="mb-8 flex flex-col items-center text-center">
           <Mark size={56} />
-          <Wordmark className="mt-5 text-5xl drop-shadow-[0_2px_20px_rgba(0,0,0,0.6)]" />
+          <h1 className="mt-5"><Wordmark className="text-5xl drop-shadow-[0_2px_20px_rgba(0,0,0,0.6)]" /></h1>
           <p className="mt-2 text-sm text-fog-300">{mode === 'setup' ? tr('Welcome — create your admin account.') : tr('Your library, your way.')}</p>
         </div>
 
@@ -158,33 +166,34 @@ export function LoginScreen() {
         )}
 
         {mode === 'checking' && (
-          <div className="glass grad-border flex items-center justify-center rounded-3xl p-10 shadow-lift">
-            <span className="h-6 w-6 animate-spin rounded-full border-2 border-white/15 border-t-accent" />
+          <div role="status" className="glass grad-border flex items-center justify-center rounded-3xl p-10 shadow-lift">
+            <span aria-hidden className="h-6 w-6 animate-spin rounded-full border-2 border-white/15 border-t-accent" />
+            <span className="sr-only">{tr('Loading…')}</span>
           </div>
         )}
 
         {/* First-run: create the admin account */}
         {mode === 'setup' && (
           <form onSubmit={submitSetup} className="glass grad-border rounded-3xl p-5 shadow-lift">
-            <label className={labelCls}>{tr('Admin username')}</label>
+            <label htmlFor={idUser} className={labelCls}>{tr('Admin username')}</label>
             <input
-              type="text" autoCapitalize="none" autoCorrect="off" autoFocus
+              id={idUser} type="text" autoComplete="username" autoCapitalize="none" autoCorrect="off" autoFocus {...bad}
               value={username} onChange={(e) => setUsername(e.target.value)} placeholder={tr('admin')}
               className={`mb-4 ${inputCls}`}
             />
-            <label className={labelCls}>{tr('Password')}</label>
+            <label htmlFor={idPw} className={labelCls}>{tr('Password')}</label>
             <input
-              type="password"
+              id={idPw} type="password" autoComplete="new-password" {...bad}
               value={pw} onChange={(e) => setPw(e.target.value)} placeholder={tr('At least 8 characters')}
               className={`mb-4 ${inputCls}`}
             />
-            <label className={labelCls}>{tr('Confirm password')}</label>
+            <label htmlFor={idConfirm} className={labelCls}>{tr('Confirm password')}</label>
             <input
-              type="password"
+              id={idConfirm} type="password" autoComplete="new-password" {...bad}
               value={confirm} onChange={(e) => setConfirm(e.target.value)} placeholder="••••••••"
               className={inputCls}
             />
-            {errMsg && <p className="mt-2 text-sm text-red-400">{errMsg}</p>}
+            {errMsg && <p id={errId} role="alert" className="mt-2 text-sm text-red-400">{errMsg}</p>}
             <button type="submit" disabled={busy} className="btn-accent mt-4 w-full disabled:opacity-50">
               {busy ? tr('Creating…') : tr('Create admin account & open Uchiyomi')}
             </button>
@@ -197,36 +206,37 @@ export function LoginScreen() {
           <form onSubmit={submit} className="glass grad-border rounded-3xl p-5 shadow-lift">
             {!needTotp ? (
               <>
-                <label className={labelCls}>{tr('Username')}</label>
+                <label htmlFor={idUser} className={labelCls}>{tr('Username')}</label>
                 <input
-                  type="text" autoCapitalize="none" autoCorrect="off" autoFocus
+                  id={idUser} type="text" autoComplete="username" autoCapitalize="none" autoCorrect="off" autoFocus {...bad}
                   value={username} onChange={(e) => setUsername(e.target.value)} placeholder={tr('admin')}
                   className={`mb-4 ${inputCls}`}
                 />
-                <label className={labelCls}>{tr('Passcode')}</label>
+                <label htmlFor={idPw} className={labelCls}>{tr('Password')}</label>
                 <input
-                  type="password" inputMode="text"
+                  id={idPw} type="password" inputMode="text" autoComplete="current-password" {...bad}
                   value={pw} onChange={(e) => setPw(e.target.value)} placeholder="••••••••"
                   className={inputCls}
                 />
               </>
             ) : (
               <>
-                <label className={labelCls}>{tr('Authentication code')}</label>
+                <label htmlFor={idCode} className={labelCls}>{tr('Authentication code')}</label>
                 <input
-                  type="text" inputMode="numeric" autoComplete="one-time-code" autoFocus
+                  id={idCode} type="text" inputMode="numeric" autoComplete="one-time-code" autoFocus
+                  aria-invalid={err || undefined} aria-describedby={err ? `${hintId} ${errId}` : hintId}
                   value={code} onChange={(e) => setCode(e.target.value)} placeholder="123456"
                   className={`text-center text-2xl tracking-[0.3em] ${inputCls}`}
                 />
-                <p className="mt-2 text-xs text-fog-500">{tr('Enter the 6-digit code from your authenticator app, or a recovery code.')}</p>
+                <p id={hintId} className="mt-2 text-xs text-fog-500">{tr('Enter the 6-digit code from your authenticator app, or a recovery code.')}</p>
               </>
             )}
-            {errMsg && <p className="mt-2 text-sm text-red-400">{errMsg}</p>}
+            {errMsg && <p id={errId} role="alert" className="mt-2 text-sm text-red-400">{errMsg}</p>}
             <button type="submit" disabled={busy || (needTotp ? !code.trim() : !pw)} className="btn-accent mt-4 w-full disabled:opacity-50">
               {busy ? (needTotp ? tr('Verifying…') : tr('Opening…')) : needTotp ? tr('Verify') : tr('Open Uchiyomi')}
             </button>
             {needTotp && (
-              <button type="button" onClick={() => { setNeedTotp(false); setErrMsg(''); setCode(''); }} className="mt-3 w-full text-center text-xs text-fog-500 hover:text-fog-300">‹ {tr('Back')}</button>
+              <button type="button" onClick={() => { setNeedTotp(false); setErrMsg(''); setCode(''); }} className="mt-3 w-full py-2 text-center text-xs text-fog-500 hover:text-fog-300"><span aria-hidden className="rtl:inline-block rtl:-scale-x-100">‹ </span>{tr('Back')}</button>
             )}
             {sso.enabled && !needTotp && (
               <>
@@ -245,6 +255,6 @@ export function LoginScreen() {
 
         <p className="mt-6 text-center text-xs text-fog-500">{mode === 'setup' ? tr('First-run setup') : tr('Private library · single sign-in')}</p>
       </motion.div>
-    </div>
+    </main>
   );
 }

@@ -229,7 +229,7 @@ export function SeriesEditor({ id, series, tab: opening = 'details', onClose, on
         aria-labelledby={`${uid}-title`}
         data-series-editor
         tabIndex={-1}
-        className="glass-strong flex h-[calc(100dvh-max(1.5rem,env(safe-area-inset-top)))] w-full min-w-0 flex-col overflow-hidden rounded-t-3xl border border-ink-700 shadow-lift md:h-full md:max-h-[86vh] outline-hidden md:max-w-[880px] md:rounded-3xl"
+        className="glass-strong flex h-[calc(100dvh-max(1.5rem,env(safe-area-inset-top)))] w-full min-w-0 flex-col overflow-hidden rounded-t-3xl border border-ink-700 shadow-lift md:h-full md:max-h-[86vh] outline-hidden focus-visible:outline-accent focus-visible:outline-offset-0 md:max-w-[880px] md:rounded-3xl"
       >
         <SaveScope report={scope.report}>
           <div className="flex items-start gap-3 px-4 pt-4 md:px-6 md:pt-5">
@@ -432,7 +432,7 @@ function GenresRow({ genres, onSave }: { genres: string[]; onSave: (g: string[])
   };
   return (
     <Row label={tr('Genres')} htmlFor={fid} stacked
-      help={tr('Genres drive the Library’s genre filters and the recommendation rails. Clearing them all means this series genuinely has none.')}>
+      help={tr('Genres feed the Library filters and recommendations. If you remove them all, this series has no genres.')}>
       <div className="flex w-full flex-wrap gap-1.5 rounded-xl border border-ink-700 bg-ink-850 p-1.5 transition-colors focus-within:border-accent">
         {genres.map((g) => (
           <span key={g} className="inline-flex min-w-0 items-center gap-0.5 rounded-md bg-ink-700/80 py-0.5 pe-0.5 ps-2 text-xs text-fog-100">
@@ -444,7 +444,7 @@ function GenresRow({ genres, onSave }: { genres: string[]; onSave: (g: string[])
           </span>
         ))}
         <input id={fid} value={draft} dir="auto" maxLength={60} placeholder={tr('Add a genre…')}
-          className="min-w-[8rem] flex-1 bg-transparent px-1.5 py-1 text-sm text-fog-50 outline-hidden placeholder:text-fog-500"
+          className="min-w-[8rem] flex-1 bg-transparent px-1.5 py-1 text-sm text-fog-50 outline-hidden focus-visible:outline-accent focus-visible:outline-offset-0 placeholder:text-fog-500"
           onChange={(e) => (e.target.value.endsWith(',') ? add(e.target.value) : setDraft(e.target.value))}
           onBlur={() => add(draft)}
           onKeyDown={(e) => {
@@ -466,7 +466,7 @@ function ReadingPane({ id, series, meta, save, onSaved }: {
     <>
       <ChoiceRow narrow label={tr('Reading direction')} value={meta.readingDirection}
         help={<>
-          {tr('What “Follow the series” in the reader follows. Automatic takes it from the chapter files, then the source, then AniList.')}
+          {tr('Sets what “Follow the series” uses in the reader. Automatic checks the chapter files, then the source, then AniList.')}
           <span data-auto-direction className="mt-0.5 block text-fog-400">{autoDirectionLabel(series.detectedDirection)}</span>
         </>}
         options={[{ value: '', label: autoDirectionChoice(series.detectedDirection) }, ...DIRECTIONS.map(([v, label]) => ({ value: v as string, label: tr(label) }))]}
@@ -474,7 +474,7 @@ function ReadingPane({ id, series, meta, save, onSaved }: {
       {/* What kind of comic it is: the notice-chapter switches in Admin → Settings go by it (bff lib/noticeChapters.ts). */}
       <ChoiceRow narrow label={tr('Series type')} value={meta.seriesType}
         help={<>
-          {tr('What the notice-chapter switches in Settings go by. Automatic takes it from the genres, then the source, then AniList.')}
+          {tr('Sets what the notice-chapter switches in Settings use. Automatic checks the genres, then the source, then AniList.')}
           <span data-auto-type className="mt-0.5 block text-fog-400">{autoTypeLabel(series.detectedType)}</span>
         </>}
         options={[{ value: '', label: tr('Automatic') }, ...SERIES_TYPES.filter((v) => v !== 'unknown').map((v) => ({ value: v as string, label: tr(seriesTypeKey(v)) }))]}
@@ -603,7 +603,7 @@ function UpdatesPane({ id, series, onSaved, onOpenSources }: { id: string; serie
             {caught === 'asking' && (
               <div className="rounded-xl border border-ink-700 bg-ink-900/40 p-3">
                 <p className="max-w-prose text-[11px] leading-relaxed text-fog-300">
-                  {tr('Chapters already out are not fetched; only new ones are, from the next check. Chapters already here stay, and older ones can still be fetched from the chapter list.')}
+                  {tr('Only chapters released after the next check are fetched. Chapters already here stay, and you can still fetch older ones from the chapter list.')}
                 </p>
                 <div className="mt-2 flex flex-wrap gap-2">
                   <button type="button" onClick={() => void floorTo('caught_up')} disabled={caughtBusy} className="btn-key btn-key-primary">{tr('Mark caught up')}</button>

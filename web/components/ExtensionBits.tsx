@@ -26,9 +26,9 @@ export function ExtTags({ e }: { e: Pick<CatalogExt, 'nsfw' | 'obsolete'> }) {
   return (
     <>
       {/* dir="ltr": in an Arabic line the "+" of a bare "18+" printed on the wrong side ("+18"). */}
-      {e.nsfw && <span dir="ltr" className="shrink-0 rounded-[4px] border border-red-400/30 px-1 text-[10px] font-semibold leading-[15px] text-red-300">18+</span>}
+      {e.nsfw && <span dir="ltr" className="shrink-0 rounded-[4px] border border-red-400/30 px-1 text-[11px] font-semibold leading-[15px] text-red-300">18+</span>}
       {e.obsolete && (
-        <span className="shrink-0 rounded-[4px] border border-amber-400/30 px-1 text-[10px] font-medium leading-[15px] text-amber-300">{tr('Not in any repository')}</span>
+        <span className="shrink-0 rounded-[4px] border border-amber-400/30 px-1 text-[11px] font-medium leading-[15px] text-amber-300">{tr('Not in any repository')}</span>
       )}
     </>
   );

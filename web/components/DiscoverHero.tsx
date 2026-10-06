@@ -1,8 +1,8 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import { Img, useWideViewport } from '@/components/ui';
+import { Img, useAutoplay, useWideViewport } from '@/components/ui';
 import { sourceCover } from '@/components/cards';
-import { IcPlus, IcSparkle } from '@/components/icons';
+import { IcPause, IcPlay, IcPlus, IcSparkle } from '@/components/icons';
 import { t as tr } from '@/lib/i18n';
 import { dotWindow } from '@/lib/carousel';
 
@@ -32,17 +32,17 @@ export interface Trending {
 export function DiscoverHero({ slides, onPick }: { slides: Trending[]; onPick: (t: Trending) => void }) {
   const wide = useWideViewport();
   const [i, setI] = useState(0);
-  const [paused, setPaused] = useState(false);
+  const auto = useAutoplay();
   const startX = useRef(0);
 
   // 5s, not 7s. With ten slides a seven-second beat is a seventy-second loop, so the back half was seen by
   // essentially nobody; fifty seconds gives every slide a realistic chance while still leaving time to read
   // a title and decide.
   useEffect(() => {
-    if (paused || slides.length < 2) return;
+    if (!auto.running || slides.length < 2) return;
     const t = setTimeout(() => setI((v) => (v + 1) % slides.length), 5000);
     return () => clearTimeout(t);
-  }, [i, paused, slides.length]);
+  }, [i, auto.running, slides.length]);
 
   // Warm the next slide's art. Nothing preloaded before, which at seven seconds was survivable and at five
   // would read as a flash of empty box on every advance. One Image per change, discarded immediately.
@@ -62,24 +62,24 @@ export function DiscoverHero({ slides, onPick }: { slides: Trending[]; onPick: (
   const letterboxed = wide && !cur.banner;
 
   return (
-    <div
+    <section
+      aria-label={tr('Trending now')}
       className="bleed relative isolate h-[44vh] min-h-[300px] overflow-hidden lg:h-[54vh] lg:min-h-[400px] lg:max-h-[600px] lg:rounded-b-3xl"
-      onMouseEnter={() => setPaused(true)}
-      onMouseLeave={() => setPaused(false)}
+      {...auto.bind}
       onTouchStart={(e) => { startX.current = e.touches[0].clientX; }}
       onTouchEnd={(e) => {
         const dx = e.changedTouches[0].clientX - startX.current;
         if (Math.abs(dx) > 50) setI((v) => (v + (dx < 0 ? 1 : slides.length - 1)) % slides.length);
       }}
     >
-      <div key={cur.title} className="absolute inset-0 animate-fade-up">
+      <div key={cur.title} className={`absolute inset-0 ${auto.reduced ? '' : 'animate-fade-up'}`}>
         {/* A 2:3 cover in a 16:6 box would be pillarboxed against flat black, so its own blur fills the sides. */}
         {letterboxed && (
           <Img src={sourceCover(undefined, art, 800)} alt="" fallbackSrc={art || undefined}
             className="absolute inset-0 h-full w-full scale-125 opacity-50 blur-2xl" />
         )}
         <Img
-          src={sourceCover(undefined, art, 1600)} alt={cur.title} fallbackSrc={art || undefined} eager
+          src={sourceCover(undefined, art, 1600)} alt="" fallbackSrc={art || undefined} eager
           className={`absolute inset-0 h-full w-full ${letterboxed ? 'mx-auto max-w-2xl' : ''}`}
           imgClassName={wide && cur.banner ? 'object-center' : 'object-top'}
         />
@@ -93,7 +93,8 @@ export function DiscoverHero({ slides, onPick }: { slides: Trending[]; onPick: (
       <span aria-hidden className="pointer-events-none absolute inset-0"
         style={{ background: 'radial-gradient(60% 70% at var(--start) 70%, rgb(var(--accent) / 0.14), transparent 70%)' }} />
 
-      <div className="relative z-10 flex h-full flex-col justify-end px-4 pb-5 lg:px-8 lg:pb-10">
+      {/* Said aloud only while the slides are not changing by themselves (see HeroCarousel). */}
+      <div aria-live={auto.running ? 'off' : 'polite'} className="relative z-10 flex h-full flex-col justify-end px-4 pb-5 lg:px-8 lg:pb-10">
         <span className="mb-2.5 inline-flex w-fit items-center gap-1.5 rounded-full bg-black/45 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-accent backdrop-blur">
           <IcSparkle width={12} height={12} />{tr('Trending now')}
         </span>
@@ -108,8 +109,8 @@ export function DiscoverHero({ slides, onPick }: { slides: Trending[]; onPick: (
         {cur.description && (
           <p className="mt-2.5 hidden max-w-xl text-sm leading-relaxed text-fog-300 lg:line-clamp-2">{cur.description}</p>
         )}
-        <div className="mt-4 flex items-center gap-2.5">
-          <button onClick={() => onPick(cur)} className="btn-accent px-6 py-3 text-sm lg:px-7 lg:py-3.5 lg:text-base">
+        <div className="mt-4 flex flex-wrap items-center gap-x-2.5">
+          <button type="button" onClick={() => onPick(cur)} className="btn-accent px-6 py-3 text-sm lg:px-7 lg:py-3.5 lg:text-base">
             <IcPlus width={17} height={17} />{tr('Find and add')}
           </button>
           {slides.length > 1 && (() => {
@@ -122,12 +123,12 @@ export function DiscoverHero({ slides, onPick }: { slides: Trending[]; onPick: (
             // the bound follows the constraint -- generous where there is room, tight where there is not.
             const { items, moreBefore, moreAfter } = dotWindow(slides.length, i, wide ? 12 : 5);
             return (
-              <div className="flex gap-1.5 ps-1">
+              <div className="flex ps-1">
                 {items.map((k, n) => {
                   const edge = (n === 0 && moreBefore) || (n === items.length - 1 && moreAfter);
                   return (
-                    <button key={k} onClick={() => setI(k)} aria-label={slides[k].title}
-                      aria-current={k === i} className="grid place-items-center py-2">
+                    <button key={k} type="button" onClick={() => setI(k)} aria-label={slides[k].title}
+                      aria-current={k === i} className="grid place-items-center px-1.5 py-2.5 lg:px-[9px]">
                       <span className={`rounded-full transition-all ${k === i ? 'h-1.5 w-6 bg-accent' : edge ? 'h-1 w-1 bg-white/25' : 'h-1.5 w-1.5 bg-white/35'}`} />
                     </button>
                   );
@@ -137,19 +138,27 @@ export function DiscoverHero({ slides, onPick }: { slides: Trending[]; onPick: (
           })()}
         </div>
       </div>
-    </div>
+      {/* Pause / Resume (WCAG 2.2.2); not drawn when the slides never move by themselves. In the corner, not the
+          button row: that row is already as wide as a phone allows. */}
+      {slides.length > 1 && !auto.reduced && (
+        <button type="button" onClick={auto.toggle} aria-label={auto.userPaused ? tr('Resume') : tr('Pause')} title={auto.userPaused ? tr('Resume') : tr('Pause')}
+          className="absolute end-3 top-3 z-10 grid h-10 w-10 place-items-center rounded-full bg-black/45 text-white backdrop-blur transition hover:bg-black/60 active:scale-90 lg:end-6 lg:top-5">
+          {auto.userPaused ? <IcPlay width={15} height={15} /> : <IcPause width={15} height={15} />}
+        </button>
+      )}
+    </section>
   );
 }
 
 /** The trending items the hero did not take, as a rail. Same art, one size down. */
 export function TrendingCard({ t, onPick }: { t: Trending; onPick: (t: Trending) => void }) {
   return (
-    <button onClick={() => onPick(t)} className="group w-36 shrink-0 snap-start text-start lg:w-40">
+    <button type="button" onClick={() => onPick(t)} className="group w-36 shrink-0 snap-start text-start lg:w-40">
       <div className="grad-border relative aspect-[2/3] overflow-hidden rounded-2xl border border-ink-700/60 transition-all duration-300 group-hover:-translate-y-1 group-hover:shadow-glow">
-        <Img src={sourceCover(undefined, t.cover)} alt={t.title} fallbackSrc={t.cover || undefined}
+        <Img src={sourceCover(undefined, t.cover)} alt="" fallbackSrc={t.cover || undefined}
           className="h-full w-full" imgClassName="transition-transform duration-500 group-hover:scale-[1.06]" />
         {t.score != null && (
-          <span className="absolute end-1.5 top-1.5 rounded-md bg-ink-950/80 px-1.5 py-0.5 text-[10px] font-semibold text-accent backdrop-blur">{t.score}%</span>
+          <span className="absolute end-1.5 top-1.5 rounded-md bg-ink-950/80 px-1.5 py-0.5 text-[11px] font-semibold text-accent backdrop-blur">{t.score}%</span>
         )}
         <span aria-hidden className="absolute bottom-1.5 end-1.5 grid size-7 place-items-center rounded-full bg-accent text-black shadow-glow transition group-hover:scale-110">
           <IcPlus width={15} height={15} />

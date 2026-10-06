@@ -485,7 +485,13 @@ export function HealthRow({ check, item, rowKey, links, children, compact }: {
         return null;
     }
   };
-  const all = actions.map(spec).filter((s): s is ActionSpec => !!s);
+  // Every row carries the same few keys, so each is named for its finding too: "Test: Mangadex", not "Test" nine times
+  // down the page. The visible words stay at the start of the name (WCAG 2.5.3), and Stop names itself the same way.
+  const rowName = itemTitle(item);
+  const all = actions.map(spec).filter((s): s is ActionSpec => !!s).map((sp) => {
+    const shown = actionButton(sp.state ?? IDLE, sp.runLabel ?? sp.label);
+    return { ...sp, buttonProps: { ...sp.buttonProps, 'aria-label': `${shown.stop ? shown.label : (sp.runLabel ?? sp.label)}: ${rowName}` } as ActionSpec['buttonProps'] };
+  });
   const specs = all.filter((s) => s.id !== 'find_sources');
   const finds = all.filter((s) => s.id === 'find_sources');
   // The stored outcome, unless the status line under the keys already says the same thing ("Every source has
@@ -593,10 +599,10 @@ export function HealthRow({ check, item, rowKey, links, children, compact }: {
                 <p className="mt-2">{tr('A chapter both have is kept once: the other copy is removed and its file deleted, or set aside if Uchiyomi may not delete it. Reading progress moves to the copy that stays, and a copy somebody bookmarked is kept.')}</p>
                 {/* v0.57.0: each copy's chapters and main source under its title, Recommended on the server's choice. The
                     choice stays the admin's: the radio starts on it and can be moved. */}
-                <div className="mt-3 space-y-2">
+                <div role="radiogroup" aria-label={tr('Merge these two?')} className="mt-3 space-y-2">
                   {(item.titles || []).map((t, i) => (
                     <label key={i} className="flex cursor-pointer items-start gap-2 rounded-lg border border-ink-700 px-3 py-2 text-sm">
-                      <input type="radio" className="mt-1 shrink-0" checked={keepFirst === (i === 0)} onChange={() => setKeepFirst(i === 0)} />
+                      <input type="radio" name="merge-keep" className="mt-1 shrink-0" checked={keepFirst === (i === 0)} onChange={() => setKeepFirst(i === 0)} />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate">{keepBefore}<strong className="text-fog-100">{t}</strong>{keepAfter}</span>
                         <CopyFacts item={item} index={i} />
@@ -667,9 +673,9 @@ export function HealthRow({ check, item, rowKey, links, children, compact }: {
           <svg aria-hidden width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8" /><circle cx="12" cy="12" r="1.8" /><circle cx="19" cy="12" r="1.8" /></svg>
         </button>
         <div className="col-start-2 col-end-5 row-start-3 min-w-0">
-          {outcome && <p data-health-outcome className="mt-1 text-[11px] leading-relaxed text-fog-400">{outcome}</p>}
+          {outcome && <p data-health-outcome className="mt-1 text-[11px] leading-relaxed text-fog-300">{outcome}</p>}
           {caveats.map((c) => (
-            <p key={c.text} data-health-caveat={c.tone} className={`mt-1 text-[11px] leading-relaxed ${c.tone === 'calm' ? 'text-fog-400' : 'text-amber-300/90'}`}>{c.text}</p>
+            <p key={c.text} data-health-caveat={c.tone} className={`mt-1 text-[11px] leading-relaxed ${c.tone === 'calm' ? 'text-fog-300' : 'text-amber-300'}`}>{c.text}</p>
           ))}
           <ActionStatus state={rowNow} />
           {finds.length > 0 && <ActionStatus state={findNow} />}
@@ -692,9 +698,9 @@ export function HealthRow({ check, item, rowKey, links, children, compact }: {
         <div className="min-w-0 flex-1">{children}</div>
         {links && <div className="flex shrink-0 flex-col items-end gap-1 pt-0.5">{links}</div>}
       </div>
-      {outcome && <p data-health-outcome className="mt-1 text-[11px] leading-relaxed text-fog-400">{outcome}</p>}
+      {outcome && <p data-health-outcome className="mt-1 text-[11px] leading-relaxed text-fog-300">{outcome}</p>}
       {caveats.map((c) => (
-        <p key={c.text} data-health-caveat={c.tone} className={`mt-1 text-[11px] leading-relaxed ${c.tone === 'calm' ? 'text-fog-400' : 'text-amber-300/90'}`}>{c.text}</p>
+        <p key={c.text} data-health-caveat={c.tone} className={`mt-1 text-[11px] leading-relaxed ${c.tone === 'calm' ? 'text-fog-300' : 'text-amber-300'}`}>{c.text}</p>
       ))}
       {(specs.length > 0 || finds.length > 0) && (
         <div className="mt-2 flex flex-wrap items-center gap-1.5">
@@ -902,9 +908,9 @@ export function HealthCardActions({ check, className = 'border-b border-ink-800/
                       {(p.titles || []).map((t, j) => (
                         <p key={j} className="flex min-w-0 flex-wrap items-center gap-x-2 text-sm sm:flex-nowrap">
                           <span className="flex min-w-0 max-w-full items-center gap-2">
-                            <span dir="auto" className={`truncate ${j === keptIndex(p) ? 'text-fog-100' : 'text-fog-500'}`}>{t}</span>
+                            <span dir="auto" className={`truncate ${j === keptIndex(p) ? 'text-fog-100' : 'text-fog-400'}`}>{t}</span>
                             {j === keptIndex(p) && (
-                              <span className="shrink-0 rounded bg-ink-700 px-1.5 py-0.5 text-[10px] text-fog-300">{tr('kept')}</span>
+                              <span className="shrink-0 rounded bg-ink-700 px-1.5 py-0.5 text-[11px] text-fog-300">{tr('kept')}</span>
                             )}
                           </span>
                           <CopyFacts item={p} index={j} compact />

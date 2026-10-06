@@ -256,7 +256,7 @@ test('the versions sheet shows each copy\'s own title, and says when copies are 
     'two groups naming one chapter differently are versions');
   const sheet = code(read('components/ChapterVersionsSheet.tsx'));
   assert.match(sheet, /const titled = copyTitlesDiffer\(rows\);/);
-  assert.match(sheet, /\{titled && <span dir="auto" className="block truncate text-sm text-fog-100" data-copy-title>\{c\.title\?\.trim\(\) \|\| '—'\}<\/span>\}/,
+  assert.match(sheet, /\{titled && <span id=\{`\$\{rowId\}-\$\{i\}`\} dir="auto" className="block truncate text-sm text-fog-100" data-copy-title>\{c\.title\?\.trim\(\) \|\| '—'\}<\/span>\}/,
     'the copy\'s title is not its first line');
   assert.match(sheet, /\{sharing && \(/);
 });

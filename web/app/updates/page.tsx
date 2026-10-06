@@ -31,30 +31,31 @@ export default function UpdatesPage() {
   return (
     <div className="min-h-screen-d">
       <header className="safe-top flex items-center gap-2 px-4 pb-2 lg:px-0">
-        <button onClick={() => router.back()} className="grid h-10 w-10 place-items-center rounded-full bg-ink-800/70 text-fog-100 lg:hidden">
+        <button type="button" onClick={() => router.back()} aria-label={tr('Back')} className="grid h-10 w-10 place-items-center rounded-full bg-ink-800/70 text-fog-100 lg:hidden">
           <IcChevronLeft width={22} height={22} />
         </button>
         <h1 className="font-display text-2xl font-bold lg:text-3xl">{tr('Updates')}</h1>
         {items.length > 0 && (
-          <button onClick={markAll} className="ms-auto chip text-xs">
+          <button type="button" onClick={markAll} className="ms-auto chip text-xs">
             <IcCheck width={14} height={14} />{tr('Mark all read')}</button>
         )}
       </header>
 
       {isLoading ? (
-        <div className="space-y-3 px-4 pt-3 lg:px-0">
+        <div role="status" aria-busy="true" className="space-y-3 px-4 pt-3 lg:px-0">
+          <span className="sr-only">{tr('Loading…')}</span>
           {Array.from({ length: 4 }).map((_, i) => <div key={i} className="skeleton h-24 rounded-2xl" />)}
         </div>
       ) : items.length === 0 ? (
         <EmptyState art={ART.emptyUpdates} title={tr('You’re all caught up')}
-          sub={tr('Favorite some series and new chapters will appear here as Uchiyomi downloads them.')}
+          sub={tr('Favorite a series and its new chapters show up here.')}
           cta={{ href: '/library', label: tr('Browse library') }} />
       ) : (
         <div className="space-y-3 px-4 pt-3 lg:mx-auto lg:max-w-2xl lg:px-0">
           {items.map(({ series, newCount, latestAt }) => (
             <Link key={series.id} href={`/series/?id=${series.id}`} className="card flex items-center gap-3 p-3">
               <div className="h-20 w-14 shrink-0 overflow-hidden rounded-xl border border-ink-700">
-                <Img src={img.seriesThumb(series.id)} alt={series.name} className="h-full w-full" />
+                <Img src={img.seriesThumb(series.id)} alt="" className="h-full w-full" />
               </div>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium text-fog-100">{series.metadata?.title || series.name}</p>
@@ -63,7 +64,7 @@ export default function UpdatesPage() {
                   {latestAt && <span className="text-fog-500"> · {relativeTime(latestAt)}</span>}
                 </p>
               </div>
-              <span className="grid h-7 min-w-7 place-items-center rounded-full bg-accent px-2 text-xs font-bold text-black">{newCount}</span>
+              <span aria-hidden className="grid h-7 min-w-7 place-items-center rounded-full bg-accent px-2 text-xs font-bold text-black">{newCount}</span>
             </Link>
           ))}
         </div>

@@ -53,7 +53,7 @@ test('every new string is in all eight locale files', () => {
     'Webtoon', 'Vertical',
     'Automatic — {direction}, from the chapter files', 'Automatic — {direction}, from the source',
     'Automatic — {direction}, from AniList', 'Automatic — not known, reads as a webtoon',
-    'What “Follow the series” in the reader follows. Automatic takes it from the chapter files, then the source, then AniList.',
+    'Sets what “Follow the series” uses in the reader. Automatic checks the chapter files, then the source, then AniList.',
     // v0.53.0: the Automatic segment says what it reads as.
     'Automatic · {direction}',
   ];

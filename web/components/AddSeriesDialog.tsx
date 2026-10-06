@@ -520,7 +520,7 @@ export function AddSeriesDialog({ seed, sources, mayFollow, onClose, onAdded }: 
         // A download that died before its listing existed has no judgement to wait for.
         if (job?.status === 'error') return null;
         return (
-          <p className="text-start text-[11px] text-fog-500" data-auto-follow="checking">
+          <p role="status" className="text-start text-[11px] text-fog-500" data-auto-follow="checking">
             {sentFollow === 1
               ? tr('Checking this source…')
               : tr('Checking {n} sources — this can take a minute. You can close this; anything followed shows under Sources & translations.', { n: sentFollow })}
@@ -531,7 +531,7 @@ export function AddSeriesDialog({ seed, sources, mayFollow, onClose, onAdded }: 
       const followed = af.results.filter((r) => r.followed).length;
       const m = af.results.length;
       return (
-        <div className="space-y-1 text-start text-[11px]" data-auto-follow="done">
+        <div role="status" className="space-y-1 text-start text-[11px]" data-auto-follow="done">
           {af.results.map((r) => (
             <p key={r.source} className={`break-words ${r.followed ? 'text-emerald-400' : 'text-fog-500'}`}>{autoFollowLine(r)}</p>
           ))}
@@ -610,9 +610,9 @@ export function AddSeriesDialog({ seed, sources, mayFollow, onClose, onAdded }: 
       <Modal title={tr('Add a language')} onClose={onClose}>
         <p dir="auto" className="-mt-2 mb-3 truncate text-sm text-fog-400">{edSeed.title}</p>
         {candQ.isLoading ? (
-          <div className="skeleton h-28 rounded-xl" />
+          <div className="skeleton h-28 rounded-xl" role="status" aria-label={tr('Searching…')} />
         ) : candQ.isError ? (
-          <p className="py-6 text-center text-sm text-amber-300">{tr('Could not be reached right now.')}</p>
+          <p role="alert" className="py-6 text-center text-sm text-amber-300">{tr('Could not be reached right now.')}</p>
         ) : !c || (!c.languages.length && !c.unstated.length) ? (
           <div className="py-6 text-center text-sm text-fog-500" data-edition-none>
             <p>{tr('None of your sources is in another language yet.')}</p>
@@ -668,11 +668,11 @@ export function AddSeriesDialog({ seed, sources, mayFollow, onClose, onAdded }: 
           </p>
         )}
         {searching ? (
-          <p className="py-8 text-center text-sm text-fog-500">{tr('Searching…')}</p>
+          <p role="status" className="py-8 text-center text-sm text-fog-500">{tr('Searching…')}</p>
         ) : edSeed && edSearch.isError ? (
-          <p className="py-8 text-center text-sm text-amber-300">{tr('Could not be reached right now.')}</p>
+          <p role="alert" className="py-8 text-center text-sm text-amber-300">{tr('Could not be reached right now.')}</p>
         ) : !offered?.length ? (
-          <p className="py-8 text-center text-sm text-fog-500">
+          <p role="status" className="py-8 text-center text-sm text-fog-500">
             {!edSeed ? tr('Not found on any source yet — try searching manually.')
               : inLang ? tr('Not found in {language}. Try another language.', { language: inLang })
               : tr('Not found there. Try another language.')}
@@ -691,7 +691,7 @@ export function AddSeriesDialog({ seed, sources, mayFollow, onClose, onAdded }: 
                       <SourceIcon id={p.source} name={p.name} size={20} />
                       <span className="truncate">{p.name}</span>
                       {/* Its language, as the versions sheet marks a copy's (v0.52.0): which edition picking it adds. */}
-                      {p.lang && <span className="shrink-0 rounded border border-ink-700 px-1 text-[10px] leading-4 text-fog-500">{codeLabel(p.lang)}</span>}
+                      {p.lang && <span className="shrink-0 rounded border border-ink-700 px-1 text-[11px] leading-4 text-fog-500">{codeLabel(p.lang)}</span>}
                     </span>
                     <span dir="auto" className="block truncate text-[11px] text-fog-500">{p.title}</span>
                   </span>
@@ -699,8 +699,8 @@ export function AddSeriesDialog({ seed, sources, mayFollow, onClose, onAdded }: 
                       is what that is; "preferred" made it sound like a setting someone had chosen. A provider in a
                       language the library holds says so instead: picking it is the copy you already have. */}
                   {p.inLibrary
-                    ? <span className="shrink-0 text-[10px] text-fog-500">{tr('in your library')}</span>
-                    : i === 0 && !edSeed && <span className="chip shrink-0 text-[10px]">{tr('most used')}</span>}
+                    ? <span className="shrink-0 text-[11px] text-fog-500">{tr('in your library')}</span>
+                    : i === 0 && !edSeed && <span className="chip shrink-0 text-[11px]">{tr('most used')}</span>}
                 </button>
               ))}
             </div>
@@ -754,7 +754,7 @@ export function AddSeriesDialog({ seed, sources, mayFollow, onClose, onAdded }: 
             </p>
           ) : detailQ.isError ? (
             // The picker's own words for a source that did not answer; Change is right above it.
-            <p className="text-xs text-amber-300" data-detail="failed">{tr('Could not be reached right now.')}</p>
+            <p role="alert" className="text-xs text-amber-300" data-detail="failed">{tr('Could not be reached right now.')}</p>
           ) : (
             <p className="text-xs text-fog-500" aria-live="polite" data-detail="loading">{tr('Loading chapter list…')}</p>
           )}
@@ -820,8 +820,8 @@ export function AddSeriesDialog({ seed, sources, mayFollow, onClose, onAdded }: 
             {/* "Fetch now", not "download": the chapters land on the server, and the server side of the app
                 is called fetching everywhere else. With nothing listed, "Nothing yet" is the only option that
                 can succeed, so it is the only one offered. */}
-            <label className="mb-1 mt-4 block text-xs font-semibold uppercase tracking-wider text-fog-500">{tr('Chapters to fetch now')}</label>
-            <select value={pick} onChange={(e) => setPickChoice(e.target.value as ChapterPick)} className="field">
+            <label htmlFor="add-chapter-pick" className="mb-1 mt-4 block text-xs font-semibold uppercase tracking-wider text-fog-500">{tr('Chapters to fetch now')}</label>
+            <select id="add-chapter-pick" value={pick} onChange={(e) => setPickChoice(e.target.value as ChapterPick)} className="field">
               {view!.count > 0 && <option value="all">{tr('All ({n})', { n: view!.count })}</option>}
               {presets.map((n) => <option key={`first:${n}`} value={`first:${n}`}>{tr('First {n}', { n })}</option>)}
               {presets.map((n) => <option key={`latest:${n}`} value={`latest:${n}`}>{tr('Latest {n}', { n })}</option>)}
@@ -872,7 +872,7 @@ export function AddSeriesDialog({ seed, sources, mayFollow, onClose, onAdded }: 
                 <Switch on={alsoFollow} onChange={setAlsoFollow} label={tr('Also check the other sources that carry this title')} />
               </div>
               <p className="mt-1 text-[11px] text-fog-500">
-                {tr('Following one means new chapters are taken from whichever source has them first. Each is checked against this title\'s chapter list — only a source listing at least 90 % of the same numbers is followed, up to two per series.')}
+                {tr('Followed sources supply new chapters, whichever has one first. A source is followed only if it lists at least 90 % of the same chapter numbers. Up to two per series.')}
               </p>
             </div>
           )}
@@ -887,12 +887,12 @@ export function AddSeriesDialog({ seed, sources, mayFollow, onClose, onAdded }: 
           {/* The duplicate prompt. "Open it" is offered only when the server sent the id -- it withholds
               one for a series this account may not see, and the note still reads the same without it. */}
           {dup && (
-            <div className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5 text-[11px] text-amber-300">
+            <div role="alert" className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5 text-[11px] text-amber-300">
               <p>{dup.message}</p>
               {dup.id && (
                 <button
                   onClick={() => { qc.invalidateQueries({ queryKey: ['library'] }); router.push(`/series/?id=${dup.id}`); }}
-                  className="mt-1 font-semibold underline underline-offset-2">
+                  className="mt-1 py-1 font-semibold underline underline-offset-2">
                   {tr('Open it')}
                 </button>
               )}
@@ -901,7 +901,7 @@ export function AddSeriesDialog({ seed, sources, mayFollow, onClose, onAdded }: 
               {dup.id && (
                 <button type="button" data-another-language
                   onClick={() => { setAnotherOf(dup.id!); setEditionFor({ key: pickKey, on: true }); setEdLangFor({ key: pickKey, lang: '' }); setDup(null); }}
-                  className="ms-3 mt-1 font-semibold underline underline-offset-2">
+                  className="ms-3 mt-1 py-1 font-semibold underline underline-offset-2">
                   {tr('It is in another language')}
                 </button>
               )}

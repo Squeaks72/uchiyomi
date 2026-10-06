@@ -1,5 +1,5 @@
 'use client';
-import { Suspense, useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTabParam } from '@/lib/useTabParam';
 import { AdminSettings } from '@/components/AdminSettings';
@@ -365,7 +365,7 @@ function Overview({ onTab }: { onTab: (t: Tab) => void }) {
                   </div>
                   <span className="ms-auto shrink-0 text-end">
                     <span className="font-display text-xl font-bold tabular-nums text-accent">{m.week}</span>
-                    <span className="block text-[10px] tabular-nums text-fog-500">{m.total}</span>
+                    <span className="block text-[11px] tabular-nums text-fog-500">{m.total}</span>
                   </span>
                 </div>
               </motion.div>
@@ -511,10 +511,10 @@ function Members() {
       <form onSubmit={create} className="card grad-border p-4">
         <h2 className="mb-3 font-display text-base font-semibold">{tr('New account')}</h2>
         <div className="space-y-2">
-          <input value={username} onChange={(e) => setUsername(e.target.value)} placeholder={tr('username')} autoCapitalize="none" autoCorrect="off" className="field" />
-          <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder={tr('display name (optional)')} className="field" />
-          <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" placeholder={tr('password (min 8)')} className="field" />
-          <div className="flex gap-2">{(['user', 'admin'] as const).map((r) => <button key={r} type="button" onClick={() => setRole(r)} className={`flex-1 rounded-xl border py-2 text-sm capitalize ${role === r ? 'border-accent bg-accent-soft text-accent' : 'border-ink-700 text-fog-300'}`}>{roleText(r)}</button>)}</div>
+          <input value={username} onChange={(e) => setUsername(e.target.value)} placeholder={tr('username')} aria-label={tr('username')} autoComplete="off" autoCapitalize="none" autoCorrect="off" className="field" />
+          <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder={tr('display name (optional)')} aria-label={tr('display name (optional)')} autoComplete="off" className="field" />
+          <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" autoComplete="new-password" placeholder={tr('password (min 8)')} aria-label={tr('password (min 8)')} className="field" />
+          <div role="group" aria-label={tr('Role')} className="flex gap-2">{(['user', 'admin'] as const).map((r) => <button key={r} type="button" onClick={() => setRole(r)} aria-pressed={role === r} className={`flex-1 rounded-xl border py-2 text-sm capitalize ${role === r ? 'border-accent bg-accent-soft text-accent' : 'border-ink-700 text-fog-300'}`}>{roleText(r)}</button>)}</div>
         </div>
         <button type="submit" disabled={busy || !username.trim() || password.length < 8} className="btn-accent mt-3 w-full disabled:opacity-50"><IcPlus width={18} height={18} /> {busy ? tr('Creating…') : tr('Create account')}</button>
       </form>
@@ -531,8 +531,8 @@ function Members() {
                 <p className="truncate text-[11px] text-fog-500">@{u.username}</p>
               </div>
               {!self && (
-                <button onClick={() => setDeleting(u)} aria-label={tr('Remove')}
-                  className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-ink-700 text-red-300"><IcTrash width={16} height={16} /></button>
+                <button onClick={() => setDeleting(u)} aria-label={tr('Remove {name}', { name: `@${u.username}` })}
+                  className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-ink-700 text-red-300"><IcTrash aria-hidden width={16} height={16} /></button>
               )}
             </div>
             <p className="mt-2 text-[11px] text-fog-500">
@@ -560,7 +560,7 @@ function Members() {
         <Modal title={tr('Change password')} onClose={closeReset}>
           <p className="mb-3 text-sm text-fog-400">@{resetting.username}</p>
           <input type="password" value={pw} onChange={(e) => setPw(e.target.value)} autoComplete="new-password"
-            placeholder={tr('New password (min 8 characters)')} className="field" />
+            placeholder={tr('New password (min 8 characters)')} aria-label={tr('New password (min 8 characters)')} className="field" />
           <div className="mt-4 flex gap-2">
             <button onClick={closeReset} className="btn-ghost flex-1 py-2 text-sm">{tr('Cancel')}</button>
             <button disabled={pw.length < 8}
@@ -654,7 +654,7 @@ function ArtReview() {
       </div>
       <div className="hide-scrollbar full flex gap-1.5 overflow-x-auto pb-1">
         {([['nobanner', tr('Missing banner')], ['nocover', tr('Missing cover')], ['fixed', tr('Overridden')], ['all', tr('All')]] as const).map(([k, label]) => (
-          <button key={k} onClick={() => setFilter(k)} className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium ${filter === k ? 'bg-accent text-white' : 'bg-ink-800 text-fog-300'}`}>
+          <button key={k} onClick={() => setFilter(k)} aria-pressed={filter === k} className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium ${filter === k ? 'bg-accent text-white' : 'bg-ink-800 text-fog-300'}`}>
             {label}{k !== 'all' ? ` (${(data?.content ?? []).filter((r) => (k === 'nobanner' ? !r.has_banner && !r.override_banner : k === 'nocover' ? !r.has_cover && !r.override_cover : r.override_banner || r.override_cover)).length})` : ''}
           </button>
         ))}
@@ -666,14 +666,14 @@ function ArtReview() {
               {/* eslint-disable-next-line @next/next/no-img-element */}
               {/* As the series page shows it (v0.53.0): a banner sharp, a stand-in cover blurred -- the art being judged. */}
               <img src={`/img/series/${encodeURIComponent(r.id)}/backdrop?style=banner&rv=${bust[r.id] || 0}`} alt="" className="h-full w-full object-cover" loading="lazy" />
-              {!r.has_banner && !r.override_banner && <span className="absolute end-1 top-1 rounded bg-red-600/80 px-1.5 py-0.5 text-[9px] font-bold uppercase text-white">{tr('No banner')}</span>}
+              {!r.has_banner && !r.override_banner && <span className="absolute end-1 top-1 rounded bg-red-600/80 px-1.5 py-0.5 text-[11px] font-bold uppercase text-white">{tr('No banner')}</span>}
             </div>
             <div className="flex items-center gap-2 p-2">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={`${img.seriesThumb(r.id)}&rv=${bust[r.id] || 0}`} alt="" className="h-12 w-8 shrink-0 rounded object-cover" loading="lazy" />
               <div className="min-w-0">
                 <p className="truncate text-xs font-medium text-fog-100">{r.title}</p>
-                <p className="text-[10px] text-fog-500">{artCaption(r)}</p>
+                <p className="text-[11px] text-fog-500">{artCaption(r)}</p>
               </div>
             </div>
           </button>
@@ -692,6 +692,17 @@ function ArtPicker({ row, onClose, onApplied }: { row: ArtRow; onClose: () => vo
   useLayer('dialog');
   const toast = useToast();
   const [busy, setBusy] = useState(false);
+  // Escape closes, focus moves inside, and goes back to the opener -- the same contract as the shared Modal.
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+  useEffect(() => {
+    const opener = document.activeElement as HTMLElement | null;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeRef.current(); };
+    document.addEventListener('keydown', onKey);
+    dialogRef.current?.querySelector<HTMLElement>('button')?.focus();
+    return () => { document.removeEventListener('keydown', onKey); opener?.focus(); };
+  }, []);
   const { data, isLoading } = useQuery({
     queryKey: ['admin-art-cand', row.id],
     queryFn: () => api<{ content: ArtCandidate[] }>(`/api/admin/art/candidates/${row.id}`),
@@ -726,10 +737,10 @@ function ArtPicker({ row, onClose, onApplied }: { row: ArtRow; onClose: () => vo
     <div className="fixed inset-0 z-50 grid place-items-center bg-ink-950/70 p-4 backdrop-blur-xs" onClick={onClose}>
       {/* max-w-xl, the widest a centred panel may be: from lg up the notices' column beside it is sized to clear
           36 rem (lib/notices.ts WIDE_BESIDE_DIALOG), and at 42 rem this one's corner sat under it. */}
-      <div role="dialog" aria-modal="true" aria-label={row.title} data-lenis-prevent className="glass max-h-[88vh] w-full max-w-xl overflow-y-auto rounded-2xl border border-ink-700 p-5" onClick={(e) => e.stopPropagation()}>
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={row.title} data-lenis-prevent className="glass max-h-[88vh] w-full max-w-xl overflow-y-auto rounded-2xl border border-ink-700 p-5" onClick={(e) => e.stopPropagation()}>
         <div className="mb-3 flex items-start justify-between gap-3">
           <h3 className="font-display text-lg font-semibold leading-tight">{row.title}</h3>
-          <button onClick={onClose} aria-label={tr('Close')} className="shrink-0 text-fog-500 hover:text-fog-200">✕</button>
+          <button onClick={onClose} aria-label={tr('Close')} className="-m-1.5 shrink-0 p-1.5 text-fog-500 hover:text-fog-200"><span aria-hidden>✕</span></button>
         </div>
         <div className="mb-3 flex flex-wrap gap-2">
           <button data-art-first-page onClick={() => firstPage()} disabled={busy || row.first_page} className="btn-key">{tr('Use the first page')}</button>
@@ -747,11 +758,11 @@ function ArtPicker({ row, onClose, onApplied }: { row: ArtRow; onClose: () => vo
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={c.banner || c.cover || ''} alt="" className="h-28 w-full object-cover" loading="lazy" />
                 <div className="p-2">
-                  <p className="truncate text-[11px] text-fog-300">{c.title}</p>
-                  <p className="text-[10px] uppercase tracking-wide text-fog-500">{c.origin}</p>
+                  <p id={`art-cand-${i}`} className="truncate text-[11px] text-fog-300">{c.title}</p>
+                  <p className="text-[11px] uppercase tracking-wide text-fog-500">{c.origin}</p>
                   <div className="mt-1.5 flex gap-1.5">
-                    {c.banner && <button onClick={() => apply('banner', c.banner!)} disabled={busy} className="btn-accent flex-1 px-2 py-1 text-[11px] disabled:opacity-50">{tr('Use as banner')}</button>}
-                    {c.cover && <button onClick={() => apply('cover', c.cover!)} disabled={busy} className="btn-ghost flex-1 px-2 py-1 text-[11px] disabled:opacity-50">{tr('Use as cover')}</button>}
+                    {c.banner && <button onClick={() => apply('banner', c.banner!)} aria-describedby={`art-cand-${i}`} disabled={busy} className="btn-accent flex-1 px-2 py-1 text-[11px] disabled:opacity-50">{tr('Use as banner')}</button>}
+                    {c.cover && <button onClick={() => apply('cover', c.cover!)} aria-describedby={`art-cand-${i}`} disabled={busy} className="btn-ghost flex-1 px-2 py-1 text-[11px] disabled:opacity-50">{tr('Use as cover')}</button>}
                   </div>
                 </div>
               </div>
@@ -896,7 +907,7 @@ function DesktopBackups() {
       {asking && (
         <ConfirmDialog
           title={tr('Restore a backup?')}
-          body={tr('Uchiyomi closes your library, replaces its database and settings with the backup you choose, and opens again. Everything since that backup — reading progress, new series, settings — is replaced. The manga files themselves are not touched.')}
+          body={tr('Uchiyomi will close, restore the backup you pick, and open again. Anything changed since that backup (reading progress, new series, settings) is lost. Your manga files are not touched.')}
           confirmLabel={tr('Choose a backup…')}
           danger
           busy={busy}
@@ -964,7 +975,8 @@ function Sessions() {
                   <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-accent" />{tr('You')}
                 </span>
               ) : (
-                <button onClick={() => revoke(s.id)} className="text-xs text-red-300 hover:underline">{tr('Revoke')}</button>
+                <button onClick={() => revoke(s.id)} aria-label={`${tr('Revoke')}: ${s.display_name || s.username} · ${shownDeviceName(s.device_name) || tr('Device')}`}
+                  className="-m-1.5 p-1.5 text-xs text-red-300 hover:underline">{tr('Revoke')}</button>
               )}
             </div>
           </div>
@@ -1053,7 +1065,7 @@ function AgeCap({ user, onSaved }: { user: any; onSaved: () => void }) {
 
   return (
     <>
-      <button onClick={() => setOpen((v) => !v)} className={`chip text-xs ${cap !== null ? 'chip-active' : ''}`}>
+      <button onClick={() => setOpen((v) => !v)} aria-expanded={open} className={`chip text-xs ${cap !== null ? 'chip-active' : ''}`}>
         {cap === null ? tr('Any age rating') : tr('{age}+ and below', { age: cap })}
       </button>
       {open && (
@@ -1067,7 +1079,7 @@ function AgeCap({ user, onSaved }: { user: any; onSaved: () => void }) {
           {cap !== null && (
             <div className="mt-2 flex flex-wrap gap-1.5 border-t border-ink-800 pt-2">
               {AGE_CAPS.map((v) => (
-                <button key={v} disabled={busy} onClick={() => save(v)}
+                <button key={v} disabled={busy} onClick={() => save(v)} aria-pressed={cap === v}
                   className={`chip text-xs disabled:opacity-50 ${cap === v ? 'chip-active' : ''}`}>
                   {v}+
                 </button>
@@ -1116,7 +1128,7 @@ function LibraryAccess({ user, onSaved }: { user: any; onSaved: () => void }) {
   // Only worth showing once there is more than one library to choose between.
   return (
     <>
-      <button onClick={() => setOpen((v) => !v)} className={`chip text-xs ${granted ? 'chip-active' : ''}`}>
+      <button onClick={() => setOpen((v) => !v)} aria-expanded={open} className={`chip text-xs ${granted ? 'chip-active' : ''}`}>
         {!granted ? tr('All libraries') : granted.length === 1 ? tr('1 library') : tr('{n} libraries', { n: granted.length })}
       </button>
       {open && (
@@ -1130,7 +1142,7 @@ function LibraryAccess({ user, onSaved }: { user: any; onSaved: () => void }) {
           {granted && (
             <div className="mt-2 flex flex-wrap gap-1.5 border-t border-ink-800 pt-2">
               {libs.map((l) => (
-                <button key={l.id} disabled={busy} onClick={() => toggle(l.id)}
+                <button key={l.id} disabled={busy} onClick={() => toggle(l.id)} aria-pressed={granted.includes(l.id)}
                   className={`chip text-xs disabled:opacity-50 ${granted.includes(l.id) ? 'chip-active' : ''}`}>
                   {l.name}
                 </button>
@@ -1175,7 +1187,7 @@ function FolderPicker({ chosen, held, onToggle }: {
       </div>
       <div data-lenis-prevent className="max-h-52 overflow-y-auto p-1.5">
         {isFetching && !data ? (
-          <p className="px-2 py-3 text-center text-[11px] text-fog-600">{tr('Loading…')}</p>
+          <p role="status" className="px-2 py-3 text-center text-[11px] text-fog-600">{tr('Loading…')}</p>
         ) : !data?.folders.length ? (
           <p className="px-2 py-3 text-center text-[11px] text-fog-600">{tr('No folders here')}</p>
         ) : data.folders.map((f) => {
@@ -1195,7 +1207,7 @@ function FolderPicker({ chosen, held, onToggle }: {
                     <span className="shrink-0 text-fog-600">· {f.series}</span>
                   </span>
                   {/* Under the name, not beside it: a library's name is as long as anyone made it. */}
-                  {holder && <span className="block truncate text-[10px] text-fog-500" data-folder-held>{heldByText(holder)}</span>}
+                  {holder && <span className="block truncate text-[11px] text-fog-500" data-folder-held>{heldByText(holder)}</span>}
                 </span>
                 <IcChevronRight width={12} height={12} aria-hidden className="shrink-0 text-fog-600 rtl:-scale-x-100" />
               </button>
@@ -1295,14 +1307,14 @@ function LibraryDialog({ editing, start, libs, onClose, onSaved }: {
   return (
     <Modal title={editing ? tr('Edit library') : tr('New library')} onClose={onClose}>
       <div data-library-dialog={editing?.id ?? 'new'}>
-        <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-fog-500">{tr('Name')}</label>
-        <input value={name} onChange={(e) => setName(e.target.value)} className="field" />
+        <label htmlFor="library-name" className="mb-1 block text-xs font-semibold uppercase tracking-wider text-fog-500">{tr('Name')}</label>
+        <input id="library-name" value={name} onChange={(e) => setName(e.target.value)} className="field" />
 
         {!isLib && (
           <>
-            <label className="mb-1 mt-3 block text-xs font-semibold uppercase tracking-wider text-fog-500">{tr('Folders')}</label>
+            <label htmlFor="library-folder" className="mb-1 mt-3 block text-xs font-semibold uppercase tracking-wider text-fog-500">{tr('Folders')}</label>
             {paths.length > 0 && (
-              <ul className="mb-2 max-w-md space-y-1" data-library-folders-chosen>
+              <ul className="mb-2 max-w-md space-y-1" aria-label={tr('Folders')} data-library-folders-chosen>
                 {paths.map((p) => {
                   const holder = held.get(p);
                   return (
@@ -1310,7 +1322,7 @@ function LibraryDialog({ editing, start, libs, onClose, onSaved }: {
                       className={`flex min-w-0 items-center gap-2 rounded-lg border py-1 ps-2.5 pe-1 ${holder ? 'border-amber-500/40' : 'border-ink-700'} bg-ink-900/40`}>
                       <span className="min-w-0 flex-1">
                         <span className="block truncate font-mono text-xs text-fog-200" title={p}><bdi>{p}</bdi></span>
-                        {holder && <span className="block truncate text-[10px] text-amber-300">{heldByText(holder)}</span>}
+                        {holder && <span className="block truncate text-[11px] text-amber-300">{heldByText(holder)}</span>}
                       </span>
                       <button type="button" onClick={() => setPaths((cur) => cur.filter((x) => x !== p))}
                         aria-label={tr('Remove {name}', { name: p })} className="btn-key h-7 w-7 px-0" data-library-folder-remove>
@@ -1322,26 +1334,26 @@ function LibraryDialog({ editing, start, libs, onClose, onSaved }: {
               </ul>
             )}
             <div className="flex max-w-md gap-2">
-              <input value={typed} onChange={(e) => setTyped(e.target.value)} spellCheck={false} dir="auto"
+              <input id="library-folder" aria-describedby="library-folder-help" value={typed} onChange={(e) => setTyped(e.target.value)} spellCheck={false} dir="auto" autoComplete="off"
                 onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add(); } }}
                 placeholder={tr('e.g. Manga/Seinen')} className="field min-w-0 flex-1 font-mono" data-library-folder-input />
               <button type="button" onClick={add} disabled={!typedFolder(typed)} className="btn-key h-auto self-stretch">{tr('Add')}</button>
             </div>
             {typedHeld && <p className="mt-1 text-[11px] text-amber-300">{heldByText(typedHeld)}</p>}
-            <p className="mb-2 mt-1 max-w-md text-[11px] text-fog-600">
-              {tr('Type a folder under your library root, or tick folders below. A library can hold several, and libraries may sit inside one another — the most specific folder wins.')}
+            <p id="library-folder-help" className="mb-2 mt-1 max-w-md text-[11px] text-fog-600">
+              {tr('Type a folder under your library root, or tick folders below. A library can hold several folders. If libraries overlap, the more specific folder wins.')}
             </p>
             <FolderPicker chosen={paths} held={held} onToggle={toggle} />
           </>
         )}
 
-        <label className="mb-1 mt-3 block text-xs font-semibold uppercase tracking-wider text-fog-500">{tr('Age rating')}</label>
-        <select value={age} onChange={(e) => setAge(e.target.value)} className="field">
+        <label htmlFor="library-age" className="mb-1 mt-3 block text-xs font-semibold uppercase tracking-wider text-fog-500">{tr('Age rating')}</label>
+        <select id="library-age" aria-describedby="library-age-help" value={age} onChange={(e) => setAge(e.target.value)} className="field">
           <option value="">{tr('Not rated — visible to everyone')}</option>
           {[6, 10, 13, 15, 17, 18].map((v) => <option key={v} value={String(v)}>{v}+</option>)}
         </select>
-        <p className="mt-1 text-[11px] text-fog-600">
-          {tr('Everything in this library inherits it. A single series can still be rated differently from its own page.')}
+        <p id="library-age-help" className="mt-1 text-[11px] text-fog-600">
+          {tr('Every series here gets this rating. You can still rate one series differently from its own page.')}
         </p>
 
         <label className="mt-3 flex max-w-md cursor-pointer items-start justify-between gap-4 rounded-lg border border-ink-700 bg-ink-900/40 p-3">
@@ -1356,7 +1368,7 @@ function LibraryDialog({ editing, start, libs, onClose, onSaved }: {
         </label>
 
         {preview && (
-          <p className="mt-3 text-[11px] leading-relaxed text-fog-500" data-library-preview={preview.series}>
+          <p role="status" className="mt-3 text-[11px] leading-relaxed text-fog-500" data-library-preview={preview.series}>
             {previewText(preview.series, preview.sample)}
           </p>
         )}
@@ -1419,12 +1431,12 @@ function LibrariesSection() {
     <section className="full">
       <div className="mb-1 flex items-center justify-between gap-3">
         <h3 className="font-display text-base font-semibold">{tr('Libraries')}</h3>
-        <button onClick={() => openNew()} className="chip shrink-0 text-xs"><IcPlus width={13} height={13} />{tr('New library')}</button>
+        <button onClick={() => openNew()} className="chip shrink-0 text-xs"><IcPlus aria-hidden width={13} height={13} />{tr('New library')}</button>
       </div>
       <p className="mb-3 max-w-prose text-xs leading-relaxed text-fog-500">
         {desktopLibs
-          ? tr('A library is one or more folders, plus any series you file into it by hand. Give it an age rating and everything in it inherits that.')
-          : tr('A library is one or more folders, plus any series you file into it by hand. Give it an age rating and everything in it inherits that, and choose who can open it.')}
+          ? tr('A library is one or more folders, plus any series you add to it by hand. Give it an age rating.')
+          : tr('A library is one or more folders, plus any series you add to it by hand. Give it an age rating and choose who can open it.')}
       </p>
 
       {/* Cards rather than one divided list: at 1592px a row left a lake between a library's path and the
@@ -1433,7 +1445,7 @@ function LibrariesSection() {
         {libs.map((l) => (
           <div key={l.id} className="card grad-border min-w-0 p-3" data-library-card={l.id}>
             <div className="min-w-0">
-              <p className="truncate text-sm text-fog-100">{l.name}</p>
+              <p id={`library-name-${l.id}`} className="truncate text-sm text-fog-100">{l.name}</p>
               {/* Its folders: the first, then how many more (v0.55.1, #148). */}
               <LibraryFolders paths={foldersOf(l)} className="text-[11px] text-fog-500" />
               <p className="truncate text-[11px] text-fog-600">
@@ -1449,14 +1461,14 @@ function LibrariesSection() {
                   ratings were in there -- so a rating that had never been set looked like a feature that
                   did not exist. Showing the UNRATED state is the point: no badge used to mean both
                   "everyone can see this" and "I never looked". */}
-              <button onClick={() => openEdit(l)}
+              <button onClick={() => openEdit(l)} aria-describedby={`library-name-${l.id}`}
                 className={`chip text-xs ${l.age_rating != null ? 'border-amber-500/40 text-amber-300' : ''}`}>
                 {l.age_rating != null ? tr('{n}+', { n: l.age_rating }) : tr('Not rated')}
               </button>
-              {!desktopLibs && <button onClick={() => setAccess(l)} className="chip text-xs">{tr('Access')}</button>}
-              <button onClick={() => openEdit(l)} className="chip text-xs">{tr('Settings')}</button>
+              {!desktopLibs && <button onClick={() => setAccess(l)} aria-describedby={`library-name-${l.id}`} className="chip text-xs">{tr('Access')}</button>}
+              <button onClick={() => openEdit(l)} aria-describedby={`library-name-${l.id}`} className="chip text-xs">{tr('Settings')}</button>
               {l.id !== 'lib' && (
-                <button onClick={() => setConfirmDel(l)} className="chip text-xs hover:border-rose-500/50 hover:text-rose-400">{tr('Remove')}</button>
+                <button onClick={() => setConfirmDel(l)} aria-describedby={`library-name-${l.id}`} className="chip text-xs hover:border-rose-500/50 hover:text-rose-400">{tr('Remove')}</button>
               )}
             </div>
           </div>
@@ -1487,7 +1499,7 @@ function LibrariesSection() {
       {confirmDel && (
         <ConfirmDialog
           title={tr('Remove “{name}”?', { name: confirmDel.name })}
-          body={<>{tr('Its series go back to whichever library still covers their folder, or to the default. Nothing is deleted, no files are touched, and no reading progress changes.')}</>}
+          body={<>{tr('Its series move to another library that covers their folder, or to the default one. Nothing is deleted and no reading progress changes.')}</>}
           confirmLabel={tr('Remove library')}
           danger
           busy={busy}
@@ -1542,7 +1554,7 @@ function LibraryAccessDialog({ lib, onClose, onSaved }: { lib: LibraryRow; onClo
         </div>
       )}
       <p className="mt-3 text-[11px] leading-relaxed text-fog-600">
-        {tr('Admins can always see everything. A member with no limits set can open every library, including ones added later — unticking them here is what turns that into an explicit list.')}
+        {tr('Admins can open every library. Members with no limits can open all of them, including new ones. Untick a member to stop them opening this one.')}
       </p>
       <div className="mt-4 flex gap-2">
         <button onClick={onClose} className="btn-ghost flex-1 py-2 text-sm">{tr('Cancel')}</button>
@@ -1672,10 +1684,10 @@ function LibraryPanel() {
       )}
       <div className="full space-y-3">
         <p className="max-w-prose text-xs text-fog-500">
-          {tr('Removing a series hides it from the library, search and the updater. Its files are left exactly where they are, and everyone’s reading progress is kept, so putting it back changes nothing else.')}
+          {tr('Removing a series hides it from the library, search and updates. Its files stay where they are and everyone’s progress is kept, so you can put it back any time.')}
         </p>
         {isLoading ? (
-          <div className="card grad-border p-4 text-sm text-fog-500">{tr('Loading…')}</div>
+          <div role="status" className="card grad-border p-4 text-sm text-fog-500">{tr('Loading…')}</div>
         ) : !rows.length ? (
           <div className="card grad-border p-6 text-center text-sm text-fog-500">{tr('Nothing has been removed.')}</div>
         ) : (
@@ -1687,7 +1699,7 @@ function LibraryPanel() {
                     168 px column at 390, and two long-prefix titles were indistinguishable in the list. The
                     typed step in the dialog carries the full title either way. `lg:block` first, so the
                     -webkit-box the clamp needs gives way to the nowrap ellipsis. */}
-                <p className="col-start-1 row-start-1 min-w-0 line-clamp-2 text-sm text-fog-100 lg:block lg:truncate" title={r.title}>{r.title}</p>
+                <p id={`removed-${r.id}`} className="col-start-1 row-start-1 min-w-0 line-clamp-2 text-sm text-fog-100 lg:block lg:truncate" title={r.title}>{r.title}</p>
                 {/* The state LEADS the caption: at 390 px the caption truncates after ~130 px, and "files
                     deleted" at its end was exactly the part cut off. The explanation is a visible second
                     line, not a title= tooltip -- a phone never shows one. The button stays "Put back": a
@@ -1701,7 +1713,7 @@ function LibraryPanel() {
                 </p>
                 {filesGone(r) && (
                   <p className="col-span-2 col-start-1 row-start-3 min-w-0 text-[11px] text-fog-400 lg:col-span-1 lg:col-start-2 lg:row-start-2">
-                    {tr('The chapter files are gone. Put back lists them as deleted from the server; Fetch again on the series page brings back the ones Uchiyomi downloaded.')}
+                    {tr('The chapter files are gone. Put back restores the series with its chapters marked as deleted. Use Fetch again on the series page to download them once more.')}
                   </p>
                 )}
                 <div className="col-start-2 row-span-2 row-start-1 flex shrink-0 gap-1.5 justify-self-end lg:col-start-3 lg:row-span-1">
@@ -1709,7 +1721,7 @@ function LibraryPanel() {
                       marked "Deleted from the server", which is where Fetch again lives -- and the caption
                       above says so: an unmarked "Put back" here used to restore a series whose chapters all
                       404'd. */}
-                  <button onClick={() => restore(r)} disabled={busy === r.id} className="chip shrink-0 text-xs disabled:opacity-50">
+                  <button onClick={() => restore(r)} aria-describedby={`removed-${r.id}`} disabled={busy === r.id} className="chip shrink-0 text-xs disabled:opacity-50">
                     {busy === r.id ? tr('Restoring…') : tr('Put back')}
                   </button>
                   {/* The escalation, and only ever after the reversible step. Hiding is undoable; this is not.
@@ -1719,7 +1731,7 @@ function LibraryPanel() {
                       row never carries both and never a third chip: at 390 px three chips squeezed "Never
                       Had Chapters" to 21 px of title. */}
                   {r.live_books > 0 && (
-                    <button onClick={() => setPurge(r)} className="chip shrink-0 text-xs hover:border-rose-500/50 hover:text-rose-400">{tr('Delete files')}</button>
+                    <button onClick={() => setPurge(r)} aria-describedby={`removed-${r.id}`} className="chip shrink-0 text-xs hover:border-rose-500/50 hover:text-rose-400">{tr('Delete files')}</button>
                   )}
                   {/* The third step, and only once nothing is left on disk to bring the series back: the
                       files-gone row, or a row that never had a chapter. Painted rose outright rather than
@@ -1727,7 +1739,7 @@ function LibraryPanel() {
                       on its own if a folder still holds chapters or a root is not there, and the toast
                       carries its fix. */}
                   {r.live_books === 0 && (
-                    <button onClick={() => setForget(r)} className="chip shrink-0 border-rose-500/40 text-xs text-rose-300 hover:border-rose-500/70 hover:text-rose-200">{tr('Forget')}</button>
+                    <button onClick={() => setForget(r)} aria-describedby={`removed-${r.id}`} className="chip shrink-0 border-rose-500/40 text-xs text-rose-300 hover:border-rose-500/70 hover:text-rose-200">{tr('Forget')}</button>
                   )}
                 </div>
               </div>
@@ -1772,7 +1784,7 @@ function Health() {
       <div className="board">
         {/* Wraps: at phone width the sentence and the keys do not fit on one line (v0.48.3). */}
         <div className="full flex flex-wrap items-center justify-between gap-3">
-          <p className="text-xs text-fog-500">
+          <p role="status" className="text-xs text-fog-500">
             {!data ? tr('Checking your library…')
               : bad ? tr('Checks that found something: {n} of {m}', { n: bad, m: checks.length })
               : tr('Everything looks healthy')}

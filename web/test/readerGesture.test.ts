@@ -89,3 +89,18 @@ test('a press right behind a double is the tail of that flurry, not a fresh sing
   const later = readTap({ ...tap(2000), lastDoubleAt: 1000 });
   assert.equal(later.kind, 'single', 'a press after the window is an ordinary tap again');
 });
+
+import { isCatch, tapMayToggleChrome, CATCH_MS } from '../lib/readerGesture';
+
+test('a press during a fling is a catch, not a tap', () => {
+  assert.equal(isCatch(1000, 1000 + CATCH_MS - 1), true);
+  assert.equal(isCatch(1000, 1000 + CATCH_MS), false);
+  assert.equal(isCatch(0, 5), false);
+});
+
+test('a finger toggles the interface only from the middle of the screen', () => {
+  assert.equal(tapMayToggleChrome('touch', 'chrome'), true);
+  assert.equal(tapMayToggleChrome('touch', 'back'), false);
+  assert.equal(tapMayToggleChrome('touch', 'forward'), false);
+  assert.equal(tapMayToggleChrome('mouse', 'back'), true);
+});

@@ -78,7 +78,7 @@ function IdentitySection() {
           {user?.username && <p className="truncate text-xs text-fog-500">@{user.username}</p>}
         </div>
         {isAdmin && (
-          <span className="ms-auto shrink-0 rounded bg-accent/20 px-1.5 py-0.5 text-[10px] font-semibold text-accent">{tr('Admin')}</span>
+          <span className="ms-auto shrink-0 rounded bg-accent/20 px-1.5 py-0.5 text-[11px] font-semibold text-accent">{tr('Admin')}</span>
         )}
       </div>
 
@@ -87,10 +87,10 @@ function IdentitySection() {
         <form onSubmit={changePw} className="space-y-2">
           <label htmlFor={curId} className="sr-only">{tr('Current password')}</label>
           <input id={curId} type="password" autoComplete="current-password" value={cur} onChange={(e) => setCur(e.target.value)}
-            placeholder={tr('Current password')} className="field" />
+            placeholder={tr('Current password')} aria-required className="field" />
           <label htmlFor={nextId} className="sr-only">{tr('New password (min 8 characters)')}</label>
           <input id={nextId} type="password" autoComplete="new-password" value={next} onChange={(e) => setNext(e.target.value)}
-            placeholder={tr('New password (min 8 characters)')} className="field" />
+            placeholder={tr('New password (min 8 characters)')} aria-required className="field" />
           <button type="submit" disabled={!valid || status.kind === 'saving'} className="btn-accent px-4 py-2 text-sm disabled:opacity-50">
             {tr('Update password')}
           </button>
@@ -175,7 +175,7 @@ function TwoFactorSection() {
       {recovery && (
         <div className="py-3 last:pb-0">
           <p className="mb-2 max-w-prose text-sm text-fog-300">{tr('Save these recovery codes somewhere safe. Each works once if you lose your authenticator.')}</p>
-          <div className="grid grid-cols-2 gap-1.5 rounded-xl bg-ink-900 p-3 font-mono text-xs text-fog-100">{recovery.map((c) => <span key={c}>{c}</span>)}</div>
+          <ul aria-label={tr('Recovery codes')} className="grid grid-cols-2 gap-1.5 rounded-xl bg-ink-900 p-3 font-mono text-xs text-fog-100">{recovery.map((c) => <li key={c}>{c}</li>)}</ul>
           <button type="button" onClick={() => setRecovery(null)} className="btn-accent mt-3 px-4 py-2 text-sm">{tr('Done')}</button>
         </div>
       )}
@@ -183,11 +183,11 @@ function TwoFactorSection() {
       {setup && !totpOn && (
         <form id={boxId} onSubmit={(e) => { e.preventDefault(); if (code.trim().length >= 6) void enableTotp(); }} className="space-y-3 py-3 last:pb-0">
           <p className="text-sm text-fog-300">{tr('Scan with Google Authenticator, Authy, 1Password, etc.')}</p>
-          {setup.qr && /* eslint-disable-next-line @next/next/no-img-element */ <img src={setup.qr} alt={tr('QR code')} className="mx-auto h-44 w-44 rounded-lg bg-white p-1" />}
+          {setup.qr && /* eslint-disable-next-line @next/next/no-img-element */ <img src={setup.qr} alt={tr('QR code for your authenticator app')} className="mx-auto h-44 w-44 rounded-lg bg-white p-1" />}
           <p className="break-all text-center font-mono text-[11px] text-fog-500">{tr('or enter key: {key}', { key: setup.secret })}</p>
           <label htmlFor={codeId} className="sr-only">{tr('6-digit code')}</label>
           <input id={codeId} type="text" inputMode="numeric" autoComplete="one-time-code" value={code} onChange={(e) => setCode(e.target.value)}
-            placeholder={tr('6-digit code')} className="field text-center tracking-[0.3em]" />
+            placeholder={tr('6-digit code')} aria-required className="field text-center tracking-[0.3em]" />
           <button type="submit" disabled={code.trim().length < 6} className="btn-accent px-4 py-2 text-sm disabled:opacity-50">{tr('Verify and enable')}</button>
         </form>
       )}
@@ -196,7 +196,7 @@ function TwoFactorSection() {
         <form id={boxId} onSubmit={(e) => { e.preventDefault(); if (disPw) void disableTotp(); }} className="space-y-2 py-3 last:pb-0">
           <label htmlFor={pwId} className="sr-only">{tr('Confirm password to disable')}</label>
           <input id={pwId} type="password" autoComplete="current-password" value={disPw} onChange={(e) => setDisPw(e.target.value)}
-            placeholder={tr('Confirm password to disable')} className="field" />
+            placeholder={tr('Confirm password to disable')} aria-required className="field" />
           <button type="submit" disabled={!disPw}
             className="rounded-full border border-red-500/40 px-4 py-2 text-sm text-red-300 hover:bg-red-500/10 disabled:opacity-50">{tr('Disable 2FA')}</button>
         </form>
@@ -226,20 +226,20 @@ function SessionsSection() {
 
   return (
     <Section id="sessions" title={tr('Active sessions')} icon={<IcGrid width={18} height={18} />}
-      action={rows.length > 1 ? <button type="button" onClick={logoutAll} className="chip text-xs">{tr('Log out others')}</button> : undefined}>
+      action={rows.length > 1 ? <button type="button" onClick={logoutAll} className="chip text-xs">{tr('Sign out other devices')}</button> : undefined}>
       {rows.map((s) => (
         <Row key={s.id}
           label={<>
             {shownDeviceName(s.device_name) || tr('Device')}
-            {s.current && <span className="ms-2 rounded bg-accent/20 px-1.5 py-0.5 text-[10px] font-semibold text-accent">{tr('This device')}</span>}
+            {s.current && <span className="ms-2 rounded bg-accent/20 px-1.5 py-0.5 text-[11px] font-semibold text-accent">{tr('This device')}</span>}
           </>}
           help={`${s.ip || tr('unknown ip')} · ${tr('active {when}', { when: relativeTime(s.last_seen) })}`}>
           {!s.current && (
-            <button type="button" onClick={() => revoke(s.id)} className="chip text-xs hover:border-rose-500/50 hover:text-rose-400">{tr('Revoke')}</button>
+            <button type="button" onClick={() => revoke(s.id)} aria-label={tr('Revoke {name}', { name: shownDeviceName(s.device_name) || tr('Device') })} className="chip text-xs hover:border-rose-500/50 hover:text-rose-400">{tr('Revoke')}</button>
           )}
         </Row>
       ))}
-      {!isPending && !rows.length && <p className="py-3 text-xs text-fog-600">{tr('No active sessions.')}</p>}
+      {!isPending && !rows.length && <p className="py-3 text-xs text-fog-500">{tr('No active sessions.')}</p>}
     </Section>
   );
 }

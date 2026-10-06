@@ -44,19 +44,20 @@ export default function HistoryPage() {
   return (
     <div className="min-h-screen-d">
       <header className="safe-top flex items-center gap-2 px-4 pb-2 lg:px-0 lg:pt-6">
-        <button onClick={() => router.back()} className="grid h-10 w-10 place-items-center rounded-full bg-ink-800/70 text-fog-100">
+        <button type="button" onClick={() => router.back()} aria-label={tr('Back')} className="grid h-10 w-10 place-items-center rounded-full bg-ink-800/70 text-fog-100">
           <IcChevronLeft width={22} height={22} />
         </button>
         <h1 className="font-display text-2xl font-bold lg:text-3xl">{tr('Reading history')}</h1>
       </header>
 
       {isLoading ? (
-        <div className="space-y-3 px-4 pt-3 lg:mx-auto lg:max-w-2xl lg:px-0">
+        <div role="status" aria-busy="true" className="space-y-3 px-4 pt-3 lg:mx-auto lg:max-w-2xl lg:px-0">
+          <span className="sr-only">{tr('Loading…')}</span>
           {Array.from({ length: 6 }).map((_, i) => <div key={i} className="skeleton h-16 rounded-2xl" />)}
         </div>
       ) : rows.length === 0 ? (
         <EmptyState art={ART.emptyUpdates} title={tr('Nothing here yet')}
-          sub={tr('Chapters you read will show up here, newest first.')} cta={{ href: '/library', label: tr('Browse library') }} />
+          sub={tr('Chapters you read show up here, newest first.')} cta={{ href: '/library', label: tr('Browse library') }} />
       ) : (
         <div className="px-4 pt-2 lg:mx-auto lg:max-w-2xl lg:px-0">
           {groups.map((g) => (
@@ -67,7 +68,7 @@ export default function HistoryPage() {
               <div className="card divide-y divide-ink-800/70 overflow-hidden">
                 {g.items.map((r) => (
                   <div key={r.book_id} className="flex items-center gap-3 px-3.5 py-2.5">
-                    <Link href={`/series/?id=${r.series_id}`} className="h-14 w-10 shrink-0 overflow-hidden rounded-lg border border-ink-700">
+                    <Link href={`/series/?id=${r.series_id}`} aria-hidden tabIndex={-1} className="h-14 w-10 shrink-0 overflow-hidden rounded-lg border border-ink-700">
                       <Img src={img.bookThumb(r.book_id)} alt="" className="h-full w-full" />
                     </Link>
                     <div className="min-w-0 flex-1">
@@ -79,10 +80,10 @@ export default function HistoryPage() {
                         <span className="text-fog-600"> · {relativeTime(r.created_at)}</span>
                         {r.completed
                           ? <span className="ms-1.5 inline-flex items-center gap-0.5 text-emerald-400"><IcCheck width={11} height={11} /> {tr('finished')}</span>
-                          : <span className="ms-1.5 text-accent">{tr('page {n}', { n: r.page })}</span>}
+                          : <span className="ms-1.5 text-accent">{tr('Page {n}', { n: r.page })}</span>}
                       </p>
                     </div>
-                    <Link href={`/reader/?book=${r.book_id}`} aria-label={tr('Open in reader')}
+                    <Link href={`/reader/?book=${r.book_id}`} aria-label={tr('Read {title}', { title: r.book_title || r.series_title })}
                       className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-accent-soft text-accent">
                       <IcPlay width={15} height={15} />
                     </Link>
