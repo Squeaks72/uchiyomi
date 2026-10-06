@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { canDownload, useAuth } from '@/lib/auth';
 import { t as tr } from '@/lib/i18n';
+import { applyFavorite } from '@/lib/favoriteCache';
 import type { Series } from '@/lib/types';
 import { useToast } from './Toast';
 import { useContextMenu, type MenuItem } from './ContextMenu';
@@ -45,6 +46,7 @@ export function useSeriesMenu(series: Series) {
     try {
       const r = await api<{ applied: number }>(path, { json: { seriesIds: [series.id], ...extra } });
       toast(r.applied ? done : tr('That series is no longer in the library'), r.applied ? 'success' : 'error');
+      if (r.applied && typeof extra.favorite === 'boolean') applyFavorite(qc, series.id, extra.favorite);
       settle();
       qc.invalidateQueries({ queryKey: ['favorite-ids'] });
     } catch { toast(tr('Could not do that'), 'error'); }
