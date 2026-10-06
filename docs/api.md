@@ -1475,6 +1475,7 @@ POST   /api/admin/series/bulk/chapters/delete/cancel
 GET    /api/admin/series/:id/scanlators GET    /api/admin/scanlators
 POST   /api/admin/series/:id/sources DELETE /api/admin/series/:id/sources/:sourceId
 POST   /api/admin/series/:id/main-source
+POST   /api/admin/series/:id/attach-source
 GET    /api/admin/series/:id/alt-titles POST   /api/admin/series/:id/alt-titles
 DELETE /api/admin/series/:id/alt-titles/:norm
 GET    /api/admin/libraries       POST   /api/admin/libraries
@@ -2162,6 +2163,12 @@ alone. A series whose every source is switched off is not asked at all: the swee
 failure), stamps nothing and leaves its listing standing. The sweep's queues follow the source each series is
 asked through -- the first it follows that is loaded and not switched off -- so a dead main source's cooldown no
 longer parks series that update from their followers.
+
+**Attaching a source by hand.** `POST /api/admin/series/:id/attach-source {source, sourceSeriesId, title?, as, old?}`
+attaches a source a person picked (`as`: `follower` or `main`) without the chapter-overlap gates, so a series with one
+chapter or none can take a source; the language, posting-order, renumber, busy and age-reach refusals stay, and a follower
+is still capped. `DELETE /api/admin/series/:id/sources/:sourceId` on the main source detaches it: a follower takes over, or
+the series is left with no source.
 
 **Making a follower the main source** (since v0.54.0). `POST /api/admin/series/:id/main-source {sourceId, old?}`
 makes a source the series already follows its main source -- only a followed one: its follow is the "same series?"

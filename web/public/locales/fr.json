@@ -2,7 +2,7 @@
   "_meta": {
     "language": "fr",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 3541
+    "strings": 3555
   },
   "1 check found something": "1 vérification a trouvé quelque chose",
   "1 member": "1 membre",
@@ -3544,5 +3544,19 @@
   "Updates stopped": "Mises à jour arrêtées",
   "Home {n}": "Accueil {n}",
   "Match Discover titles online": "Identifier en ligne les titres de Découvrir",
-  "On by default. Titles shown in Discover are looked up on AniList, MangaDex and MangaUpdates, once each and in the background, so that a series several sources name differently shows as one card and one you already have stays hidden. Off, only the names themselves are compared and nothing is sent anywhere.": "Activé par défaut. Les titres affichés dans Découvrir sont recherchés sur AniList, MangaDex et MangaUpdates, une fois chacun et en arrière-plan, pour qu’une série que plusieurs sources nomment différemment n’occupe qu’une seule carte et qu’une série que vous avez déjà reste masquée. Désactivé, seuls les noms eux-mêmes sont comparés et rien n’est envoyé nulle part."
+  "On by default. Titles shown in Discover are looked up on AniList, MangaDex and MangaUpdates, once each and in the background, so that a series several sources name differently shows as one card and one you already have stays hidden. Off, only the names themselves are compared and nothing is sent anywhere.": "Activé par défaut. Les titres affichés dans Découvrir sont recherchés sur AniList, MangaDex et MangaUpdates, une fois chacun et en arrière-plan, pour qu’une série que plusieurs sources nomment différemment n’occupe qu’une seule carte et qu’une série que vous avez déjà reste masquée. Désactivé, seuls les noms eux-mêmes sont comparés et rien n’est envoyé nulle part.",
+  "Now also checking {name}": "{name} est maintenant aussi vérifiée",
+  "Could not attach that source": "Impossible d’ajouter cette source",
+  "This series lists {n} now": "Cette série en liste {n} actuellement",
+  "Keep the current main source as a backup": "Garder la source principale actuelle en secours",
+  "Add as extra source": "Ajouter comme source supplémentaire",
+  "Move here": "Déplacer ici",
+  "Use this source": "Utiliser cette source",
+  "Add or move source": "Ajouter ou déplacer la source",
+  "Nobody has that title. Try another name above.": "Personne n’a ce titre. Essayez un autre nom ci-dessus.",
+  "attached": "rattachée",
+  "Detach {name}? The next source takes over as main. Downloaded chapters and your progress stay.": "Détacher {name} ? La source suivante devient la principale. Les chapitres téléchargés et votre progression sont conservés.",
+  "Detach {name}? The series keeps its chapters and progress but will have no source to update from.": "Détacher {name} ? La série garde ses chapitres et votre progression, mais n’aura plus de source pour se mettre à jour.",
+  "Detach": "Détacher",
+  "Add more sources…": "Ajouter d’autres sources…"
 }
