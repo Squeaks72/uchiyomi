@@ -513,6 +513,9 @@ To add a whole *site* rather than one series, that is `POST /api/admin/sources/c
 curl -H "Authorization: Bearer $TOK" "https://your-server/api/sources/search-all?q=solo+leveling"
 ```
 
+Fork change: `sources=<id>,<id>,...` (at most 200) asks only those sources, as `source=<id>` asks one. Either narrows within the
+sources you may reach and never past them; absent or empty means every source.
+
 Since v0.40.0 this answers before the slow sources do. `GET /api/sources/search-all?q=<term>&wait=<ms>` returns
 when every source you may reach has answered, when `wait` milliseconds have passed (clamped to
 `SEARCH_FIRST_ANSWER_MS`, default 6000; omitted means that maximum), or `SEARCH_GRACE_MS` (default 1500) after

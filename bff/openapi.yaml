@@ -2952,6 +2952,15 @@ paths:
             fan-out within the sources the caller may be shown, never past them: an id outside that set
             (an adult source without `adult=1`, one above the account's age limit, an unknown id) asks
             nobody and answers the empty shape. Absent means every source.
+        - name: sources
+          in: query
+          required: false
+          schema:
+            type: string
+          description: >-
+            Fork change. Ask only these source ids, comma-separated (at most 200). Narrows the fan-out exactly
+            as `source` does: within the sources the caller may be shown, never past them. Combines with
+            `source` (both must match). Absent or empty means every source.
         - name: groupBy
           in: query
           required: false
