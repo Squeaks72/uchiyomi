@@ -390,3 +390,10 @@ test('a file holding a range of chapters holds every number in it on the series 
   assert.match(page, /\.filter\(\(x\) => lastOf\(x\) < b\.number && !x\.readProgress\?\.completed\)/,
     'Mark previous as read marks a range file that runs past this chapter');
 });
+
+test('the series page offers a Check for new chapters button to an admin, through the shared check hook', () => {
+  const src = readFileSync(new URL('../app/series/page.tsx', import.meta.url), 'utf8');
+  assert.match(src, /useCheckNow\(id,/);
+  assert.match(src, /data-check-new/);
+  assert.match(src, /onClick=\{checkNow\}/);
+});
