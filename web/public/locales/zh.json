@@ -2,7 +2,7 @@
   "_meta": {
     "language": "zh",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 3797
+    "strings": 3798
   },
   "1 check found something": "1 项检查发现问题",
   "1 member": "1 位成员",
@@ -3434,7 +3434,7 @@
   "Delete the files for “{title}”?": "要删除“{title}”的文件吗？",
   "This deletes 1 chapter file from your disk.": "这会从你的磁盘上删除 1 个章节文件。",
   "This deletes {n} chapter files from your disk.": "这会从你的磁盘上删除 {n} 个章节文件。",
-  "Everyone’s reading progress and history are kept, so the record of having read it survives even though the files do not.": "所有人的阅读进度和历史都会保留，即使文件不在了，读过的记录也还在。",
+  "Everyone’s reading progress and history are kept, so the record of having read it survives even though the files do not.": "所有人的阅读进度和历史都会保留，即使文件被删除，阅读记录依然存在。",
   "All caught up": "已全部看完",
   "You’re all caught up": "你已看完所有更新",
   "Favorite some series and new chapters will appear here as Uchiyomi downloads them.": "收藏一些系列后，Uchiyomi 下载的新章节会显示在这里。",
@@ -3491,7 +3491,7 @@
   "Private library · single sign-in": "私人书库 · 统一登录",
   "Incorrect username or password.": "用户名或密码不正确。",
   "Incorrect authentication code.": "验证码不正确。",
-  "This account is disabled.": "此账号已被停用。",
+  "This account is disabled.": "此账户已被停用。",
   "Account locked — too many attempts. Try again later.": "账号已锁定 — 尝试次数过多。请稍后再试。",
   "Login failed — please try again.": "登录失败 — 请重试。",
   "Username: letters, numbers, . _ - (2–64 characters).": "用户名：字母、数字、. _ -（2–64 个字符）。",
@@ -3800,5 +3800,6 @@
   "You signed in, but you don’t have an account here yet. Ask the admin to create one.": "你已登录，但这里还没有你的账号。请让管理员为你创建一个。",
   "Login failed.": "登录失败。",
   "Setup failed.": "设置失败。",
-  "Create admin & open Uchiyomi": "创建管理员并打开 Uchiyomi"
+  "Create admin & open Uchiyomi": "创建管理员并打开 Uchiyomi",
+  "Too many attempts. This account is locked for now, so try again later.": "尝试次数过多。账户暂时被锁定，请稍后再试。"
 }

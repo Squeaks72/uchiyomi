@@ -47,14 +47,14 @@ const SURFACE: [number, number, number] = [0x1a, 0x1a, 0x22]; // ink-700, the li
 
 /**
  * The accent as it is painted. Accent is used as text on dark surfaces (links, active chips, ghost keys), so a
- * dark pick such as a deep blue would be unreadable; mix it toward white until it reaches 4.5:1 on ink-700.
+ * dark pick such as a deep blue would be unreadable; mix it toward white until it reaches 5:1 on ink-700 (the margin keeps it 4.5:1 on its own soft tint).
  * The saved choice is untouched. A bright accent comes back unchanged.
  */
 export function readableAccent(hex?: string | null): string | null {
   const rgb = parse(hex);
   if (!rgb) return null;
   let c: [number, number, number] = [rgb.r, rgb.g, rgb.b];
-  for (let k = 0; k <= 1 && contrastRatio(c, SURFACE) < 4.5; k += 0.04) {
+  for (let k = 0; k <= 1 && contrastRatio(c, SURFACE) < 5; k += 0.04) {
     c = [rgb.r, rgb.g, rgb.b].map((v) => Math.round(v + (255 - v) * k)) as [number, number, number];
   }
   return c.join(' ');

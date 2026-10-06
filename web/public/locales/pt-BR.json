@@ -2,7 +2,7 @@
   "_meta": {
     "language": "pt-BR",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 3797
+    "strings": 3798
   },
   "1 check found something": "1 verificação encontrou algo",
   "1 member": "1 membro",
@@ -3433,8 +3433,8 @@
   "Could not restore it": "Não foi possível restaurá-la",
   "Delete the files for “{title}”?": "Excluir os arquivos de “{title}”?",
   "This deletes 1 chapter file from your disk.": "Isso exclui 1 arquivo de capítulo do seu disco.",
-  "This deletes {n} chapter files from your disk.": "Isso exclui {n} arquivos de capítulos do seu disco.",
-  "Everyone’s reading progress and history are kept, so the record of having read it survives even though the files do not.": "O progresso de leitura e o histórico de todos são mantidos, então o registro de que ela foi lida continua, mesmo que os arquivos não.",
+  "This deletes {n} chapter files from your disk.": "Isso exclui {n} arquivos de capítulo do seu disco.",
+  "Everyone’s reading progress and history are kept, so the record of having read it survives even though the files do not.": "O progresso e o histórico de leitura de todos são mantidos, então o registro de que foi lida permanece mesmo sem os arquivos.",
   "All caught up": "Tudo em dia",
   "You’re all caught up": "Você está em dia",
   "Favorite some series and new chapters will appear here as Uchiyomi downloads them.": "Favorite algumas séries e os capítulos novos aparecerão aqui conforme o Uchiyomi os baixar.",
@@ -3490,7 +3490,7 @@
   "First-run setup": "Configuração inicial",
   "Private library · single sign-in": "Biblioteca privada · login único",
   "Incorrect username or password.": "Usuário ou senha incorretos.",
-  "Incorrect authentication code.": "Código de autenticação incorreto.",
+  "Incorrect authentication code.": "O código de autenticação está incorreto.",
   "This account is disabled.": "Esta conta está desativada.",
   "Account locked — too many attempts. Try again later.": "Conta bloqueada — tentativas demais. Tente mais tarde.",
   "Login failed — please try again.": "Não foi possível entrar — tente de novo.",
@@ -3800,5 +3800,6 @@
   "You signed in, but you don’t have an account here yet. Ask the admin to create one.": "Você entrou, mas ainda não tem uma conta aqui. Peça ao administrador para criar uma.",
   "Login failed.": "Falha no login.",
   "Setup failed.": "Falha na configuração.",
-  "Create admin & open Uchiyomi": "Criar administrador e abrir o Uchiyomi"
+  "Create admin & open Uchiyomi": "Criar administrador e abrir o Uchiyomi",
+  "Too many attempts. This account is locked for now, so try again later.": "Tentativas demais. A conta está bloqueada por enquanto, tente novamente mais tarde."
 }

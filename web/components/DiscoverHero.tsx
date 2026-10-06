@@ -128,7 +128,7 @@ export function DiscoverHero({ slides, onPick }: { slides: Trending[]; onPick: (
                   const edge = (n === 0 && moreBefore) || (n === items.length - 1 && moreAfter);
                   return (
                     <button key={k} type="button" onClick={() => setI(k)} aria-label={slides[k].title}
-                      aria-current={k === i} className="grid place-items-center px-1.5 py-2.5 lg:px-[9px]">
+                      aria-current={k === i} className="grid min-w-6 place-items-center px-1.5 py-2.5 lg:min-w-0 lg:px-[9px]">
                       <span className={`rounded-full transition-all ${k === i ? 'h-1.5 w-6 bg-accent' : edge ? 'h-1 w-1 bg-white/25' : 'h-1.5 w-1.5 bg-white/35'}`} />
                     </button>
                   );

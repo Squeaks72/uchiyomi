@@ -32,7 +32,7 @@ for (const fog of ['fog-50', 'fog-100', 'fog-200', 'fog-300', 'fog-400', 'fog-50
 test('readableAccent: every preset accent is readable as text on ink-700', () => {
   for (const a of ['#7c5cff', '#22d3ee', '#34d399', '#fb7185', '#f59e0b', '#60a5fa', '#000000', '#1e3a8a']) {
     const t = readableAccent(a)!.split(' ').map(Number) as [number, number, number];
-    assert.ok(contrastRatio(t, hex('ink-700')) >= 4.5, `${a} -> ${t}`);
+    assert.ok(contrastRatio(t, hex('ink-700')) >= 5, `${a} -> ${t}`);
   }
 });
 

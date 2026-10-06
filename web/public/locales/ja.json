@@ -2,7 +2,7 @@
   "_meta": {
     "language": "ja",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 3797
+    "strings": 3798
   },
   "1 check found something": "1 件のチェックで問題を検出",
   "1 member": "メンバー 1 人",
@@ -3432,9 +3432,9 @@
   "“{title}” is back in the library": "「{title}」をライブラリに戻しました",
   "Could not restore it": "元に戻せませんでした",
   "Delete the files for “{title}”?": "「{title}」のファイルを削除しますか？",
-  "This deletes 1 chapter file from your disk.": "ディスクから 1 話分のファイルを削除します。",
-  "This deletes {n} chapter files from your disk.": "ディスクから {n} 話分のファイルを削除します。",
-  "Everyone’s reading progress and history are kept, so the record of having read it survives even though the files do not.": "全員の読書の進捗と履歴は残るので、ファイルがなくなっても読んだ記録は残ります。",
+  "This deletes 1 chapter file from your disk.": "章のファイル1件がディスクから削除されます。",
+  "This deletes {n} chapter files from your disk.": "章のファイル{n}件がディスクから削除されます。",
+  "Everyone’s reading progress and history are kept, so the record of having read it survives even though the files do not.": "全員の読書の進捗と履歴は残ります。ファイルがなくなっても、読んだ記録は残ります。",
   "All caught up": "すべて確認済み",
   "You’re all caught up": "すべて確認済みです",
   "Favorite some series and new chapters will appear here as Uchiyomi downloads them.": "シリーズをお気に入りに追加すると、Uchiyomi がダウンロードした新しい話がここに表示されます。",
@@ -3491,7 +3491,7 @@
   "Private library · single sign-in": "プライベートライブラリ・シングルサインオン",
   "Incorrect username or password.": "ユーザー名またはパスワードが違います。",
   "Incorrect authentication code.": "認証コードが違います。",
-  "This account is disabled.": "このアカウントは無効になっています。",
+  "This account is disabled.": "このアカウントは無効です。",
   "Account locked — too many attempts. Try again later.": "アカウントがロックされました — 試行回数が多すぎます。しばらくしてからもう一度お試しください。",
   "Login failed — please try again.": "サインインできませんでした — もう一度お試しください。",
   "Username: letters, numbers, . _ - (2–64 characters).": "ユーザー名：英字、数字、. _ -（2〜64文字）。",
@@ -3800,5 +3800,6 @@
   "You signed in, but you don’t have an account here yet. Ask the admin to create one.": "サインインはできましたが、ここにはまだあなたのアカウントがありません。管理者にアカウントの作成を依頼してください。",
   "Login failed.": "ログインに失敗しました。",
   "Setup failed.": "セットアップに失敗しました。",
-  "Create admin & open Uchiyomi": "管理者を作成して Uchiyomi を開く"
+  "Create admin & open Uchiyomi": "管理者を作成して Uchiyomi を開く",
+  "Too many attempts. This account is locked for now, so try again later.": "試行回数が多すぎます。アカウントは一時的にロックされています。後でもう一度お試しください。"
 }

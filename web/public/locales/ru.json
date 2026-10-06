@@ -2,7 +2,7 @@
   "_meta": {
     "language": "ru",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 3797
+    "strings": 3798
   },
   "1 check found something": "1 проверка нашла проблему",
   "1 member": "1 участник",
@@ -3432,9 +3432,9 @@
   "“{title}” is back in the library": "«{title}» снова в библиотеке",
   "Could not restore it": "Не удалось вернуть",
   "Delete the files for “{title}”?": "Удалить файлы «{title}»?",
-  "This deletes 1 chapter file from your disk.": "С диска будет удалён 1 файл главы.",
-  "This deletes {n} chapter files from your disk.": "С диска будут удалены файлы глав: {n}.",
-  "Everyone’s reading progress and history are kept, so the record of having read it survives even though the files do not.": "Прогресс чтения и история у всех сохраняются, так что отметка о прочтении останется, даже если файлов не станет.",
+  "This deletes 1 chapter file from your disk.": "Будет удалён 1 файл главы с вашего диска.",
+  "This deletes {n} chapter files from your disk.": "Будут удалены файлы глав ({n}) с вашего диска.",
+  "Everyone’s reading progress and history are kept, so the record of having read it survives even though the files do not.": "Прогресс и история чтения всех участников сохраняются, так что отметка о прочтении останется, даже когда файлов не будет.",
   "All caught up": "Всё прочитано",
   "You’re all caught up": "Вы всё прочитали",
   "Favorite some series and new chapters will appear here as Uchiyomi downloads them.": "Добавьте серии в избранное — новые главы будут появляться здесь по мере того, как Uchiyomi их скачивает.",
@@ -3491,7 +3491,7 @@
   "Private library · single sign-in": "Личная библиотека · единый вход",
   "Incorrect username or password.": "Неверное имя пользователя или пароль.",
   "Incorrect authentication code.": "Неверный код аутентификации.",
-  "This account is disabled.": "Этот аккаунт отключён.",
+  "This account is disabled.": "Эта учётная запись отключена.",
   "Account locked — too many attempts. Try again later.": "Аккаунт заблокирован — слишком много попыток. Попробуйте позже.",
   "Login failed — please try again.": "Не удалось войти — попробуйте ещё раз.",
   "Username: letters, numbers, . _ - (2–64 characters).": "Имя пользователя: буквы, цифры, . _ - (от 2 до 64 символов).",
@@ -3800,5 +3800,6 @@
   "You signed in, but you don’t have an account here yet. Ask the admin to create one.": "Вы вошли, но у вас пока нет аккаунта здесь. Попросите администратора создать его.",
   "Login failed.": "Не удалось войти.",
   "Setup failed.": "Не удалось выполнить настройку.",
-  "Create admin & open Uchiyomi": "Создать администратора и открыть Uchiyomi"
+  "Create admin & open Uchiyomi": "Создать администратора и открыть Uchiyomi",
+  "Too many attempts. This account is locked for now, so try again later.": "Слишком много попыток. Учётная запись временно заблокирована, повторите позже."
 }

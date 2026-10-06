@@ -106,7 +106,10 @@ export function useAutoplay() {
   };
 }
 
-const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+// tabindex="-1" is focusable by script but not a Tab stop (the palette's options): counting it made the last real
+// stop look like it was not the last, and Tab walked out of the dialog.
+const FOCUSABLE = ['a[href]', 'button:not([disabled])', 'input:not([disabled])', 'select:not([disabled])', 'textarea:not([disabled])', '[tabindex]']
+  .map((s) => `${s}:not([tabindex="-1"])`).join(', ');
 
 /**
  * Keeps Tab inside a dialog: from the last control it wraps to the first, and Shift+Tab the other way.

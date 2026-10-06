@@ -654,7 +654,7 @@ function ArtReview() {
       </div>
       <div className="hide-scrollbar full flex gap-1.5 overflow-x-auto pb-1">
         {([['nobanner', tr('Missing banner')], ['nocover', tr('Missing cover')], ['fixed', tr('Overridden')], ['all', tr('All')]] as const).map(([k, label]) => (
-          <button key={k} onClick={() => setFilter(k)} aria-pressed={filter === k} className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium ${filter === k ? 'bg-accent text-white' : 'bg-ink-800 text-fog-300'}`}>
+          <button key={k} onClick={() => setFilter(k)} aria-pressed={filter === k} className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium ${filter === k ? 'bg-accent text-black' : 'bg-ink-800 text-fog-300'}`}>
             {label}{k !== 'all' ? ` (${(data?.content ?? []).filter((r) => (k === 'nobanner' ? !r.has_banner && !r.override_banner : k === 'nocover' ? !r.has_cover && !r.override_cover : r.override_banner || r.override_cover)).length})` : ''}
           </button>
         ))}
@@ -1430,7 +1430,7 @@ function LibrariesSection() {
   return (
     <section className="full">
       <div className="mb-1 flex items-center justify-between gap-3">
-        <h3 className="font-display text-base font-semibold">{tr('Libraries')}</h3>
+        <h2 className="font-display text-base font-semibold">{tr('Libraries')}</h2>
         <button onClick={() => openNew()} className="chip shrink-0 text-xs"><IcPlus aria-hidden width={13} height={13} />{tr('New library')}</button>
       </div>
       <p className="mb-3 max-w-prose text-xs leading-relaxed text-fog-500">

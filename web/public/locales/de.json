@@ -2,7 +2,7 @@
   "_meta": {
     "language": "de",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 3797
+    "strings": 3798
   },
   "1 check found something": "1 Prüfung hat etwas gefunden",
   "1 member": "1 Mitglied",
@@ -3432,9 +3432,9 @@
   "“{title}” is back in the library": "„{title}“ ist wieder in der Bibliothek",
   "Could not restore it": "Konnte nicht zurückgelegt werden",
   "Delete the files for “{title}”?": "Dateien von „{title}“ löschen?",
-  "This deletes 1 chapter file from your disk.": "Damit wird 1 Kapiteldatei von deiner Festplatte gelöscht.",
-  "This deletes {n} chapter files from your disk.": "Damit werden {n} Kapiteldateien von deiner Festplatte gelöscht.",
-  "Everyone’s reading progress and history are kept, so the record of having read it survives even though the files do not.": "Lesefortschritt und Verlauf aller bleiben erhalten: Dass sie gelesen wurde, bleibt festgehalten, auch wenn die Dateien weg sind.",
+  "This deletes 1 chapter file from your disk.": "Dadurch wird 1 Kapiteldatei von deinem Datenträger gelöscht.",
+  "This deletes {n} chapter files from your disk.": "Dadurch werden {n} Kapiteldateien von deinem Datenträger gelöscht.",
+  "Everyone’s reading progress and history are kept, so the record of having read it survives even though the files do not.": "Der Lesefortschritt und der Verlauf aller bleiben erhalten, sodass die Lesespur bestehen bleibt, auch wenn die Dateien weg sind.",
   "All caught up": "Alles auf dem neuesten Stand",
   "You’re all caught up": "Du bist auf dem neuesten Stand",
   "Favorite some series and new chapters will appear here as Uchiyomi downloads them.": "Markiere ein paar Serien als Favoriten, dann erscheinen hier ihre neuen Kapitel, sobald Uchiyomi sie herunterlädt.",
@@ -3490,7 +3490,7 @@
   "First-run setup": "Ersteinrichtung",
   "Private library · single sign-in": "Private Bibliothek · eine Anmeldung",
   "Incorrect username or password.": "Benutzername oder Passwort ist falsch.",
-  "Incorrect authentication code.": "Der Authentifizierungscode ist falsch.",
+  "Incorrect authentication code.": "Der Bestätigungscode ist falsch.",
   "This account is disabled.": "Dieses Konto ist deaktiviert.",
   "Account locked — too many attempts. Try again later.": "Konto gesperrt — zu viele Versuche. Versuch es später noch einmal.",
   "Login failed — please try again.": "Anmeldung fehlgeschlagen — bitte versuch es noch einmal.",
@@ -3800,5 +3800,6 @@
   "You signed in, but you don’t have an account here yet. Ask the admin to create one.": "Du bist angemeldet, hast hier aber noch kein Konto. Bitte den Administrator, eines anzulegen.",
   "Login failed.": "Anmeldung fehlgeschlagen.",
   "Setup failed.": "Einrichtung fehlgeschlagen.",
-  "Create admin & open Uchiyomi": "Administrator erstellen und Uchiyomi öffnen"
+  "Create admin & open Uchiyomi": "Administrator erstellen und Uchiyomi öffnen",
+  "Too many attempts. This account is locked for now, so try again later.": "Zu viele Versuche. Das Konto ist vorübergehend gesperrt, versuche es später erneut."
 }

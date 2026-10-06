@@ -2,7 +2,7 @@
   "_meta": {
     "language": "ar",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 3797
+    "strings": 3798
   },
   "1 check found something": "فحص واحد وجد شيئًا",
   "1 member": "عضو واحد",
@@ -3431,10 +3431,10 @@
   "Could not delete the files": "تعذّر حذف الملفات",
   "“{title}” is back in the library": "عادت «{title}» إلى المكتبة",
   "Could not restore it": "تعذّرت إعادتها",
-  "Delete the files for “{title}”?": "حذف ملفات «{title}»؟",
+  "Delete the files for “{title}”?": "هل تريد حذف ملفات «{title}»؟",
   "This deletes 1 chapter file from your disk.": "سيُحذف ملف فصل واحد من قرصك.",
-  "This deletes {n} chapter files from your disk.": "ستُحذف من قرصك ملفات فصول عددها {n}.",
-  "Everyone’s reading progress and history are kept, so the record of having read it survives even though the files do not.": "يُحتفظ بتقدّم قراءة الجميع وسجلّهم، فيبقى أثر قراءتها وإن لم تبقَ الملفات.",
+  "This deletes {n} chapter files from your disk.": "سيُحذف {n} من ملفات الفصول من قرصك.",
+  "Everyone’s reading progress and history are kept, so the record of having read it survives even though the files do not.": "يُحتفظ بتقدّم القراءة والسجل للجميع، فيبقى سجلّ القراءة حتى بعد حذف الملفات.",
   "All caught up": "تم الاطلاع على كل شيء",
   "You’re all caught up": "لقد اطلعت على كل شيء",
   "Favorite some series and new chapters will appear here as Uchiyomi downloads them.": "أضف بعض السلاسل إلى المفضلة، وستظهر هنا فصولها الجديدة كلما نزّلها Uchiyomi.",
@@ -3491,7 +3491,7 @@
   "Private library · single sign-in": "مكتبة خاصة · تسجيل دخول واحد",
   "Incorrect username or password.": "اسم المستخدم أو كلمة المرور غير صحيحة.",
   "Incorrect authentication code.": "رمز المصادقة غير صحيح.",
-  "This account is disabled.": "هذا الحساب معطَّل.",
+  "This account is disabled.": "هذا الحساب معطّل.",
   "Account locked — too many attempts. Try again later.": "الحساب مقفل — محاولات كثيرة جدًا. حاول لاحقًا.",
   "Login failed — please try again.": "فشل تسجيل الدخول — حاول مرة أخرى.",
   "Username: letters, numbers, . _ - (2–64 characters).": "اسم المستخدم: حروف وأرقام و⁦. _ -⁩ (من 2 إلى 64 حرفًا).",
@@ -3800,5 +3800,6 @@
   "You signed in, but you don’t have an account here yet. Ask the admin to create one.": "لقد سجّلت الدخول، لكن ليس لديك حساب هنا بعد. اطلب من المدير إنشاء حساب لك.",
   "Login failed.": "فشل تسجيل الدخول.",
   "Setup failed.": "فشل الإعداد.",
-  "Create admin & open Uchiyomi": "إنشاء المدير وفتح Uchiyomi"
+  "Create admin & open Uchiyomi": "إنشاء المدير وفتح Uchiyomi",
+  "Too many attempts. This account is locked for now, so try again later.": "محاولات كثيرة جدًا. الحساب مقفل مؤقتًا، حاول مرة أخرى لاحقًا."
 }
