@@ -437,7 +437,7 @@ test('Archive slowly: a key from lg up, a row of More on a phone, for anyone who
   // `hidden lg:inline-flex`): "the archive key reaches the phone bar" fails; gate More on `isAdmin` again: "a
   // member who may download has no way to archive on a phone" fails.
   const src = code(read('app/library/page.tsx'));
-  assert.match(src, /\{canDownload\(user\) && <button disabled=\{acting\} onClick=\{archiveSelected\} className="btn-key hidden lg:inline-flex">\{tr\('Archive slowly'\)\}<\/button>\}/,
+  assert.match(src, /\{canDownload\(user\) && <button disabled=\{acting\} onClick=\{archiveSelected\} className="btn-key hidden lg:inline-flex" title=\{archiveWhy\(\)\}>\{tr\('Archive slowly'\)\}<\/button>\}/,
     'the archive key reaches the phone bar');
   // More is a member's on a phone only (from lg up Archive slowly is a key), and an admin's at every width (v0.49.1).
   assert.match(src, /\{\(isAdmin \|\| canDownload\(user\)\) && <button disabled=\{acting\} onClick=\{\(\) => setMore\(true\)\} className=\{`chip text-xs disabled:opacity-50 \$\{isAdmin \? '' : 'lg:hidden'\}`\}/,

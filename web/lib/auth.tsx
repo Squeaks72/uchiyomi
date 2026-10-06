@@ -9,7 +9,6 @@ import { adoptAccountPrefs, clearAccountPrefs, localOnlyPrefs } from './accountP
 import { isDesktop, serverReachableHint, untilReachable } from './desktop';
 import { t as tr } from './i18n';
 import { readableAccent } from './theme';
-import { t as tr } from './i18n';
 
 export interface Avatar { emoji?: string; color?: string }
 interface User {
