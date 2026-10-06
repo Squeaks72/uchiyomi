@@ -11,7 +11,8 @@
 // one more clause on `visible()`, and every caller inherits it because they all go through here.
 import { q, one } from './db';
 import { noticeBook } from './noticeChapters';
-import { applySourceRatings, clearedIds, effectiveAgeRating, ratedAdultIds } from './sourceRatings';
+import { applySourceRatings, clearedIds, effectiveAgeRating, ratedAdultIds, sourceRatingOverride } from './sourceRatings';
+import { adultSourceName } from './adultSignals';
 
 export interface ViewCtx {
   /** null only for background work that legitimately sees everything: the scanner, the hero pre-warmer. */
@@ -372,7 +373,7 @@ export function adultFilterConfigured(ctx: ViewCtx): boolean {
  * gets: a link, a bookmark and a download already running all keep working while the switch is off. Hiding
  * is tidying. Refusing something explicitly asked for is a permission, and the permission is the age cap.
  */
-export function sourceBrowsableFor(src: { id?: string; isNsfw?: boolean } | null | undefined, ctx: ViewCtx): boolean {
+export function sourceBrowsableFor(src: { id?: string; name?: string; isNsfw?: boolean } | null | undefined, ctx: ViewCtx): boolean {
   if (!sourceAllowedFor(src, ctx.maxAgeRating)) return false;
   if (!ctx.hideAdultLibraries) return true;
   // The extension's own `isNsfw` is deliberately NOT a reason to hide a source here. Suwayomi sets it per
@@ -382,7 +383,10 @@ export function sourceBrowsableFor(src: { id?: string; isNsfw?: boolean } | null
   // A site that is adult through and through is the admin's call: name it in adult_sources and it drops out
   // here, whatever its extension says. The age cap above is unaffected: it still walls off every flagged source.
   // The list is lowercased on the way in, so the comparison is too.
-  return !(src?.id && (ctx.adultSources ?? []).includes(String(src.id).toLowerCase()));
+  if (src?.id && (ctx.adultSources ?? []).includes(String(src.id).toLowerCase())) return false;
+  // …or one whose own name says so (lib/adultSignals.ts), unless the admin rated it below 18.
+  const rated = sourceRatingOverride(src?.id);
+  return !(adultSourceName(src?.name) && !(rated !== undefined && rated < ADULT_RATING));
 }
 
 /**
