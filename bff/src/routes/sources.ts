@@ -2208,6 +2208,16 @@ export default async function sourceRoutes(app: FastifyInstance) {
     const ctx = vc(req);
     return reachable(req).filter((s) => sourceBrowsableFor(s, ctx));
   };
+  /**
+   * One source's titles as this viewer may be shown them. Only while "Show 18+" is off: the titles the source (or the
+   * admin's genre list) says are 18+ are left out, and everything else stays, including titles nothing speaks for --
+   * a listing carries few genres, so unknown is shown rather than the whole site dropped (`trustFlag` false in ratingOf).
+   */
+  const tame = async <T extends SourceSeries>(req: FastifyRequest, src: SourceAdapter, items: T[]): Promise<T[]> => {
+    if (!vc(req).hideAdultLibraries) return items;
+    const lists = await adultFilter();
+    return items.filter((r) => ratingOf(r, src, lists, false) !== 'adult');
+  };
 
   app.get('/api/sources', async (req) => {
     const health = new Map((await healthAll()).map((h) => [h.source_id, h]));
@@ -2343,7 +2353,7 @@ export default async function sourceRoutes(app: FastifyInstance) {
     const raw = await src.search(query.trim()).catch(() => []);
     // dedupe by sourceId (duplicate ids collide on the React key → wrong cover/title on a card)
     const seen = new Set<string>();
-    const results = raw.filter((r) => !!r.sourceId && !seen.has(r.sourceId) && (seen.add(r.sourceId), true)).slice(0, 24);
+    const results = (await tame(req, src, raw.filter((r) => !!r.sourceId && !seen.has(r.sourceId) && (seen.add(r.sourceId), true)))).slice(0, 24);
     // flag titles already in the library so the UI can mark them instead of offering a duplicate add
     return { content: await decorate(results, src.id) };
   });
@@ -3148,7 +3158,9 @@ export default async function sourceRoutes(app: FastifyInstance) {
     const rest = { sources: ans.sources, pending: ans.pending, asked: ans.asked, rating };
     // Every result's rating, by the admin's lists as they are now (cached briefly: lib/visibility.ts adultFilter).
     const lists = await adultFilter();
-    const rated: Rated = { of: (r, src) => ratingOf(r, src, lists), want: rating };
+    // While hiding 18+ a source's own `isNsfw` no longer condemns its titles (ratingOf `trustFlag`): the source stays in
+    // the fan-out and each title is judged by its own genres and rating.
+    const rated: Rated = { of: (r, src) => ratingOf(r, src, lists, rating !== 'safe'), want: rating };
 
     // Same fan-out either way; only the shaping differs. groupBy=source mirrors Mihon's global-search
     // screen (one rail per provider) for the import-review "search manually" sheet — the title-grouped
@@ -3196,10 +3208,10 @@ export default async function sourceRoutes(app: FastifyInstance) {
     // 8s each, every time, for nothing. Whatever was last cached is still served, because an old page is
     // better than a blank one. blocked_until expires on its own, so the source heals without intervention.
     if (await blockedNow(source!).catch(() => null)) {
-      const stale = cachedLatest(src.id, p);
+      const stale = await tame(req, src, cachedLatest(src.id, p));
       return { content: await decorate(stale, src.id) };
     }
-    const results = await latestPage(src, p);
+    const results = await tame(req, src, await latestPage(src, p));
     return { content: await decorate(results, src.id) };
   });
 
@@ -3221,10 +3233,10 @@ export default async function sourceRoutes(app: FastifyInstance) {
     if (await isDisabled(source!).catch(() => false)) return { content: [] };
     const p = Math.max(1, parseInt(page || '1', 10) || 1);
     if (await blockedNow(source!).catch(() => null)) {
-      const stale = cachedLatest(src.id, p, 'popular');
+      const stale = await tame(req, src, cachedLatest(src.id, p, 'popular'));
       return { content: await decorate(stale, src.id) };
     }
-    const results = await latestPage(src, p, 'popular');
+    const results = await tame(req, src, await latestPage(src, p, 'popular'));
     return { content: await decorate(results, src.id) };
   });
 

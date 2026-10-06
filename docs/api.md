@@ -534,7 +534,7 @@ term alone, so a narrowed search reads whatever a full one already heard, and th
 Since v0.55.4 ([#158](https://github.com/AngeloSha/uchiyomi/discussions/158)) `&rating=all|safe|adult` filters the
 answer for 18+: `safe` (Discover's *Hide 18+*) leaves out every result known to be 18+, `adult` (*18+ only*) keeps only
 those, and `all` (the default; anything else reads as it) keeps everything. A result is 18+ when its source is (an
-extension that declares itself adult, or one on the source list of Admin → Settings → 18+ filter), when MangaDex rates
+extension that declares itself adult -- except under `safe`, see below -- or one on the source list of Admin → Settings → 18+ filter), when MangaDex rates
 the title erotica or pornographic, or when one of its genres is on the 18+ filter's genre list (trimmed and case-blind,
 as the library compares them). It is not 18+ when MangaDex rates it safe or suggestive, or when it names genres, the
 genre list has some, and none of them match; otherwise it is unknown — kept under `all` and `safe`, left out of
@@ -545,7 +545,8 @@ site, and general sites carry it too) — else safe when any is. Each card, each
 caller's own answer before the 30-card cap, never on the shared entry. An account whose age limit is below 18 is held
 to `safe` whatever it asks, and so is every request without `adult=1`: with Show 18+ off the search hides 18+ titles
 from sources that are not adult themselves too (MangaDex's erotica, a genre on the list), which it did not before
-v0.55.4. The answer's top-level `rating` says which filter it applied.
+v0.55.4. Under `safe` an extension's declaration is not a verdict (fork change, above): such a title is left out only
+for its own genres, rating or a named source, and one nothing speaks for is shown. The answer's top-level `rating` says which filter it applied.
 
 `GET /api/sources/detail` is cached for ten minutes per source and series (it was ninety seconds), and
 concurrent requests for the same pair — the add dialog's pre-warm and the pick that follows it — collapse
@@ -823,8 +824,8 @@ Since v0.50.0 a series rated 18+ itself (its own rating, or the admin's override
 library, and *Always show* lets a title through all three rules — the library's rating, its own and its genres.
 It is a shelf switch, not a permission: an account capped below the series' rating still cannot see it.
 
-**Since v0.42.0 the same default covers Discover's sources.** A source whose extension declares itself
-adult (`isNsfw`) is a listing like any other, and hiding 18+ libraries while painting twelve adult
+**Since v0.42.0 the same default covers Discover's sources.** A source on the admin's 18+ source list is a listing
+like any other, and hiding 18+ libraries while painting twelve adult
 providers' covers on the browse screen was issue #64. The rule now reaches `GET /api/sources` (the provider
 list), `GET /api/sources/search` for one named source, `GET /api/sources/search-all` (it is not even
 **asked**, so no outbound request goes to it and nothing it answered for another account is read back),
@@ -834,6 +835,15 @@ that resolve something you named are deliberately **exempt**, for the same reaso
 `POST /api/sources/fill/scan`, `GET /api/sources/detail` and `POST /api/sources/add`. A series whose own
 source is adult has to stay fillable and fetchable while the chip is off, or the filter would break the
 library rather than tidy a screen.
+
+**Fork change: an extension's own `isNsfw` flag no longer hides a source, the titles are judged one by one.** Suwayomi
+sets `isNsfw` per extension, so it is on every site that can carry adult titles (MangaDex, MangaFire, Toonily, Tapas...)
+and hiding those left Show 18+ off with almost nothing to search. With the chip off such a source stays in the list, the
+fan-out and the walls, and each title is left out only for its own reason: a genre on the 18+ filter's list, an erotica or
+pornographic rating, or the source being named on the 18+ source list. A title nothing speaks for is **shown** (most
+extensions send no genres in a listing), so a site that is adult throughout belongs on the 18+ source list, which still
+hides it whole. This applies to `GET /api/sources/search`, `/latest`, `/popular` and `/search-all`. An account capped
+below 18 is unchanged: the age cap still refuses every declared-adult source by id and drops it from every list.
 
 A hidden source is **hidden, not refused**: `/search`, `/latest` and `/popular` answer `200 { "content":
 [] }` -- the same answer a disabled source gives -- because the hide is a preference the same account can

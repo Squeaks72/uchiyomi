@@ -110,6 +110,10 @@ async function setup() {
   // here is exactly this pair and a count assertion over it means something.
   registerAdapter(fakeSource(CLEAN_SRC, 'Zzz Clean Source') as any);
   registerAdapter(fakeSource(ADULT_SRC, 'Zzz Adult Source', true) as any);
+  // An extension's own flag no longer hides a source while Show 18+ is off (titles are judged one by one); the admin's
+  // adult_sources list does. This source is both, which is the case every assertion below is about.
+  await q(`UPDATE server_settings SET adult_sources = $1::jsonb WHERE id = 1`, [JSON.stringify([ADULT_SRC])]);
+  (await import('../src/lib/visibility')).invalidateAdultFilter();
   await q('DELETE FROM lib_books WHERE id = ANY($1)', [[ADULT_BOOK, CLEAN_BOOK, ...FILL_BOOKS]]);
   await q('DELETE FROM lib_series WHERE id = ANY($1)', [[ADULT_SERIES, CLEAN_SERIES, FILL_SERIES]]);
   await q('DELETE FROM libraries WHERE id = ANY($1)', [[ADULT_LIB, CLEAN_LIB]]);
