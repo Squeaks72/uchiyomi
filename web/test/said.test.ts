@@ -545,7 +545,7 @@ test('a stage named mid-sentence is lower-case, as the server\'s English says it
   }
 });
 
-test('every view that prints a download\'s reason words it: Library → Downloads, the series band, Discover, Find missing', () => {
+test('every view that prints a download\'s reason words it: Library → Fetching, the series band, Discover, Find missing', () => {
   // The job card's, the run card's and a chapter's reason come with codes (bff routes/sources.ts, lib/downloadJobs.ts,
   // lib/downloadActivity.ts); a view that prints `.reason` itself prints English in every language. Reintroduce
   // `{a.job.reason || tr('Fetch stopped. Try another source or wait.')}` in ServerDownloadsView: it is named here.

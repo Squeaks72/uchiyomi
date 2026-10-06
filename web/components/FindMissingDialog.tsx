@@ -243,7 +243,7 @@ export function FindMissingDialog({ seriesId, onClose, onAddEdition }: {
       // The follow refreshes the series' listing in the background, which is where its chapters appear.
       qc.invalidateQueries({ queryKey: ['series-listing', seriesId] });
       // Said plainly, because a follow on its own downloads nothing today: that is what the owner read as broken.
-      if (announce) toast(tr('Now following {s}. It is checked for new chapters every few hours; download what it has now below.', { s: c.name }), 'success');
+      if (announce) toast(tr('Now following {s}. It is checked for new chapters every few hours; fetch what it has now below.', { s: c.name }), 'success');
       return true;
     } catch (e) {
       const ed = editionOffer(e);
@@ -298,13 +298,13 @@ export function FindMissingDialog({ seriesId, onClose, onAddEdition }: {
         const skipped = res.skipped ?? [];
         const later = skipped.filter((x) => x.reason === 'not_listed').length;
         const other = skipped.filter((x) => x.reason !== 'not_listed' && x.reason !== 'already_here').length;
-        // Two sentences, each with its own count, so both agree at one: "1 is not listed yet", "Downloading 1 chapter."
+        // Two sentences, each with its own count, so both agree at one: "1 is not listed yet", "Fetching 1 chapter."
         const also = later
           ? later === 1 ? tr('1 is not listed yet and comes with the next check.') : tr('{m} are not listed yet and come with the next check.', { m: later })
           : other
             ? other === 1 ? tr('1 could not be fetched now.') : tr('{m} could not be fetched now.', { m: other })
             : '';
-        const downloading = res.total === 1 ? tr('Downloading 1 chapter.') : tr('Downloading {n} chapters.', { n: res.total });
+        const downloading = res.total === 1 ? tr('Fetching 1 chapter.') : tr('Fetching {n} chapters.', { n: res.total });
         toast(also ? joinSentences(downloading, also) : fetchingToast(res.total), 'info', { busy: true });
       }
       qc.invalidateQueries({ queryKey: ['source-jobs'] });
@@ -315,7 +315,7 @@ export function FindMissingDialog({ seriesId, onClose, onAddEdition }: {
       if (code === 'plan_stale') stale();
       // Followed, but a slow source (a Cloudflare challenge can take a minute) has not listed its chapters yet:
       // the follow stands, and the card now offers a plain Download for when it has.
-      else if (followedNow && code === 'nothing_to_fetch') toast(tr('Now following {s}. It is still listing its chapters: press Download again in a minute.', { s: c.name }), 'info');
+      else if (followedNow && code === 'nothing_to_fetch') toast(tr('Now following {s}. It is still listing its chapters: press Fetch again in a minute.', { s: c.name }), 'info');
       else toast(msgOf(e, tr('Could not start.')), 'error');
     } finally {
       setBusy(false);
@@ -461,14 +461,14 @@ export function FindMissingDialog({ seriesId, onClose, onAddEdition }: {
                     <button
                       disabled={busy || !n}
                       onClick={() => download(c, mode, chosen)}
-                      aria-label={mode === 'fetch' ? `${n === 1 ? tr('Download 1 chapter') : tr('Download {n} chapters', { n })}: ${c.name}` : undefined}
+                      aria-label={mode === 'fetch' ? `${n === 1 ? tr('Fetch 1 chapter') : tr('Fetch {n} chapters', { n })}: ${c.name}` : undefined}
                       className="btn-accent mt-3 w-full text-sm disabled:opacity-50"
                     >
                       {mode === 'follow'
-                        ? n === 1 ? tr('Follow {s} and download 1 chapter', { s: c.name }) : tr('Follow {s} and download {n} chapters', { s: c.name, n })
+                        ? n === 1 ? tr('Follow {s} and fetch 1 chapter', { s: c.name }) : tr('Follow {s} and fetch {n} chapters', { s: c.name, n })
                         : mode === 'fill'
                           ? n === 1 ? tr('Fetch 1 chapter from {s}', { s: c.name }) : tr('Fetch {n} chapters from {s}', { n, s: c.name })
-                          : n === 1 ? tr('Download 1 chapter') : tr('Download {n} chapters', { n })}
+                          : n === 1 ? tr('Fetch 1 chapter') : tr('Fetch {n} chapters', { n })}
                     </button>
                     {chosen.length > max && (
                       <p className="mt-1 text-xs text-fog-500">{tr('Up to {max} at a time: the rest can be fetched once this finishes.', { max })}</p>

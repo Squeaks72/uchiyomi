@@ -1,6 +1,6 @@
 /**
  * Admin → Settings → Content ratings (fork change), the part with no React in it so a test can hold the rules: the counts
- * the "Who may open it" group quotes, the source list's order and filter, and the numbers under "Downloads & politeness".
+ * the "Who may open it" group quotes, the source list's order and filter, and the numbers under "Fetching & politeness".
  *
  * The rating itself is lib/sourceAge.ts's (null = the extension's own flag, 0 = all ages, 10-17 = youngest account in, 18 =
  * adult); this only reads it.

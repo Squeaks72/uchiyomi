@@ -257,8 +257,8 @@ const IRREGULAR_PAIRS: Record<string, string> = {
   '1 already follows a working source: it becomes its main source.': '{n} already follow a working source: it becomes their main source.',
   '1 numbered by posting order stays as it is.': '{n} numbered by posting order stay as they are.',
   // v0.52.0, the last of AGREEING_UNPAIRED: one chapter is "the" chapter, not "all 1".
-  'Delete the downloaded chapter of “{title}”?': 'Delete all {n} downloaded chapters of “{title}”?',
-  'Delete the downloaded chapter on this device?': 'Delete all {n} downloaded chapters on this device?',
+  'Delete the fetched chapter of “{title}”?': 'Delete all {n} fetched chapters of “{title}”?',
+  'Remove the saved chapter from this device?': 'Remove all {n} saved chapters from this device?',
   // v0.55.7, Rescan everything: a chapter follows its file (lib/rescan.ts), each a file and a chapter, "its" and "their".
   '1 file was moved or renamed within its series: on Apply its chapter follows it, reading history kept':
     '{n} files were moved or renamed within their series: on Apply their chapters follow them, reading history kept',

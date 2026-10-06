@@ -302,7 +302,7 @@ says how many are in hand. The chips:
   separate, per-title step on **Content → Library** — see section 8.
 - **Find other sources** (since v0.49.1) — admins only, behind **More**. It searches the other sources for every
   selected series and follows the ones whose title and chapter numbers match (section 4, *Find other sources*); the
-  message says where to watch it, *Library → Downloads*.
+  message says where to watch it, *Library → Fetching*.
 - **Monitor** and **Unmonitor** — admins only, behind **More**. They switch each selected series' *Auto-update
   new chapters* (**Edit details → New chapters**) on or off. An unmonitored series gets no new chapter searched
   for or downloaded by anything that runs by itself: the hourly check, its pass over chapters saved with pages
@@ -624,7 +624,7 @@ once, calmly. The idea is @TIGamingTV's ([#119](https://github.com/AngeloSha/uch
   numbered by posting order is skipped: it follows no other source.
 - **Afterwards**, each series that gained a source has its chapter list read again, 1.5 seconds apart, so the next
   scheduled check fetches its new chapters without a burst, and Health checks itself again.
-- **Watching it.** **Library → Downloads** lists the run under *Server tasks* as *Other-source search*: how many
+- **Watching it.** **Library → Fetching** lists the run under *Server tasks* as *Other-source search*: how many
   series of how many, how many sources it has followed, the series it is on or what it is waiting for (*Waiting for
   the scheduled check to finish*), and **Stop**, which stops it at once. Health's row, and a card under the checks,
   show the same. It never turns the Library ring: it downloads nothing itself.
@@ -688,7 +688,7 @@ chapter at a time, and the current chapter waits and resumes from its remaining 
 waits as long. Since v0.55.3 the slower pace is kept: at least an hour, and it comes back up a step at a time only
 after ten chapters in a row came down whole at it — a site that kept refusing used to be asked at full speed again
 ten minutes later. Two sources whose pages come from the same image server share one pace (Natomanga and
-Mangakakalot do), and **Admin → Health** says *Downloading slowly: the site asked for fewer requests* on the
+Mangakakalot do), and **Admin → Health** says *Fetching slowly: the site asked for fewer requests* on the
 source's row under *Source health* while it lasts. If a normal failure still wins, Uchiyomi
 tries the same chapter on at most two sources the series already follows; the download card says which
 source it switched from and to. It does not switch a version you explicitly picked, and a 403 or 429 is a
@@ -720,7 +720,7 @@ not hunt behind the person's back.
 
 ### What is downloading, and stopping it
 
-Everything the server is fetching, whoever started it, is under **Library → Downloads** (since v0.49.0; it used
+Everything the server is fetching, whoever started it, is under **Library → Fetching** (since v0.49.0; it used
 to be a small pill in the bottom corner). While something comes in, the **Library** tab's icon on a phone wears
 a thin ring that fills as the chapters land, with a small count of the series being fetched; on a computer the
 same ring sits on the cloud button just before the Updates bell, which also leads there. An amber dot on it
@@ -759,7 +759,7 @@ set aside and not yet replaced. A server task has a Cancel too, for an admin and
 *Fetch newest*.
 
 Each series page shows its own downloads in a slim band above the chapter list, whoever started them, with a
-Cancel when it is yours to stop and **See all** into Library → Downloads; grey chapters turn into chapters as
+Cancel when it is yours to stop and **See all** into Library → Fetching; grey chapters turn into chapters as
 they land. Discover's strip still shows the last few minutes of adds, each leading to its series or its cover
 in the view.
 
@@ -769,7 +769,7 @@ and only they can dismiss it. Server tasks are an admin's, plus a bulk *Fetch ne
 Members who may not add series see none of this: no ring, no switch.
 
 The **Offline** tab is something else: only the copies saved **on this device** for reading offline. It no
-longer lists what the server fetches; one line there points to Library → Downloads.
+longer lists what the server fetches; one line there points to Library → Fetching.
 
 ### Fetching a whole series slowly: the slow archive
 
@@ -821,7 +821,7 @@ the daily source check (or *Test all*) runs; while anyone else downloads from th
 series; while the site is cooling down, switched off or not installed; outside the hours it may run; and while the
 download disk has less free space than its floor. A site that refuses a chapter (403 or 429) is left alone for an
 hour, then three, then twelve, then a day at a time, and the series stays queued; a chapter that keeps failing is
-given up after three tries like any other, and shows on Health's *Chapters that would not download*. A series whose
+given up after three tries like any other, and shows on Health's *Chapters that could not be fetched*. A series whose
 chapter list cannot be read is asked again on the same ladder, never every minute. A restart keeps its place and
 its breaks: the next start on each site is written down before a chapter begins, so nothing goes sooner than it
 would have. After a restart the archive waits ten minutes before its first look.
@@ -831,13 +831,13 @@ sites or follows a new one — and what it brings in is not news: nothing under 
 nothing in the digests. (A series being archived does rise on Home's *New episodes* rail, which follows the newest
 chapter file.)
 
-**Watching it.** In **Library → Downloads**, under **Queued**, each archived series is its cover under a still
+**Watching it.** In **Library → Fetching**, under **Queued**, each archived series is its cover under a still
 amber ring with an hourglass — it fills as chapters land and never turns — with *120 of 900* under it and about how
 long is left, or why the whole archive is waiting (*Only runs between 01:00 and 07:00*, in the server's hours;
 *Waiting for the scheduled check to finish*). A line above the covers gives the pace (*Slow archive: 4 chapters an
 hour per source*), and an admin's **Pause all** / **Resume all** and **Settings**. Tapping a cover says what this
 one is doing — *Fetching Ch. 121 now*, *Next chapter in 12 minutes*, *A chapter failed on its site; trying again in
-2 hours*, *Waiting for another download from the same site* — which way it fills, about how much more space it
+2 hours*, *Waiting for another fetch from the same site* — which way it fills, about how much more space it
 will take, what failed so far and when it started, with **Pause**, **Resume**, **Stop archiving** and **Open
 series**. Only whoever queued it and admins get the keys; everyone else who can open the series sees the progress.
 The Library ring never turns for an archive (see *What is downloading*, above).
@@ -861,7 +861,7 @@ The rest goes back to where it was before: under a *Latest N* or *Nothing yet* f
 *Find missing chapters*), otherwise the scheduled check fetches it at its own pace. A series' floor is never
 changed while an archive runs; one that finishes lifts it, unless somebody changed it meanwhile.
 
-**Admin → Settings → Downloads** (admins) holds the pace for the whole server, and every change applies at once:
+**Admin → Settings → Fetching** (admins) holds the pace for the whole server, and every change applies at once:
 
 - **Slow archive** — off pauses every archive; nothing queued is lost, and switching it on carries on.
 - **Chapters an hour, per source** — 1 to 30, 4 by default, with what that comes to a day and how long 1,000
@@ -1334,7 +1334,7 @@ again.
   how long — *300 more chapters come in slowly in the background. Oldest first. About 3 days at the current pace.*
   (*older chapters … Newest first* with *Latest N*). It is off until you switch it on, and not there for *All*,
   which leaves nothing over. The chapters you picked come first; the archive starts on the rest once they are in,
-  and the done step says *The rest comes in slowly in the background. Library → Downloads shows how far it has
+  and the done step says *The rest comes in slowly in the background. Library → Fetching shows how far it has
   got.*
 - **Before you add:** under the chapter count, the add dialog shows *Translated by* — the five busiest
   groups for the title, with how many chapters each released and a twelve-week activity strip (or, with
@@ -1531,7 +1531,7 @@ moves nothing: each series' match waits in the results, with **Make main** on it
 every good match at once. **Start**, and the dialog becomes the run: how far it has got (*184 of 195 series · Now:
 …*), three counts — *Moved*, *New source found*, *No replacement* — and each series as it lands, *Example Manga →
 Sample Comics* or why not. **Stop** stops it; **Run in background** closes the dialog and the run goes on, on
-**Library → Downloads** (*Server tasks*) and on Health's card, which open its results. One such run, Replace or *Find
+**Library → Fetching** (*Server tasks*) and on Health's card, which open its results. One such run, Replace or *Find
 other sources*, goes at a time. Health offers **Replace** too, as the key of a source row that series depend on, and
 on *Series that can no longer update*.
 
@@ -1721,7 +1721,7 @@ without you pressing anything. Since v0.48.3:
     Merges and deletes cannot be undone. While it
     runs you see its step (ten of them), a bar and what it is on, with **Stop** — it stops at the next safe point,
     never in the middle of a merge, a delete or a renumbering — and **Run in background**; the key then says
-    *Fixing everything*, and so does its card under Library → Downloads → *Server tasks*. At the end it says how
+    *Fixing everything*, and so does its card under Library → Fetching → *Server tasks*. At the end it says how
     many things need you (with *Everything else is green* under it when nothing else is left), or **All green** when
     nothing does, then up to six lines of what it did (*Moved 184 series off Aqua Manga*, *Fetched 37 missing
     chapters*…). What a stopped run did not reach is never something that needs you: the next run continues it. Each thing that needs you has its one key — the page it is about, its
@@ -1765,7 +1765,7 @@ another tab.
   repair stored: *No source has a longer copy*, *Followed {source}*, *No other source lists them*, *Failing since
   {date}* (which a Retry now no longer resets to today).
 - **Chapters a site refused only for room are waiting, not failing** (v0.55.1). When every failing chapter of a source
-  was refused with HTTP 429 (*too many requests*), *Chapters that would not download* lists that source greyed and
+  was refused with HTTP 429 (*too many requests*), *Chapters that could not be fetched* lists that source greyed and
   says *2 chapters wait for a site that asked for a pause, and are tried again by themselves*; the card stays green
   for it. One chapter failing any other way keeps the source a finding.
 - **Failed chapters follow the series** (v0.55.3). A chapter that failed on a source the series no longer uses — moved
@@ -2724,7 +2724,7 @@ steps for the browser you are in.
 
 **Offline:** favorite a series (or use **Save all offline** / a chapter's ⬇), and those chapters are stored on the
 device for reading with no connection. The **Offline** tab shows what's saved and a **Sync now** button;
-with **Keep favorites offline** on (**Profile → Settings → Offline downloads**), your favorites' next unread chapters
+with **Keep favorites offline** on (**Profile → Settings → Saved on this device**), your favorites' next unread chapters
 auto-download while you're online. A cover with a
 small ⌁ badge has something saved on this device.
 
@@ -2989,11 +2989,11 @@ carry the source's old numbers, and a chapter fetched now would land under a num
 admin opens **Review renumbering** on the series page, checks the plan and applies it, or presses **Keep the
 source's numbers**; either way the series updates again.
 
-**The slow archive is not fetching anything.** Library → Downloads says why — under the covers when the whole
+**The slow archive is not fetching anything.** Library → Fetching says why — under the covers when the whole
 archive is waiting, and on a series' own sheet (tap its cover) otherwise: it is between chapters (at the default
 pace about a quarter of an hour, now and then much longer), another download is using the same site, the site is
 cooling down, asked for a slower pace within the hour or refused a chapter, a check or a repair is running, it is outside the hours
-it may run (the server's local time), or the download disk is below its floor (**Admin → Settings → Downloads**).
+it may run (the server's local time), or the download disk is below its floor (**Admin → Settings → Fetching**).
 After a restart its first look waits ten minutes.
 
 **An extension source says `Cloudflare bypass currently disabled`.** The extension engine has no browser of its own

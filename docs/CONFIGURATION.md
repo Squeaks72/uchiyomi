@@ -400,7 +400,7 @@ causes an adult source to be followed. There is intentionally no environment var
 
 Since v0.49.0 a series can be queued to come in a chapter at a time over nights or days
 ([USAGE §4](USAGE.md#fetching-a-whole-series-slowly-the-slow-archive)). Its pace is set in the admin panel, not
-here — **Admin → Settings → Downloads**, and every change reaches the running archive at once, with no restart:
+here — **Admin → Settings → Fetching**, and every change reaches the running archive at once, with no restart:
 
 - *Slow archive* — on unless you pause it; off pauses every archive, and nothing queued is lost.
 - *Chapters an hour, per source* — default `4`, 1–30. A break after each chapter is drawn at random around what is

@@ -399,7 +399,7 @@ test('Library: Find other sources is a row of More for admins, posts the selecti
   const src = code(read('app/library/page.tsx'));
   const fn = slice(src, 'const findSelected = async (review: boolean) => {', 'const sentinel = useRef');
   assert.match(fn, /api<\{ runId: string; total: number \}>\('\/api\/admin\/sources\/find', \{ method: 'POST', json: \{ seriesIds: \[\.\.\.picked\], \.\.\.\(review \? \{ review \} : \{\}\) \} \}\)/);
-  assert.match(fn, /n === 1 \? tr\('Looking for other sources for 1 series… Library → Downloads shows how it goes\.'\)/, 'one series is counted as many');
+  assert.match(fn, /n === 1 \? tr\('Looking for other sources for 1 series… Library → Fetching shows how it goes\.'\)/, 'one series is counted as many');
   // A run that goes on after the notice: the notice turns, and says it is busy (notices.test.ts).
   assert.match(fn, /'info', \{ busy: true \}\);/, 'the notice of a run that goes on does not turn');
   assert.match(fn, /void kickDownloads\(qc\);\s*settle\(\);/, 'the Server tasks card waits 30 s, or the selection stays after a start');

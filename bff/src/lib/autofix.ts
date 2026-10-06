@@ -1579,7 +1579,7 @@ function summarise(a: Run, report: HealthReport): AutofixSummary {
   leftover += shortUntried;
   needAfter(['chapters'], 'short-chapters', shortYours, say('autofix.needs.short', { n: shortYours }));
 
-  // Chapters that would not download: a source that is off is a person's; reset rows wait for the sweep; rows of a
+  // Chapters that could not be fetched: a source that is off is a person's; reset rows wait for the sweep; rows of a
   // source still failing at their chapters no source here can download.
   // v0.55.1: what a rate limit holds back clears by itself, never Needs you -- every row of a source cooling down or
   // rate-limited now (with the cooldown's end), and a row a rate limit caused on any source. The owner's first run

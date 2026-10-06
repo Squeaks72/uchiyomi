@@ -42,6 +42,7 @@ import { ChapterVersionsSheet } from '@/components/ChapterVersionsSheet';
 import { CompareCopiesDialog } from '@/components/CompareCopiesDialog';
 import { CoverPickerSheet } from '@/components/CoverPickerSheet';
 import { CullSourcesDialog } from '@/components/CullSourcesDialog';
+import { RemovedChaptersDialog } from '@/components/RemovedChapters';
 import { foreignSources, type CullPlan } from '@/lib/cullPlan';
 import { GroupAvatar } from '@/components/GroupAvatar';
 import { supplyLine } from '@/lib/supplyLine';
@@ -776,6 +777,13 @@ function SeriesInner() {
   const [acting, setActing] = useState(false);
   const [confirming, setConfirming] = useState<null | 'delete' | 'refetch' | 'purge'>(null);
   const [culling, setCulling] = useState(false);
+  // What Remove from series blocked: counted here so the way back is on the page the removal was done on.
+  const [showRemoved, setShowRemoved] = useState(false);
+  const removedCount = useQuery({
+    queryKey: ['series-removed', id], enabled: isAdmin && !!id,
+    queryFn: () => api<{ numbers: number[] }>(`/api/admin/series/${id}/chapters/removed`),
+  }).data?.numbers.length ?? 0;
+  useEffect(() => { if (!removedCount) setShowRemoved(false); }, [removedCount]);
   const [started, setStarted] = useState<StartedJob | null>(null);
   const clearPicks = () => { setPickedBooks(new Set()); setPickedGhosts(new Set()); };
   const leaveSelect = () => { setSelecting(false); clearPicks(); };
@@ -1282,7 +1290,7 @@ function SeriesInner() {
     setExtrasBusy(false);
   };
   const invalidateChapters = () => {
-    for (const k of [['series-books', id], ['series-listing', id], ['series-versions', id], ['series-groups', id], ['series-scanlators', id], ['series', id], ['home'], ['source-jobs']]) qc.invalidateQueries({ queryKey: k });
+    for (const k of [['series-books', id], ['series-listing', id], ['series-versions', id], ['series-groups', id], ['series-scanlators', id], ['series', id], ['series-removed', id], ['home'], ['source-jobs']]) qc.invalidateQueries({ queryKey: k });
   };
   // The picked chapters AND the picked grey rows (#69): select mode is how a reader who reads elsewhere ticks
   // a stretch of chapters this server never fetched. Two requests, one per kind, and one toast that counts
@@ -1778,6 +1786,10 @@ function SeriesInner() {
             <button type="button" onClick={() => setCulling(true)} data-cull-sources-open
               className="btn-key mt-1 h-auto w-full py-2.5 text-sm font-normal text-rose-300">{tr('Remove chapters from other sources…')}</button>
           )}
+          {removedCount > 0 && (
+            <button type="button" onClick={() => setShowRemoved(true)} data-removed-open
+              className="btn-key mt-1 h-auto w-full py-2.5 text-sm font-normal text-fog-300">{tr('Removed chapters ({n})…', { n: removedCount })}</button>
+          )}
           <button onClick={() => setEditing('details')} className="mt-1 flex items-center justify-center gap-2 rounded-full border border-ink-700 py-2.5 text-sm text-fog-300">
             <svg aria-hidden width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>{tr('Edit details')}</button>
           {/* Only while the hero is an automatic one: a real banner is changed in Edit details. */}
@@ -2238,7 +2250,7 @@ function SeriesInner() {
           body={
             <>
               <p>{tr('The chapter’s files are deleted from the server and the number is no longer listed or fetched for this series. Use it for a chapter a source added that is not part of the series.')}</p>
-              <p className="mt-2">{tr('A chapter somebody has bookmarked, and a chapter in a library you assembled yourself, is skipped. Series Properties can bring a removed chapter back.')}</p>
+              <p className="mt-2">{tr('A chapter somebody has bookmarked, and a chapter in a library you assembled yourself, is skipped. “Removed chapters” on this page brings a removed chapter back.')}</p>
             </>
           }
           onConfirm={removeChapter}
@@ -2273,7 +2285,7 @@ function SeriesInner() {
           body={
             <>
               <p>{tr('The chapters’ files are deleted from the server and the numbers are no longer listed or fetched for this series. Use it for chapters a source added that are not part of the series.')}</p>
-              <p className="mt-2">{tr('A chapter somebody has bookmarked, and a chapter in a library you assembled yourself, is skipped. Series Properties can bring a removed chapter back.')}</p>
+              <p className="mt-2">{tr('A chapter somebody has bookmarked, and a chapter in a library you assembled yourself, is skipped. “Removed chapters” on this page brings a removed chapter back.')}</p>
             </>
           }
           onConfirm={bulkPurge}
@@ -2285,6 +2297,7 @@ function SeriesInner() {
           mainCopy={(n) => versionsOf.get(n)?.find((c) => c.source === primarySource)}
           onApply={applyCull} onClose={() => setCulling(false)} />
       )}
+      {showRemoved && <RemovedChaptersDialog id={id} onClose={() => setShowRemoved(false)} />}
       {confirming === 'refetch' && (
         <ConfirmDialog
           title={tr('Fetch {n} chapters again?', { n: refetchable.length })}
@@ -2312,8 +2325,8 @@ function SeriesInner() {
           // A tombstone has no file to set aside -- the cleanup already deleted it -- and a sentence that
           // says one is set aside on a row that reads "Deleted from the server" contradicts the row.
           body={<p>{replacing.book.pruned
-            ? tr('The chapter was deleted from the server; this copy is downloaded onto the same row and everyone’s progress stays.')
-            : tr('The current file is set aside and this copy is downloaded onto the same row. Everyone’s progress stays; the page count may differ.')}</p>}
+            ? tr('The chapter was deleted from the server; this copy is fetched onto the same row and everyone’s progress stays.')
+            : tr('The current file is set aside and this copy is fetched onto the same row. Everyone’s progress stays; the page count may differ.')}</p>}
           onConfirm={replaceWith}
           onClose={() => setReplacing(null)}
         />

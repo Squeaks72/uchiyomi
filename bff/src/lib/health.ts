@@ -905,7 +905,7 @@ async function chapterFailures(ctx: IgnoreCtx = noIgnores()): Promise<HealthChec
   const waiting = rows.filter((r, i) => all[i].info && !all[i].ignored).reduce((n, r) => n + r.chapters, 0);
   return {
     id: 'chapter-failures',
-    title: 'Chapters that would not download',
+    title: 'Chapters that could not be fetched',
     status: verdict(all),
     ...summaryOf([
       live.length ? say('failures.live', { n: total, m: live.length })

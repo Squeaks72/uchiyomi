@@ -764,7 +764,7 @@ after ten chapters in a row came down whole with no 429 at it; one nothing downl
 days. A 429 is a rest every chapter on the key waits out, and a chapter running beside a refused one slows down with
 it. Sources whose pages come from one image server share one rate key (Natomanga and Mangakakalot: two sites, one
 image CDN), learned from the page addresses as chapters are fetched, except a proxy's (the extension engine's).
-Health's `sources` row for such a source carries `slowed: true` and the detail `sources.paced` (*Downloading slowly:
+Health's `sources` row for such a source carries `slowed: true` and the detail `sources.paced` (*Fetching slowly:
 the site asked for fewer requests*); one with nothing else to say is listed for it alone, `info`, in the `quiet` group,
 with the state `slowed` (also a state of `GET /api/admin/sources/overview`). The slow archive waits on the hour after
 a 429 (`waiting.why: 'pace'`), no longer on the level: past it, it goes on at its own pace, never faster than the
@@ -1476,7 +1476,7 @@ again. A local count that drops below a number this app already sent is refused 
 `not syncing: this series now works out to chapter N, below the M already sent. Import your list again under
 Admin → Import (From your tracker) to take the tracker's current number, or ask an admin to.`
 
-### Offline downloads
+### Saved on this device
 ```
 GET    /api/downloads             POST   /api/downloads
 DELETE /api/downloads/:bookId     GET    /api/books/:id/download-manifest
@@ -2118,7 +2118,7 @@ message naming the step, rather than a full nightly run carrying an argument fou
 each step at most once. `now: true` is for the whole library only, and only where the `failures` step runs (a
 **400** otherwise): that step then resets every source's failed chapters whatever their age and re-checks up to
 10 series from the sources that can be asked now. Health's *Fix all issues* sends it, and since v0.49.0 so does
-the *Fix all* on its *Chapters that would not download* card.
+the *Fix all* on its *Chapters that could not be fetched* card.
 
 Two refusals, deliberately different: `{ok: false, error: 'sweep_running'}` while a chapter sweep is
 running, and `{ok: false, error: 'busy'}` while another repair is. The two jobs never overlap in either

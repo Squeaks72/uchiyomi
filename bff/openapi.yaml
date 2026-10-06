@@ -33,7 +33,7 @@ tags:
   - name: personal
     description: "Per-account data: favourites, collections, notes, tokens, trackers"
   - name: downloads
-    description: Offline downloads
+    description: Saved on this device
   - name: images
     description: Image server (cookie or OPDS Basic auth)
   - name: opds
@@ -7130,7 +7130,7 @@ paths:
                     runs (400 otherwise). That step then resets EVERY source's failed chapters whatever their age
                     and re-checks up to 10 series from the sources that can be asked now (never one cooling down or
                     switched off, and never with a search). Health's Fix all issues sends it, and since v0.49.0 so
-                    does the Fix all on its "Chapters that would not download" card.
+                    does the Fix all on its "Chapters that could not be fetched" card.
       security:
         - bearer: []
       responses:
@@ -10347,7 +10347,7 @@ paths:
         rows are listed. The status is decided as before.
         Since v0.55.3 a source downloading at a raised pace -- one chapter at a time, at longer gaps, because its site or
         an image server it shares with another source answered 429 -- carries `slowed: true` on its row, whatever its
-        state, and the detail `sources.paced` ("Downloading slowly: the site asked for fewer requests") after the rest;
+        state, and the detail `sources.paced` ("Fetching slowly: the site asked for fewer requests") after the rest;
         one with nothing else to say is listed for it alone, `info`, in the `quiet` group, with the state `slowed`.
         Since v0.54.0 a `sources` item whose source is switched off or failing -- a confirmed failure at the chapter
         list, the page list or the images, or the site's own offline notice at any step; not a cooldown, and not a

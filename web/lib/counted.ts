@@ -15,7 +15,7 @@ export const deletedText = (n: number): string => (n === 1 ? tr('1 deleted') : t
 
 /** Chapters a Delete left alone because Uchiyomi did not download them. */
 export const skippedNotOursText = (n: number): string =>
-  (n === 1 ? tr('1 skipped: not downloaded by Uchiyomi') : tr('{n} skipped: not downloaded by Uchiyomi', { n }));
+  (n === 1 ? tr('1 skipped: not fetched by Uchiyomi') : tr('{n} skipped: not fetched by Uchiyomi', { n }));
 
 /** Chapters a Delete left alone because a reader's bookmark is in them. */
 export const skippedBookmarkedText = (n: number): string =>

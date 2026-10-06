@@ -54,7 +54,7 @@ export function DownloadsNavIcon() {
   const { user, status } = useAuth();
   const ring = useDownloadsRing();
   if (status !== 'authed' || !canDownload(user)) return null;
-  const name = ring.show && ring.label ? `${tr('Server downloads')} · ${ring.label}` : tr('Server downloads');
+  const name = ring.show && ring.label ? `${tr('Server fetching')} · ${ring.label}` : tr('Server fetching');
   return (
     <Link href={downloadsHref()} title={name} aria-label={name}
       data-downloads-ring={ring.show ? (ring.slow ? 'slow' : 'active') : 'idle'}

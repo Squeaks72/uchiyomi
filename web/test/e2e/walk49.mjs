@@ -765,7 +765,7 @@ async function archive(width) {
     await press('Add to library', '[role="dialog"]');
     const outcome = await waitFor(() => page.$eval('[data-archive-outcome]', (el) => el.getAttribute('data-archive-outcome')).catch(() => null), 20_000);
     check(`${tag}: the done step says the rest was queued`, outcome === 'queued', String(outcome));
-    check(`${tag}: and says where to watch it`, /Its chapters come in slowly in the background\. Library → Downloads shows how far it has got\./.test(await text()));
+    check(`${tag}: and says where to watch it`, /Its chapters come in slowly in the background\. Library → Fetching shows how far it has got\./.test(await text()));
     await shot(`${tag}-2-added`);
     await press('Done', '[role="dialog"]');
     await sleep(500);

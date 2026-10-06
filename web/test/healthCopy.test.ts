@@ -85,9 +85,9 @@ test('nothing on Health says no source is unblocked: the safe repair\'s solver s
 test('how long: usually from history, at most from the constants, downloads as a count', () => {
   // Reintroduce a fake time for downloads (folding them into "at most"): the count assertion fails.
   assert.equal(timeLine({ typicalMs: 40_000, runs: 5, worstMs: 180_000, downloads: 20 }),
-    'Usually 40 sec · At most about 3 min of searching and waiting · plus at most 20 chapter downloads');
+    'Usually 40 sec · At most about 3 min of searching and waiting · plus at most 20 chapter fetches');
   assert.equal(timeLine({ typicalMs: null, runs: 0, worstMs: 60_000, downloads: 1 }),
-    'At most about 1 min of searching and waiting · plus at most 1 chapter download');
+    'At most about 1 min of searching and waiting · plus at most 1 chapter fetch');
   assert.equal(timeLine({ typicalMs: null, runs: 0, worstMs: null, downloads: 0 }), 'Takes a moment');
   assert.equal(timeLine(null), '');
 });

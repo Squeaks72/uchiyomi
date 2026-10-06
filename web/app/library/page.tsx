@@ -467,8 +467,8 @@ function LibraryInner() {
     try {
       const r = await api<{ runId: string; total: number }>('/api/admin/sources/find', { method: 'POST', json: { seriesIds: [...picked], ...(review ? { review } : {}) } });
       const n = r?.total ?? picked.size;
-      toast(n === 1 ? tr('Looking for other sources for 1 series… Library → Downloads shows how it goes.')
-        : tr('Looking for other sources for {n} series… Library → Downloads shows how it goes.', { n }), 'info', { busy: true });
+      toast(n === 1 ? tr('Looking for other sources for 1 series… Library → Fetching shows how it goes.')
+        : tr('Looking for other sources for {n} series… Library → Fetching shows how it goes.', { n }), 'info', { busy: true });
       void kickDownloads(qc);
       settle();
     } catch (e) { toast(findRefusal(e), 'error'); }
@@ -866,7 +866,7 @@ function ViewSwitch({ view, onView }: { view: LibraryView; onView: (v: LibraryVi
   const ring = useDownloadsRing();
   const plain = useReduceEffects();
   const still = useReducedMotion();
-  const tabs: [LibraryView, string][] = [['series', tr('Series')], ['downloads', tr('Downloads')]];
+  const tabs: [LibraryView, string][] = [['series', tr('Series')], ['downloads', tr('Fetching')]];
   return (
     <div role="tablist" aria-label={tr('Library')} className="mt-2 flex items-end gap-6 border-b border-ink-800/80">
       {tabs.map(([v, label]) => {

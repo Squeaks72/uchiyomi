@@ -1898,7 +1898,7 @@ test('a source downloading at a raised pace says so: a quiet row of its own, and
     assert.equal(slow.info, true, 'for reference: nothing to fix, it comes back up by itself');
     assert.equal(slow.group, 'quiet');
     assert.equal(slow.detailSaid[0].code, 'sources.paced');
-    assert.match(slow.detail, /^Downloading slowly: the site asked for fewer requests; 1 series use it$/);
+    assert.match(slow.detail, /^Fetching slowly: the site asked for fewer requests; 1 series use it$/);
     assert.ok(!slow.actions.includes('replace_source') && !slow.actions.includes('find_sources'), 'and nothing to replace');
     const limit = row('hp-limit');
     assert.equal(limit.state, 'blocked', 'a cooldown is still the row\'s state');

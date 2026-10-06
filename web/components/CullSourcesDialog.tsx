@@ -44,7 +44,7 @@ export function CullSourcesDialog({ books, primary, sourceNames, mainCopy, busy,
       {hasMain && (
         <label className="mt-3 flex cursor-pointer items-start gap-3 text-sm text-fog-200">
           <input type="checkbox" className="mt-1" checked={swap} onChange={() => setSwap((v) => !v)} data-cull-swap />
-          <span>{tr('Where {main} has the same chapter number, download its copy instead of leaving a gap.', { main: name(primary) })}</span>
+          <span>{tr('Where {main} has the same chapter number, fetch its copy instead of leaving a gap.', { main: name(primary) })}</span>
         </label>
       )}
       <ul className="mt-4 space-y-1 text-sm text-fog-300" data-cull-summary>
@@ -54,7 +54,7 @@ export function CullSourcesDialog({ books, primary, sourceNames, mainCopy, busy,
         {plan.notOurs > 0 && <li className="text-amber-300/90">{skippedNotOursText(plan.notOurs)}</li>}
         {total === 0 && <li className="text-fog-500">{tr('Nothing to remove with these sources.')}</li>}
       </ul>
-      <p className="mt-3 text-xs text-fog-500">{tr('A chapter somebody has bookmarked is skipped. Series Properties can bring a removed chapter back.')}</p>
+      <p className="mt-3 text-xs text-fog-500">{tr('A chapter somebody has bookmarked is skipped. “Removed chapters” on this page brings a removed chapter back.')}</p>
       <div className="mt-5 flex justify-end gap-2">
         <button type="button" className="btn-key" onClick={onClose} disabled={busy}>{tr('Cancel')}</button>
         <button type="button" className="btn-key btn-key-danger" data-cull-apply disabled={busy || total === 0} onClick={() => onApply(plan)}>

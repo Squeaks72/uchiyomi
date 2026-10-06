@@ -741,7 +741,7 @@ function HousekeepingSection({ data, save: patch }: { data: any; save: Save }) {
               : tr('Counted from the moment the last reader finished. Re-opening the chapter starts the wait again.')}
           </p>
           <p className="mt-1 max-w-prose text-[11px] leading-relaxed text-fog-500">
-            {tr('Only chapters Uchiyomi downloaded itself are removed. Chapters in a library you built by hand are never touched. The chapter stays listed and everyone keeps their reading history; only the pages go. It is not downloaded again automatically. Use Fetch again on the series page to bring it back.')}
+            {tr('Only chapters Uchiyomi fetched itself are removed. Chapters in a library you built by hand are never touched. The chapter stays listed and everyone keeps their reading history; only the pages go. It is not fetched again automatically. Use Fetch again on the series page to bring it back.')}
           </p>
         </div>
         {/* The reveal for the cleanup above, and for a followed series nobody has fetched: without it Mihon

@@ -705,7 +705,7 @@ test('the i18n rig visits the v0.39.0 consoles by their ?tab= address and looks 
   // lists lean on strings other v0.39.0 builders add, which test 14 of settingsConsole.test.ts covers).
   for (const f of ['es.json', 'de.json', 'fr.json']) {
     const d = JSON.parse(read(`public/locales/${f}`));
-    for (const w of ['Account', 'Settings', 'Reading studio', 'Lists', 'Sign out', 'Weekly goal', 'Language', 'Accent', 'Offline downloads']) {
+    for (const w of ['Account', 'Settings', 'Reading studio', 'Lists', 'Sign out', 'Weekly goal', 'Language', 'Accent', 'Saved on this device']) {
       assert.ok(d[w] && d[w] !== w, `${f}: "${w}" is missing or the same as the English, so the rig would count it as a leak`);
     }
   }

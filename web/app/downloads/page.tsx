@@ -24,7 +24,7 @@ export default function DownloadsPage() {
   const router = useRouter();
   const { user, status } = useAuth();
   // Desktop hides the Offline tab and "Save offline" (the chapters are on this disk already), so this page there
-  // is an empty "No downloads yet" pointing at controls the app does not show. A deep link to it -- the reader's
+  // is an empty "Nothing saved yet" pointing at controls the app does not show. A deep link to it -- the reader's
   // end-of-downloads button, an old bookmark -- goes to what "downloads" means on a desktop: what the app
   // fetched onto this PC, Library -> Downloads (v0.49.0; the library itself before there was such a view).
   const desktop = isDesktop();
@@ -58,8 +58,8 @@ export default function DownloadsPage() {
 
   const removeSeries = async (seriesId: string, title: string, count: number) => {
     if (!window.confirm(count === 1
-      ? tr('Delete the downloaded chapter of “{title}”?', { title })
-      : tr('Delete all {n} downloaded chapters of “{title}”?', { n: count, title }))) return;
+      ? tr('Delete the fetched chapter of “{title}”?', { title })
+      : tr('Delete all {n} fetched chapters of “{title}”?', { n: count, title }))) return;
     const n = await deleteSeriesDownloads(seriesId);
     toast(deleted(n), 'success');
     refresh();
@@ -67,8 +67,8 @@ export default function DownloadsPage() {
 
   const removeAll = async () => {
     if (!window.confirm(items.length === 1
-      ? tr('Delete the downloaded chapter on this device?')
-      : tr('Delete all {n} downloaded chapters on this device?', { n: items.length }))) return;
+      ? tr('Remove the saved chapter from this device?')
+      : tr('Remove all {n} saved chapters from this device?', { n: items.length }))) return;
     const n = await clearAllDownloads();
     toast(deleted(n), 'success');
     refresh();
@@ -80,7 +80,7 @@ export default function DownloadsPage() {
     // One card, in one language: the result takes the busy card's place (the same key).
     toast(tr('Syncing favorites…'), 'info', { busy: true, key: 'sync' });
     const n = await runSmartOffline(5);
-    toast(!n ? tr('Already up to date') : n === 1 ? tr('Downloaded 1 chapter') : tr('Downloaded {n} chapters', { n }), 'success', { key: 'sync' });
+    toast(!n ? tr('Already up to date') : n === 1 ? tr('Fetched 1 chapter') : tr('Fetched {n} chapters', { n }), 'success', { key: 'sync' });
     await refresh();
     setSyncing(false);
   };
@@ -96,7 +96,7 @@ export default function DownloadsPage() {
     <div className="min-h-screen-d">
       <header className="safe-top sticky top-0 z-30 bg-ink-950/85 px-5 pb-3 backdrop-blur-xl lg:static lg:bg-transparent lg:px-0 lg:pt-6 lg:backdrop-blur-none">
         <div className="flex items-center justify-between">
-          <h1 className="font-display text-2xl font-bold tracking-tight lg:text-3xl">{tr('Offline downloads')}</h1>
+          <h1 className="font-display text-2xl font-bold tracking-tight lg:text-3xl">{tr('Saved on this device')}</h1>
           <button type="button" onClick={sync} disabled={syncing || !online}
             className="flex items-center gap-1.5 rounded-full border border-ink-700 bg-ink-850/70 px-3.5 py-2 text-xs text-fog-200 disabled:opacity-50">
             <IcRefresh width={15} height={15} className={syncing ? 'animate-spin text-accent' : ''} /> {syncing ? tr('Syncing…') : tr('Sync now')}
@@ -125,15 +125,15 @@ export default function DownloadsPage() {
           signed in, since offline there is no server to show, and it asks the server nothing itself. */}
       {online && status === 'authed' && canDownload(user) && (
         <p data-server-downloads-pointer className="px-5 pt-3 text-xs text-fog-500 lg:px-0">
-          <Link href={downloadsHref()} className="hover:text-fog-200 hover:underline">{tr('What the server fetches is under Library → Downloads.')}</Link>
+          <Link href={downloadsHref()} className="hover:text-fog-200 hover:underline">{tr('What the server fetches is under Library → Fetching.')}</Link>
         </p>
       )}
 
       {loaded && items.length === 0 ? (
-        <EmptyState art={ART.emptyDownloads} title={tr('No downloads yet')}
+        <EmptyState art={ART.emptyDownloads} title={tr('Nothing saved yet')}
           sub={online
-            ? tr('Tap the download icon on any chapter — or turn on Keep favorites offline under Profile → Settings → Downloads — to read offline. Perfect for flights and commutes.')
-            : tr('Nothing is saved on this device, and there is no connection to fetch anything with. Reconnect and download a chapter to read it here.')}
+            ? tr('Tap the Save offline icon on any chapter — or turn on Keep favorites offline under Profile → Settings → Saved on this device — to read offline. Perfect for flights and commutes.')
+            : tr('Nothing is saved on this device, and there is no connection to fetch anything with. Reconnect and save a chapter to read it here.')}
           cta={/* no cta offline: it points at the library, which is built entirely from the server */
             online ? { href: '/library', label: tr('Browse library') } : undefined}>
           {/* The switch the sentence above names is one tap away rather than a path to remember. */}
