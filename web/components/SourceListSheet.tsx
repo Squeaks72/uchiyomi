@@ -26,9 +26,11 @@ const DOT: Record<ReturnType<typeof noteFor>['dot'], string> = {
   idle: 'bg-ink-600',
 };
 
-export function SourceListSheet({ sources, total, stateOf, selected, onSelect, onExplain, onClose }: {
-  /** In the picker's order, which is the wall's order. */
+export function SourceListSheet({ sources, asking, total, stateOf, selected, onSelect, onExplain, onClose }: {
+  /** Every source that can answer this listing, best first. */
   sources: Src[];
+  /** How many of them the wall is asking now; the rest are asked when one is picked. */
+  asking: number;
   /**
    * How many sources could answer this listing -- the chip's number. The rows here are only the ones being
    * asked (six, widening to ten as sources answer empty), so with the chip saying "14 sources" and the sheet
@@ -57,8 +59,8 @@ export function SourceListSheet({ sources, total, stateOf, selected, onSelect, o
       footer={
         <p className="text-[11px] text-fog-500">
           {/* A small install asks every source it has; "Asking 4 of 4" would be a puzzle, not a fact. */}
-          {sources.length < total
-            ? tr('Asking {n} of {m} · tap a source to browse it alone', { n: sources.length, m: total })
+          {asking < total
+            ? tr('Asking {n} of {m} · tap a source to browse it alone', { n: asking, m: total })
             : tr('Tap a source to browse it alone.')}
         </p>
       }

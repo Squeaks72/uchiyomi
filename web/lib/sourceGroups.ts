@@ -183,6 +183,24 @@ export function budgetForMode(sources: Src[], mode: ListMode, max = 6): Src[] {
   return budgetFor(mode === 'popular' ? sources.filter((s) => s.popular) : sources, max);
 }
 
+/**
+ * The wall's budget plus any source the reader picked by hand from the full list, in the order picked. A source outside
+ * the budget (ranked below it, or past the twelve-source cap) is otherwise never asked, so choosing it in the sheet
+ * would filter the wall to nothing. Ids not in the pool for this listing are skipped, as are ones the budget already has.
+ */
+export function withPicked(budget: Src[], pool: Src[], picked: readonly string[]): Src[] {
+  const have = new Set(budget.map((s) => s.id));
+  const extra: Src[] = [];
+  for (const id of picked) {
+    if (have.has(id)) continue;
+    const s = pool.find((x) => x.id === id);
+    if (!s) continue;
+    have.add(id);
+    extra.push(s);
+  }
+  return extra.length ? [...budget, ...extra] : budget;
+}
+
 /** Where the browser can find a source's icon. The route answers 404 when there is none; the tile covers it. */
 export const sourceIcon = (id: string) => `/img/sources/icon/${encodeURIComponent(id)}`;
 

@@ -15,7 +15,7 @@ import { SourceCard, SourceItem } from '@/components/cards';
 import { ScrollRail } from '@/components/ScrollRail';
 import { DiscoverHero, TrendingCard, Trending } from '@/components/DiscoverHero';
 import { SourcePicker, SourceLatest, Src, SrcState } from '@/components/SourcePicker';
-import { aloneEmpty, budgetForMode, type ListMode, type SrcExtension, type StackSource } from '@/lib/sourceGroups';
+import { aloneEmpty, budgetForMode, withPicked, type ListMode, type SrcExtension, type StackSource } from '@/lib/sourceGroups';
 import { normTitle } from '@/lib/normTitle';
 import { applyWorks, emptiedCount, foldByWork, followWorks, mergeGroups, unknownWorks, workKey, type WallProvider } from '@/lib/wall';
 import { useLiveWorks } from '@/lib/useLiveWorks';
@@ -203,9 +203,13 @@ export default function DiscoverPage() {
   // Counted by what the wall SHOWS (v0.56.0): a source whose whole page the library already holds puts nothing on it,
   // and earns its replacement like one that answered with nothing.
   const emptied = emptiedCount(mine(states), rows, wallAdded);
+
+  // Sources chosen by hand from the sheet that the automatic budget does not reach. Appended to the budget,
+  // never swapped into it, so nothing already asked is dropped or re-keyed; see the warning on SourceLatest.
+  const [picked, setPicked] = useState<string[]>([]);
   const budget = useMemo(
-    () => ranked.slice(0, Math.min(ranked.length, 10, 6 + emptied)),
-    [ranked, emptied],
+    () => withPicked(ranked.slice(0, Math.min(ranked.length, 10, 6 + emptied)), pool, picked),
+    [ranked, emptied, pool, picked],
   );
 
   // AddSeriesDialog's effect depends on this list. Built inline it was a fresh array every render, so with
@@ -543,12 +547,13 @@ export default function DiscoverPage() {
         a browse action, so from a search it returns to browsing that list.
       */}
       <SourcePicker
-        sources={budget} states={states} settled={settled} total={budget.length}
+        sources={budget} all={pool} states={states} settled={settled} total={budget.length}
         // The chip's number is the whole pool, not the budget and not the ranked list: the budget widens
         // as sources answer empty, and a count that ticks upward on its own reads as a bug; the ranked
         // list is capped at twelve, and "12 sources" on a 14-source install is simply false.
         count={pool.length}
-        selected={selected} onSelect={setSelected}
+        selected={selected}
+        onSelect={(id) => { if (id) setPicked((p) => (p.includes(id) ? p : [...p, id])); setSelected(id); }}
         mode={listMode}
         onMode={(m) => { setListMode(m); setSelected(null); setPage(1); if (mode === 'search') backToNewest(); }}
       />
@@ -559,7 +564,7 @@ export default function DiscoverPage() {
           never re-reports, and the wall waits forever on a source it thinks it has not heard from. */}
       {mode === 'newest' && budget.map((s, i) => (
         <SourceLatest key={`${listMode}:${s.id}:${page}`} source={s} listMode={listMode}
-          page={page} enabled={i < gate} onSettled={onSettled} />
+          page={page} enabled={i < gate || s.id === selected} onSettled={onSettled} />
       ))}
 
       {jobs.length > 0 && (

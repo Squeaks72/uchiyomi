@@ -11,7 +11,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { budgetFor, budgetForMode, noteFor, retryIn, aloneEmpty, iconTint, Src } from '../lib/sourceGroups';
+import { budgetFor, budgetForMode, withPicked, noteFor, retryIn, aloneEmpty, iconTint, Src } from '../lib/sourceGroups';
 
 const src = (p: Partial<Src> & { id: string }): Src =>
   ({ name: p.id, lang: null, latest: true, status: 'ok', ...p }) as Src;
@@ -249,7 +249,7 @@ test('the chip counts the whole pool, and the sheet says how many of it are bein
   const picker = readFileSync(join(__dirname, '..', 'components', 'SourcePicker.tsx'), 'utf8');
   assert.match(picker, /<SourceListSheet[^>]*total=\{count\}/, 'the sheet is not told the pool size');
   const sheet = readFileSync(join(__dirname, '..', 'components', 'SourceListSheet.tsx'), 'utf8');
-  assert.match(sheet, /tr\('Asking \{n\} of \{m\} · tap a source to browse it alone', \{ n: sources\.length, m: total \}\)/,
+  assert.match(sheet, /tr\('Asking \{n\} of \{m\} · tap a source to browse it alone', \{ n: asking, m: total \}\)/,
     'the sheet footer no longer reconciles its row count with the chip');
 });
 
@@ -270,7 +270,7 @@ test('every amber dot has a sentence, and the chip counts the dots', () => {
   assert.equal(noteFor(mute, 'empty').note, null);
 
   const picker = readFileSync(join(__dirname, '..', 'components', 'SourcePicker.tsx'), 'utf8');
-  assert.match(picker, /const troubled = shown\.filter\(\(s\) => noteFor\(s, stateOf\(s\.id\)\)\.dot === 'warn'\)\.length/,
+  assert.match(picker, /const troubled = list\.filter\(\(s\) => noteFor\(s, stateOf\(s\.id\)\)\.dot === 'warn'\)\.length/,
     'the chip counts something other than the amber dots the sheet lights');
 });
 
@@ -370,4 +370,20 @@ test('the cooldown wait reaches the locale files', () => {
   const lib = readFileSync(join(__dirname, '..', 'lib', 'sourceGroups.ts'), 'utf8');
   assert.match(lib, /tr\('back in ~\{n\} min', \{ n: mins \}\)/, 'retryIn no longer translates its sentence');
   assert.doesNotMatch(lib, /`back in ~\$\{mins\} min`/, 'retryIn is back to a template literal the extractor cannot see');
+});
+
+test('a source picked by hand from the full list is asked even when the budget does not reach it', () => {
+  const pool = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'].map((id) => src({ id }));
+  const budget = pool.slice(0, 3);
+  assert.deepEqual(withPicked(budget, pool, []).map((s) => s.id), ['a', 'b', 'c'], 'nothing picked leaves the budget as it was');
+  assert.deepEqual(withPicked(budget, pool, ['h', 'e']).map((s) => s.id), ['a', 'b', 'c', 'h', 'e'], 'picked ones are appended in pick order');
+  assert.deepEqual(withPicked(budget, pool, ['b', 'b', 'h', 'h']).map((s) => s.id), ['a', 'b', 'c', 'h'], 'no duplicates');
+  assert.deepEqual(withPicked(budget, pool, ['zzz']).map((s) => s.id), ['a', 'b', 'c'], 'an id outside this listing is ignored');
+  assert.equal(withPicked(budget, pool, ['a']), budget, 'a pick the budget already has returns the same array');
+});
+
+test('the picker sheet lists the whole pool, not the twelve-source slice', () => {
+  const picker = readFileSync(join(__dirname, '../components/SourcePicker.tsx'), 'utf8');
+  assert.doesNotMatch(picker, /sources\.slice\(0,\s*12\)/, 'the sheet must not cap its rows at twelve');
+  assert.match(picker, /<SourceListSheet sources=\{list\}/, 'the sheet gets every source that can answer, not just the budget');
 });

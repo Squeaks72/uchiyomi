@@ -69,8 +69,11 @@ export function SourceIcon({ id, name, ring = '', size = 20, registered = true }
  * Changing MODE is the one thing here that needs new data, and the parent handles it by namespacing its
  * state per mode rather than clearing anything. See the warning on SourceLatest.
  */
-export function SourcePicker({ sources, states, settled, total, count, selected, onSelect, mode, onMode }: {
+export function SourcePicker({ sources, all, states, settled, total, count, selected, onSelect, mode, onMode }: {
+  /** The sources being asked now: the chip's icons, and how many the sheet says it is asking. */
   sources: Src[];
+  /** Every source that can answer this listing. The sheet lists all of them, so one outside `sources` can be picked and is then asked. */
+  all?: Src[];
   states: Record<string, SrcState>;
   settled: number;
   total: number;
@@ -89,7 +92,8 @@ export function SourcePicker({ sources, states, settled, total, count, selected,
   mode: ListMode;
   onMode: (m: ListMode) => void;
 }) {
-  const shown = sources.slice(0, 12);
+  const shown = sources;
+  const list = all && all.length ? all : shown;
   // The parent namespaces its bookkeeping by listing mode, so a bare id finds nothing here. Getting this
   // wrong is silent: every row would simply read as "not asked yet" and sit permanently dimmed.
   const stateOf = (id: string): SrcState => states[`${mode}:${id}`] ?? 'idle';
@@ -97,10 +101,9 @@ export function SourcePicker({ sources, states, settled, total, count, selected,
   // amber; the sentences themselves live in the sheet, and the full story in Admin. Counted by the DOT the
   // sheet lights, not by whether a sentence exists: the two used to differ (a failure without a server note
   // had the dot and no sentence), so the chip said "2 with issues" over three amber rows.
-  const troubled = shown.filter((s) => noteFor(s, stateOf(s.id)).dot === 'warn').length;
-  // `selected` always names a budgeted source (the parent clears it on a mode change and the budget only
-  // grows), but the × must stay reachable even if it ever did not, or the wall could not be un-filtered.
-  const current = selected ? sources.find((s) => s.id === selected) ?? { id: selected, name: selected } : null;
+  const troubled = list.filter((s) => noteFor(s, stateOf(s.id)).dot === 'warn').length;
+  // The × must stay reachable even for a source in neither list, or the wall could not be un-filtered.
+  const current = selected ? list.find((s) => s.id === selected) ?? { id: selected, name: selected } : null;
   // Which sheet is up. The explainer REPLACES the list rather than stacking on it: both are `Sheet`s at the
   // same z-index, each with its own Escape listener, so stacked they would close together on one key and
   // their two backdrops would sit near-black. Closing the explainer brings the list back.
@@ -163,7 +166,7 @@ export function SourcePicker({ sources, states, settled, total, count, selected,
       )}
 
       {sheet === 'list' && (
-        <SourceListSheet sources={shown} total={count} stateOf={stateOf} selected={selected} onSelect={onSelect}
+        <SourceListSheet sources={list} asking={shown.length} total={count} stateOf={stateOf} selected={selected} onSelect={onSelect}
           onExplain={() => setSheet('explainer')} onClose={() => setSheet(null)} />
       )}
       {sheet === 'explainer' && <SourcesExplainer onClose={() => setSheet('list')} />}
