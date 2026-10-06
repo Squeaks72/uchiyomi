@@ -10,11 +10,13 @@ import { useContextMenu, type MenuItem } from './ContextMenu';
  * the library entry it already is; search every source for the title; copy it. The card's own click stays the
  * primary action, so nothing here is the only way to anything.
  */
-export function useDiscoverMenu({ title, libraryHref, onAdd, onSearch }: {
+export function useDiscoverMenu({ title, libraryHref, onAdd, addLabel, onSearch }: {
   title: string;
   /** The library entry the title already is: offered instead of Add. */
   libraryHref?: string;
   onAdd?: () => void;
+  /** The add item's words when it is not plain Add: another edition of a title the library holds. */
+  addLabel?: string;
   onSearch?: (title: string) => void;
 }) {
   const router = useRouter();
@@ -23,7 +25,8 @@ export function useDiscoverMenu({ title, libraryHref, onAdd, onSearch }: {
     ...(libraryHref ? [
       { label: tr('Open in library'), onSelect: () => router.push(libraryHref) },
       { label: tr('Open in a new tab'), onSelect: () => { window.open(libraryHref, '_blank', 'noopener'); } },
-    ] : onAdd ? [{ label: tr('Add to library'), onSelect: onAdd }] : []),
+    ] : []),
+    ...(onAdd ? [{ label: addLabel ?? tr('Add to library'), divider: !!libraryHref, onSelect: onAdd }] : []),
     ...(onSearch ? [{ label: tr('Search all sources for this title'), divider: !!(libraryHref || onAdd), onSelect: () => onSearch(title) }] : []),
     {
       label: tr('Copy title'), divider: !onSearch && !!(libraryHref || onAdd),

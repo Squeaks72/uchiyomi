@@ -62,3 +62,16 @@ test('Discover cards have the right-click menu a library card has', () => {
   assert.match(read('components/DiscoverHero.tsx'), /useDiscoverMenu\(\{ title: t\.title/);
   assert.match(read('app/discover/page.tsx'), /onSearch=\{searchFor\}/);
 });
+
+test('a search result the library already holds opens that entry, even when another provider is in a language it lacks', () => {
+  const p = read('app/discover/page.tsx');
+  assert.match(p, /inLibrary: !!g\.inLibrary \|\| g\.providers\.some\(\(p\) => p\.inLibrary\)/);
+  assert.match(p, /moreEditions: true/);
+  assert.match(read('components/cards.tsx'), /libraryHref = owned && item\.librarySeriesId/);
+});
+
+test('a favourite wears a star in the corner of its thumbnail, in both tile sizes', () => {
+  const cards = read('components/cards.tsx');
+  assert.equal((cards.match(/<IcStar [^>]*data-favorite-star/g) || []).length, 2);
+  assert.doesNotMatch(cards, /IcHeart/);
+});
