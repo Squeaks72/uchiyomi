@@ -29,3 +29,10 @@ test('favorite cache: updates every cached list and the id list', () => {
     applyFavorite(qc, 'a', false);
     assert.deepEqual(qc.getQueryData(['favorite-ids']), ['z']);
 });
+
+import { readFileSync } from 'node:fs';
+test('favorite cache: every place that favourites a series patches the cache', () => {
+  for (const f of ['components/SeriesMenu.tsx', 'components/DiscoverMenu.tsx', 'components/HeroCarousel.tsx', 'app/series/page.tsx', 'app/library/page.tsx']) {
+    assert.match(readFileSync(new URL(`../${f}`, import.meta.url), 'utf8'), /applyFavorite\(qc, /, f);
+  }
+});
