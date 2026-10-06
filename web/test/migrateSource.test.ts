@@ -23,3 +23,10 @@ test('sources param: a partial pick is sent, everything or nothing is not', () =
   assert.equal(sourcesParam(null, all), null);
   assert.equal(sourcesParam(['sw:9', 'sw:2'], all), 'sw:2');
 });
+
+test('the source filter in Add or move source is listed A to Z', async () => {
+  const { readFileSync } = await import('node:fs');
+  const src = readFileSync(new URL('../components/MigrateSourceSheet.tsx', import.meta.url), 'utf8');
+  // Reintroduce by mapping `srcs.data?.content` straight into the list, which is install order.
+  assert.match(src, /const allSources = useMemo\([\s\S]*?\.sort\(\(a, b\) => a\.name\.localeCompare\(b\.name/, 'allSources is not sorted by name');
+});
