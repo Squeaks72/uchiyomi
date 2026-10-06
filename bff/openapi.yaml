@@ -4515,6 +4515,19 @@ paths:
           description: Malformed body or parameter
         "401":
           description: Not authenticated
+  /api/favorites/ids:
+    get:
+      tags:
+        - personal
+      summary: The ids of the caller's favourite series.
+      operationId: getApiFavoritesIds
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Not authenticated
   /api/favorites/{seriesId}:
     delete:
       tags:

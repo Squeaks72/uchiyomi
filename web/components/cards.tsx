@@ -327,7 +327,7 @@ export function SourceCard({ item, providers, onAdd, onSearch, eager }: {
   const stackId = useId();
   const libraryHref = owned && item.librarySeriesId ? `/series/?id=${encodeURIComponent(item.librarySeriesId)}` : undefined;
   // Right-click, press-and-hold or Shift+F10, as on a library card (components/DiscoverMenu.tsx).
-  const menu = useDiscoverMenu({ title: item.title, libraryHref, onAdd: !owned || item.moreEditions ? onAdd : undefined, addLabel: owned ? tr('Add another edition') : undefined, onSearch });
+  const menu = useDiscoverMenu({ title: item.title, libraryHref, librarySeriesId: owned ? item.librarySeriesId : undefined, onAdd: !owned || item.moreEditions ? onAdd : undefined, addLabel: owned ? tr('Add another edition') : undefined, onSearch });
   // An owned title opens its entry in the library; adding it again would only say "already there".
   const rootCls = 'group block w-full text-start disabled:cursor-default';
   const body = (

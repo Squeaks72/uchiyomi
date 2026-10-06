@@ -170,6 +170,12 @@ export default async function personalRoutes(app: FastifyInstance) {
     return { content: await enrichSeries(req, series) };
   });
 
+  // Just the ids, for a card that needs to know whether its series is a favourite (Discover's menu) without resolving every one.
+  app.get('/api/favorites/ids', async (req) => {
+    const rows = await q<{ series_id: string }>('SELECT series_id FROM favorites WHERE user_id = $1', [userIdOf(req)]);
+    return { ids: rows.map((r) => r.series_id) };
+  });
+
   app.post('/api/favorites', async (req, reply) => {
     const uid = userIdOf(req);
     const { seriesId } = z.object({ seriesId: z.string().min(1) }).parse(req.body);

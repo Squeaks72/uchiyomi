@@ -1392,6 +1392,7 @@ between series; the rest read `skipped` *The server is shutting down.*
 ```
 GET    /api/favorites             POST   /api/favorites
 DELETE /api/favorites/:seriesId   GET    /api/history
+GET    /api/favorites/ids
 GET    /api/stats                 GET    /api/wrapped
 GET    /api/settings              PUT    /api/settings
 GET    /api/collections           POST   /api/collections

@@ -2,7 +2,7 @@
   "_meta": {
     "language": "fr",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 3819
+    "strings": 3820
   },
   "1 check found something": "1 vérification a trouvé quelque chose",
   "1 member": "1 membre",
@@ -3822,5 +3822,6 @@
   "Title copied": "Titre copié",
   "Could not copy the title": "Impossible de copier le titre",
   "Search all sources for this title": "Chercher ce titre dans toutes les sources",
-  "Add another edition": "Ajouter une autre édition"
+  "Add another edition": "Ajouter une autre édition",
+  "Could not change the favorite": "Impossible de modifier le favori"
 }
