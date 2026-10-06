@@ -397,3 +397,20 @@ test('the series page offers a Check for new chapters button to an admin, throug
   assert.match(src, /data-check-new/);
   assert.match(src, /onClick=\{checkNow\}/);
 });
+
+test('an admin can change the cover from the series page and replace one chapter from another source after a side-by-side compare', () => {
+  const src = readFileSync(new URL('../app/series/page.tsx', import.meta.url), 'utf8');
+  assert.match(src, /data-cover-button/, 'the cover is a button for an admin');
+  assert.match(src, /<CoverPickerSheet seriesId=\{id\}/);
+  assert.match(src, /onReplaceFrom=\{isAdmin && b\.owned !== false && versionsOf\.get\(b\.number\)\?\.some\(\(c\) => !c\.onDisk\)/,
+    'the row offers it to an admin, on an owned chapter another source has');
+  assert.match(src, /Replace from another source…/);
+  assert.match(src, /<CompareCopiesDialog [^>]*seriesId=\{id\}/);
+  assert.match(src, /setComparing\(null\); setReplacing\(\{ book: b, copy \}\)/, 'the compare closes, then the existing confirm opens');
+  const picker = readFileSync(new URL('../components/CoverPickerSheet.tsx', import.meta.url), 'utf8');
+  assert.match(picker, /mode: 'source'/);
+  assert.match(picker, /data-cover-use/);
+  const cmp = readFileSync(new URL('../components/CompareCopiesDialog.tsx', import.meta.url), 'utf8');
+  assert.match(cmp, /copy-page\?source=/);
+  assert.match(cmp, /data-compare-replace/);
+});
