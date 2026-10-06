@@ -421,3 +421,11 @@ test('the saved-offline check on a chapter row is a status; removing the device 
   assert.match(src, /label: tr\('Remove from this device'\)/);
   assert.match(src, /downloaded \? tr\('Saved on this device'\) : tr\('Save offline'\)/);
 });
+
+test('a chapter not yet in the library can be fetched and then opened in the reader', () => {
+  const src = readFileSync(new URL('../app/series/page.tsx', import.meta.url), 'utf8');
+  assert.match(src, /onFetchRead=\{/);
+  assert.match(src, /router\.push\(`\/reader\/\?book=\$\{book\.id\}`\)/);
+  const sheet = readFileSync(new URL('../components/ChapterVersionsSheet.tsx', import.meta.url), 'utf8');
+  assert.match(sheet, /data-fetch-read/);
+});

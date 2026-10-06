@@ -34,7 +34,7 @@ function ownCopy(ghost?: Ghost, book?: Book, sourceName?: string): VersionCopy {
            pages: book?.media.pagesCount ?? null, publishedAt: book?.metadata?.releaseDate ?? null, chosen: false, blocked: false, onDisk: true };
 }
 
-export function ChapterVersionsSheet({ number, ghost, book, copies, sourceNames, isAdmin, mayFetch, mayReplace, onFetch, onReplace, onNumbering, onClose }: {
+export function ChapterVersionsSheet({ number, ghost, book, copies, sourceNames, isAdmin, mayFetch, mayReplace, onFetch, onFetchRead, onReplace, onNumbering, onClose }: {
   number: number;
   ghost?: Ghost;
   book?: Book;
@@ -49,6 +49,8 @@ export function ChapterVersionsSheet({ number, ghost, book, copies, sourceNames,
   mayReplace: boolean;
   /** `copy` names the pick; undefined is "this number, whatever the rules choose" (the synthesized row). */
   onFetch: (copy?: VersionCopy) => void;
+  /** Fetch the copy into the library, then open it in the reader. */
+  onFetchRead?: (copy?: VersionCopy) => void;
   onReplace: (copy: VersionCopy) => void;
   /** An admin's way to the numbering plan, when these copies look like different posts (#116). */
   onNumbering?: () => void;
@@ -115,6 +117,11 @@ export function ChapterVersionsSheet({ number, ghost, book, copies, sourceNames,
               {mayFetch && !c.onDisk && (
                 <button type="button" onClick={() => onFetch(own ? undefined : c)} aria-describedby={`${rowId}-${i}`} className="btn-key">
                   <IcCloudDownload aria-hidden width={14} height={14} />{tr('Fetch')}
+                </button>
+              )}
+              {mayFetch && !c.onDisk && onFetchRead && (
+                <button type="button" onClick={() => onFetchRead(own ? undefined : c)} aria-describedby={`${rowId}-${i}`} data-fetch-read className="btn-key">
+                  {tr('Fetch and read')}
                 </button>
               )}
               {mayReplace && !own && (
