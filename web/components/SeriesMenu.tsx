@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { canDownload, useAuth } from '@/lib/auth';
 import { t as tr } from '@/lib/i18n';
@@ -27,7 +27,12 @@ export function useSeriesMenu(series: Series) {
   const archive = useArchiveEnqueue();
   const offline = status === 'offline';
   const href = `/series/?id=${encodeURIComponent(series.id)}`;
-  const favourite = !!series.yomi?.favorite;
+  // A card built from a book (Home's Keep reading) carries no `yomi`: its favourite state comes from the id list.
+  const favIds = useQuery({
+    queryKey: ['favorite-ids'], enabled: !series.yomi, staleTime: 60_000,
+    queryFn: () => api<{ ids: string[] }>('/api/favorites/ids').then((r) => r.ids),
+  });
+  const favourite = series.yomi ? !!series.yomi.favorite : !!favIds.data?.includes(series.id);
   const [properties, setProperties] = useState(false);
 
   // ['collection']: a list's tiles carry the same badges since v0.55.7 (#164), and Mark all read from one of them must
@@ -41,6 +46,7 @@ export function useSeriesMenu(series: Series) {
       const r = await api<{ applied: number }>(path, { json: { seriesIds: [series.id], ...extra } });
       toast(r.applied ? done : tr('That series is no longer in the library'), r.applied ? 'success' : 'error');
       settle();
+      qc.invalidateQueries({ queryKey: ['favorite-ids'] });
     } catch { toast(tr('Could not do that'), 'error'); }
   };
 

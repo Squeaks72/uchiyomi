@@ -142,15 +142,25 @@ export function ContinueCard({ book, eager = false }: { book: Book; eager?: bool
   // A platform ("iPhone"), or "another device" in the reader's words -- never the English "Browser" an older sign-in
   // stored for a platform it did not know, nor a sign-in method ("SSO") as if it were a place.
   const where = elsewhere ? shownDeviceName(elsewhere.name, { device: true }) || tr('another device') : '';
+  // The card opens the chapter; the title opens the series. Two links, so neither sits inside the other: the chapter link is
+  // stretched over the card and the title link sits above it. The menu is the series' own (SeriesMenu.tsx), from the
+  // little a book knows of it -- the Properties sheet and the favourite mark read the rest themselves.
+  const menu = useSeriesMenu({ id: book.seriesId, name: book.seriesTitle, metadata: { title: book.seriesTitle } } as unknown as Series);
   return (
-    <Link
-      href={`/reader/?book=${book.id}`}
+    <>
+    <div
+      {...menu.bind}
       className="group relative h-44 w-72 shrink-0 overflow-hidden rounded-3xl border border-ink-700/60 shadow-lift transition-all duration-300 hover:-translate-y-1 hover:shadow-glow [scroll-snap-align:start]"
     >
       <Img src={img.bookThumb(book.id)} alt="" eager={eager} className="absolute inset-0 h-full w-full transition-transform duration-500 group-hover:scale-105" />
       <div className="absolute inset-0 bg-linear-to-t from-black via-black/45 to-black/10" />
-      <div className="absolute inset-x-0 bottom-0 p-4">
-        <p className="line-clamp-1 font-display text-base font-semibold text-white">{book.seriesTitle}</p>
+      <Link href={`/reader/?book=${book.id}`} aria-label={`${book.seriesTitle}, ${chapterLabel(book)}`} data-continue-chapter
+        className="absolute inset-0 z-10 rounded-3xl" />
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 p-4">
+        <p className="line-clamp-1 font-display text-base font-semibold text-white">
+          <Link href={`/series/?id=${encodeURIComponent(book.seriesId)}`} data-continue-series
+            className="pointer-events-auto relative z-20 rounded-sm hover:underline focus-visible:underline">{book.seriesTitle}</Link>
+        </p>
         <p className="mb-2 text-xs text-fog-300">
           {chapterLabel(book)}
           {elsewhere && (
@@ -163,10 +173,12 @@ export function ContinueCard({ book, eager = false }: { book: Book; eager?: bool
         </p>
         <ProgressBar value={pct || 0.02} />
       </div>
-      <span className="absolute right-3 top-3 grid h-10 w-10 place-items-center rounded-full bg-accent text-black shadow-glow transition group-hover:scale-110 group-active:scale-90">
+      <span className="pointer-events-none absolute right-3 top-3 grid h-10 w-10 place-items-center rounded-full bg-accent text-black shadow-glow transition group-hover:scale-110 group-active:scale-90">
         <IcPlay width={18} height={18} />
       </span>
-    </Link>
+    </div>
+    {menu.element}
+    </>
   );
 }
 
