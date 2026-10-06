@@ -445,6 +445,8 @@ function ChapterRow({ book, downloaded, sourceNames, primarySource, versions, on
     ...(onReplaceFrom ? [{ label: tr('Replace from another source…'), onSelect: onReplaceFrom }] : []),
     ...(onEdit ? [{ label: tr('Edit number & title'), divider: true, onSelect: onEdit }] : []),
     ...(onCopyPath ? [{ label: tr('Copy file path'), divider: !onEdit, onSelect: onCopyPath }] : []),
+    // The only way to drop a saved copy: the ✓ on the row is a status, never a button, so a stray click cannot undo it.
+    ...(downloaded && !isDesktop() ? [{ label: tr('Remove from this device'), divider: true, onSelect: () => { void onToggleDownload().catch(() => {}); } }] : []),
     ...(onRemove ? [{ label: tr('Remove from library'), divider: true, danger: true, onSelect: onRemove }] : []),
   ], { label: tr('Chapter actions') });
   // Only a name is shown; an id that resolves to nothing (a source since removed) shows no caption at all.
@@ -513,11 +515,11 @@ function ChapterRow({ book, downloaded, sourceNames, primarySource, versions, on
         }}
         // `pruned` already excludes a chapter saved on this device, so removing that copy still works --
         // which matters, because it is the only copy left.
-        disabled={pruned}
-        className={`grid h-9 w-9 place-items-center rounded-full border disabled:opacity-30 ${downloaded ? 'border-accent/40 text-accent' : 'border-ink-700 text-fog-500'}`}
+        disabled={pruned || downloaded}
+        className={`grid h-9 w-9 place-items-center rounded-full border ${downloaded ? 'cursor-default border-accent/40 text-accent' : 'border-ink-700 text-fog-500 disabled:opacity-30'}`}
         // "Save offline", not "Download": the ☁ on a ghost row brings a chapter onto the server, this arrow
         // copies one to this device, and one word for both promised the wrong thing on one of them.
-        aria-label={downloaded ? tr('Remove from this device') : tr('Save offline')}
+        aria-label={downloaded ? tr('Saved on this device') : tr('Save offline')}
       >
         {busy ? <span className="text-[11px] font-semibold text-accent">…</span> : downloaded ? <IcCheck width={16} height={16} /> : <IcDownload width={16} height={16} />}
       </button>}
