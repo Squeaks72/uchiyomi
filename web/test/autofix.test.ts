@@ -359,7 +359,7 @@ test('Run again only while something a run could still change is left: the serve
 test('the nightly choice: Safe repair or Fix everything, saved as it is picked', () => {
   // Reintroduce `patch({ nightly: m })` (or drop the row): "the nightly choice is not saved as nightlyMode" fails.
   const settings = code('components/AdminSettings.tsx');
-  assert.match(settings, /<NightlyModeRow mode=\{nightlyModeOf\(data\)\} off=\{data\.repair_enabled === false\} onPick=\{\(m\) => patch\(\{ nightlyMode: m \}\)\} \/>/,
+  assert.match(settings, /<NightlyModeRow mode=\{nightlyModeOf\(data\)\} off=\{data\.repair_enabled === false\} onPick=\{\(m\) => save\(\{ nightlyMode: m \}\)\} \/>/,
     'the nightly choice is not saved as nightlyMode');
   const row = slice(settings, 'export function NightlyModeRow(', 'function HousekeepingSection(');
   assert.match(row, /if \(!\(await run\(\(\) => onPick\(m\)\)\)\) setLocal\(mode\);/, 'a refused save leaves the choice where it was not saved');

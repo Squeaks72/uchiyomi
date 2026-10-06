@@ -313,6 +313,9 @@ export const updatesTitle = (n: number): string =>
 
 export type SheetKey = 'replace' | 'test' | 'unblock' | 'turn-off' | 'turn-on' | 'remove';
 
+/** A source that is cooling down after refusals, or blocked: the ones with a Clear block key (and Settings → Downloads' list). */
+export const isBlocked = (s: Pick<OverviewSource, 'standing' | 'state'>): boolean => s.standing === 'cooling' || s.state === 'blocked';
+
 /**
  * What a source's sheet offers, in the order its keys sit:
  * - Replace, the one filled key, while it cannot serve the series it is main to: failing, switched off or not loaded --
@@ -330,7 +333,7 @@ export function sheetKeys(s: OverviewSource, a?: Pick<SourcesAttention, 'replace
   if (dead && s.main > 0 && !s.overLimit) out.push('replace');
   const loaded = s.standing !== 'not_loaded' && !(s.standing === 'off' && (s.offBy === 'extension' || s.offBy === 'language'));
   if (loaded) out.push('test');
-  if (s.standing === 'cooling' || s.state === 'blocked') out.push('unblock');
+  if (isBlocked(s)) out.push('unblock');
   if (s.standing === 'off') out.push('turn-on');
   else if (s.standing !== 'not_loaded') out.push('turn-off');
   if (s.kind === 'site') out.push('remove');

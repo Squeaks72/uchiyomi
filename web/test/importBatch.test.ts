@@ -166,7 +166,7 @@ test('Admin → Sources has one way to import: the reviewed flow', () => {
   // other fixes. Reintroduce by putting the textarea and its POST /api/admin/import back on the card. Since v0.54.0
   // the door is a row of Admin → Sources' Add sources (Providers' card before).
   const src = code(read('app/admin/page.tsx')) + code(read('components/SourcesPanel.tsx'));
-  assert.equal((src.match(/'\/admin\/import\/'/g) || []).length, 0, 'the console pushes to /admin/import/ by hand again');
+  assert.equal((src.match(/(?:push|replace)\('\/admin\/import\/'/g) || []).length, 0, 'the console pushes to /admin/import/ by hand again');
   assert.equal((src.match(/<LinkRow href="\/admin\/import\/" label=\{tr\('Import a list'\)\}/g) || []).length, 1, 'Add sources does not link to /admin/import/ exactly once');
   assert.doesNotMatch(src, /'\/api\/admin\/import'[,)]/, 'the one-shot POST /api/admin/import is back in the UI');
   assert.doesNotMatch(src, /\/api\/admin\/import\/(parse|status)/, 'the old parse/status calls are back');
@@ -637,8 +637,9 @@ test('the add dialog offers the other sources only when it already holds a list,
   assert.match(src, /json: \{\s*source: picked\.source, sourceId: picked\.sourceId, chapterCount, chapterFrom, autoUpdate, force, alsoFollow: alsoFollowBody, numbering,?(?:\s*\.\.\.\(archiving \? \{ archive: true \} : \{\}\),?)?(?:\s*\.\.\.\(editionBody \? \{ edition: editionBody \} : \{\}\),?)?\s*\}/, 'the add body does not carry alsoFollow');
   // The switch is on the options step only with candidates, remembered per device under one key.
   assert.match(src, /\{mayFollow && others\.length > 0 && !view\?\.posting && \(\s*<div className="mt-3" data-also-follow>/, 'the switch shows without candidates');
-  assert.match(src, /const ALSO_FOLLOW_KEY = 'uchiyomi\.alsoFollow';/, 'the per-device key changed');
-  assert.match(src, /localStorage\.setItem\(ALSO_FOLLOW_KEY, v \? '1' : '0'\)/, 'the switch is not remembered');
+  // Remembered on the ACCOUNT now (lib/accountPrefs.ts, mirrored to the same localStorage key it always used).
+  assert.match(src, /const \[alsoFollow, setAlsoFollowPref\] = useAccountPref\('alsoFollow'\);/, 'the switch is not remembered');
+  assert.match(readFileSync(join(__dirname, '..', 'lib/accountPrefs.ts'), 'utf8'), /alsoFollow: \{ mirror: 'uchiyomi\.alsoFollow', on: '1', off: '0', fallback: false \}/, 'the stored key or values changed');
   // The done step: results from the job card the dialog already polls; a result seed points at Find missing.
   assert.match(src, /if \(seed\.kind === 'result'\) return <p[^>]*>\{tr\('Other sources: Find missing chapters on the series page\.'\)\}<\/p>;/, 'a result seed is not pointed at Find missing chapters');
   assert.match(src, /if \(others\.length === 0\) return <p[^>]*>\{tr\('None of the other sources checked lists this title\.'\)\}<\/p>;/, 'zero others does not say "checked"');

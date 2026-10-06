@@ -21,7 +21,7 @@ import { useToast } from '@/components/Toast';
 import { deviceId } from '@/lib/device';
 import { getOfflineChapter, getPageBlob, queueProgress, noteOfflineProgress, listSeriesDownloads, setOfflinePageJunk } from '@/lib/downloads';
 import { applyCover, clearCover } from '@/lib/theme';
-import { ReaderPrefs, loadPrefs, savePrefs, loadSeriesPrefs, saveSeriesPrefs, syncPrefsFromServer, THEME_FILTER, loadSourcePrefs, saveSourcePrefs, clearSourcePrefs, globalPrefsChange, seriesPinChange, withTitleLook, rememberSeriesSource, seriesSourceOf } from '@/lib/readerPrefs';
+import { ReaderPrefs, loadPrefs, savePrefs, loadSeriesPrefs, saveSeriesPrefs, syncPrefsFromServer, THEME_FILTER, loadSourcePrefs, saveSourcePrefs, clearSourcePrefs, globalPrefsChange, seriesPinChange, withTitleLook, rememberSeriesSource, seriesSourceOf, hasSeriesLook, resetSeriesLook } from '@/lib/readerPrefs';
 import { ReaderSettings } from '@/components/ReaderSettings';
 import { Rail, SectionTitle, useImgRetry, useRtl } from '@/components/ui';
 import { PageGrid } from '@/components/PageGrid';
@@ -1471,6 +1471,12 @@ function ReaderInner() {
               if (!seriesSource) return;
               if (save) saveSourcePrefs(seriesSource.id, { mode: prefs.mode, theme: prefs.theme, spread: prefs.spread, pagedDirection: prefs.pagedDirection });
               else clearSourcePrefs(seriesSource.id);
+              setShowSettings(false);
+            }}
+            seriesPinned={!!seriesId0 && hasSeriesLook(seriesId0)}
+            onResetSeries={() => {
+              if (!seriesId0) return;
+              setPrefs(resetSeriesLook(seriesId0, prefs, seriesSource?.id));
               setShowSettings(false);
             }}
           />

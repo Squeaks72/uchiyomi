@@ -439,7 +439,7 @@ export async function adultSearchWalk(ctx) {
     .sort((x, y) => x.title.localeCompare(y.title)), say('Add to library'));
   const chips = () => page.evaluate(() => [...document.querySelectorAll('[data-rating-chips] button')]
     .map((b) => ({ text: b.textContent.trim(), on: b.getAttribute('aria-pressed') === 'true' })));
-  const reveal = () => page.evaluateHandle((t) => [...document.querySelectorAll('button')].find((b) => b.textContent.trim() === t) || null, say('Show 18+')).then((h) => h.asElement());
+  const reveal = () => page.evaluateHandle((t) => [...document.querySelectorAll('button')].find((b) => b.textContent.trim() === t) || null, say('Show 18+ content')).then((h) => h.asElement());
   /** Show 18+ on or off, by its chip on Discover. */
   const showAdult = async (on) => {
     const chip = await waitFor(reveal, 15_000, 300);
@@ -480,13 +480,13 @@ export async function adultSearchWalk(ctx) {
       const all = await wall([...ADULT, ...CLEAN], [], (c) => (ADULT.includes(c.title) ? c.adult : CLEAN.includes(c.title) ? !c.adult : true));
       check(`adultsearch @${t}: All shows every result, the 18+ mark on each 18+ one`, !!all, fakes(all ?? await cards()));
       const row = await chips();
-      check(`adultsearch @${t}: the chips read ${say('All')} · ${say('Hide 18+')} · ${say('18+ only')}, All pressed`,
-        JSON.stringify(row) === JSON.stringify([{ text: say('All'), on: true }, { text: say('Hide 18+'), on: false }, { text: say('18+ only'), on: false }]), JSON.stringify(row));
+      check(`adultsearch @${t}: the chips read ${say('All')} · ${say('No 18+')} · ${say('18+ only')}, All pressed`,
+        JSON.stringify(row) === JSON.stringify([{ text: say('All'), on: true }, { text: say('No 18+'), on: false }, { text: say('18+ only'), on: false }]), JSON.stringify(row));
       check(`adultsearch @${t}: no sideways scroll`, await noSideScroll());
       await page.evaluate(() => document.querySelector('[data-rating-chips]')?.scrollIntoView({ block: 'center' }));
       await shot(`adultsearch-${t}-1-all`);
 
-      await page.evaluate((x) => [...document.querySelectorAll('[data-rating-chips] button')].find((b) => b.textContent.trim() === x)?.click(), say('Hide 18+'));
+      await page.evaluate((x) => [...document.querySelectorAll('[data-rating-chips] button')].find((b) => b.textContent.trim() === x)?.click(), say('No 18+'));
       const safe = await wall(CLEAN, ADULT, (c) => !c.adult);
       check(`adultsearch @${t}: Hide 18+ keeps every title a site with no 18+ flag carries too, and nothing marked`, !!safe, fakes(safe ?? await cards()));
       await shot(`adultsearch-${t}-2-hide`);

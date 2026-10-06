@@ -358,7 +358,7 @@ test('the favourite button and the save notices are in the reader\'s words (v0.5
   // The button's two states have their own keys: the toast key "Saved" reads as a past action in ja and ar, where
   // the button needs a state. Reintroduce `{fav ? 'Saved' : 'Favorite'}`: the button is English in every language.
   const page = code(read('app/series/page.tsx'));
-  assert.match(page, /\{fav \? tr\('In favourites'\) : tr\('Favourite'\)\}/, 'the favourite button is not translated');
+  assert.match(page, /\{fav \? tr\('In favorites'\) : tr\('Favorite'\)\}/, 'the favourite button is not translated');
   assert.match(page, /tr\('Saved\. \{n\} readers had finished this chapter\.', \{ n: r\.affectedUsers \}\)/, 'the chapter save notice is not a counted pair');
   assert.doesNotMatch(page, /reader\(s\)/, 'a "(s)" plural is back');
   // Edit details' check key was the last bare English on the page (v0.52.0); it is components/SeriesEditor.tsx's

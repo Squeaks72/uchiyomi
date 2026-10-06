@@ -17,8 +17,8 @@ const code = (src: string): string =>
   src.replace(/\/\*[\s\S]*?\*\//g, '').split('\n').filter((l) => !l.trim().startsWith('//')).join('\n');
 const section = (): string => {
   const src = code(read('components/AdminSettings.tsx'));
-  const s = src.slice(src.indexOf('function AdultFilterSection('), src.indexOf('function SwitchWithMore('));
-  assert.ok(s.length > 0, 'no AdultFilterSection');
+  const s = src.slice(src.indexOf('function ContentRatingsSection('), src.indexOf('function SourceOrderBlock('));
+  assert.ok(s.length > 0, 'no ContentRatingsSection');
   return s;
 };
 
@@ -28,37 +28,55 @@ test('the section comes after Notifications, so the pinned order of the others i
   const src = code(read('components/AdminSettings.tsx'));
   const grid = src.slice(src.indexOf('<div className={SETTINGS_GRID}>\n      <ServerSection'));
   assert.ok(grid.indexOf('<NotificationsSection />') > 0, 'PREMISE: no Notifications section');
-  assert.ok(grid.indexOf('<AdultFilterSection data={data} save={save} />') > grid.indexOf('<NotificationsSection />'),
-    'the 18+ filter is not after Notifications');
+  assert.ok(grid.indexOf('<ContentRatingsSection data={data} save={save} />') > grid.indexOf('<NotificationsSection />'),
+    'Content ratings (the old 18+ filter) is not after Notifications');
 });
 
-test('both pickers ask with the reveal on, so ticking an entry cannot hide its own chip', () => {
-  // With "Show 18+" off, a genre or source ticked here is exactly what the listings stop returning, so a
-  // picker built from them loses the chip the moment it is lit and it can never be unticked. Reintroduce by
-  // asking `/api/genres/overview` or `/api/sources` as they are: both matches below fail. And never an
-  // unconditional `?adult=1` (lib/api.ts adds its own when the reveal is on; two copies read as hidden).
+test('the genre picker asks with the reveal on, and the source list is the admin overview, so neither can hide its own entry', () => {
+  // With "Show 18+" off, a genre ticked here is exactly what the listings stop returning, so a picker built from them
+  // loses the chip the moment it is lit and it can never be unticked. Reintroduce by asking `/api/genres/overview` as it
+  // is: the match below fails. And never an unconditional `?adult=1` (lib/api.ts adds its own when the reveal is on; two
+  // copies read as hidden). The per-source ratings come from the admin overview, which lists every source whatever the
+  // reveal says (an admin manages them all), so they ask with no reveal rule at all and under the Sources tab's own key.
   const s = section();
   assert.match(s, /const revealed = \(path: string\) => \(adultShown\(\) \? path : `\$\{path\}\$\{path\.includes\('\?'\) \? '&' : '\?'\}adult=1`\);/,
     'the reveal-aware URL rule is gone');
   assert.match(s, /revealed\('\/api\/genres\/overview\?covers=1'\)/, 'the genre picker is built from the filtered list');
-  assert.match(s, /revealed\('\/api\/sources'\)/, 'the source picker is built from the filtered list');
   assert.doesNotMatch(s, /\('\/api\/(?:sources|genres\/overview)[^']*adult=1'\)/, 'adult=1 is hard-coded');
-  // Its own keys: a revealed answer under a browsing screen's key is replayed to that screen.
+  // Its own key: a revealed answer under a browsing screen's key is replayed to that screen.
   assert.match(s, /queryKey: \['genres-overview', 'all'\]/);
-  assert.match(s, /queryKey: \['sources', 'all'\]/);
+  assert.match(s, /queryKey: OVERVIEW_KEY, queryFn: \(\) => api<SourcesOverview>\(OVERVIEW_URL\)/, 'the ratings are not built from the admin sources overview');
+  assert.doesNotMatch(s, /revealed\('\/api\/sources'\)/, 'the retired adult-sources chip list is back');
 });
 
-test('a toggle is saved from local state, and a failed save puts the chip back', () => {
+test('a genre toggle is saved from local state, and a failed save puts the chip back', () => {
   // Toggled against `data` directly, two quick clicks each started from the list as it was before either
   // PATCH landed, and the second quietly undid the first. Reintroduce by
   // `onClick={() => save({ adultGenres: toggle(genres, g.key) })}` over `data.adult_genres`: fails.
   const s = section();
   assert.match(s, /const \[genres, setGenres\] = useState<string\[\]>/, 'the genre list is not held locally');
-  assert.match(s, /const \[sources, setSources\] = useState<string\[\]>/, 'the source list is not held locally');
   assert.match(s, /onClick=\{\(\) => flip\('adultGenres', genres, setGenres, g\.key\)\}/);
-  assert.match(s, /onClick=\{\(\) => flip\('adultSources', sources, setSources, src\.id\)\}/);
   assert.match(s, /\.catch\(\(\) => \{ set\(list\); toast\(tr\('Could not save'\), 'error'\); \}\);/,
     'a failed save leaves the chip lit over a list that was not stored');
+  // Fork change: the adult_sources chip editor is retired (the server folds the list into ratings at boot), so nothing
+  // here saves `adultSources` any more.
+  assert.doesNotMatch(s, /adultSources/, 'the retired adult-sources list is saved from Content ratings again');
+});
+
+test('each source has one rating select, saved through the age-rating route, and rolled back when refused', () => {
+  const s = section();
+  assert.match(s, /api\(`\/api\/admin\/sources\/\$\{encodeURIComponent\(id\)\}\/age-rating`, \{ method: 'PUT', json: ageRequest\(choice\) \}\)/, 'the rating is not saved through the age-rating route');
+  assert.match(s, /\(\['default', \.\.\.SOURCE_AGES\] as Array<number \| 'default'>\)\.map/, 'the select does not offer Default and every age of lib/sourceAge.ts');
+  assert.match(s, /catch \{\s*toast\(tr\('Could not save'\), 'error'\);\s*\} finally \{\s*setPicked/, 'a refused rating is not reported and dropped');
+  assert.match(s, /data-lenis-prevent data-source-ratings/, 'the scrolling list is not held for Lenis');
+  assert.match(s, /tr\('\{n\} sources rated', \{ n: summary\.rated \}\)\} · \{tr\('Treated as 18\+: \{m\}'/, 'the summary line is gone');
+  // The three groups, and the two links to where the permissions live.
+  for (const t of ['Who may open it', 'What the Show 18+ switch hides', 'How the rules work']) assert.ok(s.includes(`title={tr('${t}')}`), `the ${t} group is gone`);
+  assert.match(s, /href="\/admin\/\?tab=Members"/);
+  assert.match(s, /href="\/admin\/\?tab=Library"/);
+  assert.match(s, /href="\/profile\/\?tab=Connections"/, 'the OPDS / tokens note does not link to Profile → Connections');
+  // Desktop has no Members tab and no OPDS or tokens.
+  assert.match(s, /\{!desktop && \(\s*<Row label=\{tr\('Account age caps'\)\}/, 'the account caps row shows on desktop');
 });
 
 test('the edit dialog seeds "Always show" from the override and sends it on save', () => {
@@ -82,12 +100,13 @@ test('the edit dialog seeds "Always show" from the override and sends it on save
 });
 
 test('every new string is in all eight locale files', () => {
-  // settingsConsole.test.ts already scans AdminSettings.tsx; the dialog's two strings live in Edit details
+  // settingsConsole.test.ts already scans AdminSettings.tsx (the list below is the section's headings); the dialog's two strings live in Edit details
   // (components/SeriesEditor.tsx since v0.53.0), which no locale test of its own reads. Reintroduce by deleting
   // "Always show" from public/locales/ar.json.
   const keys = [
-    '18+ filter', 'No genres yet.', 'Always show',
-    'Sources to treat as adult, on top of the ones their extension already declares.',
+    'Content ratings', 'No genres yet.', 'Always show',
+    'Who may open it', 'What the Show 18+ switch hides', 'How the rules work',
+    'OPDS links and API tokens each have their own Include 18+ switch.',
     'One series can be let through on its own page — Edit details ▸ “Always show”.',
     'Keep this series on the shelf while “Show 18+” is off, even if it or one of its genres is 18+.',
   ];

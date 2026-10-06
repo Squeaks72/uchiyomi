@@ -54,3 +54,17 @@ test('a cleared source is not condemned by its extension flag when ratings are j
   assert.equal(S.ratingOf(item, { id: 'sw:2', isNsfw: true }, lists), 'flagged');
   assert.equal(S.ratingOf(item, { id: 'sw:1', isNsfw: true }, { ...lists, sources: ['sw:1'] }), 'adult', 'rated 18 is adult whatever else');
 });
+
+test('foldAdultSources moves the retired adult_sources list into ratings as 18, without overriding an entry', () => {
+  assert.deepEqual(R.foldAdultSources(['SW:1', ' sw:2 ', 'sw:3'], { 'sw:2': 13, 'sw:9': 0 }), { 'sw:1': 18, 'sw:2': 13, 'sw:3': 18, 'sw:9': 0 });
+  assert.deepEqual(R.foldAdultSources(['sw:1'], { 'sw:1': 0 }), { 'sw:1': 0 }, 'an explicit all-ages rating wins over the old list');
+  assert.deepEqual(R.foldAdultSources([], { a: 17 }), { a: 17 });
+  assert.deepEqual(R.foldAdultSources(null, null), {});
+  assert.deepEqual(R.foldAdultSources(['ok', 4, null, 'bad id'], {}), { ok: 18 }, 'junk entries are dropped');
+});
+
+test('foldAdultSources is idempotent: folding its own output with an emptied list changes nothing', () => {
+  const once = R.foldAdultSources(['a', 'b'], { c: 13 });
+  assert.deepEqual(R.foldAdultSources([], once), once);
+  assert.deepEqual(R.foldAdultSources(['a', 'b'], once), once);
+});

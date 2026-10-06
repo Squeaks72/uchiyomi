@@ -189,7 +189,7 @@ test('Admin → Settings hides registration, the install count and the Mihon row
   // Reintroduce by dropping `enabled: !desktop` from the preview query: "the install-count preview is
   // requested on desktop" fails.
   const src = code(read('components/AdminSettings.tsx'));
-  const server = slice(src, 'function ServerSection(', 'function SchedulesSection(');
+  const server = slice(src, 'function PrivacySection(', 'function SchedulesSection(');
   assert.match(server, /queryFn: \(\) => api<[^\n]*'\/api\/admin\/install-ping\/preview'\),\s*staleTime: 60_000,\s*enabled: !desktop,/, 'the install-count preview is requested on desktop');
   assert.match(server, /\{!desktop && \(\s*<SwitchRow label=\{tr\('Open registration'\)\}/, 'the registration switch shows on desktop');
   assert.match(server, /\{!desktop && <SwitchWithMore label=\{tr\('Count this server in the anonymous install count'\)\}/, 'the install count shows on desktop');

@@ -81,13 +81,16 @@ export function AdultToggle({ className = '', alsoWhen = false }: { className?: 
     <button
       type="button"
       aria-pressed={on}
+      // One name for the switch everywhere ("Show 18+ content"); the scope is said here, as help, so the chip
+      // itself stays as short as it was. Text only: what the button does is unchanged.
+      title={tr('Show 18+ content for this browser session. It switches off when you close the browser. For an e-reader or an app, set it under Profile → Connections.')}
       onClick={() => {
         setAdultShown(!on);
         qc.invalidateQueries();
       }}
       className={`chip whitespace-nowrap ${on ? 'chip-active' : ''} ${className}`}
     >
-      {tr('Show 18+')}
+      {tr('Show 18+ content')}
     </button>
   );
 }

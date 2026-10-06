@@ -1,5 +1,10 @@
 'use client';
-// Admin → Settings: four sections on the settings grid, every row saving on its own.
+// Admin → Settings: sections on the settings grid, every row saving on its own.
+//
+// Fork reorganisation: General · Privacy & access · Updates & schedules · Library housekeeping · Chapters & naming
+// (scanlators, source order, notice chapters, borrowed names, group upgrades) · Notifications · Downloads · Downloads &
+// politeness · Content ratings. The text below describes how the tab was first built; where it says "Server" read
+// "General" plus "Privacy & access", and "18+ filter" is now Content ratings.
 //
 // Until v0.39.0 this tab was a `.board` of cards of every shape with three save idioms side by side: three
 // full-width "Save name" / "Save interval" buttons, switches that saved on their own with a toast, a tiny
@@ -20,12 +25,13 @@
 // read-chapter cleanup ("Read chapters will be deleted" / "Read chapters are kept", because it deletes
 // files). Every other row's outcome is its own state plus the tick.
 import { useEffect, useState, type ReactNode } from 'react';
+import Link from 'next/link';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useToast } from '@/components/Toast';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { Switch } from '@/components/Switch';
-import { IcFilter, IcRefresh, IcSettings, IcSliders, IcTrash } from '@/components/icons';
+import { IcFilter, IcGlobe, IcRefresh, IcSettings, IcSliders, IcTrash } from '@/components/icons';
 import { Disclosure, NumberRow, Row, SETTINGS_GRID, SaveState, Section, Segmented, SwitchRow, TextRow, useAutosave } from '@/components/settings';
 import { nightlyModeOf, type NightlyMode } from '@/lib/autofix';
 import { t as tr } from '@/lib/i18n';
@@ -34,10 +40,13 @@ import { SERIES_TYPES, seriesTypeKey } from '@/lib/seriesTypes';
 import { hasGroup, normGroup, reorder, withoutGroup } from '@/lib/scanlators';
 import { suggestGroups } from '@/lib/groupSuggest';
 import { NotificationsSection } from '@/components/AdminNotifications';
-import { DownloadsSection } from '@/components/ArchiveSettings';
+import { DownloadsSection, PolitenessSection } from '@/components/ArchiveSettings';
 import { isDesktop } from '@/lib/desktop';
 import { adultShown } from '@/lib/adult';
 import { addable, moveIn, orderRows } from '@/lib/sourceOrder';
+import { OVERVIEW_KEY, OVERVIEW_URL, type SourcesOverview } from '@/lib/sourcesPanel';
+import { SOURCE_AGES, ageChoice, ageRequest } from '@/lib/sourceAge';
+import { cappedMembers, filterByName, ratedLibraries, ratingOrder, ratingSummary } from '@/lib/contentRatings';
 
 /** One PATCH. Resolves once the server has answered, so the row that called it can show its tick. */
 type Save = (body: Record<string, unknown>) => Promise<unknown>;
@@ -67,20 +76,67 @@ export function AdminSettings() {
   return (
     <div className={SETTINGS_GRID}>
       <ServerSection data={data} save={save} />
+      <PrivacySection data={data} save={save} />
       <SchedulesSection data={data} save={save} />
       <HousekeepingSection data={data} save={save} />
-      <ScanlatorsSection data={data} save={save} />
+      <ChaptersSection data={data} save={save} />
       {/* v0.43.0 (#70): webhook, Home Assistant, ntfy and Discord targets. Last, after Library housekeeping and
-          Scanlators: Server must stay first (run.mjs), and settingsConsole.test.ts pins the four above in
+          Chapters & naming: General must stay first (run.mjs), and settingsConsole.test.ts pins the sections above in
           their order. Its rows and its one dialog live in their own file; it reads its own endpoint. */}
       <NotificationsSection />
       {/* v0.49.0 (#117): the slow archive's pause and pace, in its own file. After the pinned sections, the
-          four above and Notifications right behind them (adminNotifications.test.ts). */}
+          ones above and Notifications right behind them (adminNotifications.test.ts). Its second card, Downloads &
+          politeness, is the env-only knobs read-only and the sources that are blocked right now. */}
       <DownloadsSection data={data} save={save} />
-      <AdultFilterSection data={data} save={save} />
-      <SourceOrderSection data={data} save={save} />
-      <NoticeChaptersSection data={data} save={save} />
+      <PolitenessSection />
+      <ContentRatingsSection data={data} save={save} />
     </div>
+  );
+}
+
+/**
+ * A titled part of one card: a heading, a sentence, and its controls, as ONE divider group in the section's `divide-y`.
+ * Chapters & naming holds five things that used to be four cards, and a Section inside a Section is a card in a card; a
+ * Block keeps each one findable (its `id` is a `?section=` target, lib/destinations.ts) without a second frame.
+ */
+function Block({ id, title, description, children }: { id?: string; title: string; description?: string; children: ReactNode }) {
+  return (
+    <div id={id} className="scroll-mt-4 py-3 first:pt-1 lg:scroll-mt-20">
+      <h3 className="text-sm font-semibold text-fog-100">{title}</h3>
+      {description && <p className="mt-0.5 max-w-prose text-[11px] leading-relaxed text-fog-500">{description}</p>}
+      {children}
+    </div>
+  );
+}
+
+/**
+ * Chapters & naming: everything that decides WHICH copy of a chapter is kept and what it is called, in one card that was
+ * five (Scanlators, Source order, Notice chapters, and two switches that sat under the scanlator lists). The parts keep
+ * their own ids, so `?section=scanlators`, `source-order` and `notice-chapters` still land on them.
+ */
+function ChaptersSection({ data, save }: { data: any; save: Save }) {
+  return (
+    <Section id="chapters" title={tr('Chapters & naming')} icon={<IcFilter width={18} height={18} />}
+      description={tr('Which copy of a chapter is taken, what it is called, and which short chapters count as notices.')}>
+      <ScanlatorsBlock data={data} save={save} />
+      {/* Group upgrades (#81): the nightly repair's sixth step. Off by default, because it replaces files on
+          disk; the help says every rule it keeps, so switching it on is not a leap in the dark. */}
+      {/* Off by default: outbound traffic to sources that carry nothing else for a series. A series can
+          switch it for itself on its Sources & translations sheet. */}
+      <SwitchRow label={tr('Borrow chapter names from other sources')}
+        help={tr('Off by default. When a series’ own source only ever says “Chapter 12”, take the names from another source whose numbering was checked against this one — a source that numbers the chapters differently is never used, and the names go into the chapter name only, never the file. The chapter’s own source naming it later wins, and switching this off takes the borrowed names back.')}
+        on={data.borrow_names === true} onChange={(next) => save({ borrowNames: next })} />
+      {/* v0.56.0: Discover's names looked up on AniList, MangaDex and MangaUpdates, beside the other row that sends titles
+          off the server. ON by default, which `!== false` reads as: a server that does not send the key yet looks them up. */}
+      <SwitchRow label={tr('Match Discover titles online')}
+        help={tr('On by default. Titles shown in Discover are looked up on AniList, MangaDex and MangaUpdates, once each and in the background, so that a series several sources name differently shows as one card and one you already have stays hidden. Off, only the names themselves are compared and nothing is sent anywhere.')}
+        on={data.discover_lookups !== false} onChange={(next) => save({ discoverLookups: next })} />
+      <SwitchRow label={tr('Upgrade chapters to a preferred group')}
+        help={tr('Off by default. Once a night, a chapter you already have from another group is replaced when a group you rank higher releases it on a source the series follows — only files Uchiyomi downloaded itself, never with a copy that has fewer pages, never a chapter someone picked a version for by hand, and at most ten a night unless the server is told otherwise. Reading progress is kept.')}
+        on={data.group_upgrade === true} onChange={(next) => save({ groupUpgrade: next })} />
+      <SourceOrderBlock data={data} save={save} />
+      <NoticeChaptersBlock data={data} save={save} />
+    </Section>
   );
 }
 
@@ -96,10 +152,10 @@ export function AdminSettings() {
  * numbered like 12.5 of the types switched on is hidden, real chapters a site split into parts included -- which its
  * help says before it is flipped, and the section's own sentence says which rule is in force.
  *
- * Held locally and saved whole on every flip, re-seeded from the refetch, for the reason AdultFilterSection says:
+ * Held locally and saved whole on every flip, re-seeded from the refetch, for the reason ContentRatingsSection says:
  * two quick flips must not both start from the list as it was before either landed.
  */
-function NoticeChaptersSection({ data, save }: { data: any; save: Save }) {
+function NoticeChaptersBlock({ data, save }: { data: any; save: Save }) {
   const [types, setTypes] = useState<SeriesType[]>(() => (Array.isArray(data.hide_notice_types) ? data.hide_notice_types : []));
   useEffect(() => { setTypes(Array.isArray(data.hide_notice_types) ? data.hide_notice_types : []); }, [data.hide_notice_types]);
   const flip = async (t: SeriesType, on: boolean) => {
@@ -110,7 +166,7 @@ function NoticeChaptersSection({ data, save }: { data: any; save: Save }) {
   };
   const shortOnly = data.hideNoticeShortOnly !== false;
   return (
-    <Section id="notice-chapters" title={tr('Notice chapters')} icon={<IcFilter width={18} height={18} />}
+    <Block id="notice-chapters" title={tr('Notice chapters')}
       description={shortOnly
         ? tr('Sources often post notices for readers as a short chapter numbered after the latest one, like 100.5. For each type switched on, chapters numbered like 12.5 with 3 pages or fewer are hidden from the library, the reader, OPDS and Mihon; longer ones, and any whose pages are not counted yet, stay. A chapter a source already lists with 3 pages or fewer is not downloaded. Nothing is deleted: switching a type off shows them again. A series can override this in its Sources & translations sheet.')
         : tr('Sources often post notices for readers as a short chapter numbered after the latest one, like 100.5. For each type switched on, every chapter numbered like 12.5 is hidden from the library, the reader, OPDS and Mihon, and one a source lists is not downloaded. Nothing is deleted: switching a type off shows them again. A series can override this in its Sources & translations sheet.')}>
@@ -124,37 +180,45 @@ function NoticeChaptersSection({ data, save }: { data: any; save: Save }) {
           help={tr('Off hides every chapter numbered like 12.5 of the types switched on, including real chapters a site split into parts.')}
           on={shortOnly} onChange={(next) => save({ hideNoticeShortOnly: next })} />
       </div>
-    </Section>
+    </Block>
   );
 }
 
 /**
- * What the "Show 18+" switch hides, beyond libraries rated 18+.
+ * Content ratings (was "18+ filter"): who may open what, and what the "Show 18+" switch hides.
+ *
+ * Three groups, because the controls answered two different questions and sat in one list. "Who may open it" is the
+ * permission side -- an account's age cap and a library's or series' rating -- which lives on the member and the library,
+ * so here it is a count and a way there. "What the Show 18+ switch hides" is the surfacing side: genres to keep off the
+ * shelf, and one rating per source. The last group says the rules in words.
  *
  * Before this the only way to keep a genre off the shelf was to move its series into an 18+ library --
  * a filing decision made to get a display outcome, which the scanner then argued with on every rescan.
  * Naming the genres says the same thing directly, and leaves filing alone.
  *
- * Nothing here is a permission. Everything listed is still openable by anyone who may open it, still
+ * Nothing in the genre list is a permission. Everything listed is still openable by anyone who may open it, still
  * reachable by link, and still returned by the by-id routes; the switch only decides what turns up
- * unasked. The permission is an account's age limit, which lives on the member, not here.
+ * unasked. A source's rating is the exception that proves the rule: below 18 it is the youngest account allowed in.
+ *
+ * The retired "sources to treat as adult" chip list is gone: the same sentence is a source rated 18+, and the server folds
+ * the old list into ratings at boot (bff lib/migrate.ts), so one control says it.
  */
-function AdultFilterSection({ data, save }: { data: any; save: Save }) {
+function ContentRatingsSection({ data, save }: { data: any; save: Save }) {
   const toast = useToast();
   const qc = useQueryClient();
+  // Desktop has one person and no Members tab, no OPDS and no tokens (lib/desktop.ts): the account rows and the note go.
+  const desktop = isDesktop();
   // Held locally and saved whole on every click, re-seeded whenever the settings refetch. Read straight
   // from `data`, two quick clicks both toggled against the list as it was before either save landed, and
   // the second PATCH quietly undid the first.
   const [genres, setGenres] = useState<string[]>(() => (Array.isArray(data.adult_genres) ? data.adult_genres : []));
-  const [sources, setSources] = useState<string[]>(() => (Array.isArray(data.adult_sources) ? data.adult_sources : []));
   useEffect(() => { setGenres(Array.isArray(data.adult_genres) ? data.adult_genres : []); }, [data.adult_genres]);
-  useEffect(() => { setSources(Array.isArray(data.adult_sources) ? data.adult_sources : []); }, [data.adult_sources]);
-  // Both pickers ask with the reveal ON, whatever this browser has it set to. Otherwise the very thing
-  // being configured hides the controls for it: with "Show 18+" off, a genre or a source ticked here leaves
+  // The genre picker asks with the reveal ON, whatever this browser has it set to. Otherwise the very thing
+  // being configured hides the controls for it: with "Show 18+" off, a genre ticked here leaves
   // the list it was ticked in, and can then never be unticked. Same URL rule and the same reason as the
   // admin console's `allSourcesUrl` (app/admin/page.tsx): `?adult=1` only when the reveal is OFF, because
   // lib/api.ts adds its own when it is on and two copies arrive as an array, which the server reads as
-  // hidden. Own query keys, so a revealed answer is never replayed to a browsing screen.
+  // hidden. Own query key, so a revealed answer is never replayed to a browsing screen.
   const revealed = (path: string) => (adultShown() ? path : `${path}${path.includes('?') ? '&' : '?'}adult=1`);
   // The genres actually present in this library, so the list offers what can match rather than a
   // vocabulary. A failure just leaves the picker empty rather than breaking the tab.
@@ -165,11 +229,18 @@ function AdultFilterSection({ data, save }: { data: any; save: Save }) {
     queryFn: () => api<{ content: Array<{ key: string; label: string }> }>(revealed('/api/genres/overview?covers=1')),
     staleTime: 5 * 60_000,
   });
-  // The admin console's key and URL, so the two share one answer.
-  const { data: srcList } = useQuery({
-    queryKey: ['sources', 'all'],
-    queryFn: () => api<{ content: Array<{ id: string; name: string }> }>(revealed('/api/sources')),
-    staleTime: 5 * 60_000,
+  // Every source with the admin's rating on it: the Sources tab's own list and key, which lists the adult ones whatever
+  // the reveal says (an admin manages every source), so no `?adult=1` here.
+  const { data: sourcesData } = useQuery({
+    queryKey: OVERVIEW_KEY, queryFn: () => api<SourcesOverview>(OVERVIEW_URL), staleTime: 30_000,
+  });
+  const { data: members } = useQuery({
+    queryKey: ['admin-users'], queryFn: () => api<{ content: Array<{ max_age_rating?: number | null }> }>('/api/admin/users'),
+    staleTime: 30_000, enabled: !desktop,
+  });
+  const { data: libraries } = useQuery({
+    queryKey: ['admin-libraries'], queryFn: () => api<{ content: Array<{ age_rating?: number | null }> }>('/api/admin/libraries'),
+    staleTime: 30_000,
   });
   const allGenres = (overview?.content ?? []).filter((g) => g?.key);
   const has = (list: string[], v: string) => list.includes(v.toLowerCase());
@@ -178,7 +249,7 @@ function AdultFilterSection({ data, save }: { data: any; save: Save }) {
     return list.includes(k) ? list.filter((x) => x !== k) : [...list, k];
   };
   // A failed save puts the chip back and says so, rather than leaving it lit over a list that was not stored.
-  const flip = (field: 'adultGenres' | 'adultSources', list: string[], set: (v: string[]) => void, v: string) => {
+  const flip = (field: 'adultGenres', list: string[], set: (v: string[]) => void, v: string) => {
     const next = toggle(list, v);
     set(next);
     save({ [field]: next })
@@ -187,9 +258,47 @@ function AdultFilterSection({ data, save }: { data: any; save: Save }) {
       .catch(() => { set(list); toast(tr('Could not save'), 'error'); });
   };
 
+  // One rating per source, picked from a select. What was just picked is held here until the refetch agrees, so the select
+  // does not jump back for the moment between the PUT and the list arriving; a refused PUT drops it again.
+  const [picked, setPicked] = useState<Record<string, number | 'default'>>({});
+  const [find, setFind] = useState('');
+  const sources = sourcesData?.sources ?? [];
+  const summary = ratingSummary(sources.map((x) => (x.id in picked ? { ...x, ageRating: picked[x.id] === 'default' ? null : picked[x.id] as number } : x)));
+  const rows = filterByName(ratingOrder(sources), find);
+  const ageText = (c: number | 'default') => (c === 'default' ? tr('Default') : c === 0 ? tr('All ages') : `${c}+`);
+  const rate = async (id: string, choice: number | 'default') => {
+    setPicked((p) => ({ ...p, [id]: choice }));
+    try {
+      await api(`/api/admin/sources/${encodeURIComponent(id)}/age-rating`, { method: 'PUT', json: ageRequest(choice) });
+      await qc.invalidateQueries({ queryKey: ['sources'] });
+      void qc.invalidateQueries({ queryKey: ['adult-filter'] });
+    } catch {
+      toast(tr('Could not save'), 'error');
+    } finally {
+      setPicked((p) => { const { [id]: _drop, ...rest } = p; return rest; });
+    }
+  };
+  const capped = members ? cappedMembers(members.content) : null;
+  const rated = libraries ? ratedLibraries(libraries.content) : null;
+
   return (
-    <Section id="adult-filter" title={tr('18+ filter')} icon={<IcSliders width={18} height={18} />}>
-      <div className="py-3">
+    <Section id="content-ratings" title={tr('Content ratings')} icon={<IcSliders width={18} height={18} />}
+      description={tr('Who may open 18+ and age-rated things, and what the “Show 18+” switch keeps off the shelf.')}>
+      <Block title={tr('Who may open it')}>
+        {!desktop && (
+          <Row label={tr('Account age caps')} className="px-0"
+            help={capped === null ? tr('Each member can have an age cap, set on Members.')
+              : capped === 0 ? tr('No member has an age cap.') : capped === 1 ? tr('1 member has an age cap.') : tr('{n} members have an age cap.', { n: capped })}>
+            <Link href="/admin/?tab=Members" className="btn-key">{tr('Open Members')}</Link>
+          </Row>
+        )}
+        <Row label={tr('Library and series ratings')}
+          help={rated === null ? tr('A library can have a rating, set on Library; a series keeps its own.')
+            : rated === 0 ? tr('No library has a rating. A series keeps its own.') : rated === 1 ? tr('1 library has a rating. A series keeps its own.') : tr('{n} libraries have a rating. A series keeps its own.', { n: rated })}>
+          <Link href="/admin/?tab=Library" className="btn-key">{tr('Open Library')}</Link>
+        </Row>
+      </Block>
+      <Block title={tr('What the Show 18+ switch hides')}>
         <p className="mb-2 max-w-prose text-[11px] leading-relaxed text-fog-500">
           {tr('Genres to keep off the shelf while “Show 18+” is off. This hides nothing from anyone who goes looking: links, bookmarks, downloads and reading progress are unaffected.')}
         </p>
@@ -204,25 +313,58 @@ function AdultFilterSection({ data, save }: { data: any; save: Save }) {
             </button>
           ))}
         </div>
-      </div>
-      <div className="py-3">
-        <p className="mb-2 max-w-prose text-[11px] leading-relaxed text-fog-500">
-          {tr('Sources to treat as adult, on top of the ones their extension already declares.')}
+        <p className="mb-1 mt-4 max-w-prose text-[11px] leading-relaxed text-fog-500">
+          {tr('A rating for a whole source. 18+ keeps it off Discover and search while “Show 18+” is off; below 18, accounts at least that old see it; All ages ignores the extension’s own adult flag; Default follows the extension.')}
         </p>
-        <div className="flex flex-wrap gap-1.5">
-          {(srcList?.content ?? []).map((src) => (
-            <button key={src.id} type="button"
-              onClick={() => flip('adultSources', sources, setSources, src.id)}
-              aria-pressed={has(sources, src.id)}
-              className={`chip whitespace-nowrap ${has(sources, src.id) ? 'chip-active' : ''}`}>
-              {src.name}
-            </button>
-          ))}
-        </div>
-      </div>
-      <p className="py-3 text-[11px] leading-relaxed text-fog-500">
-        {tr('One series can be let through on its own page — Edit details ▸ “Always show”.')}
-      </p>
+        <p className="mb-2 text-[11px] text-fog-400" data-ratings-summary>
+          {summary.rated === 1 ? tr('1 source rated') : tr('{n} sources rated', { n: summary.rated })} · {tr('Treated as 18+: {m}', { m: summary.adult })}
+        </p>
+        {sources.length > 8 && (
+          <input type="search" value={find} onChange={(e) => setFind(e.target.value)} className="field mb-2 w-full max-w-xs"
+            aria-label={tr('Find a source')} placeholder={tr('Find a source')} />
+        )}
+        {/* data-lenis-prevent: this list scrolls inside the page (lenisScrollers.test.ts). */}
+        <ul className="max-h-96 divide-y divide-ink-800/80 overflow-y-auto rounded-xl border border-ink-700 bg-ink-950/40 px-3" data-lenis-prevent data-source-ratings>
+          {sources.length === 0 && <li className="py-3 text-[11px] text-fog-500">{tr('No sources yet.')}</li>}
+          {sources.length > 0 && rows.length === 0 && <li className="py-3 text-[11px] text-fog-500">{tr('No source matches that.')}</li>}
+          {rows.map((x) => {
+            const choice = x.id in picked ? picked[x.id] : ageChoice(x);
+            return (
+              <li key={x.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2">
+                <div className="min-w-0 flex-1 basis-32">
+                  <p className="truncate text-sm text-fog-100" title={x.id}>{x.name}</p>
+                  {choice === 'default' && x.defaultAgeRating ? (
+                    <p className="text-[11px] text-fog-500">{tr('18+ by its extension')}</p>
+                  ) : null}
+                </div>
+                <select value={String(choice)} aria-label={tr('Rating for {name}', { name: x.name })} data-source-rating={x.id}
+                  onChange={(e) => void rate(x.id, e.target.value === 'default' ? 'default' : Number(e.target.value))}
+                  className="field w-auto">
+                  {(['default', ...SOURCE_AGES] as Array<number | 'default'>).map((c) => (
+                    <option key={c} value={String(c)}>{ageText(c)}</option>
+                  ))}
+                </select>
+              </li>
+            );
+          })}
+        </ul>
+        <p className="mt-3 max-w-prose text-[11px] leading-relaxed text-fog-500">
+          {tr('One series can be let through on its own page — Edit details ▸ “Always show”.')}
+        </p>
+      </Block>
+      <Block title={tr('How the rules work')}>
+        <ul className="max-w-prose list-disc space-y-1 ps-4 text-[11px] leading-relaxed text-fog-500">
+          <li>{tr('A source counts as 18+ when it is rated 18+, or when its extension flags it and it is not rated lower. While “Show 18+” is off it is left out of Discover and search.')}</li>
+          <li>{tr('Background repair, sweeps and source hunts follow the same rule: a series that is not rated 18+ is never followed onto a source that counts as 18+.')}</li>
+          <li>{tr('Library series keep their own ratings. A source’s rating never changes one.')}</li>
+        </ul>
+        {!desktop && (
+          <p className="mt-3 max-w-prose text-[11px] leading-relaxed text-fog-500">
+            {tr('OPDS links and API tokens each have their own Include 18+ switch.')}{' '}
+            <Link href="/profile/?tab=Connections" className="text-accent underline">{tr('Profile → Connections')}</Link>
+          </p>
+        )}
+      </Block>
     </Section>
   );
 }
@@ -237,7 +379,7 @@ function AdultFilterSection({ data, save }: { data: any; save: Save }) {
  * Nothing already downloaded is replaced because of it, and the help says so: #93's switch that re-fetched
  * held chapters from a better-ranked source was not taken (lib/sourcePrefs.ts says why).
  *
- * Held locally and saved whole on every change, re-seeded when the settings refetch, like the 18+ filter
+ * Held locally and saved whole on every change, re-seeded when the settings refetch, like the genre list
  * above: read straight from `data`, two quick arrows both moved the list as it was before either save
  * landed, and the second quietly undid the first. EVERY STORED ID IS KEPT (lib/sourceOrder.ts): the list of
  * sources is the registry's, which has no extensions while the engine restarts, and #93 saved an order built
@@ -246,7 +388,7 @@ function AdultFilterSection({ data, save }: { data: any; save: Save }) {
  * Arrows rather than dragging: a short list that changes rarely, and two buttons work on a phone, from a
  * keyboard and with a screen reader.
  */
-function SourceOrderSection({ data, save }: { data: any; save: Save }) {
+function SourceOrderBlock({ data, save }: { data: any; save: Save }) {
   const toast = useToast();
   const fromServer = (): string[] => (Array.isArray(data.source_prefs?.priority) ? data.source_prefs.priority : []);
   const [order, setOrder] = useState<string[]>(fromServer);
@@ -270,15 +412,13 @@ function SourceOrderSection({ data, save }: { data: any; save: Save }) {
   };
 
   return (
-    <Section id="source-order" title={tr('Source order')} icon={<IcRefresh width={18} height={18} />}>
-      <p className="py-3 max-w-prose text-[11px] leading-relaxed text-fog-500">
-        {tr('When a series follows more than one source, a new chapter is taken from the highest one here that has it, after your scanlation group preferences. Chapters you already have are never replaced because of it. A series can have its own order in its Sources & translations.')}
-      </p>
+    <Block id="source-order" title={tr('Source order')}
+      description={tr('When a series follows more than one source, a new chapter is taken from the highest one here that has it, after your scanlation group preferences. Chapters you already have are never replaced because of it. A series can have its own order in its Sources & translations.')}>
       {rows.length === 0 && (
-        <p className="pb-3 text-[11px] text-fog-500">{tr('No order set: each series prefers the source it was added from.')}</p>
+        <p className="mt-2 text-[11px] text-fog-500">{tr('No order set: each series prefers the source it was added from.')}</p>
       )}
       {rows.length > 0 && (
-        <ol className="space-y-1 pb-3">
+        <ol className="mt-2 space-y-1">
           {rows.map((r, i) => (
             <li key={r.id} className="flex items-center gap-2 rounded-lg bg-ink-900/60 px-3 py-2">
               <span className="w-5 shrink-0 text-[11px] tabular-nums text-fog-500">{i + 1}</span>
@@ -298,7 +438,7 @@ function SourceOrderSection({ data, save }: { data: any; save: Save }) {
         </ol>
       )}
       {rest.length > 0 && (
-        <div className="pb-3">
+        <div className="mt-3">
           <p className="mb-1.5 text-[11px] text-fog-500">{tr('Add a source to the order')}</p>
           <div className="flex flex-wrap gap-1.5">
             {rest.map((x) => (
@@ -307,7 +447,7 @@ function SourceOrderSection({ data, save }: { data: any; save: Save }) {
           </div>
         </div>
       )}
-    </Section>
+    </Block>
   );
 }
 
@@ -350,7 +490,21 @@ function SwitchWithMore({ label, help, on, onChange, more }: {
 }
 
 /**
- * Server: the name, who may join, and the two network promises.
+ * General: the server's name. Everything that talks to the network, or decides who may join, is under Privacy & access.
+ */
+function ServerSection({ data, save }: { data: any; save: Save }) {
+  return (
+    <Section id="server" title={tr('General')} icon={<IcSettings width={18} height={18} />}>
+      {/* `required`: the server refuses an empty name (zod min(1)) with a bare 400, so an emptied box goes
+          back to the saved name on blur instead of a "Could not save" over nothing. */}
+      <TextRow label={tr('Server name')} value={data.server_name ?? ''} maxLength={64} autoComplete="off" required
+        onSave={(v) => save({ serverName: v })} />
+    </Section>
+  );
+}
+
+/**
+ * Privacy & access: who may join, and the two network promises.
  *
  * ⚠️ THE UPDATE CHECK AND THE INSTALL COUNT ARE TWO ROWS BECAUSE THEY ARE TWO DIFFERENT PROMISES. The first
  * reads a public GitHub url and tells nobody anything, which is why it may be on by default. The second
@@ -362,7 +516,7 @@ function SwitchWithMore({ label, help, on, onChange, more }: {
  * this cannot drift into being a flattering summary of something else. Written prose here would have been
  * easier and would have been the wrong shape: what an admin agrees to should be the literal object.
  */
-function ServerSection({ data, save }: { data: any; save: Save }) {
+function PrivacySection({ data, save }: { data: any; save: Save }) {
   const toast = useToast();
   const on = !!data.install_ping;
   // Uchiyomi Desktop has one person and no install count (lib/desktop.ts): no registration switch, and the
@@ -378,11 +532,7 @@ function ServerSection({ data, save }: { data: any; save: Save }) {
   });
 
   return (
-    <Section id="server" title={tr('Server')} icon={<IcSettings width={18} height={18} />}>
-      {/* `required`: the server refuses an empty name (zod min(1)) with a bare 400, so an emptied box goes
-          back to the saved name on blur instead of a "Could not save" over nothing. */}
-      <TextRow label={tr('Server name')} value={data.server_name ?? ''} maxLength={64} autoComplete="off" required
-        onSave={(v) => save({ serverName: v })} />
+    <Section id="privacy" title={tr('Privacy & access')} icon={<IcGlobe width={18} height={18} />}>
       {!desktop && (
         <SwitchRow label={tr('Open registration')} help={tr('Let anyone create their own account')}
           on={!!data.allow_registration} onChange={(next) => save({ allowRegistration: next })} />
@@ -449,9 +599,14 @@ function SchedulesSection({ data, save }: { data: any; save: Save }) {
       <NumberRow label={tr('Library update interval (hours)')} min={1} max={168} value={data.updater_hours ?? 6}
         help={tr('How often every followed series is asked for new chapters.')}
         onSave={(n) => save({ updaterHours: n })} />
-      <NumberRow label={tr('Backup time (hour, 0–23)')} min={0} max={23} value={data.backup_hour ?? 3}
-        help={isDesktop() ? `${nightly} ${tr('If the PC is off then, it runs the next time Uchiyomi opens.')}` : nightly}
-        onSave={(n) => save({ backupHour: n })} />
+      {/* The row and its link as one divider group (the `pt-2` makes up the difference to a plain row's `py-3`).
+          Running a backup now and restoring one live on Tasks, which is where the link goes. */}
+      <div className="pt-2">
+        <NumberRow label={tr('Backup time (hour, 0–23)')} min={0} max={23} value={data.backup_hour ?? 3}
+          help={isDesktop() ? `${nightly} ${tr('If the PC is off then, it runs the next time Uchiyomi opens.')}` : nightly}
+          onSave={(n) => save({ backupHour: n })} />
+        <Link href="/admin/?tab=Tasks&section=task-backup" className="text-[11px] text-accent underline">{tr('Backups: run now or restore')}</Link>
+      </div>
       {data.extensions_configured && (
         <>
           <SwitchRow label={tr('Update extensions automatically')}
@@ -467,6 +622,17 @@ function SchedulesSection({ data, save }: { data: any; save: Save }) {
       <SwitchRow label={tr('Look for failed chapters on other sources')}
         help={tr('When a chapter cannot be saved from the sources this series follows, search the others once a day and follow the one that has it')}
         on={data.auto_follow_on_failure !== false} onChange={(next) => save({ autoFollowOnFailure: next })} />
+      {/* v0.41.0: the nightly repair. ON by default (`repair_enabled NOT NULL DEFAULT true`), which
+          `!== false` reads as: a server that does not send the key yet is a server that repairs.
+          It lives with the schedules because it is a nightly job like the backup, not library housekeeping.
+          v0.55.0: what the nightly runs, the safe repair or a whole Fix everything (NightlyModeRow below). The safe
+          repair's sentence ends "Nothing is deleted or merged without you", which a nightly Fix everything is not. */}
+      <SwitchRow label={tr('Repair the library nightly')}
+        help={nightlyModeOf(data) === 'autofix'
+          ? tr('Once a day, Fix everything runs by itself, as if you had pressed it on Health. What it did is under Health → Recent repairs.')
+          : tr('Once a day: counts pages in files never opened, replaces one- or two-page chapters when a source has a longer copy, searches other sources for missing chapter runs, retries chapters that stopped failing, and resets the Cloudflare solver when sources blame it. Nothing is deleted or merged without you.')}
+        on={data.repair_enabled !== false} onChange={(next) => save({ repairEnabled: next })} />
+      <NightlyModeRow mode={nightlyModeOf(data)} off={data.repair_enabled === false} onPick={(m) => save({ nightlyMode: m })} />
     </Section>
   );
 }
@@ -511,7 +677,7 @@ export function NightlyModeRow({ mode, off, onPick }: { mode: NightlyMode; off: 
 }
 
 /**
- * Library housekeeping: the opt-in read-chapter cleanup.
+ * Library housekeeping: the opt-in read-chapter cleanup and the Mihon reveal. (The nightly repair moved to Updates & schedules.)
  *
  * ⚠️ THE ONLY SWITCH ON THIS TAB THAT DELETES FILES, so it is the only one that does not simply toggle.
  * Turning it ON asks first, and the question carries `cleanup_read_due` from the settings endpoint: the
@@ -577,20 +743,6 @@ function HousekeepingSection({ data, save: patch }: { data: any; save: Save }) {
             {tr('Only chapters Uchiyomi downloaded itself are removed — nothing in a library you built by hand is touched. The chapter stays listed and everyone keeps their reading history; the pages are what goes. It is not downloaded again by itself; Fetch again on the series page brings it back.')}
           </p>
         </div>
-        {/* v0.41.0: the nightly repair. ON by default (`repair_enabled NOT NULL DEFAULT true`), which
-            `!== false` reads as: a server that does not send the key yet is a server that repairs.
-            ⚠️ Saved through `patch`, the section's PROP, not through the local `save` above -- that one
-            takes a success sentence as its second argument and a switch has no sentence to give it.
-            It sits in housekeeping rather than under schedules because it is library maintenance, and
-            below the delete switch because it is the one that never deletes anything. */}
-        {/* v0.55.0: what the nightly runs, the safe repair or a whole Fix everything (NightlyModeRow below). The safe
-            repair's sentence ends "Nothing is deleted or merged without you", which a nightly Fix everything is not. */}
-        <SwitchRow label={tr('Repair the library nightly')}
-          help={nightlyModeOf(data) === 'autofix'
-            ? tr('Once a day, Fix everything runs by itself, as if you had pressed it on Health. What it did is under Health → Recent repairs.')
-            : tr('Once a day: counts pages in files never opened, replaces one- or two-page chapters when a source has a longer copy, searches other sources for missing chapter runs, retries chapters that stopped failing, and resets the Cloudflare solver when sources blame it. Nothing is deleted or merged without you.')}
-          on={data.repair_enabled !== false} onChange={(next) => patch({ repairEnabled: next })} />
-        <NightlyModeRow mode={nightlyModeOf(data)} off={data.repair_enabled === false} onPick={(m) => patch({ nightlyMode: m })} />
         {/* The reveal for the cleanup above, and for a followed series nobody has fetched: without it Mihon
             counted a pruned or never-downloaded chapter as zero chapters, and told the trackers so. No
             confirmation — nothing here is deleted or written, and turning it off is exactly as reversible
@@ -741,7 +893,7 @@ function GroupChips({ label, hint, value, ordered, onChange, suggestions }: {
  * ONE write -- a block that saved on its own while the ranking was still half-typed would apply a preference
  * nobody had finished expressing.
  */
-function ScanlatorsSection({ data, save }: { data: any; save: Save }) {
+function ScanlatorsBlock({ data, save }: { data: any; save: Save }) {
   // `null` until the admin touches something, so the section shows what is stored until then. The draft is
   // kept after a save rather than cleared: clearing it would show the old values for the moment between
   // the PATCH and the refetch landing, and the button goes quiet on its own once the two agree.
@@ -762,7 +914,7 @@ function ScanlatorsSection({ data, save }: { data: any; save: Save }) {
   });
   const suggestions = known?.content ?? [];
   return (
-    <Section id="scanlators" title={tr('Scanlators')} icon={<IcFilter width={18} height={18} />}
+    <Block id="scanlators" title={tr('Scanlators')}
       description={tr('When a source lists the same chapter from more than one group, the updater takes the first group ranked here and never a blocked one. Each series can rank its own on its page; blocks made here apply to every series.')}>
       {/* One child, so the section's divide-y draws no line between the two lists. */}
       <div>
@@ -787,21 +939,6 @@ function ScanlatorsSection({ data, save }: { data: any; save: Save }) {
             disabled={!dirty} className="btn-accent px-4 py-2 text-sm disabled:opacity-50">{tr('Save scanlator defaults')}</button>
         </div>
       </div>
-      {/* Group upgrades (#81): the nightly repair's sixth step. Off by default, because it replaces files on
-          disk; the help says every rule it keeps, so switching it on is not a leap in the dark. */}
-      {/* Off by default: outbound traffic to sources that carry nothing else for a series. A series can
-          switch it for itself on its Sources & translations sheet. */}
-      <SwitchRow label={tr('Borrow chapter names from other sources')}
-        help={tr('Off by default. When a series’ own source only ever says “Chapter 12”, take the names from another source whose numbering was checked against this one — a source that numbers the chapters differently is never used, and the names go into the chapter name only, never the file. The chapter’s own source naming it later wins, and switching this off takes the borrowed names back.')}
-        on={data.borrow_names === true} onChange={(next) => save({ borrowNames: next })} />
-      {/* v0.56.0: Discover's names looked up on AniList, MangaDex and MangaUpdates, beside the other row that sends titles
-          off the server. ON by default, which `!== false` reads as: a server that does not send the key yet looks them up. */}
-      <SwitchRow label={tr('Match Discover titles online')}
-        help={tr('On by default. Titles shown in Discover are looked up on AniList, MangaDex and MangaUpdates, once each and in the background, so that a series several sources name differently shows as one card and one you already have stays hidden. Off, only the names themselves are compared and nothing is sent anywhere.')}
-        on={data.discover_lookups !== false} onChange={(next) => save({ discoverLookups: next })} />
-      <SwitchRow label={tr('Upgrade chapters to a preferred group')}
-        help={tr('Off by default. Once a night, a chapter you already have from another group is replaced when a group you rank higher releases it on a source the series follows — only files Uchiyomi downloaded itself, never with a copy that has fewer pages, never a chapter someone picked a version for by hand, and at most ten a night unless the server is told otherwise. Reading progress is kept.')}
-        on={data.group_upgrade === true} onChange={(next) => save({ groupUpgrade: next })} />
-    </Section>
+    </Block>
   );
 }

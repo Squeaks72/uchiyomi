@@ -5,6 +5,7 @@ import { readOfflineIdentity, writeOfflineIdentity, clearOfflineIdentity, Offlin
 import { deviceId, deviceName } from './device';
 import { clearShownOnce } from './shownOnce';
 import { applyReduceEffects, restoreReduceEffects } from './effects';
+import { adoptAccountPrefs, clearAccountPrefs, localOnlyPrefs } from './accountPrefs';
 import { isDesktop, serverReachableHint, untilReachable } from './desktop';
 import { t as tr } from './i18n';
 
@@ -134,6 +135,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // arrived one commit later would let the mesh, grain and vignette paint a frame on every reload with
     // Reduce effects on (#71). Both directions, so the next account on a shared device gets its own setting.
     applyReduceEffects(u.settings?.reduceEffects === true);
+    // The device switches that follow the account (lib/accountPrefs.ts): the account's value over the device's.
+    // A switch the account holds no value for yet keeps this device's and is carried up once, so a choice made
+    // before these were account settings is not lost on the first sign-in after the upgrade.
+    adoptAccountPrefs(u.settings);
+    const carry = localOnlyPrefs(u.settings);
+    if (Object.keys(carry).length) {
+      void api('/api/settings', { method: 'PUT', json: carry }).catch(() => { /* the device keeps it; the next sign-in tries again */ });
+    }
     setStatus('authed');
   };
 
@@ -176,6 +185,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // sign-in screen reduced for whoever's session happened to lapse. The account still holds the setting and
     // the next sign-in applies it, both ways.
     applyReduceEffects(false);
+    clearAccountPrefs();
     setUser(null);
     setStatus('anon');
     // Secrets the server only ever sends once are held outside React so a remount cannot destroy them.

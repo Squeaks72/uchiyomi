@@ -127,6 +127,7 @@ export function MangadexLanguages({ sources, onSaved, open: always = false }: {
       </div>
       <p className="mt-2 max-w-prose text-[10px] leading-relaxed text-fog-500">
         {tr('All MangaDex sources share one rate limit: when MangaDex asks Uchiyomi to slow down, every language waits.')}
+        {' '}{tr('Languages are a server-wide choice: they apply to everyone on this server.')}
       </p>
       {/* The question, here rather than in a dialog: this block may be inside a sheet, which a dialog would paint under. */}
       {confirm && (
@@ -197,7 +198,7 @@ export function UnstatedLanguageRow() {
   return (
     <Row htmlFor={id} status={status} id="sources-unstated-language"
       label={tr('Sites that do not say their language')}
-      help={tr('Uchiyomi takes them to be in this language, and follows a source for a series automatically only when both are in the same language.')}>
+      help={`${tr('Uchiyomi takes them to be in this language, and follows a source for a series automatically only when both are in the same language.')} ${tr('This is a server-wide setting.')}`}>
       <select id={id} value={value} onChange={(e) => pick(e.target.value)} className="field w-auto">
         {codes.map((c) => <option key={c} value={c}>{languageName(c)}</option>)}
       </select>

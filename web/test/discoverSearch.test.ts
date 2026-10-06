@@ -163,7 +163,7 @@ test('the 18+ filter: three chips in search mode, sent and keyed, and an 18+ mar
   assert.match(src, /queryKey: \['search-all', term, selected, ratingAsked, adultOn\]/, 'the rating is not in the key');
   assert.match(src, /const rated = ratingAsked === 'all' \? '' : `&rating=\$\{ratingAsked\}`;/, 'the rating is not sent');
   assert.match(src, /\{mode === 'search' && offerRating && \(/, 'the chips are not gated on search mode and offerRating');
-  assert.match(src, /\(\[\['all', tr\('All'\)\], \['safe', tr\('Hide 18\+'\)\], \['adult', tr\('18\+ only'\)\]\] as const\)\.map/, 'the three chips are gone');
+  assert.match(src, /\(\[\['all', tr\('All'\)\], \['safe', tr\('No 18\+'\)\], \['adult', tr\('18\+ only'\)\]\] as const\)\.map/, 'the three chips are gone');
   assert.match(src, /aria-pressed=\{rating === key\}/, 'the chips do not say which is on');
   assert.match(src, /\.\.\.\(g\.rating === 'adult' \? \{ rating: 'adult' as const \} : \{\}\)/, 'a card does not carry its rating to the wall');
   const card = code(read('components/cards.tsx'));
@@ -182,7 +182,7 @@ test('every string the search renders is in all eight locale files', () => {
   // page instead. Reintroduce by deleting any one of the four v0.40.0 keys from public/locales/ar.json.
   const keys = trKeys([PAGE]);
   for (const k of ['{n} of {m} sources answered · still asking {names}', '{n} of {m} sources answered · still asking {name}', 'and {n} more', 'and 1 more',
-    'Hide 18+', '18+ only', '18+ filter']) {
+    'No 18+', '18+ only', 'Results']) {
     assert.ok(keys.has(k), `"${k}" is no longer rendered by the page -- the scan or the page changed`);
   }
   const locales = readdirSync(join(ROOT, 'public/locales')).filter((f) => f.endsWith('.json'));

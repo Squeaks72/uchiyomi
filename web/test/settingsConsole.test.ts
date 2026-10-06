@@ -390,8 +390,8 @@ test('scanlators keep one Save', () => {
   // the tab -- and it is quiet until something changed. Reintroduce by adding a second `btn-accent` to the
   // section, or by dropping `disabled={!dirty}`.
   const src = code(read('components/AdminSettings.tsx'));
-  const section = src.slice(src.indexOf('function ScanlatorsSection('));
-  assert.ok(section.length > 0, 'no ScanlatorsSection');
+  const section = src.slice(src.indexOf('function ScanlatorsBlock('));
+  assert.ok(section.length > 0, 'no ScanlatorsBlock');
   assert.equal((section.match(/btn-accent/g) ?? []).length, 1, 'the scanlators section has more than one accent button');
   assert.match(section, /disabled=\{!dirty\}/, 'the Save is not dirty-tracked');
   assert.match(section, /\{tr\('Save scanlator defaults'\)\}/, 'the Save is not the scanlator one');
@@ -407,17 +407,17 @@ test('the install-count disclosure opens with the switch and is open while count
   // the docs quote. Reintroduce by `defaultOpen={false}`: an admin who is being counted opens the tab to a
   // closed drawer.
   const src = code(read('components/AdminSettings.tsx'));
-  const section = src.slice(src.indexOf('function ServerSection('), src.indexOf('function SchedulesSection('));
-  assert.ok(section.length > 0, 'no ServerSection');
+  const section = src.slice(src.indexOf('function PrivacySection('), src.indexOf('function SchedulesSection('));
+  assert.ok(section.length > 0, 'no PrivacySection');
   assert.match(section, /<Disclosure key=\{on \? 'counting' : 'not-counting'\} defaultOpen=\{on\}/, 'the disclosure is not open while counting, or does not reopen when the switch lands');
   assert.match(section, /label=\{on \? tr\('What is sent, once a day'\) : tr\('What would be sent, once a day'\)\}/, 'the disclosure labels changed');
   // The payload and the three promises are inside it, unchanged.
   const drawer = section.slice(section.indexOf("<Disclosure key={on ? 'counting'"), section.indexOf('</Disclosure>', section.indexOf("<Disclosure key={on ? 'counting'")));
   assert.match(drawer, /<code>\{`POST \$\{preview\.url\}\\n\$\{JSON\.stringify\(preview\.payload, null, 2\)\}`\}<\/code>/, 'the payload is described rather than shown');
   assert.equal((drawer.match(/<li>\{tr\('/g) ?? []).length, 3, 'the three promises are not all inside the disclosure');
-  // Server is the first section in the DOM: run.mjs reads the first 4000 characters of body text for it.
+  // General (was Server) is the first section in the DOM: run.mjs reads the first 4000 characters of body text for it.
   const grid = src.slice(src.indexOf('<div className={SETTINGS_GRID}>', src.indexOf('return (\n    <div className={SETTINGS_GRID}>')));
-  assert.match(grid, /<ServerSection [^\n]*\/>\s*<SchedulesSection [^\n]*\/>\s*<HousekeepingSection [^\n]*\/>\s*<ScanlatorsSection /, 'the sections are not in the order Server, Updates & schedules, Library housekeeping, Scanlators');
+  assert.match(grid, /<ServerSection [^\n]*\/>\s*<PrivacySection [^\n]*\/>\s*<SchedulesSection [^\n]*\/>\s*<HousekeepingSection [^\n]*\/>\s*<ChaptersSection /, 'the sections are not in the order General, Privacy & access, Updates & schedules, Library housekeeping, Chapters & naming');
 });
 
 // ---- fixer X2 (review R1/R2): keyboard focus on Connections, the dialogs, the phone pills, 2FA state ----
@@ -631,7 +631,7 @@ test('Admin → Settings notes are readable and its group inputs are named', () 
   assert.doesNotMatch(house, /text-fog-600/, 'a housekeeping note is below AA');
   assert.match(house, /text-\[11px\] leading-relaxed text-fog-400">\s*\{cur === 0/, 'the line that says what the number means is not fog-400');
   assert.match(house, /<p className="mt-1 max-w-prose text-\[11px\] leading-relaxed text-fog-500">\s*\{tr\('Only chapters Uchiyomi downloaded itself/, 'the line that says what is spared is not fog-500');
-  const chips = src.slice(src.indexOf('function GroupChips('), src.indexOf('function ScanlatorsSection('));
+  const chips = src.slice(src.indexOf('function GroupChips('), src.indexOf('function ScanlatorsBlock('));
   assert.ok(chips.length > 0, 'no GroupChips');
   assert.match(chips, /<input\s*value=\{draft\}\s*aria-label=\{label\}/, 'the group input has no accessible name');
   assert.doesNotMatch(src, /text-\[10px\]/, 'text under 11 px is back on Admin → Settings');
@@ -644,7 +644,7 @@ test('Admin → Settings → Downloads comes after the pinned sections, and save
   // ends go together because the server refuses one alone. Reintroduce `save({ archivePaused: next })`: "the
   // switch pauses the archive when it is turned on" fails; save one end alone: "one end of the window".
   const grid = code(read('components/AdminSettings.tsx'));
-  assert.match(grid, /<ScanlatorsSection [^\n]*\/>\s*\{\}\s*<NotificationsSection \/>\s*\{\}\s*<DownloadsSection data=\{data\} save=\{save\} \/>/,
+  assert.match(grid, /<ChaptersSection [^\n]*\/>\s*\{\}\s*<NotificationsSection \/>\s*\{\}\s*<DownloadsSection data=\{data\} save=\{save\} \/>\s*<PolitenessSection \/>/,
     'the Downloads section is not after the pinned sections');
   const src = code(read('components/ArchiveSettings.tsx'));
   assert.match(src, /<Section id="downloads" title=\{tr\('Downloads'\)\}/, 'the section is not Downloads');

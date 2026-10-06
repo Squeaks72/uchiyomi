@@ -1,4 +1,5 @@
 'use client';
+import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { canDownload, useAuth } from '@/lib/auth';
@@ -7,6 +8,7 @@ import type { Series } from '@/lib/types';
 import { useToast } from './Toast';
 import { useContextMenu, type MenuItem } from './ContextMenu';
 import { useArchiveEnqueue } from './ArchiveQueue';
+import { SeriesPropertiesSheet } from './SeriesPropertiesSheet';
 
 /**
  * A series card's menu (#100): the few things worth doing without opening the series, from wherever it is on
@@ -26,6 +28,7 @@ export function useSeriesMenu(series: Series) {
   const offline = status === 'offline';
   const href = `/series/?id=${encodeURIComponent(series.id)}`;
   const favourite = !!series.yomi?.favorite;
+  const [properties, setProperties] = useState(false);
 
   // ['collection']: a list's tiles carry the same badges since v0.55.7 (#164), and Mark all read from one of them must
   // move its count there too, not only on the Library.
@@ -51,8 +54,8 @@ export function useSeriesMenu(series: Series) {
       },
     },
     {
-      label: favourite ? tr('Remove from favourites') : tr('Favourite'), divider: true, disabled: offline,
-      onSelect: () => bulk('/api/favorites/bulk', { favorite: !favourite }, favourite ? tr('Removed from favourites') : tr('Added to favourites')),
+      label: favourite ? tr('Remove from favorites') : tr('Favorite'), divider: true, disabled: offline,
+      onSelect: () => bulk('/api/favorites/bulk', { favorite: !favourite }, favourite ? tr('Removed from favorites') : tr('Added to favorites')),
     },
     { label: tr('Mark all read'), disabled: offline, onSelect: () => bulk('/api/library/bulk/read', { completed: true }, tr('Marked read')) },
     { label: tr('Mark all unread'), disabled: offline, onSelect: () => bulk('/api/library/bulk/read', { completed: false }, tr('Marked unread')) },
@@ -70,7 +73,11 @@ export function useSeriesMenu(series: Series) {
       label: tr('Archive slowly'), divider: !isAdmin, disabled: offline,
       onSelect: () => { void archive([series.id], series.metadata?.title || series.name); },
     }] : []),
+    { label: tr('Properties…'), divider: true, onSelect: () => setProperties(true) },
   ];
 
-  return useContextMenu(items, { label: series.metadata?.title || series.name });
+  const menu = useContextMenu(items, { label: series.metadata?.title || series.name });
+  // The sheet rides on the menu's `element`, so every card that renders the menu renders it too.
+  const element = <>{menu.element}{properties && <SeriesPropertiesSheet series={series} onClose={() => setProperties(false)} />}</>;
+  return { ...menu, element };
 }

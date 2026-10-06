@@ -3,7 +3,7 @@
 // extensions from (Add sources), the actions every extension key runs, and the tools of the list.
 //
 // Built around discussion #121, a real user lost in a 1,300-extension repository: Browse is its search and language,
-// one quiet line (how many match, the repositories as a link, Show 18+ extensions), and the catalogue a page at a time.
+// one quiet line (how many match, the repositories as a link, Include 18+ extensions in this list), and the catalogue a page at a time.
 // A row says at most one state word and offers at most one key; amber is for a real problem only.
 //
 // The Installed list that was this tab's other half is Admin → Sources' Your sources since v0.54.0: one list of every
@@ -260,8 +260,8 @@ export function BrowseView({ actions, repos, adult, onAdult, onOpen, onRepos }: 
             </p>
             {/* A switch with its words, not a chip reading "18+": that read as "only 18+" (#121), and off it hides them. */}
             <label className="ms-auto flex items-center gap-2 text-fog-300" data-ext-adult>
-              <Switch on={f.adult} onChange={onAdult} label={tr('Show 18+ extensions')} />
-              <span>{tr('Show 18+ extensions')}</span>
+              <Switch on={f.adult} onChange={onAdult} label={tr('Include 18+ extensions in this list')} />
+              <span>{tr('Include 18+ extensions in this list')}</span>
             </label>
           </div>
 
@@ -324,12 +324,12 @@ function NothingFound({ f, hiddenAdult, total, onClear, onAdult }: {
       </p>
       {hiddenAdult > 0 && (
         <p className="mx-auto mt-1.5 max-w-sm text-[12px] text-fog-400" data-ext-hidden-adult>
-          {hiddenAdult === 1 ? tr('An 18+ extension matches. It is hidden while Show 18+ extensions is off.')
-            : tr('{n} 18+ extensions match. They are hidden while Show 18+ extensions is off.', { n: hiddenAdult })}
+          {hiddenAdult === 1 ? tr('An 18+ extension matches. It is hidden while “Include 18+ extensions in this list” is off.')
+            : tr('{n} 18+ extensions match. They are hidden while “Include 18+ extensions in this list” is off.', { n: hiddenAdult })}
         </p>
       )}
       <div className="mt-3 flex flex-wrap justify-center gap-2">
-        {hiddenAdult > 0 && <button type="button" onClick={onAdult} className="btn-key btn-key-primary">{tr('Show 18+ extensions')}</button>}
+        {hiddenAdult > 0 && <button type="button" onClick={onAdult} className="btn-key btn-key-primary">{tr('Include 18+ extensions in this list')}</button>}
         {narrowed(f) && <button type="button" onClick={onClear} className="btn-key">{tr('Clear filters')}</button>}
       </div>
     </div>

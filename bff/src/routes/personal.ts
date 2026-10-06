@@ -18,6 +18,7 @@ import { statusFor, saveConnection, disconnect, whoAmI, pushSeriesProgress, push
 import { ADAPTERS, isProvider, type Provider } from '../lib/trackerProviders';
 import { logAudit } from '../lib/audit';
 import { noticeBook } from '../lib/noticeChapters';
+import { settingsBody } from '../lib/accountSettings';
 
 function computeStreaks(days: string[]): { current: number; longest: number } {
   if (!days.length) return { current: 0, longest: 0 };
@@ -861,8 +862,16 @@ export default async function personalRoutes(app: FastifyInstance) {
   app.put('/api/settings', async (req, reply) => {
     const uid = userIdOf(req);
     // zod 4 requires a key schema as well as a value schema; z.record(valueOnly) was a v3 signature.
-    const body = z.record(z.string(), z.any()).safeParse(req.body ?? {});
-    if (!body.success) return reply.code(400).send({ error: 'bad_settings', message: 'Settings must be an object.' });
+    // The device switches that follow the account must be booleans (lib/accountSettings.ts); the rest is free-form.
+    const body = settingsBody.safeParse(req.body ?? {});
+    if (!body.success) {
+      // A rejected device switch names the key, the shape the fork's clients already expect from .parse(); a body
+      // that is not an object at all has no key to name. Answered here rather than thrown because this route is
+      // registered bare in tests, without server.ts's ZodError handler, where a throw would surface as a 500.
+      const fields = body.error.issues.map((i) => i.path.join('.')).filter(Boolean);
+      if (fields.length) return reply.code(400).send({ error: 'bad_request', fields });
+      return reply.code(400).send({ error: 'bad_settings', message: 'Settings must be an object.' });
+    }
     const data = body.data;
     // Most of this object intentionally remains forwards-compatible: old servers must retain settings written
     // by a newer web client.  The settings that alter navigation or name database rows are stricter, though.

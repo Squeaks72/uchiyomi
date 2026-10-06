@@ -6,6 +6,7 @@ import { IcX } from './icons';
 import { Switch } from './Switch';
 import { t as tr } from '@/lib/i18n';
 import { useLayer } from '@/lib/layers';
+import { LinkRow } from './settings';
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -18,6 +19,17 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   );
 }
 
+/** A group's heading with the one line that says what the group is: which settings belong to this series and
+ *  which are everyone's (the audit found people could not tell). */
+function Group({ title, help }: { title: string; help: string }) {
+  return (
+    <div className="mt-3 border-t border-ink-700 pt-3 first:mt-0 first:border-t-0 first:pt-0">
+      <h4 className="text-xs font-semibold uppercase tracking-wide text-fog-300">{title}</h4>
+      <p className="mt-1 text-[11px] leading-snug text-fog-500">{help}</p>
+    </div>
+  );
+}
+
 export function ReaderSettings({
   prefs,
   set,
@@ -25,6 +37,8 @@ export function ReaderSettings({
   sourceName,
   sourceDefault,
   onSourceDefault,
+  seriesPinned,
+  onResetSeries,
 }: {
   prefs: ReaderPrefs;
   set: (p: Partial<ReaderPrefs>) => void;
@@ -35,6 +49,10 @@ export function ReaderSettings({
   sourceDefault?: boolean;
   /** Save the current mode/theme/spread as that source's default, or clear it when `false` is passed. */
   onSourceDefault?: (save: boolean) => void;
+  /** Whether this series holds a look of its own, which decides whether the reset button is offered. */
+  seriesPinned?: boolean;
+  /** Forget this series' own look so it follows its source and the profile again. */
+  onResetSeries?: () => void;
 }) {
   // A sheet on the notices' layer stack (lib/layers.ts). It runs to the bottom edge, so it does not leave the
   // nav band free -- the reader has no nav there anyway -- and its panel is measured, so a notice rises above
@@ -62,7 +80,9 @@ export function ReaderSettings({
           <button onClick={onClose} className="text-fog-500"><IcX width={20} height={20} /></button>
         </div>
 
-        <Row label={tr('Mode')}>
+        <Group title={tr('Saved for this series')} help={tr('Reading mode, page tone, pages per view and direction are remembered for this series only.')} />
+
+        <Row label={tr('Reading mode')}>
           <div className="grid grid-cols-2 gap-2">
             {(['vertical', 'paged'] as const).map((m) => (
               <button
@@ -76,7 +96,7 @@ export function ReaderSettings({
           </div>
         </Row>
 
-        <Row label={tr('Theme')}>
+        <Row label={tr('Page tone')}>
           <div className="grid grid-cols-3 gap-2">
             {(['amoled', 'sepia', 'gray'] as const).map((t) => (
               <button key={t} onClick={() => set({ theme: t })}
@@ -85,19 +105,6 @@ export function ReaderSettings({
               </button>
             ))}
           </div>
-        </Row>
-
-        {/* #170: the cover's colour across the top and bottom of the screen. A switch on one line, the only boolean here:
-            on by default, and the same setting as Profile → Settings → Reading -- every title, not this one. */}
-        <div className="flex items-center justify-between gap-3 py-3">
-          <span className="text-sm font-medium text-fog-200">{tr('Cover colour at the edges')}</span>
-          <Switch on={prefs.coverEdges} onChange={(coverEdges) => set({ coverEdges })} label={tr('Cover colour at the edges')} />
-        </div>
-
-        <Row label={`${tr('Brightness')} · ${Math.round(prefs.brightness * 100)}%`}>
-          <input type="range" min={0.25} max={1} step={0.05} value={prefs.brightness}
-            onChange={(e) => set({ brightness: Number(e.target.value) })}
-            className="w-full accent-[rgb(var(--accent))]" />
         </Row>
 
         {prefs.mode === 'paged' && (
@@ -114,13 +121,59 @@ export function ReaderSettings({
         {prefs.mode === 'paged' && (
           <Row label={tr('Reading direction')}>
             <div className="grid grid-cols-3 gap-2">
-              {([['series', tr('Series default')], ['ltr', tr('Left to right')], ['rtl', tr('Right to left')]] as const).map(([v, label]) => (
+              {([['series', tr('Follow the series')], ['ltr', tr('Left to right')], ['rtl', tr('Right to left')]] as const).map(([v, label]) => (
                 <button key={v} onClick={() => set({ pagedDirection: v })}
                   className={`rounded-2xl border px-1 py-3 text-sm ${prefs.pagedDirection === v ? 'border-accent bg-accent-soft text-accent' : 'border-ink-700 text-fog-300'}`}>{label}</button>
               ))}
             </div>
           </Row>
         )}
+
+        {onResetSeries && seriesPinned && (
+          <div className="pb-1 pt-1">
+            <button onClick={onResetSeries}
+              className="w-full rounded-2xl border border-ink-700 py-2 text-xs text-fog-500">
+              {tr('Reset this series to my defaults')}
+            </button>
+          </div>
+        )}
+
+        {/*
+          One source is a good proxy for one FORMAT: a webtoon source wants continuous vertical scroll, a
+          manga source wants paged right-to-left. Pinning the current look to the source fixes every title
+          from it at once, instead of the global default being wrong for half the library or each series
+          having to be corrected by hand. A series you have already adjusted still wins over this.
+        */}
+        {sourceName && onSourceDefault && (
+          <Row label={tr('This source')}>
+            <div className="grid gap-2">
+              <button onClick={() => onSourceDefault(true)}
+                className="rounded-2xl border border-ink-700 py-3 text-sm text-fog-300">
+                {tr('Use this reader for everything from {source}', { source: sourceName })}
+              </button>
+              {sourceDefault && (
+                <button onClick={() => onSourceDefault(false)}
+                  className="rounded-2xl border border-ink-700 py-2 text-xs text-fog-500">
+                  {tr('Forget the default for {source}', { source: sourceName })}
+                </button>
+              )}
+            </div>
+          </Row>
+        )}
+        <Group title={tr('Reader defaults')} help={tr('These apply to every series. A source or a series can keep its own look.')} />
+
+        <Row label={`${tr('Brightness')} · ${Math.round(prefs.brightness * 100)}%`}>
+          <input type="range" min={0.25} max={1} step={0.05} value={prefs.brightness}
+            onChange={(e) => set({ brightness: Number(e.target.value) })}
+            className="w-full accent-[rgb(var(--accent))]" />
+        </Row>
+
+        {/* #170: the cover's colour across the top and bottom of the screen. A switch on one line, the only boolean here:
+            on by default, and the same setting as Profile → Settings → Reading -- every title, not this one. */}
+        <div className="flex items-center justify-between gap-3 py-3">
+          <span className="text-sm font-medium text-fog-200">{tr('Cover colour at the edges')}</span>
+          <Switch on={prefs.coverEdges} onChange={(coverEdges) => set({ coverEdges })} label={tr('Cover colour at the edges')} />
+        </div>
 
         {/* Set in both modes. ⚠️ It cannot LOOK the same in both: a page-by-page view has no thin slide --
             every slide is exactly one viewport wide -- so under Collapse a repeated page is shown there like
@@ -155,7 +208,7 @@ export function ReaderSettings({
           </>
         )}
 
-        <Row label={tr('Fit')}>
+        <Row label={tr('Page size')}>
           <div className="grid grid-cols-2 gap-2">
             <button onClick={() => set({ fitWidth: true })}
               className={`rounded-2xl border py-3 text-sm ${prefs.fitWidth ? 'border-accent bg-accent-soft text-accent' : 'border-ink-700 text-fog-300'}`}>{tr('Fit width')}</button>
@@ -164,28 +217,7 @@ export function ReaderSettings({
           </div>
         </Row>
 
-        {/*
-          One source is a good proxy for one FORMAT: a webtoon source wants continuous vertical scroll, a
-          manga source wants paged right-to-left. Pinning the current look to the source fixes every title
-          from it at once, instead of the global default being wrong for half the library or each series
-          having to be corrected by hand. A series you have already adjusted still wins over this.
-        */}
-        {sourceName && onSourceDefault && (
-          <Row label={tr('This source')}>
-            <div className="grid gap-2">
-              <button onClick={() => onSourceDefault(true)}
-                className="rounded-2xl border border-ink-700 py-3 text-sm text-fog-300">
-                {tr('Use this reader for everything from {source}', { source: sourceName })}
-              </button>
-              {sourceDefault && (
-                <button onClick={() => onSourceDefault(false)}
-                  className="rounded-2xl border border-ink-700 py-2 text-xs text-fog-500">
-                  {tr('Forget the default for {source}', { source: sourceName })}
-                </button>
-              )}
-            </div>
-          </Row>
-        )}
+        <LinkRow href="/profile/?tab=Settings&section=reading" label={tr('Reader defaults → Settings')} help={tr('Set them for every device under Profile → Settings → Reading.')} />
       </motion.div>
     </motion.div>
   );
