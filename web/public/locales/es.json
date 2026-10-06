@@ -2,7 +2,7 @@
   "_meta": {
     "language": "es",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 3818
+    "strings": 3819
   },
   "1 check found something": "1 comprobación encontró algo",
   "1 member": "1 miembro",
@@ -3821,5 +3821,6 @@
   "Hides the extra chapters (notices and strays numbered 0 or like 12.5) again.": "Vuelve a ocultar los capítulos extra (avisos y sueltos numerados 0 o como 12.5).",
   "Title copied": "Título copiado",
   "Could not copy the title": "No se pudo copiar el título",
-  "Search all sources for this title": "Buscar este título en todas las fuentes"
+  "Search all sources for this title": "Buscar este título en todas las fuentes",
+  "Add another edition": "Añadir otra edición"
 }

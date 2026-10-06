@@ -8,7 +8,7 @@ import { codeLabel, libraryCaption } from '@/lib/editions';
 import { deviceId, shownDeviceName } from '@/lib/device';
 import { coverTriplet } from '@/lib/theme';
 import { Img, ProgressBar } from './ui';
-import { IcHeart, IcPlay, IcPlus, IcWifiOff } from './icons';
+import { IcStar, IcPlay, IcPlus, IcWifiOff } from './icons';
 import { SourceIcon } from './SourcePicker';
 import { iconStack, type StackSource } from '@/lib/sourceGroups';
 import { useOfflineSeries } from '@/lib/useOfflineSeries';
@@ -100,7 +100,7 @@ export function SeriesCard({ series, w = 'w-32', eager = false }: { series: Seri
         <div aria-hidden className="pointer-events-none absolute inset-0 z-10" style={tilt.glare} />
         {series.yomi?.favorite && (
           <span className="absolute left-2 top-2 z-10 rounded-full bg-black/55 p-1.5 text-accent backdrop-blur">
-            <IcHeart width={14} height={14} fill="currentColor" stroke="none" />
+            <IcStar width={14} height={14} fill="currentColor" stroke="none" data-favorite-star />
             <span className="sr-only">{tr('Favorite')}</span>
           </span>
         )}
@@ -203,7 +203,7 @@ export function SeriesTile({ series, eager = false, selectable, selected, onTogg
         )}
         {series.yomi?.favorite && (
           <span className="absolute left-1.5 top-1.5 z-10 rounded-full bg-black/55 p-1 text-accent backdrop-blur">
-            <IcHeart width={12} height={12} fill="currentColor" stroke="none" />
+            <IcStar width={13} height={13} fill="currentColor" stroke="none" data-favorite-star />
             <span className="sr-only">{tr('Favorite')}</span>
           </span>
         )}
@@ -283,6 +283,8 @@ export interface SourceItem {
   libraryLangs?: string[];
   /** The language the source declares, null when it says nothing (v0.52.0): the add dialog's language chip. */
   lang?: string | null;
+  /** Held, but not in every provider's language: a click opens the entry, the menu still offers another edition. */
+  moreEditions?: boolean;
   /** A search result known to be 18+ (v0.55.4, #158): the small "18+" mark on its cover. */
   rating?: 'adult' | 'safe';
   /**
@@ -325,7 +327,7 @@ export function SourceCard({ item, providers, onAdd, onSearch, eager }: {
   const stackId = useId();
   const libraryHref = owned && item.librarySeriesId ? `/series/?id=${encodeURIComponent(item.librarySeriesId)}` : undefined;
   // Right-click, press-and-hold or Shift+F10, as on a library card (components/DiscoverMenu.tsx).
-  const menu = useDiscoverMenu({ title: item.title, libraryHref, onAdd: owned ? undefined : onAdd, onSearch });
+  const menu = useDiscoverMenu({ title: item.title, libraryHref, onAdd: !owned || item.moreEditions ? onAdd : undefined, addLabel: owned ? tr('Add another edition') : undefined, onSearch });
   // An owned title opens its entry in the library; adding it again would only say "already there".
   const rootCls = 'group block w-full text-start disabled:cursor-default';
   const body = (

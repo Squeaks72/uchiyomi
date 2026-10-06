@@ -298,8 +298,11 @@ export default function DiscoverPage() {
     return [{
       source: pick.source ?? '', sourceId: pick.sourceId ?? g.title,
       title: g.title, coverUrl: g.coverUrl, updatedAt: g.updatedAt,
-      inLibrary: g.inLibrary, librarySeriesId: g.librarySeriesId,
+      // Held when the library has the title in ANY provider's language, so a click opens that entry (a Spanish source
+      // in the same search no longer makes it an add); `moreEditions` keeps "add another edition" in the card's menu.
+      inLibrary: !!g.inLibrary || g.providers.some((p) => p.inLibrary), librarySeriesId: g.librarySeriesId,
       ...(g.work ? { work: g.work } : {}),
+      ...(!g.inLibrary && g.providers.some((p) => p.inLibrary) ? { moreEditions: true } : {}),
       ...(g.libraryLangs ? { libraryLangs: g.libraryLangs } : {}), ...(pick.lang !== undefined ? { lang: pick.lang } : {}),
       ...(g.rating === 'adult' ? { rating: 'adult' as const } : {}),
     }];
@@ -399,11 +402,11 @@ export default function DiscoverPage() {
   // A card's menu: search every source for its title, as if it had been typed and submitted.
   const searchFor = (title: string) => { setQ(title); setMode('search'); setTerm(title.trim()); };
 
-  const open = (it: SourceItem) => {
+  const open = (it: SourceItem, edition = false) => {
     const key = workKey(it);
     // Only a card held in every provider's language is done with (v0.52.0): one held in another language opens the
     // dialog, which offers the new language as an edition and says which the library has.
-    if (it.inLibrary || shownAdded.has(key)) return;
+    if ((it.inLibrary && !(edition && it.moreEditions)) || shownAdded.has(key)) return;
     // What the library holds of this title, for the dialog's "In your library in English" and its edition block.
     const library = it.librarySeriesId && it.libraryLangs?.length ? { seriesId: it.librarySeriesId, langs: it.libraryLangs } : undefined;
     // Every provider behind the card: the wall's fold, or the search's groups -- both keyed by work.
@@ -654,7 +657,7 @@ export default function DiscoverPage() {
         {wall.items.map((it, i) => (
           <SourceCard key={`${it.source}:${it.sourceId}`} item={{ ...it, inLibrary: it.inLibrary || shownAdded.has(workKey(it)) }}
             providers={stackOf(it)}
-            onAdd={() => open(it)} onSearch={searchFor} eager={i < 12} />
+            onAdd={() => open(it, true)} onSearch={searchFor} eager={i < 12} />
         ))}
         {pending > 0 && <span role="status" className="sr-only">{tr('Loading…')}</span>}
         {Array.from({ length: Math.min(18, pending * 6) }).map((_, i) => (
