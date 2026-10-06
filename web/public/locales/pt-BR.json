@@ -3868,5 +3868,7 @@
   "Saved on this device": "Salvo neste dispositivo",
   "Fetch and read": "Buscar e ler",
   "Fetching the chapter to read it…": "Buscando o capítulo para lê-lo…",
-  "Fetched, but the chapter is not listed yet": "Buscado, mas o capítulo ainda não está listado"
+  "Fetched, but the chapter is not listed yet": "Buscado, mas o capítulo ainda não está listado",
+  "Remove this chapter from the series?": "Remover este capítulo da série?",
+  "Deletes the files from the server. The chapters stay listed and can be fetched again.": "Exclui os arquivos do servidor. Os capítulos continuam listados e podem ser buscados de novo."
 }

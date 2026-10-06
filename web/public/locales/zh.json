@@ -3868,5 +3868,7 @@
   "Saved on this device": "已保存到此设备",
   "Fetch and read": "获取并阅读",
   "Fetching the chapter to read it…": "正在获取章节以供阅读…",
-  "Fetched, but the chapter is not listed yet": "已获取，但章节尚未列出"
+  "Fetched, but the chapter is not listed yet": "已获取，但章节尚未列出",
+  "Remove this chapter from the series?": "要从系列中移除此章节吗？",
+  "Deletes the files from the server. The chapters stay listed and can be fetched again.": "从服务器删除文件。章节仍会列出，可以再次获取。"
 }

@@ -3868,5 +3868,7 @@
   "Saved on this device": "このデバイスに保存済み",
   "Fetch and read": "取得して読む",
   "Fetching the chapter to read it…": "読むために章を取得しています…",
-  "Fetched, but the chapter is not listed yet": "取得しましたが、章はまだ一覧にありません"
+  "Fetched, but the chapter is not listed yet": "取得しましたが、章はまだ一覧にありません",
+  "Remove this chapter from the series?": "この章をシリーズから削除しますか？",
+  "Deletes the files from the server. The chapters stay listed and can be fetched again.": "ファイルをサーバーから削除します。章は一覧に残り、再取得できます。"
 }

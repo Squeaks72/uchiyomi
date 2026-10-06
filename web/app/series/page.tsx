@@ -447,7 +447,7 @@ function ChapterRow({ book, downloaded, sourceNames, primarySource, versions, on
     ...(onCopyPath ? [{ label: tr('Copy file path'), divider: !onEdit, onSelect: onCopyPath }] : []),
     // The only way to drop a saved copy: the ✓ on the row is a status, never a button, so a stray click cannot undo it.
     ...(downloaded && !isDesktop() ? [{ label: tr('Remove from this device'), divider: true, onSelect: () => { void onToggleDownload().catch(() => {}); } }] : []),
-    ...(onRemove ? [{ label: tr('Remove from library'), divider: true, danger: true, onSelect: onRemove }] : []),
+    ...(onRemove ? [{ label: tr('Remove from series'), divider: true, danger: true, onSelect: onRemove }] : []),
   ], { label: tr('Chapter actions') });
   // Only a name is shown; an id that resolves to nothing (a source since removed) shows no caption at all.
   const altSource = book.sourceId && book.sourceId !== primarySource ? (sourceNames?.[book.sourceId] ?? null) : null;
@@ -499,7 +499,7 @@ function ChapterRow({ book, downloaded, sourceNames, primarySource, versions, on
       {book.metadata?.releaseDate && <RowDate iso={book.metadata.releaseDate} />}
       {!selectable && <ButtonsWrap compact={!!compact} menuOpen={menu.open}>
       {fresh && (
-        <span role="img" aria-label={tr('Fetched')} data-fetched
+        <span role="img" aria-label={tr('Fetched')} title={`${tr('Fetched')}: ${tr('Fetch brings a chapter onto the server for everyone.')}`} data-fetched
           className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-emerald-400/50 text-emerald-400">
           <IcCheck width={16} height={16} />
         </span>
@@ -520,6 +520,7 @@ function ChapterRow({ book, downloaded, sourceNames, primarySource, versions, on
         // "Save offline", not "Download": the ☁ on a ghost row brings a chapter onto the server, this arrow
         // copies one to this device, and one word for both promised the wrong thing on one of them.
         aria-label={downloaded ? tr('Saved on this device') : tr('Save offline')}
+        title={downloaded ? tr('Saved on this device') : `${tr('Save offline')}: ${tr('Save offline copies it to this device.')}`}
       >
         {busy ? <span className="text-[11px] font-semibold text-accent">…</span> : downloaded ? <IcCheck width={16} height={16} /> : <IcDownload width={16} height={16} />}
       </button>}
@@ -595,7 +596,7 @@ function GhostRow({ ghost, sourceNames, primarySource, selectable, selected, onT
   // The one action that applies to a chapter that is not here, on the same menu as a chapter row's (#100).
   const menu = useContextMenu(() => (onMark ? [
     { label: read ? tr('Mark unread') : tr('Mark read'), onSelect: () => onMark(!read) },
-    ...(onRemove ? [{ label: tr('Remove from library'), divider: true, danger: true, onSelect: onRemove }] : []),
+    ...(onRemove ? [{ label: tr('Remove from series'), divider: true, danger: true, onSelect: onRemove }] : []),
   ] : []), { label: tr('Chapter actions') });
   const menuBind = onMark && !selectable ? menu.bind : {};
   const label = whyLabel(ghost, { wholeHere });
@@ -643,7 +644,7 @@ function GhostRow({ ghost, sourceNames, primarySource, selectable, selected, onT
       {/* The cloud, not the ⬇ of the row above: that arrow saves a chapter to THIS DEVICE, this one brings
           it onto the server, and the same glyph for both would promise the wrong thing on one of them. */}
       {onFetch && !selectable && (
-        <button type="button" aria-label={fetching ? tr('Fetching…') : tr('Fetch')} disabled={busy || fetching} aria-busy={fetching || undefined}
+        <button type="button" aria-label={fetching ? tr('Fetching…') : tr('Fetch')} title={`${tr('Fetch')}: ${tr('Fetch brings a chapter onto the server for everyone.')}`} disabled={busy || fetching} aria-busy={fetching || undefined}
           data-fetching={fetching ? '' : undefined}
           onClick={async () => {
             if (busy) return;
@@ -1992,8 +1993,8 @@ function SeriesInner() {
         <button disabled={acting || !pickedCount} onClick={() => bulkMark(true)} className="chip text-xs disabled:opacity-50">{tr('Mark read')}</button>
         <button disabled={acting || !pickedCount} onClick={() => bulkMark(false)} className="chip text-xs disabled:opacity-50">{tr('Mark unread')}</button>
         {/* The two icons say which side each acts on: ⬇ this device, ☁ the server. */}
-        {!isDesktop() && <button disabled={acting || !saveable.length} onClick={bulkSave} className="chip text-xs disabled:opacity-50"><IcDownload width={14} height={14} />{tr('Save offline')}</button>}
-        {canDownload(user) && <button disabled={acting || !fetchable.length} onClick={bulkFetch} className="chip text-xs disabled:opacity-50"><IcCloudDownload width={14} height={14} />{tr('Fetch')}</button>}
+        {!isDesktop() && <button disabled={acting || !saveable.length} onClick={bulkSave} title={tr('Save offline copies it to this device.')} className="chip text-xs disabled:opacity-50"><IcDownload width={14} height={14} />{tr('Save offline')}</button>}
+        {canDownload(user) && <button disabled={acting || !fetchable.length} onClick={bulkFetch} title={tr('Fetch brings a chapter onto the server for everyone.')} className="chip text-xs disabled:opacity-50"><IcCloudDownload width={14} height={14} />{tr('Fetch')}</button>}
         {isAdmin && <button disabled={acting || !refetchable.length} onClick={() => setConfirming('refetch')} className="chip text-xs disabled:opacity-50"><IcCloudDownload width={14} height={14} />{tr('Fetch again')}</button>}
         {isAdmin && (
           <button disabled={acting || !pickedCount} onClick={() => setConfirming('purge')} data-remove-from-series
@@ -2002,7 +2003,7 @@ function SeriesInner() {
           </button>
         )}
         {isAdmin && (
-          <button disabled={acting || !deletable.length} onClick={() => setConfirming('delete')} data-remove-chapters className="chip text-xs text-rose-300 disabled:opacity-50">
+          <button disabled={acting || !deletable.length} onClick={() => setConfirming('delete')} data-remove-chapters title={tr('Deletes the files from the server. The chapters stay listed and can be fetched again.')} className="chip text-xs text-rose-300 disabled:opacity-50">
             {deletable.length === 1 ? tr('Remove 1 chapter') : deletable.length ? tr('Remove {n} chapters', { n: deletable.length }) : tr('Remove chapters')}
           </button>
         )}
@@ -2230,7 +2231,7 @@ function SeriesInner() {
       {Toolbar}
       {removing != null && (
         <ConfirmDialog
-          title={tr('Remove this chapter from the library?')}
+          title={tr('Remove this chapter from the series?')}
           danger
           busy={acting}
           confirmLabel={tr('Remove')}

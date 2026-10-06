@@ -3868,5 +3868,7 @@
   "Saved on this device": "Сохранено на этом устройстве",
   "Fetch and read": "Загрузить и читать",
   "Fetching the chapter to read it…": "Загрузка главы для чтения…",
-  "Fetched, but the chapter is not listed yet": "Загружено, но глава ещё не появилась в списке"
+  "Fetched, but the chapter is not listed yet": "Загружено, но глава ещё не появилась в списке",
+  "Remove this chapter from the series?": "Убрать эту главу из серии?",
+  "Deletes the files from the server. The chapters stay listed and can be fetched again.": "Удаляет файлы с сервера. Главы остаются в списке, их можно загрузить снова."
 }
