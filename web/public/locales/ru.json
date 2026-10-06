@@ -2,7 +2,7 @@
   "_meta": {
     "language": "ru",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 3865
+    "strings": 3890
   },
   "1 check found something": "1 проверка нашла проблему",
   "1 member": "1 участник",
@@ -3870,5 +3870,30 @@
   "Only chapters Uchiyomi downloaded itself are removed. Chapters in a library you built by hand are never touched. The chapter stays listed and everyone keeps their reading history; only the pages go. It is not downloaded again automatically. Use Fetch again on the series page to bring it back.": "Удаляются только главы, которые Uchiyomi скачал сам. Главы из библиотеки, собранной вручную, никогда не затрагиваются. Глава остаётся в списке, а история чтения у всех сохраняется; пропадают только страницы. Автоматически она заново не загружается. Чтобы вернуть её, нажмите «Загрузить заново» на странице серии.",
   "A chapter somebody has bookmarked, and a chapter in a library you assembled yourself, is skipped. “Removed chapters” on this page brings a removed chapter back.": "Глава, отмеченная закладкой, и глава из библиотеки, собранной вами вручную, пропускаются. «Удалённые главы» на этой странице возвращают удалённую главу.",
   "A chapter somebody has bookmarked is skipped. “Removed chapters” on this page brings a removed chapter back.": "Глава, отмеченная закладкой, пропускается. «Удалённые главы» на этой странице возвращают удалённую главу.",
-  "Removed chapters ({n})…": "Удалённые главы ({n})…"
+  "Removed chapters ({n})…": "Удалённые главы ({n})…",
+  "A chapter somebody has bookmarked is skipped. Series Properties can bring a removed chapter back.": "Глава с закладкой пропускается. Свойства серии позволяют вернуть удалённую главу.",
+  "A chapter somebody has bookmarked, and a chapter in a library you assembled yourself, is skipped. Series Properties can bring a removed chapter back.": "Глава с чьей-то закладкой и глава из собранной вами библиотеки пропускаются. Удалённую главу можно вернуть в свойствах серии.",
+  "{name} did not accept that sign-in": "{name} не принял этот вход",
+  "Reconnect {name}": "Переподключить {name}",
+  "Reconnect": "Переподключить",
+  "Paste an access token instead": "Вставить токен доступа",
+  "Sign-in settings": "Настройки входа",
+  "Username or email": "Имя пользователя или e-mail",
+  "Sign in": "Войти",
+  "Your password is used once to get a token and is not stored.": "Пароль используется один раз, чтобы получить токен, и не сохраняется.",
+  "Sign-in for {name} is not set up yet. Ask an admin to set it up, or paste an access token.": "Вход через {name} ещё не настроен. Попросите администратора настроить его или вставьте токен доступа.",
+  "myanimelist.net → Account settings → API → Create ID. Choose app type web.": "myanimelist.net → Настройки аккаунта → API → Create ID. Выберите тип приложения web.",
+  "anilist.co → Settings → Developer → Create new client.": "anilist.co → Настройки → Developer → Create new client.",
+  "Sign-in saved": "Вход сохранён",
+  "Could not save the sign-in": "Не удалось сохранить вход",
+  "Register an application with {name} once, and every member of this server can then connect with a button.": "Один раз зарегистрируйте приложение в {name}, и каждый участник этого сервера сможет подключиться одной кнопкой.",
+  "Redirect URL": "URL перенаправления",
+  "Client ID": "ID клиента",
+  "Client secret (optional)": "Секрет клиента (необязательно)",
+  "This sign-in was not started here. Go back and press Connect again.": "Этот вход начат не здесь. Вернитесь и нажмите «Подключить» ещё раз.",
+  "The service did not finish signing you in.": "Сервис не завершил вход.",
+  "The sign-in did not come back complete. Go back and press Connect again.": "Вход вернулся не полностью. Вернитесь и нажмите «Подключить» ещё раз.",
+  "Could not finish connecting.": "Не удалось завершить подключение.",
+  "Back to Connections": "Назад к подключениям",
+  "Finishing the connection…": "Завершаем подключение…"
 }

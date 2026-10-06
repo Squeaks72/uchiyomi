@@ -2,7 +2,7 @@
   "_meta": {
     "language": "zh",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 3865
+    "strings": 3890
   },
   "1 check found something": "1 项检查发现问题",
   "1 member": "1 位成员",
@@ -3870,5 +3870,30 @@
   "Only chapters Uchiyomi downloaded itself are removed. Chapters in a library you built by hand are never touched. The chapter stays listed and everyone keeps their reading history; only the pages go. It is not downloaded again automatically. Use Fetch again on the series page to bring it back.": "只会移除 Uchiyomi 自己下载的章节。你手动建立的资料库中的章节绝不会被改动。章节仍会保留在列表中，所有人的阅读历史也会保留，消失的只是页面。它不会自动重新下载。请在系列页面使用“重新获取”将其找回。",
   "A chapter somebody has bookmarked, and a chapter in a library you assembled yourself, is skipped. “Removed chapters” on this page brings a removed chapter back.": "有人加了书签的章节，以及你自己搭建的书库中的章节，会被跳过。此页面上的“已移除的章节”可以找回已移除的章节。",
   "A chapter somebody has bookmarked is skipped. “Removed chapters” on this page brings a removed chapter back.": "有人加了书签的章节会被跳过。此页面上的“已移除的章节”可以找回已移除的章节。",
-  "Removed chapters ({n})…": "已移除的章节（{n}）…"
+  "Removed chapters ({n})…": "已移除的章节（{n}）…",
+  "A chapter somebody has bookmarked is skipped. Series Properties can bring a removed chapter back.": "有人加了书签的章节会被跳过。可在系列属性中恢复已移除的章节。",
+  "A chapter somebody has bookmarked, and a chapter in a library you assembled yourself, is skipped. Series Properties can bring a removed chapter back.": "有人加了书签的章节和你自建书库中的章节会被跳过。已移除的章节可在系列属性中恢复。",
+  "{name} did not accept that sign-in": "{name} 未接受此次登录",
+  "Reconnect {name}": "重新连接 {name}",
+  "Reconnect": "重新连接",
+  "Paste an access token instead": "改为粘贴访问令牌",
+  "Sign-in settings": "登录设置",
+  "Username or email": "用户名或邮箱",
+  "Sign in": "登录",
+  "Your password is used once to get a token and is not stored.": "密码仅用于获取一次令牌，不会被保存。",
+  "Sign-in for {name} is not set up yet. Ask an admin to set it up, or paste an access token.": "尚未设置 {name} 登录。请让管理员进行设置，或粘贴访问令牌。",
+  "myanimelist.net → Account settings → API → Create ID. Choose app type web.": "myanimelist.net → 账户设置 → API → Create ID。应用类型选择 web。",
+  "anilist.co → Settings → Developer → Create new client.": "anilist.co → 设置 → Developer → Create new client。",
+  "Sign-in saved": "登录已保存",
+  "Could not save the sign-in": "无法保存登录",
+  "Register an application with {name} once, and every member of this server can then connect with a button.": "在 {name} 注册一次应用后，本服务器的每位成员都可以一键连接。",
+  "Redirect URL": "重定向 URL",
+  "Client ID": "客户端 ID",
+  "Client secret (optional)": "客户端密钥（可选）",
+  "This sign-in was not started here. Go back and press Connect again.": "此次登录不是从这里发起的。请返回并再次点击“连接”。",
+  "The service did not finish signing you in.": "该服务未完成登录。",
+  "The sign-in did not come back complete. Go back and press Connect again.": "登录结果未完整返回。请返回并再次点击“连接”。",
+  "Could not finish connecting.": "无法完成连接。",
+  "Back to Connections": "返回连接",
+  "Finishing the connection…": "正在完成连接…"
 }

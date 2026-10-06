@@ -2,7 +2,7 @@
   "_meta": {
     "language": "ar",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 3938
+    "strings": 3961
   },
   "1 check found something": "فحص واحد وجد شيئًا",
   "1 member": "عضو واحد",
@@ -3943,5 +3943,28 @@
   "Fetching": "الجلب",
   "A chapter somebody has bookmarked, and a chapter in a library you assembled yourself, is skipped. “Removed chapters” on this page brings a removed chapter back.": "يُتخطّى الفصل الذي وضع عليه أحدهم إشارة مرجعية، والفصل في مكتبة جمعتها بنفسك. «الفصول المُزالة» في هذه الصفحة تعيد الفصل المُزال.",
   "A chapter somebody has bookmarked is skipped. “Removed chapters” on this page brings a removed chapter back.": "يُتخطّى الفصل الذي وضع عليه أحدهم إشارة مرجعية. «الفصول المُزالة» في هذه الصفحة تعيد الفصل المُزال.",
-  "Removed chapters ({n})…": "الفصول المُزالة ({n})…"
+  "Removed chapters ({n})…": "الفصول المُزالة ({n})…",
+  "{name} did not accept that sign-in": "لم يقبل {name} تسجيل الدخول هذا",
+  "Reconnect {name}": "إعادة الاتصال بـ {name}",
+  "Reconnect": "إعادة الاتصال",
+  "Paste an access token instead": "لصق رمز وصول بدلاً من ذلك",
+  "Sign-in settings": "إعدادات تسجيل الدخول",
+  "Username or email": "اسم المستخدم أو البريد الإلكتروني",
+  "Sign in": "تسجيل الدخول",
+  "Your password is used once to get a token and is not stored.": "تُستخدم كلمة المرور مرة واحدة للحصول على رمز ولا يتم حفظها.",
+  "Sign-in for {name} is not set up yet. Ask an admin to set it up, or paste an access token.": "لم يتم إعداد تسجيل الدخول إلى {name} بعد. اطلب من مشرف إعداده، أو الصق رمز وصول.",
+  "myanimelist.net → Account settings → API → Create ID. Choose app type web.": "myanimelist.net ← إعدادات الحساب ← API ← Create ID. اختر نوع التطبيق web.",
+  "anilist.co → Settings → Developer → Create new client.": "anilist.co ← الإعدادات ← Developer ← Create new client.",
+  "Sign-in saved": "تم حفظ تسجيل الدخول",
+  "Could not save the sign-in": "تعذّر حفظ تسجيل الدخول",
+  "Register an application with {name} once, and every member of this server can then connect with a button.": "سجّل تطبيقاً لدى {name} مرة واحدة، وبعدها يمكن لكل عضو في هذا الخادم الاتصال بزر واحد.",
+  "Redirect URL": "عنوان إعادة التوجيه",
+  "Client ID": "معرّف العميل",
+  "Client secret (optional)": "سر العميل (اختياري)",
+  "This sign-in was not started here. Go back and press Connect again.": "لم يبدأ تسجيل الدخول هذا من هنا. ارجع واضغط «اتصال» مرة أخرى.",
+  "The service did not finish signing you in.": "لم تكتمل عملية تسجيل الدخول لدى الخدمة.",
+  "The sign-in did not come back complete. Go back and press Connect again.": "لم تعد نتيجة تسجيل الدخول كاملة. ارجع واضغط «اتصال» مرة أخرى.",
+  "Could not finish connecting.": "تعذّر إكمال الاتصال.",
+  "Back to Connections": "العودة إلى الاتصالات",
+  "Finishing the connection…": "جارٍ إكمال الاتصال…"
 }

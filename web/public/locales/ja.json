@@ -2,7 +2,7 @@
   "_meta": {
     "language": "ja",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 3865
+    "strings": 3890
   },
   "1 check found something": "1 件のチェックで問題を検出",
   "1 member": "メンバー 1 人",
@@ -3870,5 +3870,30 @@
   "Only chapters Uchiyomi downloaded itself are removed. Chapters in a library you built by hand are never touched. The chapter stays listed and everyone keeps their reading history; only the pages go. It is not downloaded again automatically. Use Fetch again on the series page to bring it back.": "削除されるのは Uchiyomi 自身がダウンロードしたチャプターだけです。手動で作ったライブラリのチャプターには一切触れません。チャプターは一覧に残り、全員の閲覧履歴も保持され、消えるのはページだけです。自動では再ダウンロードされません。戻すには、シリーズのページで「再取得」を使ってください。",
   "A chapter somebody has bookmarked, and a chapter in a library you assembled yourself, is skipped. “Removed chapters” on this page brings a removed chapter back.": "誰かがしおりを付けた話や、自分で組み立てたライブラリ内の話はスキップされます。削除した話は、このページの「削除した話」で元に戻せます。",
   "A chapter somebody has bookmarked is skipped. “Removed chapters” on this page brings a removed chapter back.": "誰かがしおりを付けた話はスキップされます。削除した話は、このページの「削除した話」で元に戻せます。",
-  "Removed chapters ({n})…": "削除した話（{n}）…"
+  "Removed chapters ({n})…": "削除した話（{n}）…",
+  "A chapter somebody has bookmarked is skipped. Series Properties can bring a removed chapter back.": "ブックマークされているチャプターはスキップされます。削除したチャプターはシリーズのプロパティから戻せます。",
+  "A chapter somebody has bookmarked, and a chapter in a library you assembled yourself, is skipped. Series Properties can bring a removed chapter back.": "誰かがしおりを付けたチャプターと、自分で作成したライブラリ内のチャプターはスキップされます。削除したチャプターはシリーズのプロパティから元に戻せます。",
+  "{name} did not accept that sign-in": "{name} はこのサインインを受け付けませんでした",
+  "Reconnect {name}": "{name} に再接続",
+  "Reconnect": "再接続",
+  "Paste an access token instead": "代わりにアクセストークンを貼り付ける",
+  "Sign-in settings": "サインイン設定",
+  "Username or email": "ユーザー名またはメールアドレス",
+  "Sign in": "サインイン",
+  "Your password is used once to get a token and is not stored.": "パスワードはトークンの取得に1回だけ使われ、保存されません。",
+  "Sign-in for {name} is not set up yet. Ask an admin to set it up, or paste an access token.": "{name} のサインインはまだ設定されていません。管理者に設定を依頼するか、アクセストークンを貼り付けてください。",
+  "myanimelist.net → Account settings → API → Create ID. Choose app type web.": "myanimelist.net → アカウント設定 → API → Create ID。アプリの種類は「web」を選択します。",
+  "anilist.co → Settings → Developer → Create new client.": "anilist.co → 設定 → Developer → Create new client。",
+  "Sign-in saved": "サインインを保存しました",
+  "Could not save the sign-in": "サインインを保存できませんでした",
+  "Register an application with {name} once, and every member of this server can then connect with a button.": "{name} にアプリケーションを一度登録すれば、このサーバーの全員がボタン1つで接続できます。",
+  "Redirect URL": "リダイレクト URL",
+  "Client ID": "クライアント ID",
+  "Client secret (optional)": "クライアントシークレット（任意）",
+  "This sign-in was not started here. Go back and press Connect again.": "このサインインはここから開始されていません。戻って、もう一度「接続」を押してください。",
+  "The service did not finish signing you in.": "サービス側でサインインが完了しませんでした。",
+  "The sign-in did not come back complete. Go back and press Connect again.": "サインインの結果が完全に戻ってきませんでした。戻って、もう一度「接続」を押してください。",
+  "Could not finish connecting.": "接続を完了できませんでした。",
+  "Back to Connections": "接続に戻る",
+  "Finishing the connection…": "接続を完了しています…"
 }

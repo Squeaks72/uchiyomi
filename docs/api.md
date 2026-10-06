@@ -1414,6 +1414,7 @@ GET    /api/opds/token            DELETE /api/opds/token
 PATCH  /api/opds/token
 GET    /api/trackers              POST   /api/trackers/anilist
 POST   /api/trackers/:provider/connect
+POST   /api/trackers/myanimelist/oauth  POST /api/trackers/kitsu/login
 POST   /api/trackers/anilist/backfill
 POST   /api/trackers/:provider/resync/:seriesId
 DELETE /api/trackers/:provider
@@ -1460,8 +1461,17 @@ server, and the server's value overwrites the local one once the session (`user.
 row is jsonb.
 
 **Progress trackers.** `GET /api/trackers` is the caller's own connections, every provider listed connected
-or not; `POST /api/trackers/:provider/connect` takes a pasted token and `DELETE /api/trackers/:provider`
-drops it. A push goes out for the caller alone when they finish a chapter of a linked series, never below
+or not, each with how it connects (`method`: `oauth-implicit` for AniList, `oauth-code` for MyAnimeList, `password`
+for Kitsu), `configured` (false until an admin has saved the sign-in application) and, when it is, the public
+`authorizeUrl` and `clientId` the browser needs to start the sign-in. AniList comes back to the app with the token
+in the URL fragment and sends it to `POST /api/trackers/anilist/connect` (or `/api/trackers/anilist`);
+`POST /api/trackers/myanimelist/oauth {code, verifier, redirectUri}` swaps MyAnimeList's code for a token;
+`POST /api/trackers/kitsu/login {username, password}` swaps Kitsu's credentials for one. `POST
+/api/trackers/:provider/connect {token}` still takes a pasted token for any of them, and `DELETE
+/api/trackers/:provider` drops the connection. The sign-in applications are an admin's to set:
+`GET /api/admin/trackers/apps`, and `PUT /api/admin/trackers/apps/:provider {clientId, clientSecret?}` (an empty
+`clientId` clears it; the secret is write-only), also settable with `ANILIST_CLIENT_ID`, `MYANIMELIST_CLIENT_ID`
+and `MYANIMELIST_CLIENT_SECRET`. A push goes out for the caller alone when they finish a chapter of a linked series, never below
 the floor `tracker_progress` holds for them (see the reviewable import under Admin, `/run`). Only a **401**
 from the service — or AniList's "Invalid token" **400** — is a verdict on the token, and disables the
 connection with `last_error` = `the tracker rejected the saved token -- reconnect to resume syncing`; a
@@ -1563,6 +1573,7 @@ GET    /api/admin/series/:id/numbering POST   /api/admin/series/:id/numbering
 GET    /api/admin/art/overview    GET    /api/admin/art/candidates/:id
 POST   /api/admin/art/backfill    GET    /api/admin/art/backfill/status
 POST   /api/admin/trackers/relink GET    /api/admin/trackers/relink/status
+GET    /api/admin/trackers/apps   PUT    /api/admin/trackers/apps/:provider
 POST   /api/admin/import          POST   /api/admin/import/parse
 GET    /api/admin/import/status
 GET    /api/admin/import/batches  POST   /api/admin/import/batches
