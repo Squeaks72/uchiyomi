@@ -5,7 +5,7 @@
 // The search term is editable (it starts as the series' title; its other names are one tap away), the answer is one rail
 // per source as in the import review's manual search, and a pick is compared -- cover, title, chapter count against what
 // the series lists now -- before anything is written. POST /api/admin/series/:id/attach-source has no overlap gate.
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { Sheet, Img } from '@/components/ui';
@@ -69,7 +69,11 @@ export function MigrateSourceSheet({ id, title, attached, mainId, listed, onDone
     queryFn: () => api<{ content: Src[] }>('/api/sources'),
     staleTime: 60_000,
   });
-  const allSources = srcs.data?.content ?? [];
+  // A to Z by name, so a source can be found by eye in a list of fifty; the server's order is install order.
+  const allSources = useMemo(
+    () => [...(srcs.data?.content ?? [])].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base', numeric: true }) || a.id.localeCompare(b.id)),
+    [srcs.data],
+  );
   const allIds = allSources.map((s) => s.id);
   const pickedIds = selected ?? allIds;
   const only = sourcesParam(selected, allIds);
