@@ -484,7 +484,7 @@ export default function DiscoverPage() {
           // `showAdultChip`: with the reveal already on nothing is hidden and this sentence would be false.
           <>
             <EmptyState art={ART.emptyLibrary} title={tr('Nothing to browse with 18+ hidden')}
-              sub={tr('Every provider set up for your account is marked 18+. Turn on Show 18+ to browse them.')} />
+              sub={tr('Every provider set up for your account is marked 18+. Turn on Show 18+ content to browse them.')} />
             <div className="-mt-10 flex justify-center pb-10"><AdultToggle alsoWhen /></div>
           </>
         ) : isAdmin ? (
@@ -629,8 +629,9 @@ export default function DiscoverPage() {
         {/* The 18+ filter (v0.55.4, #158), on its own row under the heading: three chips do not fit beside it at 390 px.
             Search mode only, and only while it can change something (`offerRating`). */}
         {mode === 'search' && offerRating && (
-          <div role="group" aria-label={tr('18+ filter')} className="flex basis-full flex-wrap items-center gap-1.5" data-rating-chips>
-            {([['all', tr('All')], ['safe', tr('Hide 18+')], ['adult', tr('18+ only')]] as const).map(([key, label]) => (
+          <div role="group" aria-label={tr('Results')} className="flex basis-full flex-wrap items-center gap-1.5" data-rating-chips>
+            <span className="me-1 text-xs text-fog-500">{tr('Results')}</span>
+            {([['all', tr('All')], ['safe', tr('No 18+')], ['adult', tr('18+ only')]] as const).map(([key, label]) => (
               <button key={key} type="button" onClick={() => setRating(key)} aria-pressed={rating === key}
                 className={`chip text-xs ${rating === key ? 'chip-active' : ''}`}>{label}</button>
             ))}

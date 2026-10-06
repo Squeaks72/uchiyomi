@@ -5,6 +5,7 @@ import { MANGADEX_LANGS } from './lang';
 import { typeFromGenres, SERIES_TYPE_FROM } from './seriesTypeSignals';
 import { cleanGenres } from './genres';
 import { REFILE_FAILURES_SQL } from './chapterFailures';
+import { foldAdultSources } from './sourceRatings';
 
 // NOTE: gen_random_uuid() is in Postgres core (v13+); no pgcrypto extension needed.
 // (The supabase/postgres image's event triggers reject CREATE EXTENSION under a custom role.)
@@ -1881,6 +1882,23 @@ const DATA_MIGRATIONS: { id: string; run: (c: PoolClient) => Promise<void> }[] =
           [r.id, t.type, t.from, SERIES_TYPE_FROM],
         );
       }
+    },
+  },
+
+  // The adult-sources list retired into the per-source age ratings (lib/sourceRatings.ts): a source on that list means
+  // exactly a rating of 18, so every id on it becomes a rating of 18 (foldAdultSources: an id the admin already rated
+  // keeps its rating), and the list is emptied. The column and the settings field stay for API compatibility, and the
+  // 18+ filter reads both, so a list set later is still honoured. One read and one UPDATE.
+  {
+    id: 'fork-adult-sources-into-ratings',
+    run: async (c) => {
+      const row = (await c.query<{ adult_sources: unknown; source_ratings: unknown }>(
+        'SELECT adult_sources, source_ratings FROM server_settings WHERE id = 1')).rows[0];
+      if (!row || !Array.isArray(row.adult_sources) || row.adult_sources.length === 0) return;
+      await c.query(
+        `UPDATE server_settings SET source_ratings = $1::jsonb, adult_sources = '[]'::jsonb, updated_at = now() WHERE id = 1`,
+        [JSON.stringify(foldAdultSources(row.adult_sources, row.source_ratings))],
+      );
     },
   },
 

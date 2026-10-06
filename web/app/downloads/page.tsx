@@ -96,7 +96,7 @@ export default function DownloadsPage() {
     <div className="min-h-screen-d">
       <header className="safe-top sticky top-0 z-30 bg-ink-950/85 px-5 pb-3 backdrop-blur-xl lg:static lg:bg-transparent lg:px-0 lg:pt-6 lg:backdrop-blur-none">
         <div className="flex items-center justify-between">
-          <h1 className="font-display text-2xl font-bold tracking-tight lg:text-3xl">{tr('Offline')}</h1>
+          <h1 className="font-display text-2xl font-bold tracking-tight lg:text-3xl">{tr('Offline downloads')}</h1>
           <button onClick={sync} disabled={syncing || !online}
             className="flex items-center gap-1.5 rounded-full border border-ink-700 bg-ink-850/70 px-3.5 py-2 text-xs text-fog-200 disabled:opacity-50">
             <IcRefresh width={15} height={15} className={syncing ? 'animate-spin text-accent' : ''} /> {syncing ? tr('Syncing…') : tr('Sync now')}
@@ -135,7 +135,10 @@ export default function DownloadsPage() {
             ? tr('Tap the download icon on any chapter — or turn on Keep favorites offline under Profile → Settings → Downloads — to read offline. Perfect for flights and commutes.')
             : tr('Nothing is saved on this device, and there is no connection to fetch anything with. Reconnect and download a chapter to read it here.')}
           cta={/* no cta offline: it points at the library, which is built entirely from the server */
-            online ? { href: '/library', label: tr('Browse library') } : undefined} />
+            online ? { href: '/library', label: tr('Browse library') } : undefined}>
+          {/* The switch the sentence above names is one tap away rather than a path to remember. */}
+          <Link href="/profile/?tab=Settings&section=downloads" className="btn-key text-sm">{tr('Open Settings')}</Link>
+        </EmptyState>
       ) : (
         <div className="px-5 pt-4">
           {Object.entries(groups).map(([series, chapters]) => (

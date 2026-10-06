@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { useReduceEffects } from '@/lib/effects';
 import { useLayer } from '@/lib/layers';
@@ -9,6 +10,11 @@ export interface NavGroup<T extends string> {
   id: string;
   label: string;
   tabs: readonly T[];
+  /**
+   * Fork change: places in this group that are pages of their own rather than tabs (Admin's Import). Drawn under the
+   * tabs, and never "current". The label goes through tr(), so the caller declares it with keys().
+   */
+  links?: ReadonlyArray<{ label: string; href: string }>;
 }
 
 /**
@@ -73,6 +79,12 @@ export function ConsoleNav<T extends string>({
                       {tr(t)}
                     </button>
                   ))}
+                  {g.links?.map((l) => (
+                    <Link key={l.href} href={l.href}
+                      className="relative flex w-full items-center rounded-lg px-3 py-1.5 text-start text-sm text-fog-400 transition hover:bg-ink-800/60 hover:text-fog-100">
+                      {tr(l.label)}
+                    </Link>
+                  ))}
                 </div>
               </div>
             ))}
@@ -101,6 +113,9 @@ export function ConsoleNav<T extends string>({
                   className={`shrink-0 rounded-full px-3.5 py-1.5 text-sm font-medium transition ${
                     tab === t ? 'bg-accent text-white' : 'bg-ink-800 text-fog-300'
                   }`}>{tr(t)}</button>
+              ))}
+              {group.links?.map((l) => (
+                <Link key={l.href} href={l.href} className="shrink-0 rounded-full bg-ink-800 px-3.5 py-1.5 text-sm font-medium text-fog-300 transition">{tr(l.label)}</Link>
               ))}
             </div>
           </div>
@@ -173,6 +188,9 @@ function GroupSheet<T extends string>({ groups, ariaLabel, current, footer, onPi
                 {g.tabs.map((t) => (
                   <button key={t} onClick={() => onPick(t)}
                     className={`chip text-xs ${current === t ? 'chip-active' : ''}`}>{tr(t)}</button>
+                ))}
+                {g.links?.map((l) => (
+                  <Link key={l.href} href={l.href} className="chip text-xs">{tr(l.label)}</Link>
                 ))}
               </div>
             </div>

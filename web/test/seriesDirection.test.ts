@@ -1,4 +1,4 @@
-// The series edit dialog's Reading direction (#102): what the reader's "Series default" follows.
+// The series edit dialog's Reading direction (#102): what the reader's "Follow the series" follows.
 //
 // The server half -- detection, precedence, the override and everything that reports it -- is
 // bff/test/readingDirection.int.test.ts; this pins the two ways the dialog itself could quietly go wrong. Since
@@ -53,7 +53,7 @@ test('every new string is in all eight locale files', () => {
     'Webtoon', 'Vertical',
     'Automatic — {direction}, from the chapter files', 'Automatic — {direction}, from the source',
     'Automatic — {direction}, from AniList', 'Automatic — not known, reads as a webtoon',
-    'What “Series default” in the reader follows. Automatic takes it from the chapter files, then the source, then AniList.',
+    'What “Follow the series” in the reader follows. Automatic takes it from the chapter files, then the source, then AniList.',
     // v0.53.0: the Automatic segment says what it reads as.
     'Automatic · {direction}',
   ];

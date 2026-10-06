@@ -159,11 +159,12 @@ export function hiddenOnDesktop(list: readonly string[], item: string): boolean 
  * own constant untouched (the tab lists are pinned and read by `useTabParam`); only what the rail gets is
  * filtered.
  */
-export function visibleGroups<T extends string>(
-  groups: ReadonlyArray<{ id: string; label: string; tabs: readonly T[] }>,
+export function visibleGroups<G extends { id: string; label: string; tabs: readonly string[] }>(
+  groups: ReadonlyArray<G>,
   hidden: readonly string[],
-): { id: string; label: string; tabs: T[] }[] {
+): (Omit<G, 'tabs'> & { tabs: G['tabs'][number][] })[] {
+  // Spread, so a group's other fields (ConsoleNav's `links`) survive the filter.
   return groups
-    .map((g) => ({ id: g.id, label: g.label, tabs: g.tabs.filter((t) => !hidden.includes(t)) }))
+    .map((g) => ({ ...g, tabs: g.tabs.filter((t) => !hidden.includes(t)) }))
     .filter((g) => g.tabs.length > 0);
 }

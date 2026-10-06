@@ -44,7 +44,11 @@ export function ChapterFilterSheet({ groupNames, group, onGroup, hasGhosts, show
       )}
       {hasGhosts && (
         <div className={`flex items-center justify-between gap-3 ${groupNames.length > 0 ? 'mt-5 border-t border-ink-800/70 pt-4' : ''}`}>
-          <span className="text-sm text-fog-100">{tr('Show chapters not on the server yet')}</span>
+          <span className="min-w-0">
+            <span className="block text-sm text-fog-100">{tr('Show chapters not on the server yet')}</span>
+            {/* On the account, not the device (lib/accountPrefs.ts): it follows you to your other browsers. */}
+            <span className="block text-[11px] text-fog-500">{tr('Remembered on your account')}</span>
+          </span>
           <Switch on={showGhosts} onChange={onToggleGhosts} label={tr('Show chapters not on the server yet')} />
         </div>
       )}

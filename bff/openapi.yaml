@@ -216,6 +216,15 @@ components:
         showAllChapters:
           type: boolean
           description: Show one unpaged chapter list, including all grey rows and unfolded older runs.
+        compactChapters:
+          type: boolean
+          description: Fork change. The denser chapter list on a computer (default false).
+        showGhosts:
+          type: boolean
+          description: Fork change. Show chapters the sources list that this server lacks (default true).
+        alsoFollow:
+          type: boolean
+          description: Fork change. The Add dialog's "also check the other sources" switch (default false).
         reader:
           type: object
           additionalProperties: true
@@ -5431,7 +5440,9 @@ paths:
         `reader` (the reader's defaults; since v0.55.7 with `coverEdges`, default true, the cover's colour at the
         reader's edges) and, since v0.55.7, `listSorts` (list id to `az`, `za`, `read`, `unread` or `latest`: the order
         each list is shown in; a list's own order is not stored). Since v0.55.8 the validated keys are `librarySort`,
-        `homeCollections` and `showAllChapters`. Unknown keys remain accepted and retained for compatibility.
+        `homeCollections` and `showAllChapters`. Fork change: `compactChapters`, `showGhosts` and `alsoFollow` are
+        account settings now (they were per-device); each must be a boolean when present, else 400.
+        Unknown keys remain accepted and retained for compatibility.
       operationId: putApiSettings
       requestBody:
         required: false
@@ -6268,6 +6279,26 @@ paths:
           description: Not authenticated
         "403":
           description: "Forbidden: token scope, account permission or age limit"
+  /api/admin/limits:
+    get:
+      tags:
+        - admin
+      summary: The environment-only numeric knobs and what this server is running on.
+      operationId: getApiAdminLimits
+      description: >-
+        Fork change. Requires an admin account and a token carrying the admin scope. Scopes only ever
+        restrict. Read-only: returns {limits: [{key, value, unit}], note} for SUWAYOMI_PAGE_CONCURRENCY,
+        SOURCE_LATEST_TIMEOUT_MS, SOURCE_TEST_TIMEOUT_MS, SCAN_CONCURRENCY, BACKUP_KEEP and CACHE_MAX_BYTES.
+        Numbers only; no secret is ever returned. Change them with environment variables and a restart.
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Not authenticated
+        "403":
+          description: "Forbidden: token scope, account permission or age limit"
   /api/admin/settings:
     get:
       tags:
@@ -6347,7 +6378,9 @@ paths:
                     type: array
                     items:
                       type: string
-                    description: The source ids the 18+ filter treats as adult. See adultSources on PATCH.
+                    description: >-
+                      Deprecated (fork change). Folded into per-source ratings (as 18) at boot, so this is normally empty.
+                      See adultSources on PATCH.
                   source_prefs:
                     $ref: "#/components/schemas/SourceOrder"
                   group_upgrade:
@@ -6513,7 +6546,10 @@ paths:
                     minLength: 1
                     maxLength: 60
                 adultSources:
+                  deprecated: true
                   description: >-
+                    Fork change. Deprecated: folded into per-source ratings (PUT /api/admin/sources/{id}/age-rating,
+                    as 18) at boot and no longer written by the settings page; still honoured if set.
                     Source ids to treat as adult on top of the ones whose extension declares itself NSFW,
                     replaced whole. While a request does not carry adult=1 they drop out of the routes that
                     list sources or fan out over them (GET /api/sources, search-all, latest, popular). By-id

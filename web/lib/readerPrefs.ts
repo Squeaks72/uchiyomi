@@ -317,6 +317,38 @@ export function saveSeriesPrefs(seriesId: string, partial: SeriesPrefs) {
   queueSync();
 }
 
+/** Whether this series holds a look of its own (mode, theme, spread or direction) that a reset would clear. */
+export function hasSeriesLook(seriesId: string): boolean {
+  const sp = loadSeriesPrefs(seriesId);
+  return !!(sp.mode || sp.theme || sp.spread !== undefined || sp.pagedDirection);
+}
+
+/**
+ * Forget a series' own look so it follows its source's default and the profile's again: the reader sheet's
+ * "Reset this series to my defaults".
+ *
+ * Only the look is cleared (mode, theme, spread, direction and the mark on it). The zoom stays: it is a view
+ * of the page rather than a reading setup, and the sheet's help says "mode, page tone, pages per view and
+ * direction". An entry left empty is removed, and the account hears of it through the usual debounced push:
+ * the server replaces `readerSeries` as a whole, so the omitted id is gone there too.
+ * Returns the reader's settings as they now stand: the stored global default with the source's look laid over.
+ * Reintroduce by leaving the keys in place: readerSeriesReset.test.ts finds them still stored.
+ */
+export function resetSeriesLook(seriesId: string, cur: ReaderPrefs, sourceId = ''): ReaderPrefs {
+  if (seriesId) {
+    try {
+      const sp = { ...loadSeriesPrefs(seriesId) };
+      delete sp.mode; delete sp.theme; delete sp.spread; delete sp.pagedDirection; delete sp.directionChosen;
+      if (Object.keys(sp).length) localStorage.setItem(`yomi_rs_${seriesId}`, JSON.stringify(sp));
+      else localStorage.removeItem(`yomi_rs_${seriesId}`);
+    } catch {}
+    queueSync();
+  }
+  const g = loadPrefs();
+  const base: ReaderPrefs = { ...cur, mode: g.mode, theme: g.theme, spread: g.spread, pagedDirection: g.pagedDirection };
+  return sourceId ? withTitleLook(base, loadSourcePrefs(sourceId)) : base;
+}
+
 // ---- per-source memory (the source is the best proxy the app has for the FORMAT) ----
 /**
  * Reader settings remembered per SOURCE.

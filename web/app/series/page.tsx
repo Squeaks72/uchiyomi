@@ -27,7 +27,9 @@ import { chParam, landingNumber } from '@/lib/healthLinks';
 import { effectsReduced } from '@/lib/effects';
 import { clampPage, pageCount, pageLabel, pageOf, pageSizeFor, pageSlice } from '@/lib/chapterPages';
 import { openRuns, showAllChaptersOn } from '@/lib/showAllChapters';
-import { buttonsClass, compactChaptersOn, dotHide, rowClass, thumbHide } from '@/lib/compactChapters';
+import { buttonsClass, dotHide, rowClass, thumbHide } from '@/lib/compactChapters';
+import { useAccountPrefValue } from '@/lib/accountPrefs';
+import { useAccountPref } from '@/lib/useAccountPref';
 import { fetchAllBooks } from '@/lib/seriesBooks';
 import { fetchingToast } from '@/lib/jobs';
 import { ALL_GROUPS, copySourceId, groupsOfRow, matchesGroup } from '@/lib/groupFilter';
@@ -643,11 +645,6 @@ function GhostRow({ ghost, sourceNames, primarySource, selectable, selected, onT
 interface StartedJob { folder: string; at: number }
 interface SourceJob { folder: string; status: string; reason?: string; reasonSaid?: Said[] }
 
-/** The localStorage key for the per-device "Show chapters not on the server yet" switch in the Filter sheet. */
-const SHOW_GHOSTS_KEY = 'uchiyomi.showGhosts';
-function readShowGhosts(): boolean {
-  try { return localStorage.getItem(SHOW_GHOSTS_KEY) !== 'off'; } catch { return true; }
-}
 
 /**
  * Prev / a range picker / Next for the chapter list. The picker names each page by the first and last chapter
@@ -709,14 +706,14 @@ function SeriesInner() {
   const [downloaded, setDownloaded] = useState<Set<string>>(new Set());
   const [showSummary, setShowSummary] = useState(false);
   const [downloadingAll, setDownloadingAll] = useState(false);
-  // Ghost rows: the chapters the sources list that this server lacks. Per device, default on, because
-  // "there are 12 more of these" is the news this page exists to carry; off is for a phone that only ever
-  // reads what is already here.
-  const [showGhosts, setShowGhosts] = useState(true);
+  // Ghost rows: the chapters the sources list that this server lacks. On your ACCOUNT since the settings
+  // reorganisation (lib/accountPrefs.ts; it was per device), default on, because "there are 12 more of these" is
+  // the news this page exists to carry; off is for someone who only ever reads what is already here.
+  const [showGhosts, setShowGhostsPref] = useAccountPref('showGhosts');
   // Whether this device's choice has been read yet: a `?ch=` jump waits for it, or the switch arriving one render
   // later resets the chapter page under a jump that already happened (a series still cached from a minute ago).
   const [ghostsRead, setGhostsRead] = useState(false);
-  useEffect(() => { setShowGhosts(readShowGhosts()); setGhostsRead(true); }, []);
+  useEffect(() => { setGhostsRead(true); }, []);
   const [showAll, setShowAll] = useState(false);
   // Select mode, the library's pattern. Two sets because a chapter is picked by id and a ghost has none --
   // it is picked by number, which is what the fetch route takes. Cleared whenever the list under it
@@ -960,10 +957,9 @@ function SeriesInner() {
   // chapters and would shift a page picked before them). Following Continue live made the list jump away
   // from what the reader was doing -- expanding an older-chapters run or "Show all" inserts rows ahead of
   // it, and "Mark all read" sends Continue back to chapter 1.
-  // This device's choice of the compact chapter list (lib/compactChapters.ts), read after mount: the static
-  // export renders without localStorage, and the default row is the one to render until we know.
-  const [compact, setCompact] = useState(false);
-  useEffect(() => { setCompact(compactChaptersOn()); }, []);
+  // The account's choice of the compact chapter list (lib/compactChapters.ts, lib/accountPrefs.ts): the static
+  // export renders without localStorage, and the default row is the one to render until the client knows.
+  const compact = useAccountPrefValue('compactChapters');
   const [chapterPage, setChapterPage] = useState<number | null>(null);
   useEffect(() => { setChapterPage(null); }, [id, asc, group, showGhosts]);
   // Every row on one page when the account asked for the whole list (pageSizeFor): the pager then has one page and
@@ -1176,8 +1172,8 @@ function SeriesInner() {
     setPickedGhosts((p) => { const n = new Set(p); const k = ghostKey(ghost); n.has(k) ? n.delete(k) : n.add(k); return n; });
   const toggleGhosts = () => {
     const next = !showGhosts;
-    setShowGhosts(next);
-    try { localStorage.setItem(SHOW_GHOSTS_KEY, next ? 'on' : 'off'); } catch { /* private mode: the session still has it */ }
+    // Applied at once and saved to the account; a refused save puts it back, and the device has it either way.
+    void setShowGhostsPref(next).catch(() => {});
     // Rows that are no longer on screen cannot stay picked, or Fetch would act on what nobody can see.
     if (!next) setPickedGhosts(new Set());
   };
@@ -1530,7 +1526,7 @@ function SeriesInner() {
       )}
       <div className="flex gap-2">
         <button onClick={toggleFav} className={`flex flex-1 items-center justify-center gap-2 rounded-full border py-3 text-sm ${fav ? 'border-accent/50 bg-accent-soft text-accent' : 'border-ink-700 text-fog-300'}`}>
-          <IcHeart width={18} height={18} fill={fav ? 'currentColor' : 'none'} stroke={fav ? 'none' : 'currentColor'} /> {fav ? tr('In favourites') : tr('Favourite')}
+          <IcHeart width={18} height={18} fill={fav ? 'currentColor' : 'none'} stroke={fav ? 'none' : 'currentColor'} /> {fav ? tr('In favorites') : tr('Favorite')}
         </button>
         {/* "Save all offline", not "Download all": this copies to THIS DEVICE; the server side is Fetch (☁).
             Never on Uchiyomi Desktop, where this device IS the server (lib/desktop.ts). */}

@@ -99,10 +99,23 @@ test('it covers every admin tab, every section of Admin → Settings, the profil
     assert.ok(DESTINATIONS.some((d) => d.href === `/admin/?tab=Settings&section=${id}`), `the section ${id} is not a destination`);
   }
   assert.ok(DESTINATIONS.some((d) => d.href === '/admin/import/' && d.label === 'Import a list'), 'the import page is not a destination');
-  for (const name of ['Check for updates', 'Notice chapters', '18+ filter', 'Source order', 'Slow archive', 'Backup time', 'Delete read chapters',
-    'Scanlators', 'Cloudflare solver', 'Version', 'Rescan everything']) {
+  for (const name of ['Check for updates', 'Notice chapters', 'Content ratings', 'Source order', 'Slow archive', 'Backup time', 'Delete read chapters',
+    'Scanlators', 'Cloudflare solver', 'Version', 'Rescan everything', 'General', 'Privacy & access', 'Chapters & naming',
+    'Downloads & politeness', 'Backups']) {
     assert.ok(DESTINATIONS.some((d) => d.label === name), `"${name}" is not found by name`);
   }
+});
+
+test('the regrouped Admin → Settings keeps every old way in: the 18+ filter by name, the parts of Chapters & naming by id', () => {
+  // Fork change. "18+ filter" is now Content ratings but stays a keyword; Scanlators, Source order and Notice chapters are
+  // parts of Chapters & naming and keep their own ids, so their destinations still scroll to something.
+  assert.ok(DESTINATIONS.some((d) => d.label === 'Content ratings' && d.keywords?.includes('18+ filter')), '18+ filter is no longer found');
+  const src = code(read('components/AdminSettings.tsx'));
+  for (const id of ['scanlators', 'source-order', 'notice-chapters', 'chapters', 'content-ratings', 'privacy', 'server']) {
+    assert.match(src, new RegExp(`\\bid="${id}"`), `${id} is not an id on Admin → Settings`);
+  }
+  assert.ok(DESTINATIONS.some((d) => d.href === '/admin/?tab=Tasks&section=task-backup'), 'Backups has no destination');
+  assert.ok(!DESTINATIONS.some((d) => d.href.includes('section=adult-filter')), 'a destination still points at the retired adult-filter id');
 });
 
 test('admins only where the page is theirs, and nothing Uchiyomi Desktop does not have', () => {

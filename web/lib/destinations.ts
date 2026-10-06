@@ -19,14 +19,14 @@ const LABELS = keys(
   // The admin tabs.
   'Overview', 'Tasks', 'Settings', 'Members', 'Sessions', 'Activity', 'Library', 'Health', 'Art', 'Sources',
   // The sections of Admin → Settings, in their order.
-  'Server', 'Updates & schedules', 'Library housekeeping', 'Scanlators', 'Notifications', 'Downloads', '18+ filter',
-  'Source order', 'Notice chapters',
+  'General', 'Privacy & access', 'Updates & schedules', 'Library housekeeping', 'Chapters & naming', 'Scanlators', 'Notifications',
+  'Downloads', 'Downloads & politeness', 'Content ratings', 'Source order', 'Notice chapters',
   // Settings people ask for by name.
   'Check for updates', 'Open registration', 'Backup time', 'Delete read chapters', 'Show missing chapters in Mihon',
-  'Slow archive', 'Cloudflare solver', 'Version', 'Import a list', 'Rescan everything',
+  'Slow archive', 'Cloudflare solver', 'Version', 'Import a list', 'Rescan everything', 'Backups',
   // The profile: its tabs, its cards and its settings by name.
   'You', 'Connections', 'Account', 'Badges', 'Reading studio', 'Appearance', 'Language', 'Reduce effects', 'Reading',
-  'Weekly goal', 'Reading direction', 'Offline downloads', 'This device', 'New-chapter alerts', 'Progress tracking',
+  'Weekly goal', 'Reading direction', 'Offline downloads', 'Notifications & install', 'New-chapter alerts', 'Progress tracking',
   'External readers (OPDS)', 'API tokens', 'Change password', 'Two-factor authentication', 'Active sessions',
   // Where each one is.
   'Admin', 'Profile',
@@ -80,28 +80,37 @@ export const DESTINATIONS: readonly Destination[] = [
     keywords: ['providers', 'extensions', 'mangadex', 'sites', 'add a site', 'repositories'] },
 
   // ---- Admin → Settings' sections (components/AdminSettings.tsx), each by its `id` ----
-  { key: 'settings-server', label: 'Server', where: ADMIN_SETTINGS, href: settings('server'), admin: true, keywords: ['server name'] },
+  // (v0.55.x fork) General is the server's name; Privacy & access took the update check, the install count and registration;
+  // Chapters & naming holds Scanlators, Source order and Notice chapters (their own ids still scroll to them);
+  // Content ratings is the old 18+ filter; Downloads & politeness is the env-only limits and the blocked sources.
+  { key: 'settings-server', label: 'General', where: ADMIN_SETTINGS, href: settings('server'), admin: true, keywords: ['server name', 'server'] },
+  { key: 'settings-privacy', label: 'Privacy & access', where: ADMIN_SETTINGS, href: settings('privacy'), admin: true,
+    keywords: ['telemetry', 'install count', 'ping', 'registration', 'sign up', 'update check'] },
   { key: 'settings-schedules', label: 'Updates & schedules', where: ADMIN_SETTINGS, href: settings('schedules'), admin: true,
-    keywords: ['update interval', 'schedule', 'extension updates'] },
+    keywords: ['update interval', 'schedule', 'extension updates', 'repair nightly', 'nightly repair', 'nightly'] },
   { key: 'settings-housekeeping', label: 'Library housekeeping', where: ADMIN_SETTINGS, href: settings('housekeeping'), admin: true,
-    keywords: ['cleanup', 'repair nightly'] },
+    keywords: ['cleanup'] },
+  { key: 'settings-chapters', label: 'Chapters & naming', where: ADMIN_SETTINGS, href: settings('chapters'), admin: true,
+    keywords: ['borrow names', 'chapter names', 'group upgrade', 'naming'] },
   { key: 'settings-scanlators', label: 'Scanlators', where: ADMIN_SETTINGS, href: settings('scanlators'), admin: true,
     keywords: ['groups', 'scanlation', 'translation groups', 'blocked groups'] },
   { key: 'settings-notifications', label: 'Notifications', where: ADMIN_SETTINGS, href: settings('notifications'), admin: true,
     keywords: ['webhook', 'discord', 'ntfy', 'home assistant', 'alerts'] },
   { key: 'settings-downloads', label: 'Downloads', where: ADMIN_SETTINGS, href: settings('downloads'), admin: true,
     keywords: ['chapters an hour', 'pace', 'free space'] },
-  { key: 'settings-adult', label: '18+ filter', where: ADMIN_SETTINGS, href: settings('adult-filter'), admin: true,
-    keywords: ['adult', 'nsfw', 'mature', 'show 18+'] },
+  { key: 'settings-adult', label: 'Content ratings', where: ADMIN_SETTINGS, href: settings('content-ratings'), admin: true,
+    keywords: ['18+ filter', 'adult', 'nsfw', 'mature', 'show 18+', 'age rating', 'source rating', 'age cap'] },
+  { key: 'settings-politeness', label: 'Downloads & politeness', where: ADMIN_SETTINGS, href: settings('politeness'), admin: true,
+    keywords: ['limits', 'environment variables', 'concurrency', 'timeout', 'blocked sources', 'unblock', 'cache size', 'backup keep'] },
   { key: 'settings-source-order', label: 'Source order', where: ADMIN_SETTINGS, href: settings('source-order'), admin: true,
     keywords: ['priority', 'preferred source'] },
   { key: 'settings-notice', label: 'Notice chapters', where: ADMIN_SETTINGS, href: settings('notice-chapters'), admin: true,
     keywords: ['notices', 'announcements', 'hiatus', 'short chapters'] },
 
   // ---- Settings people ask for by name ----
-  { key: 'update-check', label: 'Check for updates', where: ADMIN_SETTINGS, href: settings('server'), admin: true,
+  { key: 'update-check', label: 'Check for updates', where: ADMIN_SETTINGS, href: settings('privacy'), admin: true,
     keywords: ['updates', 'new version', 'release', 'github'] },
-  { key: 'registration', label: 'Open registration', where: ADMIN_SETTINGS, href: settings('server'), admin: true, desktopHidden: true,
+  { key: 'registration', label: 'Open registration', where: ADMIN_SETTINGS, href: settings('privacy'), admin: true, desktopHidden: true,
     keywords: ['sign up', 'signup', 'register'] },
   { key: 'backup-time', label: 'Backup time', where: ADMIN_SETTINGS, href: settings('schedules'), admin: true,
     keywords: ['backup', 'database backup', 'dump'] },
@@ -111,6 +120,8 @@ export const DESTINATIONS: readonly Destination[] = [
     desktopHidden: true, keywords: ['komga', 'ghost chapters', 'tachiyomi'] },
   { key: 'slow-archive', label: 'Slow archive', where: ADMIN_SETTINGS, href: settings('downloads'), admin: true,
     keywords: ['archive', 'older chapters', 'whole series'] },
+  { key: 'backups', label: 'Backups', where: ADMIN_TASKS, href: '/admin/?tab=Tasks&section=task-backup', admin: true,
+    keywords: ['backup now', 'restore', 'restore a backup', 'database backup'] },
   // Health's cards, by the check they show (`check-<id>`, app/admin/page.tsx Health).
   { key: 'solver', label: 'Cloudflare solver', where: ADMIN_HEALTH, href: '/admin/?tab=Health&section=check-solver', admin: true,
     keywords: ['flaresolverr', 'byparr', 'trawl', 'captcha', 'cloudflare'] },
@@ -145,8 +156,8 @@ export const DESTINATIONS: readonly Destination[] = [
     keywords: ['right to left', 'left to right', 'rtl'] },
   { key: 'offline-downloads', label: 'Offline downloads', where: PROFILE_SETTINGS, href: '/profile/?tab=Settings&section=downloads',
     desktopHidden: true, keywords: ['offline', 'keep favorites offline', 'storage'] },
-  { key: 'this-device', label: 'This device', where: PROFILE_SETTINGS, href: '/profile/?tab=Settings&section=device',
-    desktopHidden: true, keywords: ['install app', 'pwa'] },
+  { key: 'this-device', label: 'Notifications & install', where: PROFILE_SETTINGS, href: '/profile/?tab=Settings&section=device',
+    desktopHidden: true, keywords: ['this device', 'install app', 'pwa'] },
   { key: 'chapter-alerts', label: 'New-chapter alerts', where: PROFILE_SETTINGS, href: '/profile/?tab=Settings&section=device',
     desktopHidden: true, keywords: ['push', 'notifications'] },
   { key: 'profile-connections', label: 'Connections', where: PROFILE, href: '/profile/?tab=Connections', keywords: ['integrations'] },

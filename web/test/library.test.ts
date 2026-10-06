@@ -425,7 +425,7 @@ test('every string the select bar renders is in the locale files, singulars incl
                        'Lost track of the fetch. Check the library in a moment.', '1 selected', '{n} selected', 'No files are deleted.',
                        'Nothing removed · 1 skipped', 'Nothing removed · {n} skipped',
                        'The chapters stay exactly where they are on disk, and nothing in your library folder is touched.',
-                       "Everyone's reading progress, history, favourites and ratings are kept, so you can put them back at any time from Admin → Library."]) {
+                       "Everyone's reading progress, history, favorites and ratings are kept, so you can put them back at any time from Admin → Library."]) {
     assert.ok(label in es, `"${label}" renders through tr() but is in no locale file`);
   }
 });

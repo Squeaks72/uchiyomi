@@ -265,6 +265,14 @@ allowed in; 18 is adult, which also hides the source from Discover and search wh
 on the 18+ source list does. `null` goes back to the extension's flag. Library series keep their own ratings. Audited
 `source.age_rating`.
 
+**Fork change.** `GET /api/admin/limits` (admin) is read-only: `{limits: [{key, value, unit}], note}` for the knobs that only
+environment variables set (`SUWAYOMI_PAGE_CONCURRENCY`, `SOURCE_LATEST_TIMEOUT_MS`, `SOURCE_TEST_TIMEOUT_MS`,
+`SCAN_CONCURRENCY`, `BACKUP_KEEP`, `CACHE_MAX_BYTES`) with the value in effect. Numbers only; no secret is returned.
+
+**Fork change.** The `adult_sources` setting (PATCH `adultSources`) is deprecated: at boot its ids are folded into per-source
+ratings as 18 (never overriding an existing rating) and the list is emptied. It is still accepted and still honoured by the
+18+ filter if set, so existing clients keep working.
+
 `PATCH /api/admin/sources/custom/:id` (admin) changes a custom site's `base` address and nothing else. The
 source id is derived from its name and the library is keyed on that id, so editing in place is the only way
 to follow a site to a new domain without orphaning every series that came from it.
@@ -544,7 +552,7 @@ term alone, so a narrowed search reads whatever a full one already heard, and th
 Since v0.55.4 ([#158](https://github.com/AngeloSha/uchiyomi/discussions/158)) `&rating=all|safe|adult` filters the
 answer for 18+: `safe` (Discover's *Hide 18+*) leaves out every result known to be 18+, `adult` (*18+ only*) keeps only
 those, and `all` (the default; anything else reads as it) keeps everything. A result is 18+ when its source is (an
-extension that declares itself adult -- except under `safe`, see below -- or one on the source list of Admin → Settings → 18+ filter), when MangaDex rates
+extension that declares itself adult -- except under `safe`, see below -- or one on the source list of Admin → Settings → Content ratings), when MangaDex rates
 the title erotica or pornographic, or when one of its genres is on the 18+ filter's genre list (trimmed and case-blind,
 as the library compares them). It is not 18+ when MangaDex rates it safe or suggestive, or when it names genres, the
 genre list has some, and none of them match; otherwise it is unknown — kept under `all` and `safe`, left out of
@@ -822,7 +830,7 @@ chapter list, `GET /api/books/:id`, its pages, the offline manifest, next/previo
 refused to record what you read would lose data rather than tidy a screen; the last two used to answer 404 for a
 hidden series, so "Find missing chapters" disappeared with the chip off.
 
-**Since v0.46.0 an admin can widen what the same default hides** (Admin → Settings → 18+ filter): named
+**Since v0.46.0 an admin can widen what the same default hides** (Admin → Settings → Content ratings): named
 **genres** take a series off every listing as though it sat in an 18+ library -- matched case-blind against the
 series' genres, or the admin's genre override when it has one, and a per-series *Always show* (`adultExempt` on
 `PUT /api/admin/series/:id/meta`) lets one title through -- and named **sources** are treated like sources whose
@@ -872,12 +880,12 @@ Chapter downloads and page streaming work either way; the age cap is a permissio
 
 `GET /api/libraries` reports `adult: true` for such a library so a client can offer the reveal, and drops
 any library rated above the caller's own `max_age_rating` entirely.
-`GET /api/adult-filter` answers `{ configured: boolean }`: whether Admin → Settings → 18+ filter names any
+`GET /api/adult-filter` answers `{ configured: boolean }`: whether Admin → Settings → Content ratings names any
 genre or source, so a client can offer the same reveal on an install with no 18+ library. Only the flag, never
 the lists, and always `false` for an account capped below 18.
 
 The Komga-compatible API cannot pass the parameter either, so the same preference lives on the **API
-token**: `POST /api/tokens { …, "showAdult": true }` (since v0.38.0; the *Include 18+ content* checkbox in
+token**: `POST /api/tokens { …, "showAdult": true }` (since v0.38.0; the *Show 18+ content (this token only)* checkbox in
 the mint dialog, off by default; `GET /api/tokens` rows carry `showAdult`). It decides whether 18+ libraries,
 and the genres and sources an admin named, appear in `/api/v1/libraries` and the series listings for that token; `/api/v1/series/:id`, its chapters,
 pages and progress resolve by id whatever it says, and the age cap is a permission and is unaffected. The
@@ -1422,6 +1430,14 @@ is not stored. The reader's defaults are the settings' `reader` object, and sinc
 `homeCollections` controls which zero to three Lists also appear on Home and in what order. Home shows up to twelve
 series per selected rail; an empty selected List reserves its position and appears once it has a series.
 
+**Fork change.** `PUT /api/settings` shallow-merges the body into the account's settings row, as before, and now holds three
+keys to booleans (anything else answers `400 {error:"bad_request", fields:["<key>"]}`): `compactChapters` (the denser chapter
+list on a computer, default `false`), `showGhosts` (show chapters the sources list that this server lacks, default `true`)
+and `alsoFollow` (the Add dialog's "also check the other sources" switch, default `false`). They used to live only in the
+browser's localStorage; the web app still mirrors them there so the first paint and an offline launch do not wait for the
+server, and the server's value overwrites the local one once the session (`user.settings`) has loaded. No migration: the
+row is jsonb.
+
 **Progress trackers.** `GET /api/trackers` is the caller's own connections, every provider listed connected
 or not; `POST /api/trackers/:provider/connect` takes a pasted token and `DELETE /api/trackers/:provider`
 drops it. A push goes out for the caller alone when they finish a chapter of a linked series, never below
@@ -1456,6 +1472,7 @@ GET    /api/admin/notify-targets  POST   /api/admin/notify-targets
 PATCH  /api/admin/notify-targets/:id DELETE /api/admin/notify-targets/:id
 POST   /api/admin/notify-targets/:id/test
 GET    /api/admin/install-ping/preview
+GET    /api/admin/limits
 GET    /api/admin/users           POST   /api/admin/users
 PATCH  /api/admin/users/:id       DELETE /api/admin/users/:id
 GET    /api/admin/sessions        DELETE /api/admin/sessions/:id

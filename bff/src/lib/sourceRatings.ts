@@ -28,6 +28,18 @@ export function cleanSourceRatings(v: unknown): Record<string, number> {
   return out;
 }
 
+/**
+ * The retired `adult_sources` list folded into the ratings: every id in it becomes a rating of 18, except an id the admin
+ * has already rated (their word stands, whether it is 0, 13 or 18). Ids are lowercased and trimmed, and anything that is
+ * not an id the registry writes is dropped, as cleanSourceRatings does. The boot migration (lib/migrate.ts) stores the
+ * result and empties the list; the SQL-free shape keeps the rule testable.
+ */
+export function foldAdultSources(adult: unknown, ratings: unknown): Record<string, number> {
+  const folded: Record<string, number> = {};
+  if (Array.isArray(adult)) for (const id of adult) if (typeof id === 'string') Object.assign(folded, cleanSourceRatings({ [id.trim()]: ADULT_AGE }));
+  return { ...folded, ...cleanSourceRatings(ratings) };
+}
+
 /** Replace the in-memory copy (boot, and each re-read of the settings). */
 export function applySourceRatings(stored: unknown): void {
   ratings = new Map(Object.entries(cleanSourceRatings(stored)));

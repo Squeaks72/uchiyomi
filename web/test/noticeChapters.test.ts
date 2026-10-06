@@ -18,8 +18,11 @@ test('one switch per series type, the server\'s six in its order, each with a la
 test('Admin → Settings: the section comes after the pinned ones and saves the list whole', () => {
   const src = read('components/AdminSettings.tsx');
   const grid = src.slice(src.indexOf('<div className={SETTINGS_GRID}>\n      <ServerSection'));
-  assert.match(grid, /<SourceOrderSection [^\n]*\/>\s*<NoticeChaptersSection /, 'Notice chapters is not last, after the source order');
-  const section = src.slice(src.indexOf('function NoticeChaptersSection('));
+  // Fork change: Source order and Notice chapters are parts of the Chapters & naming card, in that order.
+  assert.match(grid, /<ChaptersSection [^\n]*\/>/, 'Chapters & naming is not mounted');
+  const chapters = src.slice(src.indexOf('function ChaptersSection('), src.indexOf('function NoticeChaptersBlock('));
+  assert.match(chapters, /<SourceOrderBlock [^\n]*\/>\s*<NoticeChaptersBlock /, 'Notice chapters is not last, after the source order');
+  const section = src.slice(src.indexOf('function NoticeChaptersBlock('));
   assert.match(section, /save\(\{ hideNoticeTypes: next \}\)/, 'the section does not PATCH hideNoticeTypes');
   // Held locally and rolled back on a failed save, so two quick flips do not undo each other.
   assert.match(section, /setTypes\(prev\)/);
@@ -30,7 +33,7 @@ test('both switches say what they hide: the short x.y chapters, not every fracti
   // The owner's rule (v0.55.2): only a chapter numbered like 12.5 with 3 pages or fewer is a notice. Reintroduce the
   // PR's text ("every chapter numbered with a fraction"): neither matches.
   const settings = read('components/AdminSettings.tsx');
-  const section = settings.slice(settings.indexOf('function NoticeChaptersSection('));
+  const section = settings.slice(settings.indexOf('function NoticeChaptersBlock('));
   assert.match(section, /chapters numbered like 12\.5 with 3 pages or fewer are hidden/, 'the Settings text does not say what it hides');
   assert.match(read('components/SourcesSheet.tsx'), /numbered like 12\.5, with 3 pages or fewer/, 'the series switch does not say what it hides');
 });
@@ -40,7 +43,7 @@ test('"Only hide short ones": a switch of its own, on unless the server says off
   // split into parts included, so its help says so before it is flipped, and the section's sentence and the series'
   // switch say which rule is in force. Reintroduce the sheet's one sentence: "the series switch says the off rule" fails.
   const settings = read('components/AdminSettings.tsx');
-  const section = settings.slice(settings.indexOf('function NoticeChaptersSection('));
+  const section = settings.slice(settings.indexOf('function NoticeChaptersBlock('));
   assert.match(section, /const shortOnly = data\.hideNoticeShortOnly !== false;/, 'on unless the server says off');
   assert.match(section, /<SwitchRow label=\{tr\('Only hide short ones \(3 pages or fewer\)'\)\}/);
   assert.match(section, /help=\{tr\('Off hides every chapter numbered like 12\.5 of the types switched on, including real chapters a site split into parts\.'\)\}/,

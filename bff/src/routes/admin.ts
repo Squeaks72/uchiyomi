@@ -49,6 +49,7 @@ import { getHiddenLangs, setSourcesEnabled, adoptExtensionSources, langOverview,
 import { lastSuwayomiLoad, rememberMissing } from '../lib/sources/suwayomi/register';
 import { engineStatusReport, connectEngineSolver } from '../lib/extensionEngine';
 import { env } from '../env';
+import { currentLimits } from '../lib/limits';
 import { readFile, writeFile, mkdir, rm, rename, stat } from 'fs/promises';
 import { dirname, resolve, sep } from 'path';
 import sharp from 'sharp';
@@ -695,6 +696,8 @@ export default async function adminRoutes(app: FastifyInstance) {
       sample: !row?.secret,
     };
   });
+  /** Fork change. The env-only numeric knobs and what they are set to; never a secret (lib/limits.ts). */
+  app.get('/api/admin/limits', async () => currentLimits());
   app.patch('/api/admin/settings', async (req, reply) => {
     const b = z.object({
       serverName: z.string().min(1).max(64).optional(),
@@ -739,6 +742,7 @@ export default async function adminRoutes(app: FastifyInstance) {
        * page (`adultExempt` on the series meta route).
        */
       adultGenres: z.array(z.string().min(1).max(60)).max(60).optional(),
+      // Deprecated (fork): folded into source_ratings at boot and no longer written by the settings page; still honoured if set.
       adultSources: z.array(z.string().min(1).max(120)).max(200).optional(),
       /**
        * Source ids, most preferred first (lib/sourcePrefs.ts): which copy of a chapter the server does not
