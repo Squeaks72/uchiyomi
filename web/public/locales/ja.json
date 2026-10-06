@@ -2,7 +2,7 @@
   "_meta": {
     "language": "ja",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 3835
+    "strings": 3857
   },
   "1 check found something": "1 件のチェックで問題を検出",
   "1 member": "メンバー 1 人",
@@ -3838,5 +3838,27 @@
   "Next page": "次のページ",
   "Replace with this copy": "このコピーに置き換える",
   "The two copies have different page counts, so later pages will not line up.": "2 つのコピーはページ数が異なるため、後のページは対応しません。",
-  "Replace from another source…": "別のソースから置き換え…"
+  "Replace from another source…": "別のソースから置き換え…",
+  "Select by source": "ソース別に選択",
+  "Remove from series": "シリーズから削除",
+  "Deletes the files and stops these chapters being listed or fetched again": "ファイルを削除し、これらのチャプターが再び一覧表示・取得されないようにします",
+  "Removed {n} chapters from the library": "{n} 件のチャプターをライブラリから削除しました",
+  "Could not remove those chapters": "それらのチャプターを削除できませんでした",
+  "Remove {n} chapters from the series?": "{n} 件のチャプターをシリーズから削除しますか？",
+  "The chapters’ files are deleted from the server and the numbers are no longer listed or fetched for this series. Use it for chapters a source added that are not part of the series.": "チャプターのファイルはサーバーから削除され、この番号はこのシリーズで一覧表示・取得されなくなります。ソースが追加した、シリーズに属さないチャプターに使ってください。",
+  "Remove chapters from other sources…": "他のソースのチャプターを削除…",
+  "Remove chapters from other sources": "他のソースのチャプターを削除",
+  "These chapters are on the server but did not come from {main}, this series’ main source.": "これらのチャプターはサーバーにありますが、このシリーズのメインソース {main} から取得されたものではありません。",
+  "Where {main} has the same chapter number, download its copy instead of leaving a gap.": "{main} に同じ番号のチャプターがある場合は、欠番にせずそのコピーをダウンロードする。",
+  "1 chapter will be deleted and removed from the series.": "1 件のチャプターが削除され、シリーズから外されます。",
+  "{n} chapters will be deleted and removed from the series.": "{n} 件のチャプターが削除され、シリーズから外されます。",
+  "1 chapter will be replaced with the main source’s copy.": "1 件のチャプターがメインソースのコピーに置き換えられます。",
+  "{n} chapters will be replaced with the main source’s copy.": "{n} 件のチャプターがメインソースのコピーに置き換えられます。",
+  "Nothing to remove with these sources.": "これらのソースでは削除するものはありません。",
+  "A chapter somebody has bookmarked is skipped. Series Properties can bring a removed chapter back.": "ブックマークされているチャプターはスキップされます。削除したチャプターはシリーズのプロパティから戻せます。",
+  "Remove {n}": "{n} 件を削除",
+  "Removed 1 chapter from the library": "1 件のチャプターをライブラリから削除しました",
+  "Remove 1 chapter from the series?": "1 件のチャプターをシリーズから削除しますか？",
+  "1 duplicate file will be deleted.": "重複ファイル 1 件が削除されます。",
+  "{n} duplicate files will be deleted.": "重複ファイル {n} 件が削除されます。"
 }

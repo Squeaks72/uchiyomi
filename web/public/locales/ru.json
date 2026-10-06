@@ -2,7 +2,7 @@
   "_meta": {
     "language": "ru",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 3835
+    "strings": 3857
   },
   "1 check found something": "1 проверка нашла проблему",
   "1 member": "1 участник",
@@ -3838,5 +3838,27 @@
   "Next page": "Следующая страница",
   "Replace with this copy": "Заменить этой копией",
   "The two copies have different page counts, so later pages will not line up.": "В копиях разное число страниц, поэтому дальнейшие страницы не совпадут.",
-  "Replace from another source…": "Заменить из другого источника…"
+  "Replace from another source…": "Заменить из другого источника…",
+  "Select by source": "Выбрать по источнику",
+  "Remove from series": "Удалить из серии",
+  "Deletes the files and stops these chapters being listed or fetched again": "Удаляет файлы и не даёт этим главам снова появиться в списке или загружаться",
+  "Removed {n} chapters from the library": "Удалено глав из библиотеки: {n}",
+  "Could not remove those chapters": "Не удалось удалить эти главы",
+  "Remove {n} chapters from the series?": "Удалить {n} глав из серии?",
+  "The chapters’ files are deleted from the server and the numbers are no longer listed or fetched for this series. Use it for chapters a source added that are not part of the series.": "Файлы глав удаляются с сервера, а номера больше не показываются и не загружаются для этой серии. Используйте это для глав, которые добавил источник и которые не относятся к серии.",
+  "Remove chapters from other sources…": "Удалить главы из других источников…",
+  "Remove chapters from other sources": "Удалить главы из других источников",
+  "These chapters are on the server but did not come from {main}, this series’ main source.": "Эти главы есть на сервере, но не из {main} — основного источника этой серии.",
+  "Where {main} has the same chapter number, download its copy instead of leaving a gap.": "Если у {main} есть глава с тем же номером, скачать её вместо пропуска.",
+  "1 chapter will be deleted and removed from the series.": "1 глава будет удалена и убрана из серии.",
+  "{n} chapters will be deleted and removed from the series.": "Глав будет удалено и убрано из серии: {n}.",
+  "1 chapter will be replaced with the main source’s copy.": "1 глава будет заменена копией из основного источника.",
+  "{n} chapters will be replaced with the main source’s copy.": "Глав будет заменено копиями из основного источника: {n}.",
+  "Nothing to remove with these sources.": "Для этих источников нечего удалять.",
+  "A chapter somebody has bookmarked is skipped. Series Properties can bring a removed chapter back.": "Глава с закладкой пропускается. Свойства серии позволяют вернуть удалённую главу.",
+  "Remove {n}": "Удалить: {n}",
+  "Removed 1 chapter from the library": "Из библиотеки удалена 1 глава",
+  "Remove 1 chapter from the series?": "Удалить 1 главу из серии?",
+  "1 duplicate file will be deleted.": "1 дубликат файла будет удалён.",
+  "{n} duplicate files will be deleted.": "Дубликатов файлов будет удалено: {n}."
 }

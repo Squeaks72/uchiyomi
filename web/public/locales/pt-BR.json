@@ -2,7 +2,7 @@
   "_meta": {
     "language": "pt-BR",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 3835
+    "strings": 3857
   },
   "1 check found something": "1 verificação encontrou algo",
   "1 member": "1 membro",
@@ -3838,5 +3838,27 @@
   "Next page": "Próxima página",
   "Replace with this copy": "Substituir por esta cópia",
   "The two copies have different page counts, so later pages will not line up.": "As duas cópias têm números de páginas diferentes, então as páginas seguintes não vão coincidir.",
-  "Replace from another source…": "Substituir por outra fonte…"
+  "Replace from another source…": "Substituir por outra fonte…",
+  "Select by source": "Selecionar por fonte",
+  "Remove from series": "Remover da série",
+  "Deletes the files and stops these chapters being listed or fetched again": "Exclui os arquivos e impede que estes capítulos sejam listados ou baixados de novo",
+  "Removed {n} chapters from the library": "{n} capítulos removidos da biblioteca",
+  "Could not remove those chapters": "Não foi possível remover esses capítulos",
+  "Remove {n} chapters from the series?": "Remover {n} capítulos da série?",
+  "The chapters’ files are deleted from the server and the numbers are no longer listed or fetched for this series. Use it for chapters a source added that are not part of the series.": "Os arquivos dos capítulos são excluídos do servidor e os números deixam de ser listados ou baixados para esta série. Use para capítulos que uma fonte adicionou e que não fazem parte da série.",
+  "Remove chapters from other sources…": "Remover capítulos de outras fontes…",
+  "Remove chapters from other sources": "Remover capítulos de outras fontes",
+  "These chapters are on the server but did not come from {main}, this series’ main source.": "Estes capítulos estão no servidor, mas não vieram de {main}, a fonte principal desta série.",
+  "Where {main} has the same chapter number, download its copy instead of leaving a gap.": "Onde {main} tiver o mesmo número de capítulo, baixar a cópia dele em vez de deixar uma lacuna.",
+  "1 chapter will be deleted and removed from the series.": "1 capítulo será excluído e removido da série.",
+  "{n} chapters will be deleted and removed from the series.": "{n} capítulos serão excluídos e removidos da série.",
+  "1 chapter will be replaced with the main source’s copy.": "1 capítulo será substituído pela cópia da fonte principal.",
+  "{n} chapters will be replaced with the main source’s copy.": "{n} capítulos serão substituídos pela cópia da fonte principal.",
+  "Nothing to remove with these sources.": "Nada para remover com essas fontes.",
+  "A chapter somebody has bookmarked is skipped. Series Properties can bring a removed chapter back.": "Um capítulo que alguém marcou é ignorado. As propriedades da série podem trazer de volta um capítulo removido.",
+  "Remove {n}": "Remover {n}",
+  "Removed 1 chapter from the library": "1 capítulo removido da biblioteca",
+  "Remove 1 chapter from the series?": "Remover 1 capítulo da série?",
+  "1 duplicate file will be deleted.": "1 arquivo duplicado será excluído.",
+  "{n} duplicate files will be deleted.": "{n} arquivos duplicados serão excluídos."
 }

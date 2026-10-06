@@ -41,6 +41,8 @@ import { ChapterFilterSheet } from '@/components/ChapterFilterSheet';
 import { ChapterVersionsSheet } from '@/components/ChapterVersionsSheet';
 import { CompareCopiesDialog } from '@/components/CompareCopiesDialog';
 import { CoverPickerSheet } from '@/components/CoverPickerSheet';
+import { CullSourcesDialog } from '@/components/CullSourcesDialog';
+import { foreignSources, type CullPlan } from '@/lib/cullPlan';
 import { GroupAvatar } from '@/components/GroupAvatar';
 import { supplyLine } from '@/lib/supplyLine';
 import { isDesktop } from '@/lib/desktop';
@@ -397,6 +399,9 @@ function ButtonsWrap({ compact, menuOpen, children }: { compact: boolean; menuOp
   return <div className={buttonsClass(menuOpen)}>{children}</div>;
 }
 
+/** Shift+click in select mode picks a range; without this the browser also paints a text selection across it. */
+const keepSelection = (e: { shiftKey: boolean; preventDefault: () => void }) => { if (e.shiftKey) e.preventDefault(); };
+
 function ChapterRow({ book, downloaded, sourceNames, primarySource, versions, onReader, onToggleDownload, onMark, onEdit, onVersions, onReplaceFrom, onCopyPath, onRemove, fresh, selectable, selected, onToggle, compact, lit }: {
   book: Book;
   /** Fetched from this page a moment ago: a green tick sits where the ☁ was, for a few seconds. */
@@ -411,7 +416,7 @@ function ChapterRow({ book, downloaded, sourceNames, primarySource, versions, on
   compact?: boolean;
   downloaded: boolean;
   /** Select mode: the row toggles instead of opening, shows the ✓ bubble, and hides its own two controls. */
-  selectable?: boolean; selected?: boolean; onToggle?: () => void;
+  selectable?: boolean; selected?: boolean; onToggle?: (shift: boolean) => void;
   /** Source id -> display name, from the series' followed sources; names the caption on a chapter another source supplied. */
   sourceNames?: Record<string, string>;
   /** The series' own source. A chapter from it gets no `via`: that is the normal case, not news. */
@@ -465,7 +470,7 @@ function ChapterRow({ book, downloaded, sourceNames, primarySource, versions, on
     <div className={rowClass(!!compact)} {...(selectable ? {} : menu.bind)}>
       {/* In select mode a pruned chapter is still selectable -- Mark read and Fetch again are exactly the
           things one wants for it -- so the disable only applies to opening. */}
-      <button type="button" onClick={selectable ? onToggle : onReader} disabled={pruned && !selectable} aria-pressed={selectable ? !!selected : undefined}
+      <button type="button" onClick={selectable ? (e) => onToggle?.(e.shiftKey) : onReader} onMouseDown={selectable ? keepSelection : undefined} disabled={pruned && !selectable} aria-pressed={selectable ? !!selected : undefined}
         className="flex min-w-0 flex-1 items-center gap-3 text-start disabled:cursor-default">
         <div className={`relative h-14 w-10 shrink-0${thumbHide(!!compact, !!selectable)} overflow-hidden rounded-lg border ${state === 'read' ? 'border-ink-800 opacity-45' : 'border-ink-700'} ${book.pruned && !downloaded ? 'border-dashed border-ink-600' : ''}`}>
           {/* A tombstone has no file to draw a thumbnail from; asking would be a 404 per row on every visit.
@@ -564,7 +569,7 @@ function GhostRow({ ghost, sourceNames, primarySource, selectable, selected, onT
   compact?: boolean;
   sourceNames?: Record<string, string>;
   primarySource?: string;
-  selectable?: boolean; selected?: boolean; onToggle?: () => void;
+  selectable?: boolean; selected?: boolean; onToggle?: (shift: boolean) => void;
   /**
    * Fetch this one chapter now, for a viewer who may download; absent for everyone else and for a row only
    * blocked groups released (the caller decides both, the row only draws the button). Select mode stays the
@@ -609,7 +614,7 @@ function GhostRow({ ghost, sourceNames, primarySource, selectable, selected, onT
     {/* The dimming is the opener's and the date's, not the row's: the fetch button at the end of the line
         is a live control, and a child cannot undo its parent's opacity. */}
     <div className={rowClass(!!compact)} {...menuBind}>
-      <button type="button" onClick={selectable ? onToggle : onOpen} aria-pressed={selectable ? !!selected : undefined} aria-haspopup={selectable ? undefined : 'dialog'}
+      <button type="button" onClick={selectable ? (e) => onToggle?.(e.shiftKey) : onOpen} onMouseDown={selectable ? keepSelection : undefined} aria-pressed={selectable ? !!selected : undefined} aria-haspopup={selectable ? undefined : 'dialog'}
         className={`flex min-w-0 flex-1 items-center gap-3 text-start ${selected ? '' : 'opacity-60'}`}>
         <div className={`relative grid h-14 w-10 shrink-0${thumbHide(!!compact, !!selectable)} place-items-center rounded-lg border border-dashed border-ink-600`}>
           {read && !selectable && (
@@ -766,7 +771,8 @@ function SeriesInner() {
   const [pickedBooks, setPickedBooks] = useState<Set<string>>(new Set());
   const [pickedGhosts, setPickedGhosts] = useState<Set<string>>(new Set());
   const [acting, setActing] = useState(false);
-  const [confirming, setConfirming] = useState<null | 'delete' | 'refetch'>(null);
+  const [confirming, setConfirming] = useState<null | 'delete' | 'refetch' | 'purge'>(null);
+  const [culling, setCulling] = useState(false);
   const [started, setStarted] = useState<StartedJob | null>(null);
   const clearPicks = () => { setPickedBooks(new Set()); setPickedGhosts(new Set()); };
   const leaveSelect = () => { setSelecting(false); clearPicks(); };
@@ -1210,11 +1216,26 @@ function SeriesInner() {
   };
 
   // ---- select mode -------------------------------------------------------------------------------
-  const togglePickBook = (bookId: string) =>
-    setPickedBooks((p) => { const n = new Set(p); n.has(bookId) ? n.delete(bookId) : n.add(bookId); return n; });
   const ghostKey = (g: Ghost) => g.bookId ? `book:${g.bookId}` : `number:${g.number}`;
-  const togglePickGhost = (ghost: Ghost) =>
-    setPickedGhosts((p) => { const n = new Set(p); const k = ghostKey(ghost); n.has(k) ? n.delete(k) : n.add(k); return n; });
+  // Shift+click ticks (or unticks, as the clicked row is not yet / already ticked) every row between the last one
+  // clicked and this one, on the rows the person can see: the filtered list, in the order it is drawn. A ghost is
+  // held by its own key, not its number, so two tombstones sharing a number stay separate picks.
+  const lastPick = useRef<string | null>(null);
+  const pickRow = (key: string, shift: boolean) => {
+    const keys = rows.flatMap((r) => (r.kind === 'book' ? [`b:${r.book.id}`] : r.kind === 'ghost' ? [`g:${ghostKey(r.ghost)}`] : []));
+    const isOn = (k: string) => (k[0] === 'b' ? pickedBooks.has(k.slice(2)) : pickedGhosts.has(k.slice(2)));
+    const a = shift && lastPick.current ? keys.indexOf(lastPick.current) : -1;
+    const z = keys.indexOf(key);
+    const span = a >= 0 && z >= 0 ? keys.slice(Math.min(a, z), Math.max(a, z) + 1) : [key];
+    const on = !isOn(key);
+    setPickedBooks((p) => { const n = new Set(p); for (const k of span) if (k[0] === 'b') on ? n.add(k.slice(2)) : n.delete(k.slice(2)); return n; });
+    setPickedGhosts((p) => { const n = new Set(p); for (const k of span) if (k[0] === 'g') on ? n.add(k.slice(2)) : n.delete(k.slice(2)); return n; });
+    lastPick.current = key;
+  };
+  const selectBooks = (ids: string[], ghostsToo: boolean) => {
+    setPickedBooks(new Set(ids));
+    setPickedGhosts(ghostsToo ? new Set(filteredGhosts.map(ghostKey)) : new Set());
+  };
   const toggleGhosts = () => {
     const next = !showGhosts;
     // Applied at once and saved to the account; a refused save puts it back, and the device has it either way.
@@ -1421,6 +1442,67 @@ function SeriesInner() {
     }
     setActing(false);
     setRemoving(null);
+  };
+  // Every source with files on this series, for "select by source" and the cull button. Over ALL books, not the
+  // filtered ones: a group filter must not hide that a source is here.
+  const sourcesHere = useMemo(() => {
+    const n = new Map<string, number>();
+    for (const b of allBooks) if (b.sourceId) n.set(b.sourceId, (n.get(b.sourceId) ?? 0) + 1);
+    return [...n].map(([sid, count]) => ({ id: sid, count })).sort((a, b) => b.count - a.count);
+  }, [allBooks]);
+  const hasForeign = !!primarySource && foreignSources(allBooks, primarySource).length > 0;
+  // Remove from series: the files go AND the numbers stop being listed or fetched (POST chapters/remove), for the
+  // picked chapters and picked grey rows alike. In chunks of the route's 500.
+  const removeNumbers = async (numbers: number[]) => {
+    let removed = 0; let notOurs = 0; let bookmarked = 0; let other = 0;
+    for (let i = 0; i < numbers.length; i += 500) {
+      const res = await api<{ removed: number[]; skipped: { number: number; reason: string }[] }>(`/api/admin/series/${id}/chapters/remove`, {
+        method: 'POST', json: { numbers: numbers.slice(i, i + 500) },
+      });
+      removed += res.removed.length;
+      for (const x of res.skipped) { if (x.reason === 'not_owned') notOurs++; else if (x.reason === 'bookmarked') bookmarked++; else other++; }
+    }
+    return { removed, notOurs, bookmarked, other };
+  };
+  const reportRemoval = (r: { removed: number; notOurs: number; bookmarked: number; other: number }) => {
+    const kind = r.removed ? 'info' : 'error';
+    if (r.removed) toast(r.removed === 1 ? tr('Removed 1 chapter from the library') : tr('Removed {n} chapters from the library', { n: r.removed }), 'success');
+    if (r.notOurs) toast(skippedNotOursText(r.notOurs), kind);
+    if (r.bookmarked) toast(skippedBookmarkedText(r.bookmarked), kind);
+    if (r.other) toast(r.other === 1 ? tr('1 chapter could not be deleted') : tr('{n} chapters could not be deleted', { n: r.other }), kind);
+  };
+  const bulkPurge = async () => {
+    setActing(true);
+    try {
+      const numbers = [...new Set([...pickedBookList.map((b) => b.number), ...pickedGhostList.map((g) => g.number)])];
+      reportRemoval(await removeNumbers(numbers));
+      invalidateChapters();
+      leaveSelect();
+    } catch (e) {
+      toast(msgOf(e, tr('Could not remove those chapters')), 'error');
+    }
+    setActing(false);
+    setConfirming(null);
+  };
+  const applyCull = async (plan: CullPlan) => {
+    setActing(true);
+    try {
+      if (plan.remove.length) reportRemoval(await removeNumbers(plan.remove));
+      if (plan.deleteIds.length) {
+        for (let i = 0; i < plan.deleteIds.length; i += 500) {
+          await api(`/api/admin/series/${id}/chapters/delete`, { method: 'POST', json: { bookIds: plan.deleteIds.slice(i, i + 500) } });
+        }
+      }
+      if (plan.swaps.length) {
+        await startJob(`/api/admin/series/${id}/chapters/refetch`, { picks: plan.swaps.map((x) => ({ bookId: x.bookId, source: x.copy.source, sourceId: copySourceId(x.copy) })) });
+      }
+      invalidateChapters();
+      setCulling(false);
+    } catch (e) {
+      toast(msgOf(e, tr('Could not remove those chapters')), 'error');
+      invalidateChapters();
+    }
+    setActing(false);
   };
   const bulkDelete = async () => {
     setActing(true);
@@ -1661,6 +1743,10 @@ function SeriesInner() {
           <button type="button" onClick={checkNow} disabled={checking} data-check-new
             className="btn-key mt-1 h-auto w-full py-2.5 text-sm font-normal text-fog-300 disabled:opacity-60">
             <IcRefresh width={16} height={16} className={checking ? 'animate-spin' : ''} />{checking ? tr('Checking for new chapters…') : tr('Check for new chapters')}</button>
+          {hasForeign && (
+            <button type="button" onClick={() => setCulling(true)} data-cull-sources-open
+              className="btn-key mt-1 h-auto w-full py-2.5 text-sm font-normal text-rose-300">{tr('Remove chapters from other sources…')}</button>
+          )}
           <button onClick={() => setEditing('details')} className="mt-1 flex items-center justify-center gap-2 rounded-full border border-ink-700 py-2.5 text-sm text-fog-300">
             <svg aria-hidden width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>{tr('Edit details')}</button>
           {/* Only while the hero is an automatic one: a real banner is changed in Edit details. */}
@@ -1777,7 +1863,7 @@ function SeriesInner() {
                 fresh={landed.has(b.number)}
                 onEdit={isAdmin ? () => setEditChapter(b) : undefined}
                 onCopyPath={isAdmin && b.path ? () => void copyPath(b.path!, toast) : undefined}
-                selectable={selecting} selected={pickedBooks.has(b.id)} onToggle={() => togglePickBook(b.id)}
+                selectable={selecting} selected={pickedBooks.has(b.id)} onToggle={(shift) => pickRow(`b:${b.id}`, shift)}
                 versions={versionsOf.get(b.number)?.length}
                 onVersions={versionsOf.has(b.number) ? () => setChapterSheet({ number: b.number, book: b }) : undefined}
                 onReplaceFrom={isAdmin && b.owned !== false && versionsOf.get(b.number)?.some((c) => !c.onDisk) ? () => setComparing(b) : undefined} />
@@ -1787,7 +1873,7 @@ function SeriesInner() {
             return (
               <GhostRow key={`g:${r.ghost.bookId ?? r.ghost.number}`} ghost={r.ghost} compact={compact} sourceNames={sourceNames} primarySource={primarySource}
                 wholeHere={haveWholes.has(Math.floor(r.ghost.number))}
-                selectable={selecting} selected={pickedGhosts.has(ghostKey(r.ghost))} onToggle={() => togglePickGhost(r.ghost)}
+                selectable={selecting} selected={pickedGhosts.has(ghostKey(r.ghost))} onToggle={(shift) => pickRow(`g:${ghostKey(r.ghost)}`, shift)}
                 onOpen={() => setChapterSheet({ number: r.ghost.number, ghost: r.ghost })}
                 // Same audience and same exclusion as the bar's Fetch (`fetchable`): a row only blocked
                 // groups released cannot be fetched while the block stands, so it gets no button.
@@ -1880,11 +1966,32 @@ function SeriesInner() {
         {canDownload(user) && <button disabled={acting || !fetchable.length} onClick={bulkFetch} className="chip text-xs disabled:opacity-50"><IcCloudDownload width={14} height={14} />{tr('Fetch')}</button>}
         {isAdmin && <button disabled={acting || !refetchable.length} onClick={() => setConfirming('refetch')} className="chip text-xs disabled:opacity-50"><IcCloudDownload width={14} height={14} />{tr('Fetch again')}</button>}
         {isAdmin && (
+          <button disabled={acting || !pickedCount} onClick={() => setConfirming('purge')} data-remove-from-series
+            title={tr('Deletes the files and stops these chapters being listed or fetched again')} className="chip text-xs text-rose-300 disabled:opacity-50">
+            {tr('Remove from series')}
+          </button>
+        )}
+        {isAdmin && (
           <button disabled={acting || !deletable.length} onClick={() => setConfirming('delete')} data-remove-chapters className="chip text-xs text-rose-300 disabled:opacity-50">
             {deletable.length === 1 ? tr('Remove 1 chapter') : deletable.length ? tr('Remove {n} chapters', { n: deletable.length }) : tr('Remove chapters')}
           </button>
         )}
         <button disabled={acting} onClick={leaveSelect} className="chip text-xs text-fog-500 disabled:opacity-50">{tr('Cancel')}</button>
+      </div>
+      <div className="mx-auto mt-2 flex max-w-3xl flex-wrap items-center gap-1.5 text-[11px]" data-select-helpers>
+        <button type="button" disabled={acting} onClick={() => selectBooks(filteredBooks.map((b) => b.id), true)} className="chip text-xs">{tr('Select all')}</button>
+        <button type="button" disabled={acting || !pickedCount} onClick={clearPicks} className="chip text-xs disabled:opacity-50">{tr('Select none')}</button>
+        {sourcesHere.length > 1 && (
+          <>
+            <span className="ms-1 text-fog-500">{tr('Select by source')}</span>
+            {sourcesHere.map((x) => (
+              <button key={x.id} type="button" disabled={acting} data-select-source={x.id}
+                onClick={() => selectBooks(filteredBooks.filter((b) => b.sourceId === x.id).map((b) => b.id), false)} className="chip max-w-48 truncate text-xs">
+                {sourceNames[x.id] ?? x.id} · {x.count}
+              </button>
+            ))}
+          </>
+        )}
       </div>
       {/* Nothing to remove ticked: how to, and the whole series' Remove, which this bar is not. Reintroduce by dropping
           this line: "the bar says how to remove chapters, and where the series' own Remove is" in seriesPage.test.ts. */}
@@ -2124,6 +2231,27 @@ function SeriesInner() {
           onConfirm={bulkDelete}
           onClose={() => setConfirming(null)}
         />
+      )}
+      {confirming === 'purge' && (
+        <ConfirmDialog
+          title={pickedCount === 1 ? tr('Remove 1 chapter from the series?') : tr('Remove {n} chapters from the series?', { n: pickedCount })}
+          danger
+          busy={acting}
+          confirmLabel={tr('Remove')}
+          body={
+            <>
+              <p>{tr('The chapters’ files are deleted from the server and the numbers are no longer listed or fetched for this series. Use it for chapters a source added that are not part of the series.')}</p>
+              <p className="mt-2">{tr('A chapter somebody has bookmarked, and a chapter in a library you assembled yourself, is skipped. Series Properties can bring a removed chapter back.')}</p>
+            </>
+          }
+          onConfirm={bulkPurge}
+          onClose={() => setConfirming(null)}
+        />
+      )}
+      {culling && primarySource && (
+        <CullSourcesDialog books={allBooks} primary={primarySource} sourceNames={sourceNames} busy={acting}
+          mainCopy={(n) => versionsOf.get(n)?.find((c) => c.source === primarySource)}
+          onApply={applyCull} onClose={() => setCulling(false)} />
       )}
       {confirming === 'refetch' && (
         <ConfirmDialog

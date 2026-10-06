@@ -2,7 +2,7 @@
   "_meta": {
     "language": "ar",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 3835
+    "strings": 3857
   },
   "1 check found something": "فحص واحد وجد شيئًا",
   "1 member": "عضو واحد",
@@ -3838,5 +3838,27 @@
   "Next page": "الصفحة التالية",
   "Replace with this copy": "استبدال بهذه النسخة",
   "The two copies have different page counts, so later pages will not line up.": "للنسختين عدد صفحات مختلف، لذا لن تتطابق الصفحات اللاحقة.",
-  "Replace from another source…": "الاستبدال من مصدر آخر…"
+  "Replace from another source…": "الاستبدال من مصدر آخر…",
+  "Select by source": "تحديد حسب المصدر",
+  "Remove from series": "إزالة من السلسلة",
+  "Deletes the files and stops these chapters being listed or fetched again": "يحذف الملفات ويمنع إدراج هذه الفصول أو جلبها مرة أخرى",
+  "Removed {n} chapters from the library": "تمت إزالة {n} فصلًا من المكتبة",
+  "Could not remove those chapters": "تعذرت إزالة هذه الفصول",
+  "Remove {n} chapters from the series?": "إزالة {n} فصلًا من السلسلة؟",
+  "The chapters’ files are deleted from the server and the numbers are no longer listed or fetched for this series. Use it for chapters a source added that are not part of the series.": "تُحذف ملفات الفصول من الخادم ولا تُدرج الأرقام أو تُجلب لهذه السلسلة بعد الآن. استخدمه للفصول التي أضافها مصدر وهي ليست جزءًا من السلسلة.",
+  "Remove chapters from other sources…": "إزالة الفصول من مصادر أخرى…",
+  "Remove chapters from other sources": "إزالة الفصول من مصادر أخرى",
+  "These chapters are on the server but did not come from {main}, this series’ main source.": "هذه الفصول موجودة على الخادم لكنها لم تأتِ من {main}، المصدر الرئيسي لهذه السلسلة.",
+  "Where {main} has the same chapter number, download its copy instead of leaving a gap.": "عندما يكون لدى {main} الفصل نفسه بالرقم نفسه، نزّل نسخته بدلًا من ترك فجوة.",
+  "1 chapter will be deleted and removed from the series.": "سيتم حذف فصل واحد وإزالته من السلسلة.",
+  "{n} chapters will be deleted and removed from the series.": "سيتم حذف {n} فصلًا وإزالتها من السلسلة.",
+  "1 chapter will be replaced with the main source’s copy.": "سيتم استبدال فصل واحد بنسخة المصدر الرئيسي.",
+  "{n} chapters will be replaced with the main source’s copy.": "سيتم استبدال {n} فصلًا بنسخة المصدر الرئيسي.",
+  "Nothing to remove with these sources.": "لا شيء لإزالته من هذه المصادر.",
+  "A chapter somebody has bookmarked is skipped. Series Properties can bring a removed chapter back.": "يتم تخطي الفصل الذي وضع عليه أحدهم إشارة. يمكن لخصائص السلسلة استعادة فصل تمت إزالته.",
+  "Remove {n}": "إزالة {n}",
+  "Removed 1 chapter from the library": "تمت إزالة فصل واحد من المكتبة",
+  "Remove 1 chapter from the series?": "إزالة فصل واحد من السلسلة؟",
+  "1 duplicate file will be deleted.": "سيتم حذف ملف مكرر واحد.",
+  "{n} duplicate files will be deleted.": "سيتم حذف {n} ملفًا مكررًا."
 }

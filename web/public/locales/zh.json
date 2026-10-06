@@ -2,7 +2,7 @@
   "_meta": {
     "language": "zh",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 3835
+    "strings": 3857
   },
   "1 check found something": "1 项检查发现问题",
   "1 member": "1 位成员",
@@ -3838,5 +3838,27 @@
   "Next page": "下一页",
   "Replace with this copy": "用此副本替换",
   "The two copies have different page counts, so later pages will not line up.": "两个副本的页数不同，后面的页面将无法对齐。",
-  "Replace from another source…": "从其他来源替换…"
+  "Replace from another source…": "从其他来源替换…",
+  "Select by source": "按来源选择",
+  "Remove from series": "从系列中移除",
+  "Deletes the files and stops these chapters being listed or fetched again": "删除文件，并使这些章节不再被列出或再次获取",
+  "Removed {n} chapters from the library": "已从库中移除 {n} 个章节",
+  "Could not remove those chapters": "无法移除这些章节",
+  "Remove {n} chapters from the series?": "从系列中移除 {n} 个章节？",
+  "The chapters’ files are deleted from the server and the numbers are no longer listed or fetched for this series. Use it for chapters a source added that are not part of the series.": "这些章节的文件将从服务器删除，其编号不再为该系列列出或获取。适用于来源添加的、不属于该系列的章节。",
+  "Remove chapters from other sources…": "移除其他来源的章节…",
+  "Remove chapters from other sources": "移除其他来源的章节",
+  "These chapters are on the server but did not come from {main}, this series’ main source.": "这些章节在服务器上，但并非来自该系列的主要来源 {main}。",
+  "Where {main} has the same chapter number, download its copy instead of leaving a gap.": "如果 {main} 有相同编号的章节，则下载其副本而不是留空。",
+  "1 chapter will be deleted and removed from the series.": "将删除 1 个章节并将其从系列中移除。",
+  "{n} chapters will be deleted and removed from the series.": "将删除 {n} 个章节并将其从系列中移除。",
+  "1 chapter will be replaced with the main source’s copy.": "将用主要来源的副本替换 1 个章节。",
+  "{n} chapters will be replaced with the main source’s copy.": "将用主要来源的副本替换 {n} 个章节。",
+  "Nothing to remove with these sources.": "这些来源没有可移除的内容。",
+  "A chapter somebody has bookmarked is skipped. Series Properties can bring a removed chapter back.": "有人加了书签的章节会被跳过。可在系列属性中恢复已移除的章节。",
+  "Remove {n}": "移除 {n} 个",
+  "Removed 1 chapter from the library": "已从库中移除 1 个章节",
+  "Remove 1 chapter from the series?": "从系列中移除 1 个章节？",
+  "1 duplicate file will be deleted.": "将删除 1 个重复文件。",
+  "{n} duplicate files will be deleted.": "将删除 {n} 个重复文件。"
 }
