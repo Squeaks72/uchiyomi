@@ -1419,6 +1419,34 @@ function SeriesInner() {
   // which is asked about first below.
   const pickGhost = (number: number, copy: VersionCopy) =>
     startJob('/api/sources/fetch', { seriesId: id, picks: [{ number, source: copy.source, sourceId: copySourceId(copy) }] });
+  // "Fetch and read": the copy is fetched into the library like any Fetch, then the reader opens on it. Nothing is
+  // streamed unsaved -- the reader only ever opens a file the library holds. If the reader has left this page
+  // by the time the file lands, it stays a plain Fetch rather than pulling them back into a chapter.
+  const fetchAndRead = async (number: number, copy?: VersionCopy) => {
+    setActing(true);
+    try {
+      const res = await api<{ folder: string; total: number }>('/api/sources/fetch', {
+        method: 'POST',
+        json: copy ? { seriesId: id, picks: [{ number, source: copy.source, sourceId: copySourceId(copy) }] } : { seriesId: id, numbers: [number] },
+      });
+      setStarted({ folder: res.folder, at: Date.now() });
+      setFetching((f) => new Set(f).add(number));
+      void kickDownloads(qc);
+      toast(tr('Fetching the chapter to read it…'), 'info', { busy: true });
+      invalidateChapters();
+      const ended = await awaitJob(res.folder);
+      if (ended?.status === 'error') { toast(reasonText(ended) || tr('Fetch stopped. Try another source or wait.'), 'error'); return; }
+      invalidateChapters();
+      const here = window.location.pathname.includes('/series') && new URLSearchParams(window.location.search).get('id') === id;
+      const book = (await fetchAllBooks(id)).content.find((b) => b.number === number);
+      if (book && here) router.push(`/reader/?book=${book.id}`);
+      else if (!book) toast(tr('Fetched, but the chapter is not listed yet'), 'info');
+    } catch (e) {
+      toast(msgOf(e, tr('Could not start.')), 'error');
+    } finally {
+      setActing(false);
+    }
+  };
   const [replacing, setReplacing] = useState<{ book: Book; copy: VersionCopy } | null>(null);
   const [comparing, setComparing] = useState<Book | null>(null);
   const [coverPicker, setCoverPicker] = useState(false);
@@ -2124,6 +2152,7 @@ function SeriesInner() {
             // alternate copies shown by the versions sheet; the member restore endpoint enforces it too.
             void (ghost?.bookId ? fetchDeleted(ghost.bookId) : copy ? pickGhost(n, copy) : fetchOne(n));
           }}
+          onFetchRead={(copy) => { const n = chapterSheet.number; setChapterSheet(null); void fetchAndRead(n, copy); }}
           // ⚠️ The sheet closes FIRST, then the confirm opens: a Modal under a Sheet cannot be tapped.
           onReplace={(copy) => { const b = chapterSheet.book!; setChapterSheet(null); setReplacing({ book: b, copy }); }}
           // Sheet for sheet, never stacked: the versions sheet closes and the plan opens.
