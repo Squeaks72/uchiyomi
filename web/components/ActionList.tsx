@@ -166,6 +166,7 @@ export function ActionRow(a: ActionSpec) {
           // Busy disables it -- except as Stop, which is the one thing a running action's button is for.
           disabled={a.disabled || stopping || (isBusy(state) && !btn.stop)}
           title={a.disabled ? a.disabledWhy : undefined}
+          aria-label={a.runLabel && a.runLabel !== a.label ? `${btn.label}: ${a.label}` : undefined}
           onClick={btn.stop && state.kind === 'working' ? state.onStop : a.onRun}>
           {btn.label}
         </button>

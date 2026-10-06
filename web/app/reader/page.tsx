@@ -1462,7 +1462,7 @@ function ReaderInner() {
                   onChange={(e) => jumpTo(Number(e.target.value))}
                   className="h-1 flex-1 accent-[rgb(var(--accent))]" />
                 <button onClick={goNext} disabled={!nextId} aria-label={armedNext != null ? tr('Tap again to skip to the next chapter') : tr('Next chapter')}
-                  className={`grid h-9 w-9 shrink-0 place-items-center rounded-full text-white backdrop-blur disabled:opacity-30 ${armedNext != null ? 'bg-accent' : 'bg-black/45'}`}>
+                  className={`grid h-9 w-9 shrink-0 place-items-center rounded-full backdrop-blur disabled:opacity-30 ${armedNext != null ? 'bg-accent text-black' : 'bg-black/45 text-white'}`}>
                   {pagedRtl ? <IcChevronLeft aria-hidden width={18} height={18} /> : <IcChevronRight aria-hidden width={18} height={18} />}
                 </button>
               </div>

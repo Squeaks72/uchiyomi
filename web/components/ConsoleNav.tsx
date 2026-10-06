@@ -111,7 +111,7 @@ export function ConsoleNav<T extends string>({
                 <button key={t} onClick={() => onTab(t)}
                   aria-current={tab === t ? 'page' : undefined}
                   className={`shrink-0 rounded-full px-3.5 py-1.5 text-sm font-medium transition ${
-                    tab === t ? 'bg-accent text-white' : 'bg-ink-800 text-fog-300'
+                    tab === t ? 'bg-accent text-black' : 'bg-ink-800 text-fog-300'
                   }`}>{tr(t)}</button>
               ))}
               {group.links?.map((l) => (
