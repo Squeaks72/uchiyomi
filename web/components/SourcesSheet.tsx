@@ -852,6 +852,7 @@ export function SourcesSheet({ id, title: seriesTitle, series, groups, admin, er
                 {series.hideNoticeShortOnly === false
                   ? tr('Hide notice chapters (numbered like 12.5) here, in Mihon and everywhere else. Switching this off shows them again.')
                   : tr('Hide notice chapters (numbered like 12.5, with 3 pages or fewer) here, in Mihon and everywhere else. Switching this off shows them again.')}
+                {' '}{tr('A chapter numbered 0 counts as one too, and is judged the same way.')}
                 {series.hideNoticesEffective && (
                   <span className="text-fog-400"> {tr('Hidden now: {n}.', { n: series.hiddenNotices ?? 0 })}</span>
                 )}

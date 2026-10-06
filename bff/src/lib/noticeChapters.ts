@@ -21,7 +21,8 @@
 // notice, of the types and the series switched on -- the rule #147 was first written with, real chapters a site split
 // into parts included, which is why it is a choice and says so where it is made.
 //
-// Off by default (an empty list and NULL everywhere), and while nothing hides, nothing costs anything: every fragment
+// On by default for a server that has not chosen (noticeSettings.applyNoticeDefault, once, at boot; a database made by a
+// test starts with an empty list and NULL everywhere). While nothing hides, nothing costs anything: every fragment
 // below is then a constant (`active`), so every query is the one the previous release ran.
 //
 // ⚠️ The ONE definition. Every query that needs the rule interpolates a fragment from here, so "which chapters
@@ -59,8 +60,12 @@ let shortOnly = true;
 export const setNoticesShortOnly = (on: boolean): void => { shortOnly = on; };
 export const noticesShortOnly = (): boolean => shortOnly;
 
-/** Is this number a fraction? NULL is not. `real` holds 100 exactly, so floor() compares cleanly. */
-export const isFractional = (num: string): string => `(${num} IS NOT NULL AND ${num} <> floor(${num}))`;
+/**
+ * Is this number an extra's: a fraction, or 0? NULL is not. `real` holds 100 exactly, so floor() compares cleanly.
+ * Chapter 0 is what a source files a prologue, a cover page or a stray from another title under, and (owner, v0.55.7)
+ * is judged like 12.5: by its pages, unless "Only hide short ones" is off.
+ */
+export const isFractional = (num: string): string => `(${num} IS NOT NULL AND (${num} <> floor(${num}) OR ${num} = 0))`;
 
 /** Is a page count (an SQL expression, NULL when nobody knows) short enough for a notice? Not known is not. */
 const isShort = (pages: string): string => `COALESCE(${pages} <= ${NOTICE_MAX_PAGES}, false)`;
@@ -101,8 +106,8 @@ export const bookIsNotice = (b: string, ov: string): string => {
  * planner skip the whole numbers without visiting them. On the review's 48k-chapter library a read-progress roll-up
  * went through every chapter to find the 170 notices, and the Library grid's estimate crossed jit_above_cost.
  */
-const mayBeNotice = (b: string): string => `(${b}.number <> floor(${b}.number)
-     OR ${b}.id = ANY(ARRAY(SELECT bo_nt.book_id FROM book_overrides bo_nt WHERE bo_nt.number <> floor(bo_nt.number))))`;
+const mayBeNotice = (b: string): string => `(${b}.number <> floor(${b}.number) OR ${b}.number = 0
+     OR ${b}.id = ANY(ARRAY(SELECT bo_nt.book_id FROM book_overrides bo_nt WHERE bo_nt.number <> floor(bo_nt.number) OR bo_nt.number = 0)))`;
 
 /**
  * Is the series_listing row `l` a notice, whether or not its series hides them? What the listing says of it -- or, with
@@ -173,8 +178,12 @@ export const hiddenBookCount = (s: string): string => `(CASE WHEN ${hidesNotices
      AND ${bookIsNotice('hb_nt', 'hov_nt')}
 ) + (
   SELECT count(*) FROM lib_books hb_nt JOIN book_overrides hov_nt ON hov_nt.book_id = hb_nt.id
-   WHERE hb_nt.id = ANY(ARRAY(SELECT bo_nt.book_id FROM book_overrides bo_nt WHERE bo_nt.number <> floor(bo_nt.number)))
+   WHERE hb_nt.id = ANY(ARRAY(SELECT bo_nt.book_id FROM book_overrides bo_nt WHERE bo_nt.number <> floor(bo_nt.number) OR bo_nt.number = 0))
      AND hb_nt.series_id = ${s}.id AND hb_nt.number = floor(hb_nt.number) AND ${bookIsNotice('hb_nt', 'hov_nt')}
+) + (
+  SELECT count(*) FROM lib_books hb_nt LEFT JOIN book_overrides hov_nt ON hov_nt.book_id = hb_nt.id
+   WHERE hb_nt.series_id = ${s}.id AND hb_nt.number = 0 AND hov_nt.book_id IS NULL
+     AND ${bookIsNotice('hb_nt', 'hov_nt')}
 ) ELSE 0 END)::int`;
 
 /**
@@ -204,8 +213,8 @@ export const hiddenNoticeCount = (s: string): string => `(CASE WHEN ${hidesNotic
 /** books_count as a reader sees it. */
 export const visibleBookCount = (s: string): string => (active ? `GREATEST(0, ${s}.books_count - ${hiddenBookCount(s)})` : `${s}.books_count`);
 
-/** A whole number? The JS twin of `isFractional`, for lists already in memory (the sweep, the listing). */
-export const isFractionalNumber = (n: number): boolean => Number.isFinite(n) && n !== Math.floor(n);
+/** An extra's number, a fraction or 0? The JS twin of `isFractional`, for lists already in memory (the sweep, the listing). */
+export const isFractionalNumber = (n: number): boolean => Number.isFinite(n) && (n !== Math.floor(n) || n === 0);
 
 /** The JS twin of `listedPages`: the most pages any copy says it has, null when none says. */
 export function listedPagesOf(pages: Iterable<unknown>): number | null {

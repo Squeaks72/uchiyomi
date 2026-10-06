@@ -170,6 +170,7 @@ function NoticeChaptersBlock({ data, save }: { data: any; save: Save }) {
       description={shortOnly
         ? tr('Some sources post notices as a short chapter numbered like 100.5. For each type switched on, chapters numbered like 12.5 with 3 pages or fewer are hidden from the library, reader, OPDS and Mihon. Longer ones stay, and so do any whose pages are not counted yet. A hidden chapter is not downloaded. Nothing is deleted; switching a type off shows them again. A series can override this in its Sources & translations sheet.')
         : tr('Some sources post notices as a short chapter numbered like 100.5. For each type switched on, every chapter numbered like 12.5 is hidden from the library, reader, OPDS and Mihon, and is not downloaded. Nothing is deleted; switching a type off shows them again. A series can override this in its Sources & translations sheet.')}>
+      <p className="mt-1 max-w-prose text-[11px] leading-relaxed text-fog-500">{tr('A chapter numbered 0 counts as one too, and is judged the same way.')}</p>
       <div data-notice-types>
         {SERIES_TYPES.map((t) => (
           <SwitchRow key={t} label={tr(seriesTypeKey(t))} on={types.includes(t)} onChange={(next) => flip(t, next)} />

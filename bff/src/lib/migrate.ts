@@ -1050,6 +1050,18 @@ CREATE TABLE IF NOT EXISTS listing_progress (
 );
 CREATE INDEX IF NOT EXISTS idx_listing_progress_series ON listing_progress (series_id);
 
+-- Chapter numbers an admin removed from a series by hand (a chapter that never belonged: a wrong match's 0.5). The
+-- series page, the reader's next/previous, the Komga API, the ghost rows and the updater all leave them out
+-- (lib/chapterRemovals.ts). The files are deleted, but the lib_books row stays as a tombstone, so reading history
+-- survives; this table is what keeps the number hidden and un-fetched. The number is the chapter's effective one.
+CREATE TABLE IF NOT EXISTS series_chapter_removals (
+  series_id  text NOT NULL REFERENCES lib_series(id) ON DELETE CASCADE,
+  number     real NOT NULL,
+  removed_at timestamptz NOT NULL DEFAULT now(),
+  removed_by uuid,
+  PRIMARY KEY (series_id, number)
+);
+
 -- Where a notification goes besides a browser (v0.43.0, issue 70): a webhook, Home Assistant, ntfy, Discord.
 -- Admin-only and admin-written, which is why lib/notify/guard.ts ALLOWS a private address here that
 -- lib/ssrfGuard.ts refuses for the cover proxy -- a self-hosted Home Assistant lives on the LAN.
@@ -1521,6 +1533,9 @@ ALTER TABLE lib_series       ADD COLUMN IF NOT EXISTS series_type_from text;
 ALTER TABLE lib_series       ADD COLUMN IF NOT EXISTS hide_notices     boolean;
 ALTER TABLE series_overrides ADD COLUMN IF NOT EXISTS series_type      text;
 ALTER TABLE server_settings  ADD COLUMN IF NOT EXISTS hide_notice_types jsonb NOT NULL DEFAULT '[]'::jsonb;
+-- Whether the shipped default (hide short fractional chapters, every type) has been applied once: lib/noticeSettings.ts
+-- applyNoticeDefault, at boot. After that the admin's switches are never touched, an empty list included.
+ALTER TABLE server_settings  ADD COLUMN IF NOT EXISTS notice_default_applied boolean NOT NULL DEFAULT false;
 -- The chapters whose file number has a fraction, by series: the few rows a notice can be among (lib/noticeChapters.ts
 -- mayBeNotice, hiddenBookCount), so the hidden counts and the read-progress roll-ups do not visit every chapter of
 -- the library while a switch is on (about 1,800 of 48,000 on the owner's). Partial and small; nothing else reads it.

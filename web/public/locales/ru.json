@@ -2,7 +2,7 @@
   "_meta": {
     "language": "ru",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 3798
+    "strings": 3818
   },
   "1 check found something": "1 проверка нашла проблему",
   "1 member": "1 участник",
@@ -3801,5 +3801,25 @@
   "Login failed.": "Не удалось войти.",
   "Setup failed.": "Не удалось выполнить настройку.",
   "Create admin & open Uchiyomi": "Создать администратора и открыть Uchiyomi",
-  "Too many attempts. This account is locked for now, so try again later.": "Слишком много попыток. Учётная запись временно заблокирована, повторите позже."
+  "Too many attempts. This account is locked for now, so try again later.": "Слишком много попыток. Учётная запись временно заблокирована, повторите позже.",
+  "Removed from the library": "Удалено из библиотеки",
+  "Could not remove that chapter": "Не удалось удалить эту главу",
+  "Remove this chapter from the library?": "Удалить эту главу из библиотеки?",
+  "The chapter’s files are deleted from the server and the number is no longer listed or fetched for this series. Use it for a chapter a source added that is not part of the series.": "Файлы главы удаляются с сервера, а этот номер больше не показывается и не загружается для серии. Используйте для главы, которую добавил источник и которая не относится к серии.",
+  "A chapter somebody has bookmarked, and a chapter in a library you assembled yourself, is skipped. Series Properties can bring a removed chapter back.": "Глава с чьей-то закладкой и глава из собранной вами библиотеки пропускаются. Удалённую главу можно вернуть в свойствах серии.",
+  "Restored. The chapter is listed again at the next check.": "Восстановлено. Глава снова появится при следующей проверке.",
+  "Could not restore that": "Не удалось восстановить",
+  "Removed chapters": "Удалённые главы",
+  "Chapters you removed from this series. They are not listed or fetched. Restore one to let the next check list it again.": "Главы, которые вы удалили из этой серии. Они не показываются и не загружаются. Восстановите главу, чтобы следующая проверка снова её показала.",
+  "Restore": "Восстановить",
+  "Restore all": "Восстановить все",
+  "Fetches the rest a few chapters an hour, in the background, so the source is never hit with a burst and is far less likely to block you. Chapters appear as they arrive.": "Загружает остальное в фоне, по несколько глав в час, чтобы источник не получал шквал запросов и гораздо реже вас блокировал. Главы появляются по мере поступления.",
+  "Fetching…": "Загрузка…",
+  "A chapter numbered 0 counts as one too, and is judged the same way.": "Глава с номером 0 тоже считается таковой и оценивается по тому же правилу.",
+  "Show extras": "Показать дополнительные",
+  "Shows the extra chapters (notices and strays numbered 0 or like 12.5) that this series hides, for everyone. Hidden now: {n}.": "Показывает для всех дополнительные главы (объявления и посторонние главы с номером 0 или вида 12.5), которые эта серия скрывает. Сейчас скрыто: {n}.",
+  "Hides the extra chapters (notices and strays numbered 0 or like 12.5) again.": "Снова скрывает дополнительные главы (объявления и посторонние главы с номером 0 или вида 12.5).",
+  "Title copied": "Название скопировано",
+  "Could not copy the title": "Не удалось скопировать название",
+  "Search all sources for this title": "Искать это название во всех источниках"
 }

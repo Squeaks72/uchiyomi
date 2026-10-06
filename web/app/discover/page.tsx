@@ -396,6 +396,8 @@ export default function DiscoverPage() {
   // `term` is kept: the query is disabled by the mode, and keeping its observer keeps the answer cached, so
   // searching the same title again after browsing is instant.
   const backToNewest = () => { setQ(''); setMode('newest'); };
+  // A card's menu: search every source for its title, as if it had been typed and submitted.
+  const searchFor = (title: string) => { setQ(title); setMode('search'); setTerm(title.trim()); };
 
   const open = (it: SourceItem) => {
     const key = workKey(it);
@@ -652,7 +654,7 @@ export default function DiscoverPage() {
         {wall.items.map((it, i) => (
           <SourceCard key={`${it.source}:${it.sourceId}`} item={{ ...it, inLibrary: it.inLibrary || shownAdded.has(workKey(it)) }}
             providers={stackOf(it)}
-            onAdd={() => open(it)} eager={i < 12} />
+            onAdd={() => open(it)} onSearch={searchFor} eager={i < 12} />
         ))}
         {pending > 0 && <span role="status" className="sr-only">{tr('Loading…')}</span>}
         {Array.from({ length: Math.min(18, pending * 6) }).map((_, i) => (
@@ -694,7 +696,7 @@ export default function DiscoverPage() {
             className="bleed flex gap-3 px-4 pb-3 lg:px-8 [scroll-snap-type:x_mandatory]">
             {rail.map((t, i) => (
               <Reveal key={t.title} delay={Math.min(i, 12) * 28}>
-                <TrendingCard t={t} onPick={(x) => setSeed({ kind: 'trending', title: x.title })} />
+                <TrendingCard t={t} onPick={(x) => setSeed({ kind: 'trending', title: x.title })} onSearch={searchFor} />
               </Reveal>
             ))}
           </ScrollRail>

@@ -120,12 +120,54 @@ function AdminFields({ series, onAddSource }: { series: Series; onAddSource: () 
 
       <SourcesBlock id={id} sources={sources} onAdd={onAddSource} onChanged={settle} />
 
+      <RemovedBlock id={id} onChanged={settle} />
+
       <div className="flex flex-wrap gap-2 py-3">
         <button type="button" onClick={() => void checkNow()} disabled={checking} className="btn-key" data-properties-check>
           {checking ? tr('Checking…') : tr('Check for new chapters')}
         </button>
       </div>
     </SaveScope>
+  );
+}
+
+function RemovedBlock({ id, onChanged }: { id: string; onChanged: () => void }) {
+  const toast = useToast();
+  const qc = useQueryClient();
+  const [busy, setBusy] = useState(false);
+  const removed = useQuery({
+    queryKey: ['series-removed', id],
+    queryFn: () => api<{ numbers: number[] }>(`/api/admin/series/${id}/chapters/removed`),
+  });
+  const numbers = removed.data?.numbers ?? [];
+  if (!numbers.length) return null;
+  const restore = async (body: { numbers: number[] } | { all: true }) => {
+    setBusy(true);
+    try {
+      await api(`/api/admin/series/${id}/chapters/restore`, { method: 'POST', json: body });
+      toast(tr('Restored. The chapter is listed again at the next check.'), 'success');
+      onChanged();
+      for (const k of ['series-removed', 'series-listing', 'series-books']) qc.invalidateQueries({ queryKey: [k, id] });
+    } catch (e) { toast(msgOf(e, tr('Could not restore that')), 'error'); }
+    setBusy(false);
+  };
+  return (
+    <Row label={tr('Removed chapters')} stacked
+      help={tr('Chapters you removed from this series. They are not listed or fetched. Restore one to let the next check list it again.')}>
+      <ul data-properties-removed className="divide-y divide-ink-700/60">
+        {numbers.map((n) => (
+          <li key={n} className="flex items-center gap-2 py-1.5 text-sm">
+            <span className="min-w-0 flex-1 truncate text-fog-100">{tr('Chapter {n}', { n })}</span>
+            <button type="button" disabled={busy} onClick={() => void restore({ numbers: [n] })} aria-label={`${tr('Restore')} ${tr('Chapter {n}', { n })}`} className="btn-key shrink-0 text-xs">
+              {tr('Restore')}
+            </button>
+          </li>
+        ))}
+      </ul>
+      {numbers.length > 1 && (
+        <button type="button" disabled={busy} onClick={() => void restore({ all: true })} className="btn-key mt-2">{tr('Restore all')}</button>
+      )}
+    </Row>
   );
 }
 

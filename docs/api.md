@@ -896,7 +896,9 @@ flag changes nothing on `/api/*` proper, where `?adult=1` remains the reveal.
 Many sources post announcements for readers as a short chapter numbered after the latest with a fraction: 100.5.
 An admin can hide them per series type. `PATCH /api/admin/settings {hideNoticeTypes: [...]}` takes any of
 `manga`, `manhwa`, `manhua`, `webtoon`, `comic` and `unknown`, replaced whole. It is read back as
-`hide_notice_types`, and an empty list (the default) is off. A single series overrides its type's switch with
+`hide_notice_types`. An empty list is off. Chapter 0 counts as a notice too (judged by its pages like 100.5). A server that has never chosen has every type switched on, once, at boot
+(*Only hide short ones* is on too, so a real chapter posted in parts stays); a list the admin saves, empty included, is
+never touched again. A single series overrides its type's switch with
 `PATCH /api/admin/series/:id {hideNotices: true | false | null}`, where `null` follows the type. The answer
 carries `hideNotices`, `hideNoticesEffective` and `hiddenNotices`: how many notice chapters that hides now, downloaded
 or only listed.
@@ -1310,6 +1312,19 @@ another copy. A number named in both lists is fetched as its pick; a second pick
 skipped as `duplicate` (the first was handled, this one was not). The audit line (`series.chapters_fetch`)
 carries `picks`.
 
+### Removing a chapter from the library
+
+`POST /api/admin/series/:id/chapters/remove {numbers: [..]}` (1-500 numbers; effective numbers, after any override) takes
+a chapter out of one series for good: owned files go through the same safe delete as `chapters/delete` (a bookmarked
+chapter is skipped), a ghost row is dropped, and the number is remembered in `series_chapter_removals` so no sweep,
+update check or slow archive fetches it again and no surface (web, Komga API, reader, OPDS) lists it. A live chapter
+this server does not own is refused as `not_owned`. The answer is `{removed, skipped: [{number, reason}], applied, bytes}`,
+or `{refused}` when the volume is not writable. Audit line `series.chapters_remove`.
+`GET .../chapters/removed` lists the remembered numbers as `{numbers}`; `POST .../chapters/restore {numbers: [..]}` or
+`{all: true}` forgets them again (audit `series.chapters_restore`), after which the chapter can be fetched as before.
+The app puts this in the chapter row's right-click menu (*Remove from library*) and lists the numbers, with *Restore*,
+in the series' Properties sheet.
+
 ### Bulk actions
 ```
 POST   /api/library/bulk/read     POST   /api/favorites/bulk
@@ -1527,6 +1542,8 @@ POST   /api/admin/series/:id/delete-files
 POST   /api/admin/series/:id/forget
 POST   /api/admin/series/:id/rename-folder
 POST   /api/admin/series/:id/chapters/delete POST   /api/admin/series/:id/chapters/refetch
+POST   /api/admin/series/:id/chapters/remove GET    /api/admin/series/:id/chapters/removed
+POST   /api/admin/series/:id/chapters/restore
 PUT    /api/admin/books/:id/meta POST   /api/admin/books/:id/confirm-short
 POST   /api/admin/series/:id/restore
 POST   /api/admin/series/:id/merge
@@ -2743,7 +2760,7 @@ ignored. No
 reading event is written, so a sync from the phone does not count towards streaks, the leaderboard or
 Wrapped, exactly like the app's own bulk mark-read. Needs the `write` scope.
 
-**Notice chapters** (opt-in, *Settings → Notice chapters*, `hideNoticeTypes`, off by default). Many sources post
+**Notice chapters** (*Settings → Notice chapters*, `hideNoticeTypes`, every type on by default, applied once at boot). Many sources post
 announcements as a short chapter numbered after the latest with a fraction (100.5). For a series that hides them,
 every such chapter of 3 pages or fewer (with *Only hide short ones* off, since v0.55.3, every chapter numbered with a
 fraction) is absent from this API: not in `/api/v1/series/:id/books`, a 404 by id,

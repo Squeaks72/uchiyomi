@@ -22,6 +22,7 @@ import { Sheet } from '@/components/ui';
 import { useArchiveEnqueue } from '@/components/ArchiveQueue';
 import { t as tr } from '@/lib/i18n';
 import { selectedText } from '@/lib/counted';
+import { archiveWhy } from '@/lib/archive';
 import { followBulkNewest, BULK_NEWEST_POLL_MS, type BulkNewestStatus } from '@/lib/bulkNewest';
 import { useLayer } from '@/lib/layers';
 import { useReduceEffects } from '@/lib/effects';
@@ -707,7 +708,7 @@ function LibraryInner() {
             {/* Server-side fetch, so it follows the same permission as the Add button and the series
                 page's Fetch: a member who may not download does not see it. */}
             {canDownload(user) && <button disabled={acting} onClick={fetchNewest} className="chip text-xs disabled:opacity-50">{tr('Fetch newest')}</button>}
-            {canDownload(user) && <button disabled={acting} onClick={archiveSelected} className="btn-key hidden lg:inline-flex">{tr('Archive slowly')}</button>}
+            {canDownload(user) && <button disabled={acting} onClick={archiveSelected} className="btn-key hidden lg:inline-flex" title={archiveWhy()}>{tr('Archive slowly')}</button>}
             {(isAdmin || canDownload(user)) && <button disabled={acting} onClick={() => setMore(true)} className={`chip text-xs disabled:opacity-50 ${isAdmin ? '' : 'lg:hidden'}`} aria-haspopup="dialog">{tr('More')}</button>}
             {/* Live during a Fetch newest run, unlike the other chips: a 500-series run is minutes of pacing plus
                 downloads, and a bar frozen for all of it left navigating away as the only way out. Cancel stops
@@ -729,6 +730,7 @@ function LibraryInner() {
               <button onClick={() => { setMore(false); void archiveSelected(); }}
                 className="block w-full rounded-lg px-2.5 py-2.5 text-start text-sm text-fog-100 hover:bg-ink-800/60 lg:hidden">
                 {tr('Archive slowly')}
+                <span className="mt-0.5 block text-xs text-fog-500">{archiveWhy()}</span>
               </button>
             )}
             {isAdmin && (

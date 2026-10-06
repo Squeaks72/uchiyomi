@@ -2,7 +2,7 @@
   "_meta": {
     "language": "de",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 3798
+    "strings": 3818
   },
   "1 check found something": "1 Prüfung hat etwas gefunden",
   "1 member": "1 Mitglied",
@@ -3801,5 +3801,25 @@
   "Login failed.": "Anmeldung fehlgeschlagen.",
   "Setup failed.": "Einrichtung fehlgeschlagen.",
   "Create admin & open Uchiyomi": "Administrator erstellen und Uchiyomi öffnen",
-  "Too many attempts. This account is locked for now, so try again later.": "Zu viele Versuche. Das Konto ist vorübergehend gesperrt, versuche es später erneut."
+  "Too many attempts. This account is locked for now, so try again later.": "Zu viele Versuche. Das Konto ist vorübergehend gesperrt, versuche es später erneut.",
+  "Removed from the library": "Aus der Bibliothek entfernt",
+  "Could not remove that chapter": "Dieses Kapitel konnte nicht entfernt werden",
+  "Remove this chapter from the library?": "Dieses Kapitel aus der Bibliothek entfernen?",
+  "The chapter’s files are deleted from the server and the number is no longer listed or fetched for this series. Use it for a chapter a source added that is not part of the series.": "Die Dateien des Kapitels werden vom Server gelöscht, und die Nummer wird für diese Serie nicht mehr aufgelistet oder abgerufen. Nutze das für ein Kapitel, das eine Quelle hinzugefügt hat und nicht zur Serie gehört.",
+  "A chapter somebody has bookmarked, and a chapter in a library you assembled yourself, is skipped. Series Properties can bring a removed chapter back.": "Ein Kapitel mit Lesezeichen und ein Kapitel in einer selbst zusammengestellten Bibliothek werden übersprungen. Über die Serieneigenschaften lässt sich ein entferntes Kapitel zurückholen.",
+  "Restored. The chapter is listed again at the next check.": "Wiederhergestellt. Das Kapitel erscheint bei der nächsten Prüfung wieder.",
+  "Could not restore that": "Das konnte nicht wiederhergestellt werden",
+  "Removed chapters": "Entfernte Kapitel",
+  "Chapters you removed from this series. They are not listed or fetched. Restore one to let the next check list it again.": "Kapitel, die du aus dieser Serie entfernt hast. Sie werden nicht aufgelistet oder abgerufen. Stelle eines wieder her, damit die nächste Prüfung es erneut auflistet.",
+  "Restore": "Wiederherstellen",
+  "Restore all": "Alle wiederherstellen",
+  "Fetches the rest a few chapters an hour, in the background, so the source is never hit with a burst and is far less likely to block you. Chapters appear as they arrive.": "Holt den Rest im Hintergrund mit wenigen Kapiteln pro Stunde, damit die Quelle nie einen Ansturm erlebt und dich viel seltener sperrt. Kapitel erscheinen, sobald sie da sind.",
+  "Fetching…": "Wird geholt …",
+  "A chapter numbered 0 counts as one too, and is judged the same way.": "Ein Kapitel mit der Nummer 0 zählt ebenfalls dazu und wird nach derselben Regel beurteilt.",
+  "Show extras": "Extras anzeigen",
+  "Shows the extra chapters (notices and strays numbered 0 or like 12.5) that this series hides, for everyone. Hidden now: {n}.": "Zeigt die Extra-Kapitel (Hinweise und Ausreißer mit der Nummer 0 oder wie 12.5), die diese Serie ausblendet, für alle. Jetzt ausgeblendet: {n}.",
+  "Hides the extra chapters (notices and strays numbered 0 or like 12.5) again.": "Blendet die Extra-Kapitel (Hinweise und Ausreißer mit der Nummer 0 oder wie 12.5) wieder aus.",
+  "Title copied": "Titel kopiert",
+  "Could not copy the title": "Der Titel konnte nicht kopiert werden",
+  "Search all sources for this title": "Alle Quellen nach diesem Titel durchsuchen"
 }

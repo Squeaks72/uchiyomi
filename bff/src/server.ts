@@ -32,7 +32,7 @@ import { startArchive } from './lib/archive';
 import { startHeroWarmup } from './lib/autoHero';
 import { closeInterruptedFindRuns, findSettledWithin } from './lib/findSources';
 import { loadUnstatedLang } from './lib/seriesLang';
-import { refreshNoticesActive } from './lib/noticeSettings';
+import { applyNoticeDefault, refreshNoticesActive } from './lib/noticeSettings';
 import { loadMangadexLangs } from './lib/sources/mangadexLangs';
 import { runChapterCleanup, unpruneRestored } from './lib/chapterCleanup';
 import { runExtensionMonitor } from './lib/extensionMonitor';
@@ -70,6 +70,7 @@ async function main() {
   await loadUnstatedLang().catch((e) => console.warn(`[lang] could not read the unstated language: ${(e as Error)?.message || e}`));
   // Whether any notice-chapter switch is on (lib/noticeChapters.ts), before the first query is built: while none is,
   // every query is the one the previous release ran. Unreadable leaves them off, as they were before the feature.
+  await applyNoticeDefault();
   await refreshNoticesActive().catch((e) => console.warn(`[notices] could not read the switches: ${(e as Error)?.message || e}`));
   // The admin's per-source age ratings (lib/sourceRatings.ts), before anything asks which sources an account may reach.
   await loadSourceRatings().catch((e) => console.warn(`[ratings] could not read the source ratings: ${(e as Error)?.message || e}`));

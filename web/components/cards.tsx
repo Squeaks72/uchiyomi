@@ -15,6 +15,7 @@ import { useOfflineSeries } from '@/lib/useOfflineSeries';
 import { effectsReduced } from '@/lib/effects';
 import { t as tr } from '@/lib/i18n';
 import { useSeriesMenu } from './SeriesMenu';
+import { useDiscoverMenu } from './DiscoverMenu';
 
 /** Pointer-tracked 3D tilt + moving glare for cover cards. Desktop-only (hover+fine pointer),
  *  disabled under prefers-reduced-motion; on touch the handlers never fire so nothing changes. */
@@ -303,7 +304,7 @@ export interface SourceItem {
  * Chrome is `SeriesTile`'s, deliberately, so the things you own and the things you could own read as one
  * system rather than as two grids that happen to be adjacent.
  */
-export function SourceCard({ item, providers, onAdd, eager }: {
+export function SourceCard({ item, providers, onAdd, onSearch, eager }: {
   item: SourceItem;
   /**
    * Every place the card can be added from (v0.56.0), drawn as up to three overlapping favicons in a corner box and a
@@ -315,11 +316,16 @@ export function SourceCard({ item, providers, onAdd, eager }: {
    */
   providers?: StackSource[];
   onAdd: () => void;
+  /** Search every source for this title: the card's menu offers it when the page can. */
+  onSearch?: (title: string) => void;
   eager?: boolean;
 }) {
   const owned = !!item.inLibrary;
   const stack = providers?.length ? iconStack(providers) : null;
   const stackId = useId();
+  const libraryHref = owned && item.librarySeriesId ? `/series/?id=${encodeURIComponent(item.librarySeriesId)}` : undefined;
+  // Right-click, press-and-hold or Shift+F10, as on a library card (components/DiscoverMenu.tsx).
+  const menu = useDiscoverMenu({ title: item.title, libraryHref, onAdd: owned ? undefined : onAdd, onSearch });
   // An owned title opens its entry in the library; adding it again would only say "already there".
   const rootCls = 'group block w-full text-start disabled:cursor-default';
   const body = (
@@ -386,7 +392,12 @@ export function SourceCard({ item, providers, onAdd, eager }: {
   // The sources are the card's description: the name says what pressing it does, and a button's own content is not
   // read out (its children are presentational), so a role="img" inside it needs pointing at to be heard at all.
   const described = stack ? stackId : undefined;
-  return owned && item.librarySeriesId
-    ? <Link href={`/series/?id=${encodeURIComponent(item.librarySeriesId)}`} aria-label={item.title} aria-describedby={described} className={rootCls}>{body}</Link>
-    : <button type="button" onClick={onAdd} disabled={owned} aria-label={owned ? item.title : `${item.title} · ${tr('Add to library')}`} aria-describedby={described} className={rootCls}>{body}</button>;
+  return (
+    <>
+      {libraryHref
+        ? <Link href={libraryHref} aria-label={item.title} aria-describedby={described} className={rootCls} {...menu.bind}>{body}</Link>
+        : <button type="button" onClick={onAdd} disabled={owned} aria-label={owned ? item.title : `${item.title} · ${tr('Add to library')}`} aria-describedby={described} className={rootCls} {...menu.bind}>{body}</button>}
+      {menu.element}
+    </>
+  );
 }
