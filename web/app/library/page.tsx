@@ -535,7 +535,7 @@ function LibraryInner() {
               <IcSparkle width={19} height={19} />
             </button>
             {/* Search and Add live in the top bar on a wide screen, so they are phone-only here. */}
-            <Link href="/search" className="grid h-10 w-10 place-items-center rounded-full border border-ink-700 bg-ink-850/70 text-fog-300 lg:hidden">
+            <Link href="/search" aria-label={tr('Search')} className="grid h-10 w-10 place-items-center rounded-full border border-ink-700 bg-ink-850/70 text-fog-300 lg:hidden">
               <IcSearch width={20} height={20} />
             </Link>
             {isAdmin && (
@@ -545,7 +545,7 @@ function LibraryInner() {
               </Link>
             )}
             {canDownload(user) && (
-              <Link href="/discover" className="grid h-10 w-10 place-items-center rounded-full border border-accent/40 bg-accent-soft text-accent lg:hidden" title={tr('Add new series')}>
+              <Link href="/discover" className="grid h-10 w-10 place-items-center rounded-full border border-accent/40 bg-accent-soft text-accent lg:hidden" title={tr('Add new series')} aria-label={tr('Add new series')}>
                 <IcPlus width={20} height={20} />
               </Link>
             )}
@@ -553,7 +553,7 @@ function LibraryInner() {
         </div>
         {mayDownload && <ViewSwitch view={view} onView={(v) => setParam('view', v === 'series' ? '' : v)} />}
         {series && <>
-        <p className={`${mayDownload ? 'mt-2' : 'mt-0.5'} text-xs text-fog-500`}>
+        <p role="status" className={`${mayDownload ? 'mt-2' : 'mt-0.5'} text-xs text-fog-500`}>
           {total != null && <>{total === 1 ? tr('1 series') : tr('{n} series', { n: total })}<span className="text-fog-600"> · </span></>}
           {/* Sorting moved into the panel, so the header has to keep saying what it is -- otherwise the
               order of two thousand covers is decided by something with no representation on screen. */}
@@ -569,7 +569,7 @@ function LibraryInner() {
           {/* A session reveal, not a filter: it is not in the panel because `Clear all` cannot clear it. */}
           <AdultToggle alsoWhen={adultFilter} />
           {/* A mode, not a filter, for the same reason. */}
-          <button onClick={() => { setSelecting((v) => !v); setPicked(new Set()); }}
+          <button type="button" onClick={() => { setSelecting((v) => !v); setPicked(new Set()); }} aria-pressed={selecting}
             className={`chip whitespace-nowrap ${selecting ? 'chip-active' : ''}`}>
             {selecting ? tr('Done') : tr('Select')}
           </button>
@@ -586,32 +586,32 @@ function LibraryInner() {
         {activeCount > 0 && (
           <div className="mt-2 flex flex-wrap gap-1.5">
             {lib && (
-              <button onClick={() => setParam('lib', '')} className="chip text-xs">
+              <button onClick={() => setParam('lib', '')} type="button" aria-label={tr('Remove filter: {name}', { name: libs.find((l) => l.id === lib)?.name || lib })} className="chip text-xs">
                 {libs.find((l) => l.id === lib)?.name || lib} ×
               </button>
             )}
             {src && (
-              <button onClick={() => setParam('src', '')} className="chip text-xs">
+              <button onClick={() => setParam('src', '')} type="button" aria-label={tr('Remove filter: {name}', { name: sourceName(src) })} className="chip text-xs">
                 {tr('Main: {name}', { name: sourceName(src) })} ×
               </button>
             )}
             {anysrc && (
-              <button onClick={() => setParam('anysrc', '')} className="chip text-xs">
+              <button onClick={() => setParam('anysrc', '')} type="button" aria-label={tr('Remove filter: {name}', { name: sourceName(anysrc) })} className="chip text-xs">
                 {tr('Any: {name}', { name: sourceName(anysrc) })} ×
               </button>
             )}
             {read && (
-              <button onClick={() => setParam('read', '')} className="chip text-xs">
+              <button onClick={() => setParam('read', '')} type="button" aria-label={tr('Remove filter: {name}', { name: tr(READ_STATES.find((r) => r.key === read)?.label || read) })} className="chip text-xs">
                 {tr(READ_STATES.find((r) => r.key === read)?.label || read)} ×
               </button>
             )}
             {status && (
-              <button onClick={() => setParam('status', '')} className="chip text-xs">
+              <button onClick={() => setParam('status', '')} type="button" aria-label={tr('Remove filter: {name}', { name: tr(STATUSES.find((v) => v.key === status)?.label || status) })} className="chip text-xs">
                 {tr(STATUSES.find((v) => v.key === status)?.label || status)} ×
               </button>
             )}
             {genres.map((g) => (
-              <button key={g} onClick={() => setParam('genres', genres.filter((x) => x !== g).join(','))} className="chip text-xs">
+              <button key={g} type="button" onClick={() => setParam('genres', genres.filter((x) => x !== g).join(','))} aria-label={tr('Remove filter: {name}', { name: g })} className="chip text-xs">
                 {g} ×
               </button>
             ))}
@@ -651,6 +651,7 @@ function LibraryInner() {
           third of the window would still score 95%. This attribute is what lets that be measured. */}
       {series && <>
       <div data-library-grid className="grid grid-cols-3 gap-x-3 gap-y-5 px-4 pt-4 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-5 lg:gap-x-4 lg:px-0 xl:grid-cols-6 2xl:grid-cols-7 3xl:grid-cols-8 4xl:grid-cols-10">
+        {isLoading && <span role="status" className="sr-only">{tr('Loading…')}</span>}
         {isLoading
           ? Array.from({ length: 14 }).map((_, i) => <div key={i} className="skeleton aspect-[2/3] rounded-2xl" />)
           : items.map((s, i) => (
@@ -660,7 +661,7 @@ function LibraryInner() {
       </div>
 
       {!isLoading && !items.length && activeCount > 0 && (
-        <p className="px-5 pb-10 pt-6 text-center text-sm text-fog-500">{tr('Nothing matches those filters.')}</p>
+        <p role="status" className="px-5 pb-10 pt-6 text-center text-sm text-fog-500">{tr('Nothing matches those filters.')}</p>
       )}
       {/* v0.55.4 (#158): an empty library says how to fill it -- import one (admins) or find series in Discover (whoever
           may add them) -- where it said "Your library is empty." and nothing else. Empty for THIS viewer, with nothing
@@ -673,7 +674,7 @@ function LibraryInner() {
       )}
 
       <div ref={sentinel} className="h-16" />
-      {isFetchingNextPage && <p className="pb-6 text-center text-xs text-fog-500">{tr('Loading more…')}</p>}
+      {isFetchingNextPage && <p role="status" className="pb-6 text-center text-xs text-fog-500">{tr('Loading more…')}</p>}
       </>}
         </div>
       </div>
@@ -697,7 +698,7 @@ function LibraryInner() {
               AND 1280 px (the row is capped at 1024), where eight took 940 of 992; with the three behind More it
               is one row, 735 px in English and 822 in German, where German took two rows before. */}
           <div className="mx-auto flex max-w-3xl flex-wrap items-center gap-2 lg:max-w-5xl">
-            <span className="me-auto text-sm font-medium text-fog-100">
+            <span role="status" className="me-auto text-sm font-medium text-fog-100">
               {fetching ? tr('Fetching {done} of {total}…', { done: fetching.done, total: fetching.total }) : selectedText(picked.size)}
             </span>
             <button disabled={acting} onClick={() => bulk('/api/library/bulk/read', { completed: true })} className="chip text-xs disabled:opacity-50">{tr('Mark read')}</button>
@@ -874,9 +875,9 @@ function ViewSwitch({ view, onView }: { view: LibraryView; onView: (v: LibraryVi
               <ProgressRing progress={ring.progress} size={16} tone={ring.slow ? 'amber' : 'accent'} static={ring.slow} />
             )}
             {v === 'downloads' && ring.count > 0 && (
-              <span className="rounded-[4px] bg-ink-800 px-[3px] text-[10px] font-bold leading-[14px] tabular-nums text-accent">{ring.count}</span>
+              <span className="rounded-[4px] bg-ink-800 px-[3px] text-[11px] font-bold leading-[14px] tabular-nums text-accent">{ring.count}</span>
             )}
-            {v === 'downloads' && ring.attention && <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-amber-400" />}
+            {v === 'downloads' && ring.attention && <><span aria-hidden className="h-1.5 w-1.5 rounded-full bg-amber-400" /><span className="sr-only">{tr('Needs attention')}</span></>}
             {on && (
               <motion.span layoutId="libview" aria-hidden className="absolute inset-x-0 -bottom-px h-0.5 rounded-sm bg-accent"
                 transition={plain || still ? { duration: 0 } : { type: 'spring', stiffness: 520, damping: 40 }} />
@@ -912,7 +913,7 @@ function MoveToLibrary({ n, busy, onClose, onPick }: {
               <span className="block truncate text-sm text-fog-100">{l.name}</span>
               <LibraryFolders paths={foldersOf(l)} className="text-[11px] text-fog-500" />
             </span>
-            {l.age_rating != null && <span className="shrink-0 rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-300">{l.age_rating}+</span>}
+            {l.age_rating != null && <span className="shrink-0 rounded bg-amber-500/15 px-1.5 py-0.5 text-[11px] font-medium text-amber-300">{l.age_rating}+</span>}
           </button>
         ))}
         <button disabled={busy} onClick={() => onPick(null)}

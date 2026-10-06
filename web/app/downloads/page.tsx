@@ -97,7 +97,7 @@ export default function DownloadsPage() {
       <header className="safe-top sticky top-0 z-30 bg-ink-950/85 px-5 pb-3 backdrop-blur-xl lg:static lg:bg-transparent lg:px-0 lg:pt-6 lg:backdrop-blur-none">
         <div className="flex items-center justify-between">
           <h1 className="font-display text-2xl font-bold tracking-tight lg:text-3xl">{tr('Offline downloads')}</h1>
-          <button onClick={sync} disabled={syncing || !online}
+          <button type="button" onClick={sync} disabled={syncing || !online}
             className="flex items-center gap-1.5 rounded-full border border-ink-700 bg-ink-850/70 px-3.5 py-2 text-xs text-fog-200 disabled:opacity-50">
             <IcRefresh width={15} height={15} className={syncing ? 'animate-spin text-accent' : ''} /> {syncing ? tr('Syncing…') : tr('Sync now')}
           </button>
@@ -106,13 +106,13 @@ export default function DownloadsPage() {
           <span>{items.length === 1 ? tr('1 chapter') : tr('{n} chapters', { n: items.length })} · {bytes(totalBytes)}</span>
           {!online && <span className="inline-flex items-center gap-1 text-accent"><IcWifiOff width={13} height={13} /> {tr('offline')}</span>}
           {items.length > 0 && (
-            <button onClick={removeAll} className="ms-auto inline-flex items-center gap-1 text-fog-500 transition hover:text-red-400">
+            <button type="button" onClick={removeAll} className="relative ms-auto inline-flex items-center gap-1 text-fog-500 transition before:absolute before:-inset-2 hover:text-red-400">
               <IcTrash width={13} height={13} />{tr('Delete all')}</button>
           )}
         </div>
         {usage.quota > 0 && (
           <div className="mt-3">
-            <div className="h-1.5 overflow-hidden rounded-full bg-ink-700">
+            <div aria-hidden className="h-1.5 overflow-hidden rounded-full bg-ink-700">
               <div className="h-full rounded-full bg-accent" style={{ width: `${Math.min(100, (usage.usage / usage.quota) * 100)}%` }} />
             </div>
             <p className="mt-1 text-[11px] text-fog-500">{tr('{used} of {total} device storage used', { used: bytes(usage.usage), total: bytes(usage.quota) })}</p>
@@ -147,8 +147,8 @@ export default function DownloadsPage() {
                 <h2 className="min-w-0 truncate font-display text-base font-semibold text-fog-100">{series}</h2>
                 <div className="flex shrink-0 items-center gap-2 text-[11px] text-fog-500">
                   <span>{chapters.length === 1 ? tr('1 chapter') : tr('{n} chapters', { n: chapters.length })} · {bytes(chapters.reduce((a, c) => a + (c.totalBytes || 0), 0))}</span>
-                  <button onClick={() => removeSeries(chapters[0].seriesId, series, chapters.length)}
-                    className="inline-flex items-center gap-1 transition hover:text-red-400" aria-label={tr('Delete all of {title}', { title: series })}>
+                  <button type="button" onClick={() => removeSeries(chapters[0].seriesId, series, chapters.length)}
+                    className="relative inline-flex items-center gap-1 transition before:absolute before:-inset-2 hover:text-red-400" aria-label={tr('Delete all of {title}', { title: series })}>
                     <IcTrash width={13} height={13} />
                   </button>
                 </div>
@@ -156,14 +156,14 @@ export default function DownloadsPage() {
               <div className="card divide-y divide-ink-800/70 overflow-hidden">
                 {chapters.map((c) => (
                   <div key={c.bookId} className="flex items-center gap-3 px-4 py-3">
-                    <Link href={`/reader/?book=${c.bookId}`} className="grid h-9 w-9 place-items-center rounded-full bg-accent-soft text-accent">
+                    <Link href={`/reader/?book=${c.bookId}`} aria-label={tr('Read {title}', { title: c.title })} className="grid h-9 w-9 place-items-center rounded-full bg-accent-soft text-accent">
                       <IcPlay width={16} height={16} />
                     </Link>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm text-fog-100">{c.title}</p>
                       <p className="text-[11px] text-fog-500">{c.pageCount === 1 ? tr('1 page') : tr('{n} pages', { n: c.pageCount })} · {bytes(c.totalBytes)}</p>
                     </div>
-                    <button onClick={() => remove(c.bookId)} className="grid h-9 w-9 place-items-center rounded-full border border-ink-700 text-fog-500">
+                    <button type="button" onClick={() => remove(c.bookId)} aria-label={tr('Delete {title}', { title: c.title })} className="grid h-9 w-9 place-items-center rounded-full border border-ink-700 text-fog-500">
                       <IcTrash width={16} height={16} />
                     </button>
                   </div>

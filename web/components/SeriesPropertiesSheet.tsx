@@ -154,7 +154,7 @@ function SourcesBlock({ id, sources, onAdd, onChanged }: { id: string; sources: 
               {s.primary ? tr('main') : ''}{s.primary && s.chapters != null ? ' · ' : ''}{s.chapters != null ? tr('{n} chapters', { n: s.chapters }) : ''}
             </span>
             {!s.primary && (
-              <button type="button" disabled={busy === s.sourceId} onClick={() => void detach(s)} className="btn-key shrink-0 text-xs" data-properties-detach={s.sourceId}>
+              <button type="button" disabled={busy === s.sourceId} onClick={() => void detach(s)} aria-label={`${tr('Detach')} ${s.name}`} className="btn-key shrink-0 text-xs" data-properties-detach={s.sourceId}>
                 {tr('Detach')}
               </button>
             )}

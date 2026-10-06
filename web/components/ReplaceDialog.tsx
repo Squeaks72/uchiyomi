@@ -107,7 +107,7 @@ function AskView({ sourceId, name, fr, slot, refusal, onClose }: {
         </div>
       }>
       <div className="pb-3" data-replace-dialog={sourceId} data-replace-phase="ask">
-        {isLoading && <div className="skeleton h-24 rounded-xl" aria-busy="true" />}
+        {isLoading && <div role="status" aria-busy="true"><span className="sr-only">{tr('Loading…')}</span><div className="skeleton h-24 rounded-xl" /></div>}
         {isError && <p role="alert" className="py-2 text-sm text-amber-300">{tr('Could not work out what Replace would do. Try again in a moment.')}</p>}
         {p && p.main === 0 && <p className="py-2 text-sm text-fog-300" data-replace-nothing>{tr('No series uses it as its main source any more.')}</p>}
         {p && p.main > 0 && (
@@ -255,7 +255,7 @@ function RunRow({ r }: { r: FindResult }) {
           ? <bdi dir="auto" className="min-w-0 truncate text-[13px] text-fog-100">{r.title}</bdi>
           : <span className="min-w-0 truncate text-[13px] text-fog-500">{tr('Hidden by the 18+ filter')}</span>}
         {r.promoted && (
-          <span className="shrink-0 rounded-[4px] bg-ink-800 px-1.5 text-[10px] font-semibold leading-4 text-fog-400">
+          <span className="shrink-0 rounded-[4px] bg-ink-800 px-1.5 text-[11px] font-semibold leading-4 text-fog-400">
             {/* The row's own words, singular: "Moved" and "New source found" are the counts' (plural in es, fr and pt-BR). */}
             {r.promoted.via === 'search' ? tr('Found by searching') : tr('A source it already follows')}
           </span>

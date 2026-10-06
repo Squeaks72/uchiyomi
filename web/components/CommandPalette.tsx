@@ -2,19 +2,19 @@
 // Global command palette (Ctrl/Cmd+K, "/", or just start typing): instant series search + quick actions, and since v0.55.4
 // the pages and settings a query names (lib/destinations.ts).
 // No dependency — a fixed overlay + debounced POST /api/series/search, keyboard-navigable.
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { api, img } from '@/lib/api';
 import { Page, Series } from '@/lib/types';
 import { triggerRefresh } from '@/lib/refresh';
 import { useToast } from './Toast';
-import { Img } from './ui';
+import { Img, trapTab } from './ui';
 import { IcSearch, IcSparkle, IcRefresh, IcBell, IcDownload, IcCloudDownload, IcGrid, IcMoments, IcSettings, IcUser, IcImport } from './icons';
 import { t as tr } from '@/lib/i18n';
 import { hiddenOnDesktop, isDesktop, DESKTOP_HIDDEN } from '@/lib/desktop';
-import { effectsReduced } from '@/lib/effects';
+import { effectsReduced, useReduceEffects } from '@/lib/effects';
 import { arrival, findDestinations, whereText, type Destination } from '@/lib/destinations';
 import { isTypingTarget, seedFor, typeToSearchKey, typeToSearchOn } from '@/lib/typeToSearch';
 import { useLayer } from '@/lib/layers';
@@ -35,6 +35,13 @@ export function CommandPalette({ open, seed = '', onClose }: { open: boolean; se
   const [searching, setSearching] = useState(false);
   const [sel, setSel] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  // Whoever had focus when it opened, so closing gives it back instead of dropping focus on <body>.
+  const opener = useRef<HTMLElement | null>(null);
+  const listId = useId();
+  const optId = (i: number) => `${listId}-o${i}`;
+  // Slides in only when motion is welcome: the OS setting or the app's own Reduce effects.
+  const still = !!useReducedMotion() || useReduceEffects();
   const seq = useRef(0);
   // On the notices' layer stack while open (lib/layers.ts). It stays mounted while closed, hence `open`.
   useLayer('dialog', open);
@@ -45,11 +52,18 @@ export function CommandPalette({ open, seed = '', onClose }: { open: boolean; se
   // the enter animation.
   useLayoutEffect(() => {
     if (open) {
+      opener.current = document.activeElement as HTMLElement | null;
       setQ(seed);
       setResults([]);
       setSel(0);
       inputRef.current?.focus();
       setTimeout(() => inputRef.current?.focus(), 30);
+    } else if (opener.current) {
+      const back = opener.current;
+      opener.current = null;
+      // Only when focus is still in the palette or lost: a click or a navigation that moved it elsewhere wins.
+      const at = document.activeElement;
+      if (!at || at === document.body || at === inputRef.current) back.focus?.({ preventScroll: true });
     }
   }, [open]); // seed is read at open time only
 
@@ -110,7 +124,7 @@ export function CommandPalette({ open, seed = '', onClose }: { open: boolean; se
       key: 'surprise', label: tr('Surprise me'), hint: tr('random series'), icon: <IcSparkle width={16} height={16} />,
       run: async () => {
         try { const r = await api<{ seriesId: string | null }>('/api/random'); if (r.seriesId) go(`/series/?id=${r.seriesId}`); }
-        catch { toast(tr('No luck — try again'), 'error'); }
+        catch { toast(tr('Couldn’t pick one. Try again.'), 'error'); }
       },
     },
     { key: 'updates', label: tr('Updates'), hint: tr('new chapters'), icon: <IcBell width={16} height={16} />, run: () => go('/updates') },
@@ -142,6 +156,8 @@ export function CommandPalette({ open, seed = '', onClose }: { open: boolean; se
     [results, places, shownActions],
   );
   useEffect(() => { setSel((s) => Math.min(s, Math.max(0, rows.length - 1))); }, [rows.length]);
+  // The highlighted row stays on screen as the arrows move it past the edge of the list.
+  useEffect(() => { if (open) document.getElementById(`${listId}-o${sel}`)?.scrollIntoView({ block: 'nearest' }); }, [sel, open, listId]);
 
   const activate = (i: number) => {
     const r = rows[i];
@@ -161,10 +177,11 @@ export function CommandPalette({ open, seed = '', onClose }: { open: boolean; se
   return (
     <AnimatePresence>
       {open && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: still ? 0 : 0.15 }}
           className="fixed inset-0 z-[70] bg-ink-950/70 p-4 pt-[12vh] backdrop-blur-xs" onClick={onClose}>
-          <motion.div initial={{ opacity: 0, y: -10, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -8, scale: 0.98 }}
-            transition={{ duration: 0.18, ease: [0.22, 0.61, 0.36, 1] }}
+          <motion.div ref={panelRef} initial={{ opacity: 0, y: still ? 0 : -10, scale: still ? 1 : 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: still ? 0 : -8, scale: still ? 1 : 0.98 }}
+            transition={{ duration: still ? 0 : 0.18, ease: [0.22, 0.61, 0.36, 1] }}
+            onKeyDown={(e: React.KeyboardEvent) => trapTab(e, panelRef.current)}
             className="glass-strong grad-border mx-auto w-full max-w-xl overflow-hidden rounded-2xl border border-ink-700 shadow-lift"
             // A dialog, said so: screen readers announce it as one, and every global key handler that stands down
             // for an open `aria-modal` (type-to-search among them) now stands down for this one too.
@@ -177,22 +194,29 @@ export function CommandPalette({ open, seed = '', onClose }: { open: boolean; se
                 value={q}
                 onChange={(e) => { setQ(e.target.value); setSel(0); }}
                 onKeyDown={onKey}
+                // The combobox pattern: the box keeps focus, and the highlighted row is announced through it.
+                role="combobox" aria-expanded={rows.length > 0} aria-controls={listId} aria-autocomplete="list"
+                aria-activedescendant={rows.length > 0 ? optId(sel) : undefined} aria-label={tr('Search')}
                 placeholder={tr('Search series or type a command…')}
                 autoCapitalize="none" autoCorrect="off" spellCheck={false}
-                className="w-full bg-transparent py-3.5 text-sm text-fog-50 outline-hidden placeholder:text-fog-500"
+                className="w-full bg-transparent py-3.5 text-sm text-fog-50 outline-hidden focus-visible:outline-accent focus-visible:outline-offset-0 placeholder:text-fog-500"
               />
-              <kbd className="hidden shrink-0 rounded-md border border-ink-700 px-1.5 py-0.5 text-[10px] text-fog-500 lg:block">esc</kbd>
+              <kbd aria-hidden className="hidden shrink-0 rounded-md border border-ink-700 px-1.5 py-0.5 text-[11px] text-fog-500 lg:block">esc</kbd>
             </div>
-            <div className="max-h-[52vh] overflow-y-auto py-1.5" data-lenis-prevent>
-              {searching && <p className="px-4 py-3 text-xs text-fog-500">{tr('Searching…')}</p>}
+            {/* Always mounted, so a change of state is announced (a region that appears with its first message is not). */}
+            <div role="status" aria-live="polite" className="sr-only">
+              {searching ? tr('Searching…') : query.length >= 2 && results.length === 0 ? tr('No series match “{query}”.', { query: q.trim() }) : ''}
+            </div>
+            <div id={listId} role="listbox" aria-label={tr('Search')} className="max-h-[52vh] overflow-y-auto py-1.5" data-lenis-prevent>
+              {searching && <p aria-hidden className="px-4 py-3 text-xs text-fog-500">{tr('Searching…')}</p>}
               {!searching && query.length >= 2 && results.length === 0 && (
-                <p className="px-4 py-3 text-xs text-fog-500">{tr('No series match “{query}”.', { query: `\u2068${q.trim()}\u2069` })}</p>
+                <p aria-hidden className="px-4 py-3 text-xs text-fog-500">{tr('No series match “{query}”.', { query: `\u2068${q.trim()}\u2069` })}</p>
               )}
-              {results.length > 0 && <p className="px-4 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-widest text-fog-600">{tr('Series')}</p>}
+              {results.length > 0 && <p role="presentation" className="px-4 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-widest text-fog-600">{tr('Series')}</p>}
               {rows.map((r, i) =>
                 r.kind === 'series' ? (
-                  <button key={`s:${r.series.id}`} onClick={() => activate(i)} onMouseEnter={() => setSel(i)}
-                    className={`flex w-full items-center gap-3 px-4 py-2 text-left ${sel === i ? 'bg-accent-soft' : ''}`}>
+                  <button key={`s:${r.series.id}`} type="button" role="option" id={optId(i)} aria-selected={sel === i} tabIndex={-1} onClick={() => activate(i)} onMouseEnter={() => setSel(i)}
+                    className={`flex w-full items-center gap-3 px-4 py-2 text-start ${sel === i ? 'bg-accent-soft' : ''}`}>
                     <div className="h-12 w-8 shrink-0 overflow-hidden rounded-md border border-ink-700">
                       <Img src={img.seriesThumb(r.series.id)} alt="" className="h-full w-full" />
                     </div>
@@ -203,14 +227,14 @@ export function CommandPalette({ open, seed = '', onClose }: { open: boolean; se
                   </button>
                 ) : r.kind === 'place' ? (
                   <div key={`p:${r.place.key}`}>
-                    {rows[i - 1]?.kind !== 'place' && <p className="px-4 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-widest text-fog-600">{tr('Pages and settings')}</p>}
-                    <PlaceRow place={r.place} selected={sel === i} onClick={() => activate(i)} onHover={() => setSel(i)} />
+                    {rows[i - 1]?.kind !== 'place' && <p role="presentation" className="px-4 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-widest text-fog-600">{tr('Pages and settings')}</p>}
+                    <PlaceRow place={r.place} option={{ id: optId(i), selected: sel === i }} selected={sel === i} onClick={() => activate(i)} onHover={() => setSel(i)} />
                   </div>
                 ) : (
                   <div key={`a:${r.action.key}`}>
-                    {rows[i - 1]?.kind !== 'action' && <p className="px-4 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-widest text-fog-600">{tr('Actions')}</p>}
-                    <button onClick={() => activate(i)} onMouseEnter={() => setSel(i)}
-                      className={`flex w-full items-center gap-3 px-4 py-2.5 text-left ${sel === i ? 'bg-accent-soft' : ''}`}>
+                    {rows[i - 1]?.kind !== 'action' && <p role="presentation" className="px-4 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-widest text-fog-600">{tr('Actions')}</p>}
+                    <button type="button" role="option" id={optId(i)} aria-selected={sel === i} tabIndex={-1} onClick={() => activate(i)} onMouseEnter={() => setSel(i)}
+                      className={`flex w-full items-center gap-3 px-4 py-2.5 text-start ${sel === i ? 'bg-accent-soft' : ''}`}>
                       <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-ink-700 text-fog-400">{r.action.icon}</span>
                       <span className="text-sm text-fog-100">{r.action.label}</span>
                       {r.action.hint && <span className="ms-auto text-[11px] text-fog-500">{r.action.hint}</span>}
@@ -230,8 +254,10 @@ export function CommandPalette({ open, seed = '', onClose }: { open: boolean; se
  * A page or a setting (v0.55.4): its name, and where it is ("Admin → Settings") in the reader's language. Exported for
  * the phone search page, which lists the same ones under its series.
  */
-export function PlaceRow({ place, selected, onClick, onHover, href }: {
+export function PlaceRow({ place, selected, onClick, onHover, href, option }: {
   place: Destination; selected?: boolean; onClick?: () => void; onHover?: () => void; href?: string;
+  /** Inside the palette's listbox: the row is an option, and the box points at it by this id. */
+  option?: { id: string; selected: boolean };
 }) {
   const Icon = place.href.startsWith('/admin/import/') ? IcImport : place.href.startsWith('/admin/') ? IcSettings : IcUser;
   const rtl = typeof document !== 'undefined' && document.documentElement.dir === 'rtl';
@@ -245,7 +271,8 @@ export function PlaceRow({ place, selected, onClick, onHover, href }: {
   const cls = `flex w-full items-center gap-3 px-4 py-2.5 text-start ${selected ? 'bg-accent-soft' : ''}`;
   return href
     ? <Link href={href} data-palette-place={place.key} className={cls}>{inner}</Link>
-    : <button type="button" data-palette-place={place.key} onClick={onClick} onMouseEnter={onHover} className={cls}>{inner}</button>;
+    : <button type="button" data-palette-place={place.key} onClick={onClick} onMouseEnter={onHover} className={cls}
+        {...(option ? { role: 'option', id: option.id, 'aria-selected': option.selected, tabIndex: -1 } : {})}>{inner}</button>;
 }
 
 /**

@@ -214,7 +214,7 @@ test('the desktop header fits at 1024 px: round buttons keep their 40 px, and th
   assert.match(header, /className="ms-auto flex min-w-0 max-w-72 flex-1 @container /, 'the search is not a size container');
   assert.match(header, /<span data-search-label className="hidden min-w-0 flex-1 truncate text-sm text-fog-500 @\[4\.5rem\]:block">/,
     'the search label shows a sliver when the search is squeezed');
-  assert.match(header, /<kbd data-search-kbd className="hidden [^"]*\bxl:@\[12rem\]:block">/, 'the ⌘K hint shows in a squeezed search');
+  assert.match(header, /<kbd data-search-kbd className="hidden [^"]*\bxl:@\[12rem\]:block"(?: aria-hidden)?>/, 'the ⌘K hint shows in a squeezed search');
   assert.match(header, /aria-label=\{tr\('Search…'\)\}/, 'with its label hidden the search has no accessible name');
   // Below xl: 12 px gaps, the logo's mark alone (its words kept for screen readers), and no ⌘K hint.
   assert.match(header, /<div className="shell flex items-center gap-3 py-3 xl:gap-6">/, 'the header keeps its 24 px gaps at lg');

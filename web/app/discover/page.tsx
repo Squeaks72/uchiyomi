@@ -525,17 +525,17 @@ export default function DiscoverPage() {
           <form onSubmit={search} className="flex w-full items-center gap-2 sm:w-auto">
             <div className="field flex min-w-0 flex-1 items-center gap-2 py-0 sm:w-72 lg:w-80">
               <IcSearch width={17} height={17} className="shrink-0 text-fog-500" />
-              <input value={q} onChange={(e) => setQ(e.target.value)}
+              <input value={q} onChange={(e) => setQ(e.target.value)} enterKeyHint="search" autoComplete="off"
                 onKeyDown={(e) => { if (e.key === 'Escape') backToNewest(); }}
                 placeholder={tr('Search all sources…')} aria-label={tr('Search all sources…')}
-                className="w-full bg-transparent py-2.5 text-sm text-fog-50 outline-hidden placeholder:text-fog-500" />
+                className="w-full bg-transparent py-2.5 text-sm text-fog-50 outline-hidden focus-visible:outline-accent focus-visible:outline-offset-0 placeholder:text-fog-500" />
               {q && (
-                <button type="button" onClick={backToNewest} aria-label={tr('Close')} className="shrink-0 text-fog-500 hover:text-fog-200">
+                <button type="button" onClick={backToNewest} aria-label={tr('Clear search')} className="relative shrink-0 text-fog-500 before:absolute before:-inset-2 hover:text-fog-200">
                   <IcX width={15} height={15} />
                 </button>
               )}
             </div>
-            <button className="btn-accent shrink-0 px-5 py-2.5 text-sm">{tr('Search')}</button>
+            <button type="submit" className="btn-accent shrink-0 px-5 py-2.5 text-sm">{tr('Search')}</button>
           </form>
         </div>
       </header>
@@ -654,6 +654,7 @@ export default function DiscoverPage() {
             providers={stackOf(it)}
             onAdd={() => open(it)} eager={i < 12} />
         ))}
+        {pending > 0 && <span role="status" className="sr-only">{tr('Loading…')}</span>}
         {Array.from({ length: Math.min(18, pending * 6) }).map((_, i) => (
           <div key={`sk${i}`} className="skeleton aspect-[2/3] rounded-2xl" />
         ))}
@@ -663,7 +664,7 @@ export default function DiscoverPage() {
           sentence would be a verdict on a search that is still running. The progress line covers that gap. */}
       {!wall.items.length && !pending && !stillAsking && (
         <div className="card col-span-full mt-2 p-8 text-center">
-          <p className={`text-sm ${alone?.warn ? 'text-amber-300' : 'text-fog-400'}`}>
+          <p role="status" className={`text-sm ${alone?.warn ? 'text-amber-300' : 'text-fog-400'}`}>
             {mode === 'search' ? (searchQ.isError ? tr('Search failed') : tr('No results across your sources — try another title.'))
               // Only an admin can act on the first sentence; a member told to open Admin has nowhere to go.
               : budget.length === 0 ? (isAdmin ? tr('No sources are set up yet. Add one in Admin \u2192 Sources.') : tr('No sources are set up yet. Ask whoever runs this server.'))
@@ -675,7 +676,7 @@ export default function DiscoverPage() {
           </p>
           {/* A failed search gets the same button: with `retry: false` nothing else re-asks it. */}
           {(mode === 'newest' || searchQ.isError) && (
-            <button onClick={() => (mode === 'search' ? searchQ.refetch() : qc.invalidateQueries({ queryKey: ['src-latest'] }))} className="btn-ghost mt-4 px-5 py-2 text-sm">
+            <button type="button" onClick={() => (mode === 'search' ? searchQ.refetch() : qc.invalidateQueries({ queryKey: ['src-latest'] }))} className="btn-ghost mt-4 px-5 py-2 text-sm">
               {tr('Try again')}
             </button>
           )}

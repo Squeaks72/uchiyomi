@@ -111,7 +111,7 @@ function TrackerSection({ focus }: { focus: boolean }) {
   return (
     <Section ref={ref} id="progress-tracking" className="scroll-mt-4 lg:scroll-mt-20" title={tr('Progress tracking')}
       icon={<IcRefresh width={18} height={18} />}
-      description={tr('Connect a service and every chapter you finish is pushed to it.')}>
+      description={tr('Connect a service to update it each time you finish a chapter.')}>
       {all.map((t) => <TrackerRow key={t.provider} t={t} refetch={refetch} />)}
     </Section>
   );
@@ -164,7 +164,7 @@ function TrackerRow({ t, refetch }: { t: TrackerStatus; refetch: () => void }) {
                 hold a <p>, and a block-level span keeps them inside this provider's row of the divider list. */}
             {t.expiringSoon && (
               <span className="mt-2 block rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5 text-xs text-amber-300">
-                {tr('This {name} token expires {when}. None of these services can refresh a token silently, so reconnect before then to keep syncing.',
+                {tr('This {name} token expires {when}. Reconnect before then to keep syncing.',
                   { name: label, when: t.expiresAt ? relativeTime(t.expiresAt) : tr('soon') })}
               </span>
             )}
@@ -174,7 +174,7 @@ function TrackerRow({ t, refetch }: { t: TrackerStatus; refetch: () => void }) {
           </>
         }
       >
-        <button type="button" onClick={disconnect} className="chip text-xs">{tr('Disconnect')}</button>
+        <button type="button" onClick={disconnect} aria-label={tr('Disconnect {name}', { name: label })} className="chip text-xs">{tr('Disconnect')}</button>
       </Row>
     );
   }
@@ -191,7 +191,7 @@ function TrackerRow({ t, refetch }: { t: TrackerStatus; refetch: () => void }) {
           ? <>{tr('Manual AniList actions can contact AniList even when automatic lookups are off.')}{t.lastError && <span className="mt-1 block text-red-300">{t.lastError}</span>}</>
           : t.lastError ? <span className="text-red-300">{t.lastError}</span> : undefined}
       >
-        <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} aria-controls={formId} className="chip text-xs">
+        <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} aria-controls={formId} aria-label={open ? undefined : tr('Connect {name}', { name: label })} className="chip text-xs">
           {open ? tr('Cancel') : tr('Connect')}
         </button>
       </Row>
@@ -207,7 +207,7 @@ function TrackerRow({ t, refetch }: { t: TrackerStatus; refetch: () => void }) {
             <input value={token} onChange={(e) => setToken(e.target.value)} type="password"
               onKeyDown={(e) => { if (e.key === 'Enter' && !busy) connect(); }}
               placeholder={tr('{name} access token', { name: label })} aria-label={tr('{name} access token', { name: label })}
-              autoCapitalize="none" autoCorrect="off" className="field min-w-0 flex-1" />
+              autoCapitalize="none" autoCorrect="off" autoComplete="off" spellCheck={false} className="field min-w-0 flex-1" />
             <button type="button" onClick={connect} disabled={busy || !token.trim()} className="btn-accent shrink-0 px-4 py-2 text-sm disabled:opacity-50">
               {busy ? tr('Working…') : tr('Connect')}
             </button>
@@ -273,7 +273,7 @@ function OpdsSection() {
       id="opds"
       title={tr('External readers (OPDS)')}
       icon={<IcCloudDownload width={18} height={18} />}
-      description={tr('Add Uchiyomi as an OPDS catalog in readers like Panels, Chunky, KOReader or Moon+. Generate a personal link, then enter the URL and credentials below in your reader.')}
+      description={tr('Read in Panels, Chunky, KOReader or Moon+. Generate a link, then add its URL, username and password to your reader as an OPDS catalog.')}
       // Hidden while the fresh password is on screen: generating again would replace the one being copied.
       // A chip, like every other section action: the accent button was 172 px wide at 390 and wrapped
       // "Externe Leseprogramme (OPDS)" onto three lines beside it.
@@ -285,19 +285,21 @@ function OpdsSection() {
     >
       {/* Shown whenever a link is held -- never behind a collapse, see the component comment. */}
       {link && (
-        <div className="my-1 space-y-2 rounded-xl border border-accent/40 bg-accent/10 p-3 text-xs">
-          <div>
-            <span className="text-fog-500">{tr('Catalog URL')}</span>
-            <div className="mt-0.5 break-all rounded-lg border border-ink-700 bg-ink-900/60 px-2 py-1.5 font-mono text-fog-100">{link.url}</div>
-          </div>
-          <div>
-            <span className="text-fog-500">{tr('Username')}</span>
-            <div className="mt-0.5 rounded-lg border border-ink-700 bg-ink-900/60 px-2 py-1.5 font-mono text-fog-100">{user?.username || 'me'}</div>
-          </div>
-          <div>
-            <span className="text-fog-500">{tr('Password (shown once, copy it now)')}</span>
-            <div className="mt-0.5 break-all rounded-lg border border-ink-700 bg-ink-900/60 px-2 py-1.5 font-mono text-accent">{link.token}</div>
-          </div>
+        <div role="group" aria-label={tr('Your OPDS link')} className="my-1 space-y-2 rounded-xl border border-accent/40 bg-accent/10 p-3 text-xs">
+          <dl className="space-y-2">
+            <div>
+              <dt className="text-fog-500">{tr('Catalog URL')}</dt>
+              <dd className="mt-0.5 break-all rounded-lg border border-ink-700 bg-ink-900/60 px-2 py-1.5 font-mono text-fog-100">{link.url}</dd>
+            </div>
+            <div>
+              <dt className="text-fog-500">{tr('Username')}</dt>
+              <dd className="mt-0.5 rounded-lg border border-ink-700 bg-ink-900/60 px-2 py-1.5 font-mono text-fog-100">{user?.username || 'me'}</dd>
+            </div>
+            <div>
+              <dt className="text-fog-500">{tr('Password (shown once, copy it now)')}</dt>
+              <dd className="mt-0.5 break-all rounded-lg border border-ink-700 bg-ink-900/60 px-2 py-1.5 font-mono text-accent">{link.token}</dd>
+            </div>
+          </dl>
           <p className="max-w-prose text-[11px] text-fog-500">
             {tr('Generating again replaces the previous token.')}
             {link.expiresInDays != null && <> {tr('This one stops working in {n} days. You can revoke it sooner.', { n: link.expiresInDays })}</>}
@@ -324,6 +326,7 @@ function OpdsSection() {
         >
           {st.exists && (
             <button type="button" onClick={revoke} disabled={busy}
+              aria-label={tr('Revoke the OPDS link')}
               className="chip text-xs hover:border-rose-500/50 hover:text-rose-400 disabled:opacity-50">{tr('Revoke')}</button>
           )}
         </Row>
@@ -332,7 +335,7 @@ function OpdsSection() {
       {st?.exists && (
         <SwitchRow
           label={tr('Show 18+ content in this reader (this link only)')}
-          help={tr('Off by default. Your age limit, if you have one, still applies whatever this says.')}
+          help={tr('Off by default. Your age limit still applies if you have one.')}
           on={!!st.showAdult}
           disabled={busy}
           onChange={setAdult}
@@ -348,7 +351,7 @@ interface ApiToken { id: string; name: string; scopes: string[]; createdAt: stri
 
 /** The one icon this file draws itself: icons.tsx has no key, and a token is a key. Same 24-grid and stroke as the rest. */
 const IcKey = () => (
-  <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+  <svg aria-hidden focusable="false" width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
     <path d="M2.6 17.4A2 2 0 0 0 2 18.8V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.2a2 2 0 0 0 1.4-.6l.8-.8a6.5 6.5 0 1 0-4-4Z" />
     <circle cx="16.5" cy="7.5" r=".6" fill="currentColor" />
   </svg>
@@ -408,7 +411,7 @@ function TokensSection() {
       id="api-tokens"
       title={tr('API tokens')}
       icon={<IcKey />}
-      description={`${tr('For scripts and integrations. A normal login expires every 15 minutes; these do not, so treat one like a password.')} ${tr('Mihon’s Komga extension and the Uchiyomi extension use these too.')}`}
+      description={`${tr('For scripts and integrations. A token does not expire like a login does, so treat it like a password.')} ${tr('Mihon’s Komga extension and the Uchiyomi extension use these too.')}`}
       action={
         <button ref={actionRef} type="button" onClick={() => (open ? cancel() : setOpen(true))} aria-expanded={open} aria-controls={formId}
           className={`chip text-xs ${open ? 'chip-active' : ''}`}>
@@ -418,8 +421,8 @@ function TokensSection() {
     >
       {/* A token is shown once; it stays on screen through a remount and is never behind the form. */}
       {fresh && (
-        <div className="my-1 rounded-xl border border-accent/40 bg-accent/10 p-3">
-          <p className="text-xs text-fog-100">{tr('Copy this now. It will not be shown again.')}</p>
+        <div role="group" aria-label={tr('Your new token')} className="my-1 rounded-xl border border-accent/40 bg-accent/10 p-3">
+          <p role="status" className="text-xs text-fog-100">{tr('Copy this now. It will not be shown again.')}</p>
           <p className="mt-1.5 break-all rounded-lg border border-ink-700 bg-ink-900/60 px-2 py-1.5 font-mono text-xs text-accent">{fresh}</p>
           {/* A chip, like the OPDS box's Done: the control that dismisses a once-only secret was a 16-px link. */}
           <button ref={doneRef} type="button" onClick={done} className="chip mt-2 text-xs">{tr('Done')}</button>
@@ -429,18 +432,18 @@ function TokensSection() {
       {open && (
         <div id={formId} className="space-y-2 py-3">
           <input value={name} onChange={(e) => setName(e.target.value)} placeholder={tr('What is it for? e.g. backup script')}
-            aria-label={tr('What is it for? e.g. backup script')}
+            aria-label={tr('What is it for? e.g. backup script')} aria-required required autoComplete="off" spellCheck={false}
             onKeyDown={(e) => { if (e.key === 'Enter' && name.trim()) (admin ? setConfirmAdmin(true) : create()); }}
             className="field" />
-          <label className="flex items-center gap-2 text-xs text-fog-300">
+          <label className="flex items-center gap-2 py-1 text-xs text-fog-300">
             <input type="checkbox" checked={write} onChange={(e) => setWrite(e.target.checked)} className="accent-accent" />{tr('Allow changes (without this the token can only read)')}</label>
           {user?.role === 'admin' && (
-            <label className="flex items-center gap-2 text-xs text-fog-300">
+            <label className="flex items-center gap-2 py-1 text-xs text-fog-300">
               <input type="checkbox" checked={admin} onChange={(e) => setAdmin(e.target.checked)} className="accent-accent" />{tr('Allow server administration')}</label>
           )}
           {/* Mirrors the OPDS link's switch. The Komga-compatible API (Mihon, Tachimanga) reads the library
               through a token, and without this the 18+ libraries are simply absent from it. */}
-          <label className="flex items-center gap-2 text-xs text-fog-300">
+          <label className="flex items-center gap-2 py-1 text-xs text-fog-300">
             <input type="checkbox" checked={adult} onChange={(e) => setAdult(e.target.checked)} className="accent-accent" />{tr('Show 18+ content (this token only)')}</label>
           <div className="flex flex-wrap gap-2 pt-1">
             {/* An admin-scoped token never expires and can do anything its owner can, so it costs one more
@@ -457,7 +460,7 @@ function TokensSection() {
           label={
             <>
               {t.name}
-              {t.expired && <span className="ms-2 rounded bg-red-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-red-300">{tr('Expired')}</span>}
+              {t.expired && <span className="ms-2 rounded bg-red-500/20 px-1.5 py-0.5 text-[11px] font-semibold text-red-300">{tr('Expired')}</span>}
             </>
           }
           help={
@@ -468,10 +471,10 @@ function TokensSection() {
             </>
           }
         >
-          <button type="button" onClick={() => revoke(t.id)} className="chip text-xs hover:border-rose-500/50 hover:text-rose-400">{tr('Revoke')}</button>
+          <button type="button" onClick={() => revoke(t.id)} aria-label={tr('Revoke {name}', { name: t.name })} className="chip text-xs hover:border-rose-500/50 hover:text-rose-400">{tr('Revoke')}</button>
         </Row>
       ))}
-      {!tokens.length && !open && <p className="py-3 text-xs text-fog-600">{tr('No tokens yet.')}</p>}
+      {!tokens.length && !open && <p className="py-3 text-xs text-fog-500">{tr('No tokens yet.')}</p>}
 
       {confirmAdmin && (
         <ConfirmDialog

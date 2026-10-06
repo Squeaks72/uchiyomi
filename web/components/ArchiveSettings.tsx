@@ -65,10 +65,10 @@ export function DownloadsSection({ data, save }: { data: any; save: Save }) {
       <div className="py-3 last:pb-0">
         <Disclosure label={tr('How the slow archive works')}>
           <ul className="max-w-prose list-disc space-y-1 ps-4 text-[11px] leading-relaxed text-fog-500">
-            <li>{tr('One chapter at a time per source, with a random pause between pages and a random break between chapters, now and then a long one. Several sites are archived side by side.')}</li>
+            <li>{tr('It fetches one chapter at a time per source, with random pauses between pages and chapters. Different sites run side by side.')}</li>
             <li>{tr('It stands aside for the scheduled check, the library repair, the source check and anyone else downloading from the same site.')}</li>
             <li>{tr('A site that refuses is left alone for an hour, then three, then twelve, then a day at a time. The series stays queued.')}</li>
-            <li>{tr('After a restart it carries on where it left off, and no break is cut short. It only fetches from the sources a series already follows; it never searches other sites.')}</li>
+            <li>{tr('After a restart it carries on where it left off. It only uses sources a series already follows and never searches other sites.')}</li>
             <li>{tr('Chapters it brings in do not count as new chapters under Updates, and trigger no notifications.')}</li>
           </ul>
         </Disclosure>
@@ -129,7 +129,7 @@ export function PolitenessSection() {
       <div className="py-3 first:pt-1">
         <h3 className="text-sm font-semibold text-fog-100">{tr('Limits set by the server')}</h3>
         <p className="mt-0.5 max-w-prose text-[11px] leading-relaxed text-fog-500">
-          {tr('These are set by environment variables, so they are shown here but cannot be changed here.')}
+          {tr('Set by environment variables. You can see them here but not change them.')}
         </p>
       </div>
       {(lim?.limits ?? []).map((l) => (
@@ -140,7 +140,7 @@ export function PolitenessSection() {
       <div className="py-3 last:pb-0" id="blocked-sources">
         <h3 className="text-sm font-semibold text-fog-100">{tr('Blocked sources')}</h3>
         <p className="mt-0.5 max-w-prose text-[11px] leading-relaxed text-fog-500">
-          {tr('A source that refuses us is left alone for a while. Unblock tries it again at once.')}
+          {tr('A source that refuses requests is paused for a while. Unblock tries it again now.')}
         </p>
         {overview && blocked.length === 0 && (
           <p className="mt-2 text-sm text-fog-400">{tr('No sources are blocked right now.')}</p>

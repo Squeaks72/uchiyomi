@@ -52,7 +52,7 @@ function CollectionRail({ col }: { col: CollectionRow }) {
   if (!items.length) return null;
   return (
     <section className="pt-8">
-      <SectionTitle action={<Link href={`/collection/?id=${col.id}`} className="text-xs text-accent">{tr('See all')}</Link>}>
+      <SectionTitle action={<Link href={`/collection/?id=${col.id}`} aria-label={tr('See all {title}', { title: col.name })} className="text-xs text-accent">{tr('See all')}</Link>}>
         <span className="inline-flex items-center gap-2">
           <span aria-hidden className="h-4 w-1.5 rounded-full" style={{ background: col.accent || 'rgb(var(--accent))' }} />
           {col.name}
@@ -121,11 +121,11 @@ export default function HomePage() {
       <header className="safe-top sticky top-0 z-30 flex items-center justify-between px-5 pb-3 lg:hidden">
         <Lockup className="text-2xl" markSize={36} />
         <div className="flex items-center gap-2">
-          <Link href="/updates" className="relative grid h-10 w-10 place-items-center rounded-full border border-ink-700 bg-ink-850/70 text-fog-300 backdrop-blur">
+          <Link href="/updates" aria-label={tr('Updates')} className="relative grid h-10 w-10 place-items-center rounded-full border border-ink-700 bg-ink-850/70 text-fog-300 backdrop-blur">
             <IcBell width={19} height={19} />
-            {(data?.updatesCount ?? 0) > 0 && <span className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-accent px-1 text-[10px] font-bold text-black">{(data!.updatesCount ?? 0) > 9 ? '9+' : data!.updatesCount}</span>}
+            {(data?.updatesCount ?? 0) > 0 && <span className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-accent px-1 text-[11px] font-bold text-black">{(data!.updatesCount ?? 0) > 9 ? '9+' : data!.updatesCount}</span>}
           </Link>
-          <Link href="/profile" className="transition active:opacity-80">
+          <Link href="/profile" aria-label={tr('Profile')} className="transition active:opacity-80">
             <Avatar avatar={user?.avatar} size={40} />
           </Link>
         </div>
@@ -138,7 +138,10 @@ export default function HomePage() {
       {(featured?.content?.length ?? 0) > 0 ? (
         <HeroCarousel slides={featured!.content} />
       ) : isLoading || featuredPending ? (
-        <div className="skeleton h-[62vh] min-h-[440px] w-full lg:-mx-6 lg:w-[calc(100%+3rem)]" />
+        <div className="skeleton h-[62vh] min-h-[440px] w-full lg:-mx-6 lg:w-[calc(100%+3rem)]" role="status">
+          <h1 className="sr-only">{tr('Home')}</h1>
+          <span className="sr-only">{tr('Loading…')}</span>
+        </div>
       ) : (
         <div className="relative h-[58vh] min-h-[420px] overflow-hidden lg:-mx-6 lg:h-[70vh] lg:w-[calc(100%+3rem)]">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -197,7 +200,7 @@ export default function HomePage() {
 
       {/* New episodes */}
       <section className="pt-8">
-        <SectionTitle action={<Link href="/library?sort=updated" className="text-xs text-accent">{tr('See all')}</Link>}>{tr('New episodes')}</SectionTitle>
+        <SectionTitle action={<Link href="/library?sort=updated" aria-label={tr('See all {title}', { title: tr('New episodes') })} className="text-xs text-accent">{tr('See all')}</Link>}>{tr('New episodes')}</SectionTitle>
         {isLoading ? <RailSkeleton /> : (
           <Rail>
             {(data?.updated ?? []).map((s, i) => <SeriesCard key={s.id} series={s} eager={i < 8} />)}
@@ -220,7 +223,7 @@ export default function HomePage() {
 
       {/* Recently added */}
       <section className="pt-8">
-        <SectionTitle action={<Link href="/library?sort=new" className="text-xs text-accent">{tr('See all')}</Link>}>{tr('Recently added')}</SectionTitle>
+        <SectionTitle action={<Link href="/library?sort=new" aria-label={tr('See all {title}', { title: tr('Recently added') })} className="text-xs text-accent">{tr('See all')}</Link>}>{tr('Recently added')}</SectionTitle>
         {isLoading ? <RailSkeleton /> : (
           <Rail>
             {(data?.new ?? []).map((s) => <SeriesCard key={s.id} series={s} />)}

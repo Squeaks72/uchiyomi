@@ -62,18 +62,19 @@ export function BadgesCard({ stats, span = '' }: { stats?: Stats; span?: string 
   return (
     <div id="badges" className={`${CARD} scroll-mt-4 lg:scroll-mt-20 ${span}`}>
       <h2 className="mb-3 font-display text-base font-semibold">{tr('Badges')}</h2>
-      <div className="flex flex-wrap gap-2">
+      <ul className="flex flex-wrap gap-2">
         {earned.map((b) => (
-          <span key={b.label} className="inline-flex items-center gap-1.5 rounded-full border border-accent/40 bg-accent-soft px-3 py-1.5 text-xs text-fog-100">
-            <span>{b.emoji}</span>{tr(b.label)}
-          </span>
+          <li key={b.label} className="inline-flex items-center gap-1.5 rounded-full border border-accent/40 bg-accent-soft px-3 py-1.5 text-xs text-fog-100">
+            <span aria-hidden>{b.emoji}</span>{tr(b.label)}
+          </li>
         ))}
         {next && (
-          <span key={next.label} className="inline-flex items-center gap-1.5 rounded-full border border-ink-700 px-3 py-1.5 text-xs text-ink-500 opacity-60">
-            <span>{next.emoji}</span>{tr(next.label)}
-          </span>
+          <li key={next.label} className="inline-flex items-center gap-1.5 rounded-full border border-ink-700 px-3 py-1.5 text-xs text-fog-500">
+            <span aria-hidden>{next.emoji}</span><span aria-hidden>{tr(next.label)}</span>
+            <span className="sr-only">{tr('Next badge: {name}', { name: tr(next.label) })}</span>
+          </li>
         )}
-      </div>
+      </ul>
     </div>
   );
 }
@@ -85,15 +86,17 @@ export function ListsCard({ span = '' }: { span?: string }) {
     <div className={`${CARD} ${span}`}>
       <h2 className="mb-3 font-display text-base font-semibold">{tr('Lists')}</h2>
       {rows.length ? (
-        <div className="space-y-1.5">
+        <ul className="space-y-1.5">
           {rows.slice(0, 6).map((c) => (
-            <Link key={c.id} href={`/collection/?id=${encodeURIComponent(c.id)}`}
-              className="flex items-center justify-between gap-3 rounded-xl border border-ink-700/70 bg-ink-850/50 px-3 py-2">
-              <span className="min-w-0 truncate text-sm text-fog-100">{c.name}</span>
-              <span className="shrink-0 text-xs tabular-nums text-fog-500">{c.item_count === 1 ? tr('1 series') : tr('{n} series', { n: c.item_count })}</span>
-            </Link>
+            <li key={c.id}>
+              <Link href={`/collection/?id=${encodeURIComponent(c.id)}`}
+                className="flex items-center justify-between gap-3 rounded-xl border border-ink-700/70 bg-ink-850/50 px-3 py-2">
+                <span className="min-w-0 truncate text-sm text-fog-100">{c.name}</span>
+                <span className="shrink-0 text-xs tabular-nums text-fog-500">{c.item_count === 1 ? tr('1 series') : tr('{n} series', { n: c.item_count })}</span>
+              </Link>
+            </li>
           ))}
-        </div>
+        </ul>
       ) : (
         <p className="text-xs text-fog-500">{tr('No collections yet')}</p>
       )}
@@ -130,13 +133,13 @@ export function StudioCard({ span = '' }: { span?: string }) {
   }
   const DOW = keys('Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat');
 
-  if (isLoading && !data) return <div className={`card skeleton h-64 ${span}`} />;
+  if (isLoading && !data) return <div role="status" aria-label={tr('Loading…')} className={`card skeleton h-64 ${span}`} />;
 
   return (
     <div id="reading-studio" className={`${CARD} scroll-mt-4 lg:scroll-mt-20 ${span}`}>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <h2 className="font-display text-base font-semibold">{tr('Reading studio')}</h2>
-        <div className="flex gap-1.5">
+        <div role="group" aria-label={tr('Time range')} className="flex gap-1.5">
           {[90, 180, 365].map((d) => (
             <button key={d} onClick={() => setDays(d)} aria-pressed={days === d}
               className={`chip text-[11px] ${days === d ? 'border-accent/50 text-accent' : 'text-fog-400'}`}>

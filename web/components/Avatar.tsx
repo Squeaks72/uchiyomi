@@ -7,7 +7,7 @@ export function Avatar({ avatar, size = 40 }: { avatar?: AvatarData | null; size
   const color = avatar?.color || '#26262f';
   return (
     <span className="grid shrink-0 place-items-center rounded-full" style={{ width: size, height: size, background: color }}>
-      {emoji ? <span style={{ fontSize: Math.round(size * 0.52), lineHeight: 1 }}>{emoji}</span> : <IcUser width={Math.round(size * 0.5)} height={Math.round(size * 0.5)} className="text-white/80" />}
+      {emoji ? <span aria-hidden style={{ fontSize: Math.round(size * 0.52), lineHeight: 1 }}>{emoji}</span> : <IcUser width={Math.round(size * 0.5)} height={Math.round(size * 0.5)} className="text-white/80" />}
     </span>
   );
 }

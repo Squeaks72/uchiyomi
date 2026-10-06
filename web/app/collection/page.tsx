@@ -71,7 +71,7 @@ function CollectionInner() {
 
   const removeItem = async (s: Series) => {
     try { await api(`/api/collections/${id}/items/${s.id}`, { method: 'DELETE' }); inval(); }
-    catch { toast(tr('Failed'), 'error'); }
+    catch { toast(tr('Could not do that'), 'error'); }
   };
 
   const move = async (s: Series, dir: -1 | 1) => {
@@ -88,7 +88,7 @@ function CollectionInner() {
     <div className="min-h-screen-d">
       <header className="safe-top px-4 pb-2 lg:px-0 lg:pt-6">
         <div className="flex items-center gap-2">
-          <button onClick={() => router.back()} className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-ink-800/70 text-fog-100">
+          <button type="button" onClick={() => router.back()} aria-label={tr('Back')} className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-ink-800/70 text-fog-100">
             <IcChevronLeft width={22} height={22} />
           </button>
           <div className="flex min-w-0 items-center gap-2.5">
@@ -120,7 +120,8 @@ function CollectionInner() {
       </header>
 
       {isLoading ? (
-        <div className="grid grid-cols-3 gap-3 px-4 pt-3 sm:grid-cols-4 lg:grid-cols-6 lg:px-0 2xl:grid-cols-8">
+        <div role="status" aria-busy="true" className="grid grid-cols-3 gap-3 px-4 pt-3 sm:grid-cols-4 lg:grid-cols-6 lg:px-0 2xl:grid-cols-8">
+          <span className="sr-only">{tr('Loading…')}</span>
           {Array.from({ length: 8 }).map((_, i) => <div key={i} className="skeleton aspect-[2/3] rounded-2xl" />)}
         </div>
       ) : items.length === 0 ? (

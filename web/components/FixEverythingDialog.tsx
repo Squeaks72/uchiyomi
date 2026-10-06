@@ -106,7 +106,7 @@ function ModeCard({ name, mode, checked, onPick, title, tag, children }: {
         <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
           <span className="text-sm font-medium text-fog-50">{title}</span>
           {/* A squared tag, never a capsule. */}
-          {tag && <span className="shrink-0 rounded-[4px] bg-accent-soft px-1.5 text-[10px] font-semibold leading-4 text-accent">{tag}</span>}
+          {tag && <span className="shrink-0 rounded-[4px] bg-accent-soft px-1.5 text-[11px] font-semibold leading-4 text-accent">{tag}</span>}
         </span>
         <span className="mt-1.5 block">{children}</span>
       </span>
@@ -152,7 +152,7 @@ function AskView({ af, checks, onClose }: { af: AutofixApi | null; checks: Healt
       footer={
         <div className="flex flex-wrap items-center justify-end gap-2 pb-1">
           {line && (
-            <p role="status" className={`me-auto min-w-0 flex-1 basis-48 text-[11px] leading-snug ${blocked || refusal || gate.disabled ? 'text-amber-300/90' : 'text-fog-400'}`}
+            <p role="status" className={`me-auto min-w-0 flex-1 basis-48 text-[11px] leading-snug ${blocked || refusal || gate.disabled ? 'text-amber-300' : 'text-fog-400'}`}
               data-fix-busy>{line}</p>
           )}
           <button type="button" onClick={onClose} className="btn-key" data-fix-cancel>{tr('Cancel')}</button>
@@ -170,7 +170,7 @@ function AskView({ af, checks, onClose }: { af: AutofixApi | null; checks: Healt
               {lines.map((l, i) => (
                 <span key={i} className="flex items-start gap-2.5 text-[12px] leading-snug text-fog-300" data-fix-line={i + 1}>
                   {/* A circle, equal sides and no padding: a number, never a capsule (Replace's plan lines). */}
-                  <span aria-hidden className="mt-px grid h-4 w-4 shrink-0 place-items-center rounded-full bg-accent-soft text-[10px] font-semibold tabular-nums text-accent">
+                  <span aria-hidden className="mt-px grid h-4 w-4 shrink-0 place-items-center rounded-full bg-accent-soft text-[11px] font-semibold tabular-nums text-accent">
                     {numberText(i + 1)}
                   </span>
                   <span className="min-w-0">{l}</span>
@@ -212,12 +212,12 @@ function RunView({ af, run, onClose }: { af: AutofixApi | null; run: AutofixRun 
       }>
       <div className="pb-3" data-fix-view="run" data-fix-run={run?.status ?? 'starting'}>
         {!run ? (
-          <p className="flex items-center gap-2 py-2 text-sm text-fog-300">
+          <p role="status" className="flex items-center gap-2 py-2 text-sm text-fog-300">
             <ProgressRing size={14} progress="spin" />{tr('Starting…')}
           </p>
         ) : (
           <>
-            <p className="text-sm font-medium text-fog-50" data-fix-phase={run.phase ?? ''}>{autofixPhaseLabel(run.phase) || tr('Working…')}</p>
+            <p role="status" className="text-sm font-medium text-fog-50" data-fix-phase={run.phase ?? ''}>{autofixPhaseLabel(run.phase) || tr('Working…')}</p>
             {/* The bar fills from the start edge, so from the right in Arabic (--start, app/globals.css), and moves without
                 easing under Reduce effects. */}
             <div className="mt-3 h-1.5 overflow-hidden rounded-[3px] bg-ink-700" role="progressbar" aria-valuemin={0} aria-valuemax={100}
@@ -240,7 +240,7 @@ function RunView({ af, run, onClose }: { af: AutofixApi | null; run: AutofixRun 
               </p>
             )}
             {stopping && (
-              <p className="mt-3 text-[12px] leading-snug text-fog-400">
+              <p role="status" className="mt-3 text-[12px] leading-snug text-fog-300">
                 {tr('It stops at the next safe point, never in the middle of a merge, a delete or a renumbering.')}
               </p>
             )}
@@ -252,13 +252,15 @@ function RunView({ af, run, onClose }: { af: AutofixApi | null; run: AutofixRun 
 }
 
 /** A Needs-you item's one key: its page, its card here, or Admin → Settings. */
-function NeedsKey({ k, onShowCheck }: { k: NeedsYouKey | null; onShowCheck: (check: string) => void }) {
+function NeedsKey({ k, about, onShowCheck }: { k: NeedsYouKey | null; about: string; onShowCheck: (check: string) => void }) {
   if (!k) return null;
-  if (k.kind === 'card') return <button type="button" onClick={() => onShowCheck(k.check)} className="btn-key shrink-0" data-fix-key="health">{k.label}</button>;
+  // Several rows can carry the same key ("Open"), so each is named for what it is about; the visible word leads the name.
+  const label = `${k.label}: ${about}`;
+  if (k.kind === 'card') return <button type="button" onClick={() => onShowCheck(k.check)} aria-label={label} className="btn-key shrink-0" data-fix-key="health">{k.label}</button>;
   // Another of the console's tabs is a whole page load: it reads its tab from the address once (lib/useTabParam.ts).
-  if (k.external) return <a href={k.href} target="_blank" rel="noopener noreferrer" className="btn-key shrink-0" data-fix-key="open">{k.label}</a>;
-  if (k.page) return <a href={k.href} className="btn-key shrink-0" data-fix-key={k.href.includes('tab=Settings') ? 'settings' : 'open'}>{k.label}</a>;
-  return <Link href={k.href} className="btn-key shrink-0" data-fix-key="open">{k.label}</Link>;
+  if (k.external) return <a href={k.href} target="_blank" rel="noopener noreferrer" aria-label={label} className="btn-key shrink-0" data-fix-key="open">{k.label}</a>;
+  if (k.page) return <a href={k.href} aria-label={label} className="btn-key shrink-0" data-fix-key={k.href.includes('tab=Settings') ? 'settings' : 'open'}>{k.label}</a>;
+  return <Link href={k.href} aria-label={label} className="btn-key shrink-0" data-fix-key="open">{k.label}</Link>;
 }
 
 /** A line of what it did, and under Details what it named. */
@@ -306,7 +308,7 @@ function EndView({ af, run, onClose, onShowCheck }: {
     <Sheet title={tr('Fix everything')} onClose={onClose} overBottomNav wrapTitle
       footer={
         <div className="flex flex-wrap items-center justify-end gap-2 pb-1">
-          {refusal && <p role="status" className="me-auto min-w-0 flex-1 basis-48 text-[11px] leading-snug text-amber-300/90" data-fix-busy>{refusal}</p>}
+          {refusal && <p role="status" className="me-auto min-w-0 flex-1 basis-48 text-[11px] leading-snug text-amber-300" data-fix-busy>{refusal}</p>}
           {/* Only while something a run could still change is left: never after all green, never for Needs you alone. */}
           {again && (
             <button type="button" onClick={() => { void af?.start(); }} disabled={slot?.phase === 'starting'} className="btn-key" data-fix-again>
@@ -340,7 +342,7 @@ function EndView({ af, run, onClose, onShowCheck }: {
                 <li key={`${nd.check}:${i}`} className="flex min-w-0 items-center gap-3 px-3 py-2.5" data-fix-needs={nd.check}>
                   <StatusGlyph tone="warn" size={11} />
                   <p className="min-w-0 flex-1 break-words text-[13px] leading-snug text-fog-100">{nd.text}</p>
-                  <NeedsKey k={nd.key} onShowCheck={onShowCheck} />
+                  <NeedsKey k={nd.key} about={nd.text} onShowCheck={onShowCheck} />
                 </li>
               ))}
             </ul>

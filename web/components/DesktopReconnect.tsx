@@ -30,7 +30,7 @@ export function DesktopReconnect() {
   };
 
   return (
-    <div className="flex min-h-screen-d flex-col items-center justify-center gap-4 px-6 text-center">
+    <main className="flex min-h-screen-d flex-col items-center justify-center gap-4 px-6 text-center">
       <Mark size={56} />
       <h1 className="font-display text-xl font-semibold text-fog-50">{tr('Uchiyomi couldn’t open your library')}</h1>
       <p className="max-w-sm text-sm text-fog-400">{tr('The app could not sign itself in to the library on this computer.')}</p>
@@ -38,10 +38,10 @@ export function DesktopReconnect() {
         {busy ? tr('Trying…') : tr('Try again')}
       </button>
       {failed && (
-        <p role="status" className="max-w-sm text-xs text-fog-500">
+        <p role="alert" className="max-w-sm text-xs text-fog-400">
           {tr('Still no luck. Restart Uchiyomi: choose Quit from its icon in the taskbar tray or menu bar, then open it again.')}
         </p>
       )}
-    </div>
+    </main>
   );
 }

@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { adultShown, setAdultShown, onAdultChange } from '@/lib/adult';
@@ -74,16 +74,20 @@ export function AdultToggle({ className = '', alsoWhen = false }: { className?: 
   const qc = useQueryClient();
   const { data: libs } = useLibraries();
   const on = useAdultShown();
+  const helpId = useId();
 
   if (!alsoWhen && !(libs ?? []).some((l) => l.adult)) return null;
 
+  const help = tr('Show 18+ content until you close this browser. For an e-reader or app, use Profile → Connections.');
   return (
+    <>
     <button
       type="button"
       aria-pressed={on}
+      aria-describedby={helpId}
       // One name for the switch everywhere ("Show 18+ content"); the scope is said here, as help, so the chip
       // itself stays as short as it was. Text only: what the button does is unchanged.
-      title={tr('Show 18+ content for this browser session. It switches off when you close the browser. For an e-reader or an app, set it under Profile → Connections.')}
+      title={help}
       onClick={() => {
         setAdultShown(!on);
         qc.invalidateQueries();
@@ -92,5 +96,7 @@ export function AdultToggle({ className = '', alsoWhen = false }: { className?: 
     >
       {tr('Show 18+ content')}
     </button>
+    <span id={helpId} className="sr-only">{help}</span>
+    </>
   );
 }

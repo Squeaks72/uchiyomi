@@ -194,7 +194,7 @@ test('Needs attention shows only when something needs someone, a row each, Repla
   const replace = slice(html, 'data-sources-attention-row="replace"', '</li>');
   assert.match(replace, /<bdi dir="auto">Aqua Manga<\/bdi>/);
   assert.match(replace, /Site offline<\/span><span> · main source of 195 series<\/span><span> · 184 already have a working backup<\/span>/);
-  assert.match(replace, /<button type="button" class="btn-key btn-key-primary" data-sources-replace="aqua">Replace<\/button>/, 'Replace is not the row\'s filled key');
+  assert.match(replace, /<button type="button" aria-label="Replace: Aqua Manga" class="btn-key btn-key-primary" data-sources-replace="aqua">Replace<\/button>/, 'Replace is not the row\'s filled key');
   assert.equal((html.match(/btn-key-primary/g) ?? []).length, 1, 'Needs attention has a filled key besides Replace');
   assert.match(slice(html, 'data-sources-attention-row="failing-unused"', '</li>'), /1 source nothing uses is failing[\s\S]*data-source-bulk-off="true">Turn off</);
   assert.match(slice(html, 'data-sources-attention-row="updates"', '</li>'), /1 extension has an update[\s\S]*data-ext-update="true"[^>]*>Update</);

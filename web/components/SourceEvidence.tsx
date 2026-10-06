@@ -60,10 +60,10 @@ export function SourceEvidence({ answer, lines, tested, failing, fix, compact, o
                   <span className="text-fog-200">{r.label}</span>
                   <span className="sr-only"> ({glyphWord(r.glyph)})</span>
                   {r.detail && <span className="text-fog-500"> · <bdi>{r.detail}</bdi></span>}
-                  {r.when && <span className="text-fog-600"> · {r.when}</span>}
+                  {r.when && <span className="text-fog-500"> · {r.when}</span>}
                 </p>
                 {r.error && (
-                  <p dir="auto" className="line-clamp-2 break-words font-mono text-[10.5px] text-fog-500" title={r.error}>{r.error}</p>
+                  <p dir="auto" className="line-clamp-2 break-words font-mono text-[11px] text-fog-500" title={r.error}>{r.error}</p>
                 )}
               </div>
             </li>

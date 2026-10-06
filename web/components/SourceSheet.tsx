@@ -213,7 +213,7 @@ export function SourceSheet({ target, overview, evidence, testMs, status, action
             <button type="button" onClick={remove} disabled={!!busy} className="btn-key border-red-500/50 bg-red-500/20 text-red-100 hover:border-red-400 hover:text-red-50" data-source-remove-yes>
               {busy === 'remove' ? <Busy tone="red">{tr('Removing…')}</Busy> : tr('Remove')}
             </button>
-            <button type="button" onClick={() => setAsking(null)} disabled={!!busy} className="btn-key">{tr('Cancel')}</button>
+            <button type="button" autoFocus onClick={() => setAsking(null)} disabled={!!busy} className="btn-key">{tr('Cancel')}</button>
           </div>
         </div>
       )}
@@ -232,7 +232,7 @@ export function SourceSheet({ target, overview, evidence, testMs, status, action
         {s && says && (
           <section aria-label={tr('Status')}>
             {/* The one line: the state in a word, and why, as the row in the list says it. */}
-            <p className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[13px]" data-source-status={s.state}>
+            <p role="status" className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[13px]" data-source-status={s.state}>
               <StatusMark tone={says.tone} label={says.word} size="md" />
               {says.reason && <span className="text-fog-400">— {says.reason}</span>}
             </p>
@@ -315,7 +315,7 @@ export function SourceSheet({ target, overview, evidence, testMs, status, action
               </div>
             ) : (
               <form className="mt-1.5 flex flex-wrap gap-2" onSubmit={(e) => { e.preventDefault(); moveTo(address.trim()); }}>
-                <input value={address} onChange={(e) => setAddress(e.target.value)} dir="ltr" autoCapitalize="none" autoCorrect="off" spellCheck={false}
+                <input value={address} onChange={(e) => setAddress(e.target.value)} dir="ltr" type="url" inputMode="url" autoComplete="off" autoCapitalize="none" autoCorrect="off" spellCheck={false}
                   placeholder="https://site.com" aria-label={tr('Address')} className="field min-w-0 flex-1 basis-48" />
                 <button type="submit" disabled={!!busy || !address.trim()} className="btn-key">{busy === 'address' ? <Busy tone="muted">{tr('Saving…')}</Busy> : tr('Save')}</button>
                 <button type="button" onClick={() => { setAsking(null); setRefusal(null); }} className="btn-key">{tr('Cancel')}</button>

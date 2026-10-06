@@ -257,7 +257,7 @@ function ProfileInner() {
                         {/* The whole pill opens the goal dialog. The button stretches over the pill with an
                             ::after rather than wrapping it, so <dt>/<dd> stay direct children of a <div> in
                             the <dl> instead of being buried in a <button>. */}
-                        <button onClick={() => setGoalOpen(true)} aria-label={tr('Weekly goal')}
+                        <button type="button" onClick={() => setGoalOpen(true)} aria-haspopup="dialog" aria-label={tr('Weekly goal')}
                           className="after:absolute after:inset-0 after:rounded-full">
                           <GoalRing value={stats.weekChapters} goal={stats.weeklyGoal} size={40} />
                         </button>
@@ -271,7 +271,7 @@ function ProfileInner() {
                             phone into horizontal overflow. */}
                         <dd className="flex flex-wrap gap-1.5">
                           {[5, 10, 20].map((n) => (
-                            <button key={n} onClick={() => saveGoal(n)} className="chip px-2.5 py-1 text-xs">{n}</button>
+                            <button key={n} type="button" onClick={() => saveGoal(n)} aria-label={tr('{n} chapters', { n })} className="chip px-2.5 py-1 text-xs">{n}</button>
                           ))}
                         </dd>
                       </div>
@@ -385,11 +385,12 @@ function RailActions({ isAdmin }: { isAdmin: boolean }) {
         className={`${row} text-fog-400 hover:bg-ink-800/60 hover:text-fog-100`}>
         <span aria-hidden className="shrink-0 text-base leading-none">☕</span>
         <span className="min-w-0 truncate">{tr('Support Uchiyomi')}</span>
+        <span className="sr-only">{tr('Opens in a new tab')}</span>
         <IcChevronRight width={15} height={15} className={chev} />
       </a>
       {/* Not on desktop: the app signs itself back in at once, so "Sign out" there would do nothing visible. */}
       {!isDesktop() && (
-        <button onClick={logout} className={`${row} text-red-300/90 hover:bg-red-500/10 hover:text-red-300`}>
+        <button type="button" onClick={logout} className={`${row} text-red-300/90 hover:bg-red-500/10 hover:text-red-300`}>
           <IcLogOut width={16} height={16} className="shrink-0" />
           <span className="min-w-0 truncate">{tr('Sign out')}</span>
         </button>
@@ -411,7 +412,7 @@ function GoalModal({ current, onClose, onSave }: { current: number; onClose: () 
     <Modal title={tr('Weekly goal')} onClose={onClose}>
       <div className="flex flex-wrap gap-1.5">
         {[5, 10, 20].map((q) => (
-          <button key={q} onClick={() => setValue(String(q))}
+          <button key={q} type="button" onClick={() => setValue(String(q))} aria-pressed={n === q} aria-label={tr('{n} chapters', { n: q })}
             className={`chip text-xs ${n === q ? 'chip-active' : ''}`}>{q}</button>
         ))}
       </div>
@@ -419,8 +420,8 @@ function GoalModal({ current, onClose, onSave }: { current: number; onClose: () 
       <input id="weekly-goal" type="number" inputMode="numeric" min={1} value={value}
         onChange={(e) => setValue(e.target.value)} className="field mt-1" />
       <div className="mt-4 flex gap-2">
-        <button onClick={onClose} className="btn-ghost flex-1 py-2 text-sm">{tr('Cancel')}</button>
-        <button onClick={() => onSave(n)} disabled={!n || n < 1} className="btn-accent flex-1 py-2 text-sm disabled:opacity-50">{tr('Save')}</button>
+        <button type="button" onClick={onClose} className="btn-ghost flex-1 py-2 text-sm">{tr('Cancel')}</button>
+        <button type="button" onClick={() => onSave(n)} disabled={!n || n < 1} className="btn-accent flex-1 py-2 text-sm disabled:opacity-50">{tr('Save')}</button>
       </div>
     </Modal>
   );

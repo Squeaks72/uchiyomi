@@ -338,7 +338,7 @@ test('Mark caught up floors the series where Auto-update is, and its Undo puts t
   assert.match(page, /onClick=\{\(\) => void floorTo\(caught\.previous\)\}/, 'Undo does not put back the floor the answer reported');
   // Asked first, in place, saying what it does.
   assert.match(page, /caught === 'asking' && \(/);
-  assert.match(page, /tr\('Chapters already out are not fetched; only new ones are, from the next check\./);
+  assert.match(page, /tr\('Only chapters released after the next check are fetched\./);
 });
 
 test('an admin copies a chapter\'s file path and the series\' folder with one tap (#136)', () => {

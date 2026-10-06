@@ -115,12 +115,13 @@ function SourceSection({ title, help, rows, none, count, value, onPick }: {
     <section>
       <Eyebrow>{title}</Eyebrow>
       <p className="-mt-1 mb-1.5 text-[11px] leading-snug text-fog-600">{help}</p>
-      <Chips>
+      <Chips label={title}>
         {shown.map((s) => (
           <button key={s.id} type="button" onClick={() => onPick(value === s.id ? '' : s.id)} aria-pressed={value === s.id}
             title={s.installed ? undefined : tr('not installed')}
             className={`chip text-xs ${value === s.id ? 'chip-active' : s.installed ? '' : 'text-fog-500'}`}>
             {s.name}<span className="ms-1 tabular-nums text-fog-600">{count(s)}</span>
+            {!s.installed && <span className="sr-only">, {tr('not installed')}</span>}
           </button>
         ))}
         {noneShown && (
@@ -131,7 +132,7 @@ function SourceSection({ title, help, rows, none, count, value, onPick }: {
         )}
       </Chips>
       {hidden > 0 && (
-        <button type="button" onClick={() => setAll(true)} className="mt-2 text-xs text-accent">{tr('Show all')} ({hidden})</button>
+        <button type="button" onClick={() => setAll(true)} className="mt-2 py-1 text-xs text-accent">{tr('Show all')} ({hidden})</button>
       )}
     </section>
   );
@@ -146,8 +147,8 @@ function Eyebrow({ children }: { children: React.ReactNode }) {
   return <p className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-fog-500">{children}</p>;
 }
 
-function Chips({ children }: { children: React.ReactNode }) {
-  return <div className="flex flex-wrap gap-1.5">{children}</div>;
+function Chips({ children, label }: { children: React.ReactNode; label?: string }) {
+  return <div role={label ? 'group' : undefined} aria-label={label} className="flex flex-wrap gap-1.5">{children}</div>;
 }
 
 /**
@@ -250,7 +251,7 @@ export function LibraryFilters({ sort, read, status, genres, lib, libs, mainSrc,
     <div className="space-y-5">
       <section>
         <Eyebrow>{tr('Sort by')}</Eyebrow>
-        <Chips>
+        <Chips label={tr('Sort by')}>
           {SORTS.map((s) => (
             <button key={s.key} type="button" onClick={() => onSet('sort', s.key)} aria-pressed={sort === s.key}
               className={`chip text-xs ${sort === s.key ? 'chip-active' : ''}`}>{tr(s.label)}</button>
@@ -263,7 +264,7 @@ export function LibraryFilters({ sort, read, status, genres, lib, libs, mainSrc,
       {libs.length > 1 && (
         <section>
           <Eyebrow>{tr('Library')}</Eyebrow>
-          <Chips>
+          <Chips label={tr('Library')}>
             <button type="button" onClick={() => onSet('lib', '')} aria-pressed={!lib}
               className={`chip text-xs ${lib ? '' : 'chip-active'}`}>{tr('All')}</button>
             {libs.map((l) => (
@@ -276,7 +277,7 @@ export function LibraryFilters({ sort, read, status, genres, lib, libs, mainSrc,
 
       <section>
         <Eyebrow>{tr('Read state')}</Eyebrow>
-        <Chips>
+        <Chips label={tr('Read state')}>
           {READ_STATES.map((r) => (
             <button key={r.key} type="button" onClick={() => onSet('read', read === r.key ? '' : r.key)} aria-pressed={read === r.key}
               className={`chip text-xs ${read === r.key ? 'chip-active' : ''}`}>{tr(r.label)}</button>
@@ -286,7 +287,7 @@ export function LibraryFilters({ sort, read, status, genres, lib, libs, mainSrc,
 
       <section>
         <Eyebrow>{tr('Status')}</Eyebrow>
-        <Chips>
+        <Chips label={tr('Status')}>
           {STATUSES.map((s) => (
             <button key={s.key} type="button" onClick={() => onSet('status', status === s.key ? '' : s.key)} aria-pressed={status === s.key}
               className={`chip text-xs ${status === s.key ? 'chip-active' : ''}`}>{tr(s.label)}</button>
@@ -310,7 +311,7 @@ export function LibraryFilters({ sort, read, status, genres, lib, libs, mainSrc,
       {formats.length > 0 && (
         <section>
           <Eyebrow>{tr('Format')}</Eyebrow>
-          <Chips>
+          <Chips label={tr('Format')}>
             {formats.map((g) => (
               <button key={g.key} type="button" onClick={() => toggleGenre(g.label)} aria-pressed={isOn(g.label)}
                 className={`chip text-xs ${isOn(g.label) ? 'chip-active' : ''}`}>
@@ -336,16 +337,16 @@ export function LibraryFilters({ sort, read, status, genres, lib, libs, mainSrc,
             <GenreRow key={g.key} facet={g} on={isOn(g.label)} onToggle={() => toggleGenre(g.label)} />
           ))}
         </div>
-        {!data && <p className="text-xs text-fog-500">{tr('Loading…')}</p>}
+        {!data && <p role="status" className="text-xs text-fog-500">{tr('Loading…')}</p>}
         {/* Two different nothings. "No match" is an answer to a search; a library whose series carry no
             genres at all has not been searched, and telling it that nothing matched is a small lie. */}
         {data && !listed.length && (
-          <p className="text-xs text-fog-500">
+          <p role="status" className="text-xs text-fog-500">
             {q.trim() ? tr('No genre matches that.') : tr('Once your series carry genres, this is where they gather.')}
           </p>
         )}
         {hidden > 0 && (
-          <button type="button" onClick={() => setShowAll(true)} className="mt-2 text-xs text-accent">
+          <button type="button" onClick={() => setShowAll(true)} className="mt-2 py-1 text-xs text-accent">
             {tr('Show all')} ({hidden})
           </button>
         )}

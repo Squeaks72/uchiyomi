@@ -80,7 +80,7 @@ function Menu({ items, at, label, onClose }: { items: MenuItem[]; at: At; label:
         {items.map((it, k) => (
           <button key={k} type="button" role="menuitem" tabIndex={-1} disabled={it.disabled} data-menu-item={it.hook}
             onClick={() => { onClose(true); void it.onSelect(); }}
-            className={`block w-full px-3.5 py-2.5 text-start text-xs hover:bg-ink-800 focus:bg-ink-800 focus:outline-none disabled:opacity-40 ${
+            className={`block w-full px-3.5 py-2.5 text-start text-xs hover:bg-ink-800 focus:bg-ink-800 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent disabled:opacity-40 ${
               it.divider && k > 0 ? 'border-t border-ink-800' : ''} ${it.danger ? 'text-red-300' : 'text-fog-200'}`}>
             {it.label}
           </button>

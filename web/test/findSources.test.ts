@@ -460,7 +460,7 @@ test("Server tasks: a series title is cut at its own end, whatever the page's di
   for (const [file, src] of [['ServerDownloadsView.tsx', view], ['ArchiveQueue.tsx', code(read('components/ArchiveQueue.tsx'))]] as const) {
     const lines = src.split('\n').filter((l) => /<p [^>]*\btruncate\b[^>]*>\{\w+\.title\}<\/p>/.test(l));
     assert.ok(lines.length > 0, `${file}: no series title in a truncating line -- this scan is broken`);
-    for (const l of lines) assert.match(l, /<p dir="auto" /, `${file}: a series title takes the page's direction: ${l.trim()}`);
+    for (const l of lines) assert.match(l, /<p (?:id=\{.*?\} )?dir="auto" /, `${file}: a series title takes the page's direction: ${l.trim()}`);
   }
 });
 

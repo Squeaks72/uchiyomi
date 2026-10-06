@@ -176,10 +176,10 @@ function AppearanceSection() {
           is shown rather than buried in a commit message: someone reading their own language deserves to
           know how it got there, and it is what makes "this is wrong" an invitation instead of a complaint. */}
       <Row stacked label={tr('Language')}
-        help={tr('Translations other than English are machine-assisted and have not been checked by a native speaker. If something reads wrong, the language files are one JSON each — corrections are welcome.')}>
+        help={tr('Languages other than English are machine-translated, so some text may read wrong. Fixes are welcome: each language is one JSON file.')}>
         <div className="flex flex-wrap gap-1.5">
           {LOCALES.map((l) => (
-            <button key={l.code} type="button" onClick={() => setLang(l.code)} disabled={locked} aria-pressed={lang === l.code}
+            <button key={l.code} type="button" lang={l.code} onClick={() => setLang(l.code)} disabled={locked} aria-pressed={lang === l.code}
               className={`chip text-xs disabled:opacity-40 ${lang === l.code ? 'chip-active' : ''}`}>
               {l.name}
             </button>
@@ -211,20 +211,20 @@ function AppearanceSection() {
       <Sub title={tr('On this device')} />
       {/* This device only (lib/typeToSearch.ts says why): single-key shortcuts must be possible to switch off. */}
       <SwitchRow label={tr('Type anywhere to search')}
-        help={tr('Start typing a title on any page to open search with it. This also switches the / shortcut, on this device only.')}
+        help={tr('Start typing on any page to search. Also turns the / shortcut on or off. This device only.')}
         on={typeSearch} onChange={(next) => { setTypeToSearchOn(next); setTypeSearch(next); }} />
 
       {/* This device only, like type-to-search (lib/contextMenus.ts, #100). On by default: the menus only take the
           right-click where the browser's offers nothing worth keeping, and Shift+right-click still gets it. */}
       <SwitchRow label={tr('Right-click menus')}
-        help={tr('Right-click a series or a chapter, or press and hold one on a touchscreen, for its actions. Shift+right-click still opens the browser’s own menu. This device only.')}
+        help={tr('Right-click, or press and hold, a series or chapter to see its actions. Shift+right-click opens the browser’s menu. This device only.')}
         on={contextMenus} onChange={(next) => { setContextMenusOn(next); setContextMenus(next); }} />
 
       {/* Read-only: Show 18+ is a switch for this browser SESSION (components/AdultToggle.tsx), kept out of storage
           on purpose, so there is nothing here to flip -- the row says where the switch is and where the
           lasting, per-link versions live. */}
       <LinkRow href="/profile/?tab=Connections" label={tr('18+ content')}
-        help={tr('Show 18+ content is a switch for this browser session: it is off again when you close the browser. Find it on the Library and Discover pages. For an e-reader or an app, set it under Connections.')} />
+        help={tr('Turn on Show 18+ content from the Library or Discover page. It lasts until you close the browser. For an e-reader or app, use Connections.')} />
     </Section>
   );
 }
@@ -281,8 +281,8 @@ function ReadingSection({ weeklyGoal }: { weeklyGoal: number }) {
 
   return (
     <Section id="reading" title={tr('Reading')} icon={<IcMoments width={18} height={18} />}
-      description={tr('These are your defaults: the reader’s own sheet still changes them for the session you are in, and a series you have adjusted keeps its own.')}>
-      <p className="pb-2 text-xs text-fog-400">{tr('Your defaults apply everywhere; a source or a series can keep its own.')}</p>
+      description={tr('Your defaults for every series. The reader’s own settings can change them while you read.')}>
+      <p className="pb-2 text-xs text-fog-400">{tr('A source or a series can keep its own settings.')}</p>
       <Sub title={tr('Goals')} />
       <Choice<Goal> label={tr('Weekly goal')} value={(GOALS as readonly string[]).includes(String(goal)) ? (String(goal) as Goal) : null}
         options={GOALS.map((g) => ({ value: g, label: g }))} onChange={(g) => saveGoal(Number(g))} />
@@ -323,7 +323,7 @@ function ReadingSection({ weeklyGoal }: { weeklyGoal: number }) {
           every slide is exactly one viewport wide -- so Collapse falls back to removing there, where an
           unwanted page costs one swipe rather than a scroll and there is no flow to interrupt. */}
       <Choice label={tr('Repeated pages')} value={prefs.junkPages}
-        help={tr('Credit pages and adverts repeat in every chapter. Collapse folds them down to a line you can scroll past or tap to open; hide takes them out of the chapter altogether.')}
+        help={tr('Credits and ads repeat in every chapter. Collapse shrinks them to a thin strip you can tap to open. Hide removes them.')}
         options={[{ value: 'show', label: tr('Show all') }, { value: 'collapse', label: tr('Collapse') }, { value: 'hide', label: tr('Hide') }]}
         onChange={(junkPages) => set({ junkPages })} />
       <Choice label={tr('Page size')} value={prefs.fitWidth ? 'width' : 'original'}
@@ -337,7 +337,7 @@ function ReadingSection({ weeklyGoal }: { weeklyGoal: number }) {
       {/* On the account (lib/accountPrefs.ts), mirrored to this browser: the series page reads the mirror. Off by
           default -- the default chapter row is the deliberate look, and taking part of it away is the reader's choice. */}
       <SwitchRow label={tr('Compact chapter list (series pages)')}
-        help={tr('On a computer, chapter rows without thumbnails, and their buttons appear when you point at a row. Phones and tablets are unchanged. Remembered on your account.')}
+        help={tr('On a computer, removes thumbnails from chapter rows and shows their buttons when you point at a row. Phones and tablets are unchanged.')}
         on={compactList} onChange={setCompactList} />
 
       <SwitchRow label={tr('Show all chapters at once')}
@@ -383,13 +383,13 @@ function DownloadsSection() {
   const ask = async () => {
     const ok = await requestPersist();
     setPersisted(ok);
-    toast(ok ? tr('Protected from eviction') : tr('The browser did not grant it.'), ok ? 'success' : 'error');
+    toast(ok ? tr('Your downloads are protected') : tr('The browser did not grant it.'), ok ? 'success' : 'error');
   };
 
   return (
     // "Offline downloads": this device's copies. Since v0.49.0 a bare "Downloads" names the server's view.
     <Section id="downloads" title={tr('Offline downloads')} icon={<IcDownload width={18} height={18} />}>
-      <SwitchRow label={tr('Keep favorites offline')} help={tr('Auto-download the latest unread chapters of your favorites (applies on each device you turn it on).')}
+      <SwitchRow label={tr('Keep favorites offline')} help={tr('Downloads the latest unread chapters of your favorites. Applies on each device where you turn it on.')}
         on={!!so.enabled} onChange={(enabled) => set({ enabled })} />
       {so.enabled && (
         <Choice<PerSeries> label={tr('Chapters kept per series')} value={String(so.perSeries || 3) as PerSeries}
@@ -400,8 +400,8 @@ function DownloadsSection() {
         <div className="mt-2"><ProgressBar value={usage.quota ? Math.min(1, usage.usage / usage.quota) : 0} /></div>
       </Row>
       <Row label={tr('Protect downloads')}
-        help={persisted ? tr('Protected from eviction') : tr('Tap to ask the browser to protect your downloads from eviction.')}>
-        {!persisted && <button type="button" onClick={ask} className="chip text-xs">{tr('Protect downloads')}</button>}
+        help={persisted ? tr('Your downloads are protected') : tr('Ask the browser not to delete your downloads when storage runs low.')}>
+        {!persisted && <button type="button" onClick={ask} className="btn-key text-xs">{tr('Protect downloads')}</button>}
       </Row>
       <LinkRow href="/downloads/" label={tr('Offline downloads')} />
     </Section>
@@ -520,7 +520,7 @@ function DeviceSection() {
     <Section id="device" title={tr('Notifications & install')} icon={<IcBell width={18} height={18} />}>
       {enabledSrv && (inApp ? (
         <Row stacked label={tr('New-chapter alerts')}>
-          <p className="max-w-prose text-sm text-fog-400">{tr('The desktop app cannot receive push notifications. Your server can still send new chapters to your phone, Home Assistant or Discord through a notification target, which an admin sets up under Admin → Settings → Notifications.')}</p>
+          <p className="max-w-prose text-sm text-fog-400">{tr('The desktop app cannot receive push notifications. An admin can send new chapters to your phone, Home Assistant or Discord under Admin → Settings → Notifications.')}</p>
         </Row>
       ) : (
         <SwitchRow label={tr('New-chapter alerts')}
@@ -538,7 +538,7 @@ function DeviceSection() {
             <div className="max-w-prose text-sm text-fog-300">
               <p className="mb-1 font-medium text-fog-100">{tr('Add to your iPhone')}</p>
               <p>{tr('Tap Share in Safari, then Add to Home Screen.')}</p>
-              <p className="mt-2 text-xs text-fog-500">{tr('On iOS, offline downloads may be cleared by the system under storage pressure.')}</p>
+              <p className="mt-2 text-xs text-fog-500">{tr('On iOS, the system may clear offline downloads when storage runs low.')}</p>
             </div>
           ) : (
             <p className="max-w-prose text-sm text-fog-400">{tr('Open in Chrome/Edge and use “Install app” from the menu.')}</p>

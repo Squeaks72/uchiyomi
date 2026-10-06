@@ -58,13 +58,12 @@ import { SeriesEditor, copyPath, type EditTab } from '@/components/SeriesEditor'
 const markingText = (n: number) => (n === 1 ? tr('Marking 1 chapter read…') : tr('Marking {n} chapters read…', { n }));
 
 // The one field style the page's own small dialogs share (Add to collection, Edit chapter).
-const fld = 'w-full rounded-lg border border-ink-700 bg-ink-900/60 px-3 py-2 text-sm text-fog-100 outline-hidden transition focus:border-accent/60';
+const fld = 'w-full rounded-lg border border-ink-700 bg-ink-900/60 px-3 py-2 text-sm text-fog-100 outline-hidden focus-visible:outline-accent focus-visible:outline-offset-0 transition focus:border-accent/60';
 
 interface CollectionRow { id: string; name: string; accent: string | null; item_count: number }
 
 /** "Add to collection" sheet: pick an existing list or create one inline. */
 function CollectionSheet({ seriesId, onClose }: { seriesId: string; onClose: () => void }) {
-  useLayer('dialog');
   const toast = useToast();
   const qc = useQueryClient();
   const [name, setName] = useState('');
@@ -72,11 +71,11 @@ function CollectionSheet({ seriesId, onClose }: { seriesId: string; onClose: () 
   const add = async (c: CollectionRow) => {
     try {
       await api(`/api/collections/${c.id}/items`, { json: { seriesId } });
-      toast(tr('Added to “{name}”', { name: `\u2068${c.name}\u2069` }), 'success');
+      toast(tr('Added to “{name}”', { name: `⁨${c.name}⁩` }), 'success');
       qc.invalidateQueries({ queryKey: ['collections'] });
       qc.invalidateQueries({ queryKey: ['collection', c.id] });
       onClose();
-    } catch { toast(tr('Failed'), 'error'); }
+    } catch { toast(tr('Could not do that'), 'error'); }
   };
   const createAndAdd = async () => {
     const n = name.trim();
@@ -84,45 +83,42 @@ function CollectionSheet({ seriesId, onClose }: { seriesId: string; onClose: () 
     try {
       const c = await api<CollectionRow>('/api/collections', { json: { name: n } });
       await add(c);
-    } catch { toast(tr('Could not create the collection'), 'error'); }
+    } catch { toast(tr('Could not do that'), 'error'); }
   };
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-ink-950/70 p-4 backdrop-blur-xs" onClick={onClose}>
-      <div role="dialog" aria-modal="true" aria-label={tr('Add to collection')} className="glass w-full max-w-sm rounded-2xl border border-ink-700 p-5" onClick={(e) => e.stopPropagation()}>
-        <div className="mb-3 flex items-start justify-between gap-3">
-          <h3 className="font-display text-lg font-semibold">{tr('Add to collection')}</h3>
-          <button onClick={onClose} aria-label={tr('Close')} className="shrink-0 text-fog-500 hover:text-fog-200">✕</button>
-        </div>
-        {isLoading ? (
-          <div className="skeleton h-24 rounded-xl" />
-        ) : (
-          <div data-lenis-prevent className="max-h-64 space-y-1.5 overflow-y-auto">
-            {(data?.content ?? []).map((c) => (
-              <button key={c.id} onClick={() => add(c)}
+    <Modal title={tr('Add to collection')} onClose={onClose}>
+      {isLoading ? (
+        <div role="status" className="skeleton h-24 rounded-xl"><span className="sr-only">{tr('Loading…')}</span></div>
+      ) : (
+        <ul data-lenis-prevent className="max-h-64 space-y-1.5 overflow-y-auto">
+          {(data?.content ?? []).map((c) => (
+            <li key={c.id}>
+              <button type="button" onClick={() => add(c)}
                 className="flex w-full items-center gap-2.5 rounded-xl border border-ink-700 px-3 py-2.5 text-start transition hover:border-accent/50">
                 <span aria-hidden className="h-4 w-1.5 shrink-0 rounded-full" style={{ background: c.accent || 'rgb(var(--accent))' }} />
                 <span className="min-w-0 truncate text-sm text-fog-100">{c.name}</span>
                 <span className="ms-auto shrink-0 text-[11px] text-fog-500">{c.item_count}</span>
               </button>
-            ))}
-            {!(data?.content ?? []).length && <p className="py-2 text-center text-xs text-fog-500">{tr('No collections yet — create one below.')}</p>}
-          </div>
-        )}
-        <div className="mt-3 flex gap-2 border-t border-ink-800 pt-3">
-          <input value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && createAndAdd()}
-            placeholder={tr('New collection…')} className={`${fld} flex-1`} />
-          <button onClick={createAndAdd} disabled={!name.trim()} className="btn-accent px-3 text-xs disabled:opacity-50">{tr('Create')}</button>
-        </div>
+            </li>
+          ))}
+          {!(data?.content ?? []).length && <li className="py-2 text-center text-xs text-fog-500">{tr('No collections yet — create one below.')}</li>}
+        </ul>
+      )}
+      <div className="mt-3 flex gap-2 border-t border-ink-800 pt-3">
+        <input value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && createAndAdd()}
+          aria-label={tr('New collection…')} placeholder={tr('New collection…')} className={`${fld} flex-1`} />
+        <button type="button" onClick={createAndAdd} disabled={!name.trim()} className="btn-accent px-3 text-xs disabled:opacity-50">{tr('Create')}</button>
       </div>
-    </div>
+    </Modal>
   );
 }
 
 function StarRating({ value, onSet }: { value: number | null; onSet: (n: number) => void }) {
   return (
-    <div className="flex items-center gap-1">
+    <div role="group" aria-label={tr('Rate this')} className="flex items-center gap-1">
       {[1, 2, 3, 4, 5].map((n) => (
-        <button key={n} onClick={() => onSet(n)} className={n <= (value || 0) ? 'text-accent' : 'text-ink-600'}>
+        <button key={n} type="button" onClick={() => onSet(n)} aria-label={n === 1 ? tr('1 star') : tr('{n} stars', { n })} aria-pressed={n === value}
+          className={`relative before:absolute before:-inset-1 ${n <= (value || 0) ? 'text-accent' : 'text-ink-600'}`}>
           <IcStar width={22} height={22} fill={n <= (value || 0) ? 'currentColor' : 'none'} />
         </button>
       ))}
@@ -178,10 +174,10 @@ function RenameFolderModal({ id, folder, title, onClose, onSaved }: {
   const [currentlyBefore, currentlyAfter] = tr('Currently: {folder}').split('{folder}');
 
   return (
-    <Modal title={tr('Rename the folder for “{title}”', { title: `\u2068${title}\u2069` })} onClose={onClose}>
+    <Modal title={tr('Rename the folder for “{title}”', { title: `⁨${title}⁩` })} onClose={onClose}>
       <div className="space-y-3">
         <p className="text-xs text-fog-500">
-          {tr('This moves the folder on disk. Chapter ids and everyone’s reading progress stay exactly as they are, so nothing is marked unread and nothing is re-downloaded.')}
+          {tr('This renames the folder on disk. Chapters and everyone’s reading progress stay as they are.')}
         </p>
         <label className="block">
           <span className="mb-1 block text-xs text-fog-500">{tr('Folder, relative to your library root')}</span>
@@ -189,7 +185,7 @@ function RenameFolderModal({ id, folder, title, onClose, onSaved }: {
             value={next}
             onChange={(e) => setNext(e.target.value)}
             spellCheck={false}
-            className="w-full rounded-lg border border-ink-700 bg-ink-900/60 px-3 py-2 font-mono text-sm text-fog-100 outline-hidden focus:border-accent/60"
+            className="w-full rounded-lg border border-ink-700 bg-ink-900/60 px-3 py-2 font-mono text-sm text-fog-100 outline-hidden focus-visible:outline-accent focus-visible:outline-offset-0 focus:border-accent/60"
           />
         </label>
         {/* One sentence split around the folder, which is set in mono: `tr('Currently')` glued to it read
@@ -215,7 +211,6 @@ function RenameFolderModal({ id, folder, title, onClose, onSaved }: {
 }
 
 function ChapterEditModal({ book, onClose, onSaved }: { book: Book; onClose: () => void; onSaved: () => void }) {
-  useLayer('dialog');
   const toast = useToast();
   const [number, setNumber] = useState(String(book.number ?? ''));
   const [title, setTitle] = useState(book.metadata?.title || book.name || '');
@@ -240,27 +235,21 @@ function ChapterEditModal({ book, onClose, onSaved }: { book: Book; onClose: () 
   };
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-ink-950/70 p-4 backdrop-blur-xs" onClick={onClose}>
-      <div role="dialog" aria-modal="true" aria-label={tr('Edit chapter')} className="glass w-full max-w-sm rounded-2xl border border-ink-700 p-5" onClick={(e) => e.stopPropagation()}>
-        <div className="mb-3 flex items-start justify-between gap-3">
-          <h3 className="font-display text-lg font-semibold leading-tight">{tr('Edit chapter')}</h3>
-          <button onClick={onClose} aria-label={tr('Close')} className="shrink-0 text-fog-500 hover:text-fog-200">✕</button>
-        </div>
-        <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-fog-500">{tr('Chapter number')}</label>
-        <input value={number} onChange={(e) => setNumber(e.target.value)} inputMode="decimal" className={fld} />
-        <label className="mb-1 mt-3 block text-xs font-semibold uppercase tracking-wider text-fog-500">{tr('Title')}</label>
-        <input value={title} onChange={(e) => setTitle(e.target.value)} className={fld} />
+    <Modal title={tr('Edit chapter')} onClose={onClose}>
+        <label htmlFor="chapter-edit-number" className="mb-1 block text-xs font-semibold uppercase tracking-wider text-fog-500">{tr('Chapter number')}</label>
+        <input id="chapter-edit-number" value={number} onChange={(e) => setNumber(e.target.value)} inputMode="decimal" className={fld} />
+        <label htmlFor="chapter-edit-title" className="mb-1 mt-3 block text-xs font-semibold uppercase tracking-wider text-fog-500">{tr('Title')}</label>
+        <input id="chapter-edit-title" value={title} onChange={(e) => setTitle(e.target.value)} className={fld} />
         {completed && (
           <p className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-2.5 text-[11px] leading-relaxed text-amber-200">
-            {tr('You have finished this chapter. Changing its number changes what gets reported to a connected tracker. Progress never moves backwards on its own: if the new number is lower, the tracker keeps the higher one until an admin imports your list again under Admin → Import (From your tracker).')}
+            {tr('You finished this chapter. Its new number is reported to your connected tracker. If the number is lower, the tracker keeps the higher one until an admin imports your list again in Admin \u2192 Import.')}
           </p>
         )}
         <div className="mt-4 flex gap-2">
-          <button onClick={() => save(true)} disabled={busy} className="btn-ghost flex-1 py-2 text-sm disabled:opacity-50">{tr('Reset to file')}</button>
-          <button onClick={() => save()} disabled={busy} className="btn-accent flex-1 py-2 text-sm disabled:opacity-50">{tr('Save')}</button>
+          <button type="button" onClick={() => save(true)} disabled={busy} className="btn-ghost flex-1 py-2 text-sm disabled:opacity-50">{tr('Reset to file')}</button>
+          <button type="button" onClick={() => save()} disabled={busy} className="btn-accent flex-1 py-2 text-sm disabled:opacity-50">{tr('Save')}</button>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }
 
@@ -354,9 +343,16 @@ function RowCaption({ group, via, versions, tone = 'text-fog-500', pruned, lead,
     // One block that truncates as a whole (inline children, no flex): a flex row of shrink-0 parts would
     // run under the date at the end of the row instead of ending in an ellipsis.
     <p className={`mt-0.5 truncate text-[11px] ${tone}`} title={title}>
+      {/* Shown even when a copy is saved on this device -- it is still gone from the server, and "yours is
+          the last one" is exactly what somebody wants to know before clearing downloads. One wording for
+          every tombstone the server deleted: the same mark is left by an admin's Delete from server as by the
+          scheduled cleanup, and the row cannot tell which, so "to free space" blamed a job that is off on most
+          installs. A file Rescan everything found gone from a library built by hand has words of its own
+          (prunedLabel, v0.55.4): nothing deleted it. */}
+      {pruned && <span className="me-1 rounded-full border border-ink-700 px-1.5 text-[11px] leading-4 text-fog-600">{pruned}</span>}
       {/* Before the group, as a chip and not a caption part: "3 pages missing · Asura Scans" would read as
           the group's fault. The count is the file's -- the reader shows the caption on exactly those pages. */}
-      {short && <span className="me-1 rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 text-[10px] leading-4 text-amber-300">{short}</span>}
+      {short && <span className="me-1 rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 text-[11px] leading-4 text-amber-300">{short}</span>}
       {parts.map((n, i) => (
         <span key={i}>
           {i > 0 && <span aria-hidden className="text-ink-600"> · </span>}
@@ -458,7 +454,7 @@ function ChapterRow({ book, downloaded, sourceNames, primarySource, versions, on
     <div className={rowClass(!!compact)} {...(selectable ? {} : menu.bind)}>
       {/* In select mode a pruned chapter is still selectable -- Mark read and Fetch again are exactly the
           things one wants for it -- so the disable only applies to opening. */}
-      <button onClick={selectable ? onToggle : onReader} disabled={pruned && !selectable} aria-pressed={selectable ? !!selected : undefined}
+      <button type="button" onClick={selectable ? onToggle : onReader} disabled={pruned && !selectable} aria-pressed={selectable ? !!selected : undefined}
         className="flex min-w-0 flex-1 items-center gap-3 text-start disabled:cursor-default">
         <div className={`relative h-14 w-10 shrink-0${thumbHide(!!compact, !!selectable)} overflow-hidden rounded-lg border ${state === 'read' ? 'border-ink-800 opacity-45' : 'border-ink-700'} ${book.pruned && !downloaded ? 'border-dashed border-ink-600' : ''}`}>
           {/* A tombstone has no file to draw a thumbnail from; asking would be a 404 per row on every visit.
@@ -467,16 +463,18 @@ function ChapterRow({ book, downloaded, sourceNames, primarySource, versions, on
           {state === 'reading' && <span className="absolute inset-x-0 bottom-0 h-0.5 bg-accent" />}
           {selectable && <SelectBubble selected={!!selected} />}
         </div>
-        <span className={`h-2 w-2 shrink-0 rounded-full${dotHide(!!compact)} ${state === 'read' ? 'bg-ink-600' : state === 'reading' ? 'bg-accent' : 'bg-accent/40'}`} />
+        <span aria-hidden className={`h-2 w-2 shrink-0 rounded-full${dotHide(!!compact)} ${state === 'read' ? 'bg-ink-600' : state === 'reading' ? 'bg-accent' : 'bg-accent/40'}`} />
         <div className="min-w-0">
           <p className={`truncate text-sm ${state === 'read' ? 'text-fog-500' : 'text-fog-100'}`}>
             {chapterLabel(book)}
             {/* The chapter's own name, when the source gave one that is not just the number again. */}
             {chapterName(book) && <span className="text-fog-500"> · {chapterName(book)}</span>}
+            {/* The dot and the dimming say it in colour; this says it in words. */}
+            <span className="sr-only"> · {state === 'read' ? tr('Read') : state === 'reading' ? tr('Reading') : tr('Unread')}</span>
           </p>
           <RowCaption group={book.scanlator} via={altSource} versions={versions} pruned={prunedWords(book)} missing={book.missingPages?.length} />
           {state === 'reading' && rp && (
-            <p className="text-[11px] text-accent">{tr('page {page}/{pages}', { page: rp.page, pages: book.media.pagesCount })}</p>
+            <p className="text-[11px] text-accent">{tr('Page {n} of {m}', { n: rp.page, m: book.media.pagesCount })}</p>
           )}
         </div>
       </button>
@@ -484,6 +482,7 @@ function ChapterRow({ book, downloaded, sourceNames, primarySource, versions, on
       {!selectable && <ButtonsWrap compact={!!compact} menuOpen={menu.open}>
       {/* Not on Uchiyomi Desktop (lib/desktop.ts): the chapter is already a file on this computer. */}
       {!isDesktop() && <button
+        type="button"
         onClick={async () => {
           if (busy) return;
           setBusy(true);
@@ -498,12 +497,12 @@ function ChapterRow({ book, downloaded, sourceNames, primarySource, versions, on
         // copies one to this device, and one word for both promised the wrong thing on one of them.
         aria-label={downloaded ? tr('Remove from this device') : tr('Save offline')}
       >
-        {busy ? <span className="text-[10px] font-semibold text-accent">…</span> : downloaded ? <IcCheck width={16} height={16} /> : <IcDownload width={16} height={16} />}
+        {busy ? <span className="text-[11px] font-semibold text-accent">…</span> : downloaded ? <IcCheck width={16} height={16} /> : <IcDownload width={16} height={16} />}
       </button>}
       <div className="relative shrink-0">
-        <button onClick={(e) => menu.openFrom(e.currentTarget)} aria-label={tr('Chapter actions')} aria-haspopup="menu" aria-expanded={menu.open}
+        <button type="button" onClick={(e) => menu.openFrom(e.currentTarget)} aria-label={tr('Chapter actions')} aria-haspopup="menu" aria-expanded={menu.open}
           className="grid h-9 w-9 place-items-center rounded-full border border-ink-700 text-fog-500">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8" /><circle cx="12" cy="12" r="1.8" /><circle cx="19" cy="12" r="1.8" /></svg>
+          <svg aria-hidden width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8" /><circle cx="12" cy="12" r="1.8" /><circle cx="19" cy="12" r="1.8" /></svg>
         </button>
       </div>
       </ButtonsWrap>}
@@ -517,8 +516,8 @@ function ChapterRow({ book, downloaded, sourceNames, primarySource, versions, on
 function SelectBubble({ selected }: { selected: boolean }) {
   return (
     <>
-      {selected && <span className="absolute inset-0 z-10 rounded-lg border-2 border-accent bg-accent/20" />}
-      <span className={`absolute start-1.5 top-1.5 z-20 grid h-6 w-6 place-items-center rounded-full border text-[11px] font-bold ${
+      {selected && <span aria-hidden className="absolute inset-0 z-10 rounded-lg border-2 border-accent bg-accent/20" />}
+      <span aria-hidden className={`absolute start-1.5 top-1.5 z-20 grid h-6 w-6 place-items-center rounded-full border text-[11px] font-bold ${
         selected ? 'border-accent bg-accent text-black' : 'border-white/50 bg-black/50 text-transparent'}`}>✓</span>
     </>
   );
@@ -596,7 +595,7 @@ function GhostRow({ ghost, sourceNames, primarySource, selectable, selected, onT
           )}
           {selectable && <SelectBubble selected={!!selected} />}
         </div>
-        <span className={`h-2 w-2 shrink-0 rounded-full${dotHide(!!compact)} ${read ? 'bg-ink-600' : 'border border-ink-600'}`} />
+        <span aria-hidden className={`h-2 w-2 shrink-0 rounded-full${dotHide(!!compact)} ${read ? 'bg-ink-600' : 'border border-ink-600'}`} />
         <div className="min-w-0">
           <p className={`truncate text-sm ${read ? 'text-fog-500' : 'text-fog-300'}`}>
             {/* Compact hides the box, and its tick's label with it: say it once for screen readers. */}
@@ -622,7 +621,7 @@ function GhostRow({ ghost, sourceNames, primarySource, selectable, selected, onT
             try { await onFetch(); } finally { setBusy(false); }
           }}
           className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-ink-700 text-fog-500 disabled:opacity-60">
-          {busy ? <span className="text-[10px] font-semibold text-accent">…</span> : <IcCloudDownload width={16} height={16} />}
+          {busy ? <span className="text-[11px] font-semibold text-accent">…</span> : <IcCloudDownload width={16} height={16} />}
         </button>
       )}
       {/* The chapter row's ⋯, with the one action that applies to a chapter that is not here. */}
@@ -630,7 +629,7 @@ function GhostRow({ ghost, sourceNames, primarySource, selectable, selected, onT
         <div className="relative shrink-0">
           <button type="button" onClick={(e) => menu.openFrom(e.currentTarget)} aria-label={tr('Chapter actions')} aria-haspopup="menu" aria-expanded={menu.open}
             className="grid h-9 w-9 place-items-center rounded-full border border-ink-700 text-fog-500">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8" /><circle cx="12" cy="12" r="1.8" /><circle cx="19" cy="12" r="1.8" /></svg>
+            <svg aria-hidden width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8" /><circle cx="12" cy="12" r="1.8" /><circle cx="19" cy="12" r="1.8" /></svg>
           </button>
         </div>
       )}
@@ -1537,7 +1536,7 @@ function SeriesInner() {
         )}
       </div>
       <button onClick={() => setCollecting(true)} className="flex items-center justify-center gap-2 rounded-full border border-ink-700 py-2.5 text-sm text-fog-300">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M4 6h16M4 12h16M4 18h10" /><path d="M19 15v6M16 18h6" /></svg>{tr('Add to collection')}</button>
+        <svg aria-hidden width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M4 6h16M4 12h16M4 18h10" /><path d="M19 15v6M16 18h6" /></svg>{tr('Add to collection')}</button>
       {/* Always rendered. It is not a link to an empty page: with nothing saved yet it is the way IN to
           writing this series' first note, which is the only thing on the other side that can be created. */}
       <Link href={`/moments/?series=${encodeURIComponent(id)}`}
@@ -1555,7 +1554,7 @@ function SeriesInner() {
       </div>
       {canDownload(user) && (series?.booksCount ?? 0) >= 3 && (
         <button onClick={() => setFindingMissing(true)} className="mt-1 flex items-center justify-center gap-2 rounded-full border border-ink-700 py-2.5 text-sm text-fog-300">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /><path d="M11 8v6M8 11h6" /></svg>{tr('Find missing chapters')}</button>
+          <svg aria-hidden width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /><path d="M11 8v6M8 11h6" /></svg>{tr('Find missing chapters')}</button>
       )}
       {mayArchive && (
         <button type="button" onClick={archiveSlowly} disabled={acting} data-archive-slowly
@@ -1565,7 +1564,7 @@ function SeriesInner() {
       {isAdmin && (
         <>
           <button onClick={() => setEditing('details')} className="mt-1 flex items-center justify-center gap-2 rounded-full border border-ink-700 py-2.5 text-sm text-fog-300">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>{tr('Edit details')}</button>
+            <svg aria-hidden width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>{tr('Edit details')}</button>
           {/* Only while the hero is an automatic one: a real banner is changed in Edit details. */}
           {series?.autoHero && (
             <button type="button" onClick={newBanner} disabled={busyAdmin} data-new-banner
@@ -1574,10 +1573,10 @@ function SeriesInner() {
           )}
           {series?.folder && (
             <button onClick={() => setRenaming(true)} className="flex items-center justify-center gap-2 rounded-full border border-ink-700 py-2.5 text-sm text-fog-300">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9L11.7 5H19a2 2 0 0 1 2 2v2" /><path d="M3 9h18l-1.5 9a2 2 0 0 1-2 1.8H6.5a2 2 0 0 1-2-1.8Z" /></svg>{tr('Rename folder')}</button>
+              <svg aria-hidden width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9L11.7 5H19a2 2 0 0 1 2 2v2" /><path d="M3 9h18l-1.5 9a2 2 0 0 1-2 1.8H6.5a2 2 0 0 1-2-1.8Z" /></svg>{tr('Rename folder')}</button>
           )}
           <button onClick={() => setDeleting(true)} className="flex items-center justify-center gap-2 rounded-full border border-ink-700 py-2.5 text-sm text-fog-500 hover:border-rose-500/40 hover:text-rose-300">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14" /></svg>{tr('Remove from library')}</button>
+            <svg aria-hidden width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14" /></svg>{tr('Remove from library')}</button>
         </>
       )}
     </div>
@@ -1611,7 +1610,9 @@ function SeriesInner() {
   );
 
   const Summary = summary && (
-    <p className={`max-w-3xl text-sm leading-relaxed text-fog-300 ${showSummary ? '' : 'line-clamp-3 lg:line-clamp-4'}`} onClick={() => setShowSummary((s) => !s)}>
+    <p className={`max-w-3xl text-sm leading-relaxed text-fog-300 ${showSummary ? '' : 'line-clamp-3 lg:line-clamp-4'}`} role="button" tabIndex={0} aria-expanded={showSummary}
+      onClick={() => setShowSummary((s) => !s)}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setShowSummary((s) => !s); } }}>
       {summary}
     </p>
   );
@@ -1640,18 +1641,18 @@ function SeriesInner() {
             <button onClick={() => setFilterOpen(true)} aria-haspopup="dialog" className={`chip relative text-xs ${activeFilters > 0 ? 'chip-active' : ''}`}>
               {tr('Filter')}
               {activeFilters > 0 && (
-                <span data-testid="filter-count" className="absolute -end-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-accent px-1 text-[10px] font-bold leading-none text-black">{activeFilters}</span>
+                <span data-testid="filter-count" className="absolute -end-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-accent px-1 text-[11px] font-bold leading-none text-black">{activeFilters}</span>
               )}
             </button>
           )}
           {/* A mode, not a filter: the library's chip, so the two select modes are one habit. */}
-          <button onClick={() => { setSelecting((v) => !v); clearPicks(); }} className={`chip text-xs whitespace-nowrap ${selecting ? 'chip-active' : ''}`}>
+          <button onClick={() => { setSelecting((v) => !v); clearPicks(); }} aria-pressed={selecting} className={`chip text-xs whitespace-nowrap ${selecting ? 'chip-active' : ''}`}>
             {selecting ? tr('Done') : tr('Select')}
           </button>
         </div>
       </div>
       {group !== ALL_GROUPS && (
-        <p className="mb-2 text-xs text-fog-500">
+        <p role="status" className="mb-2 text-xs text-fog-500">
           {tr('{n} of {m} chapters match', { n: filteredBooks.length + filteredGhosts.length, m: rowBooks.length + visibleGhosts.length })}
         </p>
       )}
@@ -1758,7 +1759,7 @@ function SeriesInner() {
   const Toolbar = selecting && (
     <div ref={toolbarRef} className="fixed inset-x-0 bottom-[calc(5.75rem+env(safe-area-inset-bottom))] z-40 border-t border-ink-700 bg-ink-950/95 px-4 pb-3 pt-3 backdrop-blur-xl lg:bottom-0 lg:pb-[max(0.75rem,env(safe-area-inset-bottom))]">
       <div className="mx-auto flex max-w-3xl flex-wrap items-center gap-2">
-        <span className="me-auto text-sm font-medium text-fog-100">{acting ? '…' : selectedText(pickedCount)}</span>
+        <span role="status" className="me-auto text-sm font-medium text-fog-100">{acting ? '…' : selectedText(pickedCount)}</span>
         <button disabled={acting || !pickedCount} onClick={() => bulkMark(true)} className="chip text-xs disabled:opacity-50">{tr('Mark read')}</button>
         <button disabled={acting || !pickedCount} onClick={() => bulkMark(false)} className="chip text-xs disabled:opacity-50">{tr('Mark unread')}</button>
         {/* The two icons say which side each acts on: ⬇ this device, ☁ the server. */}
@@ -1791,7 +1792,7 @@ function SeriesInner() {
     <div className="min-h-screen-d">
       {/* sticky back bar */}
       <div className="safe-top sticky top-0 z-30 flex items-center gap-2 bg-linear-to-b from-ink-950 to-transparent px-4 pb-3 lg:static lg:bg-none lg:px-0 lg:py-4">
-        <button onClick={back} className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-ink-800/70 text-fog-100 backdrop-blur lg:bg-ink-850">
+        <button onClick={back} aria-label={tr('Back')} className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-ink-800/70 text-fog-100 backdrop-blur lg:bg-ink-850">
           <IcChevronLeft width={22} height={22} />
         </button>
         <span className="truncate text-sm text-fog-300 lg:text-base">{title}</span>
@@ -1827,7 +1828,7 @@ function SeriesInner() {
           <div className="flex items-end gap-4 lg:block">
             <motion.div initial={{ opacity: 0, y: 18, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: 0.5, ease: [0.22, 0.61, 0.36, 1] }}
               className="h-44 w-32 shrink-0 overflow-hidden rounded-2xl border border-ink-600 shadow-lift lg:h-auto lg:w-full">
-              {series && <Img src={img.seriesThumb(id, series.artVersion, 800)} alt={series.name} className="aspect-[2/3] h-full w-full" />}
+              {series && <Img src={img.seriesThumb(id, series.artVersion, 800)} alt="" className="aspect-[2/3] h-full w-full" />}
             </motion.div>
             {/* title beside cover on mobile */}
             <div className="min-w-0 pb-1 lg:hidden">

@@ -1,7 +1,11 @@
 import { SVGProps } from 'react';
 
 type P = SVGProps<SVGSVGElement>;
+// Decorative by default: an icon is drawn beside (or inside a button named by) real text, so a screen reader
+// should skip it. A caller that draws an icon ALONE passes its own `aria-label` and `role="img"`.
 const base = (p: P) => ({
+  'aria-hidden': true as const,
+  focusable: false as const,
   width: 24,
   height: 24,
   viewBox: '0 0 24 24',
@@ -58,6 +62,9 @@ export const IcChevronRight = (p: P) => (
 );
 export const IcPlay = (p: P) => (
   <svg {...base(p)} fill="currentColor" stroke="none"><path d="M7 4.5v15l13-7.5L7 4.5Z" /></svg>
+);
+export const IcPause = (p: P) => (
+  <svg {...base(p)} fill="currentColor" stroke="none"><rect x="6" y="4.5" width="4" height="15" rx="1" /><rect x="14" y="4.5" width="4" height="15" rx="1" /></svg>
 );
 export const IcSettings = (p: P) => (
   <svg {...base(p)}><circle cx="12" cy="12" r="3.2" /><path d="M19.4 13.5a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2v.2a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-2.9-1.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0-1.2-2.9H2a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.3-2.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3 1.7 1.7 0 0 0 1-1.5V2a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.5 1H22a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z" /></svg>

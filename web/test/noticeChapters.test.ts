@@ -84,7 +84,7 @@ test('the Settings page is called by its own name in every language', () => {
     const settings: string = loc['Settings'];
     const stem = settings.slice(0, Math.max(2, settings.length - 1));
     for (const key of ['Following the switch for {type} in Settings.',
-      'What the notice-chapter switches in Settings go by. Automatic takes it from the genres, then the source, then AniList.']) {
+      'Sets what the notice-chapter switches in Settings use. Automatic checks the genres, then the source, then AniList.']) {
       assert.ok(loc[key]?.includes(stem), `${lang}: "${loc[key]}" does not name the Settings page ("${settings}")`);
     }
   }

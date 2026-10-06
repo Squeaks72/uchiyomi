@@ -110,7 +110,7 @@ function Group({ id, title, rows, note, onOpen }: { id: string; title: string; r
   return (
     <section data-find-group={id} aria-labelledby={`find-${id}`} className="mt-4">
       <h3 id={`find-${id}`} className="flex items-baseline gap-2 text-xs font-semibold uppercase tracking-wider text-fog-500">
-        {title}<span className="tabular-nums text-fog-600">{rows.length}</span>
+        {title}<span className="tabular-nums text-fog-500">{rows.length}</span>
       </h3>
       {note && <p className="mt-1 text-[11px] leading-relaxed text-fog-500">{note}</p>}
       <ul role="list" className="divide-y divide-ink-800/70">
@@ -199,8 +199,8 @@ export function FindResultsSheet({ onClose, poll = true }: { onClose: () => void
               <button type="button" className="btn-key" onClick={() => setOpenId(null)} data-find-latest>{tr('Back to the latest search')}</button>
             </div>
           )}
-          {(openId ? opened.isLoading : q.isLoading) && <div className="skeleton h-16 rounded-xl" />}
-          {!q.isLoading && q.isError && !data && <p className="text-xs text-rose-300">{tr('Could not load the results')}</p>}
+          {(openId ? opened.isLoading : q.isLoading) && <div role="status" aria-label={tr('Loading…')} className="skeleton h-16 rounded-xl" />}
+          {!q.isLoading && q.isError && !data && <p role="alert" className="text-xs text-rose-300">{tr('Could not load the results')}</p>}
           {!openId && !q.isLoading && data && !run && <p className="text-xs text-fog-500">{tr('No search for other sources has run yet.')}</p>}
           {openId && opened.isError && <p className="text-xs text-fog-500">{tr('That search is no longer kept.')}</p>}
           {run && (
@@ -397,17 +397,19 @@ function ProposalRow({ r, p, act, replace = false }: { r: FindResult; p: FindPro
   // v0.54.0, a Replace review: the match becomes the series' main source, one per series -- once one has, the rest of
   // its matches offer nothing.
   const settled = replace && !!r.proposals?.some((x) => x.state === 'promoted');
+  // Every match has the same two keys, so each is named for its source and series; the visible verb leads the name.
+  const about = `${p.sourceName}${r.title ? ` · ${r.title}` : ''}`;
   const keys: ActionSpec[] = [
     replace
       ? { id: 'promote', label: tr('Make main'), what: tr('Make this source the series’ main source'), state: busy('promote'),
         disabled: act.bulk.kind === 'working', onRun: () => { void act.decide('promote', r.seriesId, p.sourceId); },
-        buttonProps: { 'data-review-promote': p.sourceId } as ActionSpec['buttonProps'] }
+        buttonProps: { 'data-review-promote': p.sourceId, 'aria-label': `${tr('Make main')}: ${about}` } as ActionSpec['buttonProps'] }
       : { id: 'follow', label: tr('Follow'), what: tr('Follow this source for this series'), primary: p.verdict === 'green', state: busy('follow'),
         disabled: act.bulk.kind === 'working', onRun: () => { void act.decide('follow', r.seriesId, p.sourceId); },
-        buttonProps: { 'data-review-follow': p.sourceId } as ActionSpec['buttonProps'] },
+        buttonProps: { 'data-review-follow': p.sourceId, 'aria-label': `${tr('Follow')}: ${about}` } as ActionSpec['buttonProps'] },
     { id: 'skip', label: tr('Skip'), what: tr('Skip this match for good'), state: busy('dismiss'),
       disabled: act.bulk.kind === 'working', onRun: () => { void act.decide('dismiss', r.seriesId, p.sourceId); },
-      buttonProps: { 'data-review-skip': p.sourceId } as ActionSpec['buttonProps'] },
+      buttonProps: { 'data-review-skip': p.sourceId, 'aria-label': `${tr('Skip')}: ${about}` } as ActionSpec['buttonProps'] },
   ];
   return (
     <li data-review-proposal={p.sourceId} data-verdict={p.verdict} className="flex min-w-0 gap-3 py-2.5">
@@ -431,8 +433,8 @@ function ProposalRow({ r, p, act, replace = false }: { r: FindResult; p: FindPro
             {p.kind === 'follower' ? tr('A source it already follows') : tr('Found by searching')}{p.promote ? ` · ${tr('Suggested')}` : ''}
           </p>
         )}
-        <p className={`mt-0.5 text-[11px] tabular-nums ${p.verdict === 'green' ? 'text-fog-400' : 'text-amber-300/90'}`}>{lineUpText(p)}</p>
-        {note && !p.state && <p data-amber-note className="mt-0.5 text-[11px] leading-relaxed text-amber-300/90">{note}</p>}
+        <p className={`mt-0.5 text-[11px] tabular-nums ${p.verdict === 'green' ? 'text-fog-400' : 'text-amber-300'}`}>{lineUpText(p)}</p>
+        {note && !p.state && <p data-amber-note className="mt-0.5 text-[11px] leading-relaxed text-amber-300">{note}</p>}
         {p.state
           ? <p data-review-state={p.state} className="mt-1 text-[11px] text-fog-300">{p.state === 'followed' ? tr('Followed') : p.state === 'promoted' ? tr('Made main') : tr('Skipped for good')}</p>
           : !settled && <ActionKeys actions={keys} className="mt-1.5" />}
@@ -489,7 +491,7 @@ function ReviewGroup({ run, rows, onOpen, onAddEdition }: {
   return (
     <section data-find-group="review" aria-labelledby="find-review" className="mt-4">
       <h3 id="find-review" className="flex items-baseline gap-2 text-xs font-semibold uppercase tracking-wider text-fog-500">
-        {tr('To review')}<span className="tabular-nums text-fog-600">{rows.length}</span>
+        {tr('To review')}<span className="tabular-nums text-fog-500">{rows.length}</span>
       </h3>
       <p className="mt-1 text-[11px] leading-relaxed text-fog-500">
         {replace

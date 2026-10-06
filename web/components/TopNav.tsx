@@ -69,11 +69,11 @@ export function TopNav({ onSearchFocus }: { onSearchFocus?: () => void }) {
     <header className="sticky top-0 z-40 hidden border-b border-ink-800/70 bg-ink-950/80 backdrop-blur-xl lg:block">
       <div className="shell flex items-center gap-3 py-3 xl:gap-6">
         <Link href="/" className="shrink-0"><Lockup className="text-2xl max-xl:sr-only" markSize={38} /></Link>
-        <nav className="flex shrink-0 items-center gap-1">
+        <nav aria-label={tr('Main')} className="flex shrink-0 items-center gap-1">
           {(canDownload(user) ? links : links.filter((l) => l.href !== '/discover')).map(({ href, label, Icon, match }) => {
             const active = match(path);
             return (
-              <Link key={href} href={href} aria-disabled={offline || undefined}
+              <Link key={href} href={href} aria-disabled={offline || undefined} aria-current={active ? 'page' : undefined}
                 onClick={offline ? (e) => e.preventDefault() : undefined}
                 className={`flex items-center gap-2 whitespace-nowrap rounded-full px-3 py-2 text-sm font-medium transition xl:px-3.5 ${active ? 'bg-accent-soft text-accent' : 'text-fog-400 hover:text-fog-100'}${offline ? ' pointer-events-none opacity-35' : ''}`}>
                 <Icon width={18} height={18} /> {tr(label)}
@@ -85,12 +85,12 @@ export function TopNav({ onSearchFocus }: { onSearchFocus?: () => void }) {
           className="ms-auto flex min-w-0 max-w-72 flex-1 @container items-center justify-center gap-2 overflow-hidden rounded-full border border-ink-700 bg-ink-850 px-3.5 py-2 text-start transition hover:border-accent/50">
           <IcSearch width={18} height={18} className="shrink-0 text-fog-500" />
           <span data-search-label className="hidden min-w-0 flex-1 truncate text-sm text-fog-500 @[4.5rem]:block">{tr('Search…')}</span>
-          <kbd data-search-kbd className="hidden shrink-0 rounded-md border border-ink-700 px-1.5 py-0.5 text-[10px] text-fog-500 xl:@[12rem]:block">⌘K</kbd>
+          <kbd data-search-kbd className="hidden shrink-0 rounded-md border border-ink-700 px-1.5 py-0.5 text-[11px] text-fog-500 xl:@[12rem]:block" aria-hidden>⌘K</kbd>
         </button>
         {/* Secondary destination, so it sits in the right-hand cluster with Updates rather than becoming a
             sixth primary nav item -- the five on the left are the shape of the library, and Moments is a
             view of what you saved out of it. */}
-        <Link href="/moments" title={tr('Moments')} aria-label={tr('Moments')}
+        <Link href="/moments" title={tr('Moments')} aria-label={tr('Moments')} aria-current={path.startsWith('/moments') ? 'page' : undefined}
           className={`grid h-10 w-10 shrink-0 place-items-center rounded-full border border-ink-700 transition hover:text-accent ${path.startsWith('/moments') ? 'text-accent' : 'text-fog-300'}`}>
           <IcMoments width={19} height={19} />
         </Link>
@@ -99,16 +99,16 @@ export function TopNav({ onSearchFocus }: { onSearchFocus?: () => void }) {
         {/* What the server is fetching (v0.49.0, the pill's successor): just before the bell, so the two
             "something came in" buttons sit together. A viewer who may not download gets nothing here. */}
         <DownloadsNavIcon />
-        <Link href="/updates" title={tr('Updates')} className="relative grid h-10 w-10 shrink-0 place-items-center rounded-full border border-ink-700 text-fog-300 hover:text-accent">
+        <Link href="/updates" title={tr('Updates')} aria-label={updCount > 0 ? `${tr('Updates')} · ${updCount}` : tr('Updates')} aria-current={path.startsWith('/updates') ? 'page' : undefined} className="relative grid h-10 w-10 shrink-0 place-items-center rounded-full border border-ink-700 text-fog-300 hover:text-accent">
           <IcBell width={19} height={19} />
           {/* A squared tag, like the downloads ring's count beside it: a round one grows into a capsule at "9+". */}
-          {updCount > 0 && <span data-updates-count className="absolute -end-1.5 -top-1 grid h-4 min-w-4 place-items-center rounded-[4px] bg-accent px-[3px] text-[10px] font-bold leading-none tabular-nums text-black">{updCount > 9 ? '9+' : updCount}</span>}
+          {updCount > 0 && <span data-updates-count className="absolute -end-1.5 -top-1 grid h-4 min-w-4 place-items-center rounded-[4px] bg-accent px-[3px] text-[11px] font-bold leading-none tabular-nums text-black">{updCount > 9 ? '9+' : updCount}</span>}
         </Link>
-        <button onClick={refresh} title={tr('Check for new chapters')}
+        <button onClick={refresh} type="button" title={tr('Check for new chapters')} aria-label={tr('Check for new chapters')} aria-busy={refreshing || undefined}
           className={`grid h-10 w-10 shrink-0 place-items-center rounded-full border border-ink-700 text-fog-300 transition hover:text-accent ${refreshing ? 'animate-spin text-accent' : ''}`}>
           <IcRefresh width={19} height={19} />
         </button>
-        <Link href="/profile" className="shrink-0 transition hover:opacity-80">
+        <Link href="/profile" className="shrink-0 transition hover:opacity-80" aria-label={tr('Profile')} aria-current={path.startsWith('/profile') ? 'page' : undefined}>
           <Avatar avatar={user?.avatar} size={40} />
         </Link>
       </div>

@@ -194,7 +194,7 @@ test('#117: the slow archive\'s caveat reads as a plain line, the others in ambe
   // Reintroduce the one amber class for every caveat: gaps on their way read as a problem.
   const row = rowOf(code(read(KEYS)));
   assert.match(row, /\.map\(\(c\) => \(\{ text: caveatLine\(c\), tone: caveatTone\(c\) \}\)\)/, 'caveats are not toned');
-  assert.match(row, /data-health-caveat=\{c\.tone\} className=\{`mt-1 text-\[11px\] leading-relaxed \$\{c\.tone === 'calm' \? 'text-fog-400' : 'text-amber-300\/90'\}`\}/,
+  assert.match(row, /data-health-caveat=\{c\.tone\} className=\{`mt-1 text-\[11px\] leading-relaxed \$\{c\.tone === 'calm' \? 'text-fog-300' : 'text-amber-300'\}`\}/,
     'a calm caveat is drawn in amber');
 });
 

@@ -130,12 +130,12 @@ export function ArchiveKeys({ item, onStop }: { item: ArchiveItem; onStop?: () =
   const [asking, setAsking] = useState(false);
   return (
     <>
-      {item.may.pause && <button type="button" disabled={a.busy} onClick={() => a.pause(item.seriesId)} className="btn-key">{tr('Pause')}</button>}
-      {item.may.resume && <button type="button" disabled={a.busy} onClick={() => a.resume(item.seriesId)} className="btn-key">{tr('Resume')}</button>}
+      {item.may.pause && <button type="button" disabled={a.busy} onClick={() => a.pause(item.seriesId)} aria-label={tr('Pause {title}', { title: item.title })} className="btn-key">{tr('Pause')}</button>}
+      {item.may.resume && <button type="button" disabled={a.busy} onClick={() => a.resume(item.seriesId)} aria-label={tr('Resume {title}', { title: item.title })} className="btn-key">{tr('Resume')}</button>}
       {item.may.stop && (
-        <button type="button" disabled={a.busy} onClick={() => (onStop ? onStop() : setAsking(true))} className="btn-key btn-key-danger">{tr('Stop archiving')}</button>
+        <button type="button" disabled={a.busy} onClick={() => (onStop ? onStop() : setAsking(true))} aria-label={tr('Stop archiving {title}', { title: item.title })} className="btn-key btn-key-danger">{tr('Stop archiving')}</button>
       )}
-      {item.may.dismiss && <button type="button" disabled={a.busy} onClick={() => a.dismiss(item.seriesId)} className="btn-key">{tr('Dismiss')}</button>}
+      {item.may.dismiss && <button type="button" disabled={a.busy} onClick={() => a.dismiss(item.seriesId)} aria-label={tr('Dismiss {title}', { title: item.title })} className="btn-key">{tr('Dismiss')}</button>}
       {asking && <StopConfirm item={item} onClose={() => setAsking(false)} />}
     </>
   );
@@ -198,7 +198,7 @@ export function ArchiveSheet({ item, view, onClose }: { item: ArchiveItem; view?
             </div>
           </div>
           {status && (
-            <p dir="auto" className={`text-[13px] leading-relaxed ${item.section === 'attention' ? 'text-amber-300' : 'text-fog-200'}`}>{status}</p>
+            <p dir="auto" role="status" className={`text-[13px] leading-relaxed ${item.section === 'attention' ? 'text-amber-300' : 'text-fog-200'}`}>{status}</p>
           )}
           {lines.length > 0 && (
             <ul className="space-y-1 text-[12px] leading-relaxed text-fog-400">

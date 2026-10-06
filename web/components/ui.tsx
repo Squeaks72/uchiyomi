@@ -1,6 +1,7 @@
 'use client';
-import { useState, ReactNode, useRef, useEffect, useCallback } from 'react';
+import { useState, ReactNode, useRef, useEffect, useCallback, type KeyboardEvent as ReactKeyboardEvent, type FocusEvent as ReactFocusEvent } from 'react';
 import { createPortal } from 'react-dom';
+import { useReducedMotion } from 'framer-motion';
 import { backdropSources, genreBackdrop } from '@/lib/art';
 import { useReduceEffects } from '@/lib/effects';
 import { useLayer } from '@/lib/layers';
@@ -81,6 +82,50 @@ export function OnBody({ children }: { children: ReactNode }) {
 }
 
 /**
+ * What an auto-advancing carousel needs to be allowed to move on its own (WCAG 2.2.2): it never runs under the
+ * OS's reduced-motion or the app's Reduce effects, it stops while the pointer or keyboard focus is anywhere in
+ * it, and `toggle` is the Pause / Resume button's click. Spread `bind` on the carousel's root.
+ */
+export function useAutoplay() {
+  const reduced = !!useReducedMotion() || useReduceEffects();
+  const [userPaused, setUserPaused] = useState(false);
+  const [hover, setHover] = useState(false);
+  const [focus, setFocus] = useState(false);
+  return {
+    /** No autoplay at all, so no Pause button either. */
+    reduced,
+    userPaused,
+    toggle: () => setUserPaused((v) => !v),
+    running: !reduced && !userPaused && !hover && !focus,
+    bind: {
+      onMouseEnter: () => setHover(true),
+      onMouseLeave: () => setHover(false),
+      onFocus: () => setFocus(true),
+      onBlur: (e: ReactFocusEvent<HTMLElement>) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setFocus(false); },
+    },
+  };
+}
+
+const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+/**
+ * Keeps Tab inside a dialog: from the last control it wraps to the first, and Shift+Tab the other way.
+ * Called from the PANEL's onKeyDown, not a document listener, so two stacked dialogs never both react.
+ * Without it a keyboard user tabs out of an open sheet into the page behind it, which is dimmed and inert to
+ * a mouse but not to Tab.
+ */
+export function trapTab(e: ReactKeyboardEvent, panel: HTMLElement | null) {
+  if (e.key !== 'Tab' || !panel) return;
+  const list = [...panel.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((el) => el.offsetParent !== null || el === document.activeElement);
+  if (!list.length) { e.preventDefault(); panel.focus(); return; }
+  const first = list[0];
+  const last = list[list.length - 1];
+  const at = document.activeElement;
+  if (e.shiftKey && (at === first || at === panel)) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && at === last) { e.preventDefault(); first.focus(); }
+}
+
+/**
  * A bottom sheet, for the reader.
  *
  * `Modal` in ConfirmDialog.tsx is centred and sized for a form. The reader is the one immersive surface in
@@ -128,6 +173,9 @@ export function Sheet({ title, onClose, overBottomNav, action, footer, wrapTitle
 }) {
   const bodyRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  // Whoever had focus when the sheet opened, read during the first render -- before a child's `autoFocus` can
+  // take it -- and given it back when the sheet closes, so Escape does not drop a keyboard user on <body>.
+  const opener = useRef<Element | null>(typeof document === 'undefined' ? null : document.activeElement);
   // A dialog on the notices' layer stack (lib/layers.ts). Only an `overBottomNav` sheet leaves the nav band
   // free; the reader's sheets run to the bottom edge, so they hand over their panel to be measured and the
   // notices rise above it instead of sitting on its last rows.
@@ -140,7 +188,14 @@ export function Sheet({ title, onClose, overBottomNav, action, footer, wrapTitle
     // chapter 1 and the marked row was several screens down. `aria-current` is the contract.
     const here = bodyRef.current?.querySelector('[aria-current]');
     if (here) here.scrollIntoView({ block: 'center' });
-    return () => document.removeEventListener('keydown', onKey);
+    // Focus goes in: to a field the sheet opened with (a child's autoFocus has already put it there), else to
+    // the first field, else to the panel itself so Tab starts at the top of it.
+    const panel = panelRef.current;
+    if (panel && !panel.contains(document.activeElement)) {
+      (bodyRef.current?.querySelector<HTMLElement>('input, textarea, select') ?? panel).focus({ preventScroll: true });
+    }
+    const back = opener.current as HTMLElement | null;
+    return () => { document.removeEventListener('keydown', onKey); back?.focus?.({ preventScroll: true }); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   return (
@@ -153,8 +208,10 @@ export function Sheet({ title, onClose, overBottomNav, action, footer, wrapTitle
           scroller 179 px -- its second section began below the fold. */}
       <div
         ref={panelRef}
+        tabIndex={-1}
+        onKeyDown={(e) => trapTab(e, panelRef.current)}
         onClick={(e) => e.stopPropagation()}
-        className={`glass flex w-full flex-col rounded-t-3xl border border-ink-700 pt-4
+        className={`glass outline-none flex w-full flex-col rounded-t-3xl border border-ink-700 pt-4
                    sm:mb-6 sm:max-w-xl sm:rounded-3xl ${footer ? 'max-h-[85vh]' : 'max-h-[75vh]'} ${
                      overBottomNav
                        ? 'pb-[calc(5.5rem+env(safe-area-inset-bottom))] sm:pb-[max(1rem,env(safe-area-inset-bottom))]'
@@ -177,7 +234,7 @@ export function Sheet({ title, onClose, overBottomNav, action, footer, wrapTitle
             {action}
             <button onClick={onClose} aria-label={tr('Close')}
               className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-ink-800/80 text-fog-300">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M6 6l12 12M18 6 6 18" /></svg>
+              <svg aria-hidden width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M6 6l12 12M18 6 6 18" /></svg>
             </button>
           </span>
         </div>
@@ -272,7 +329,7 @@ export function Img({
       {!loaded && !error && <div className="skeleton absolute inset-0" />}
       {error ? (
         <div className="flex h-full w-full items-center justify-center text-ink-500">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <svg aria-hidden width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
             <rect x="3" y="3" width="18" height="18" rx="3" />
             <path d="m4 16 4-4 4 4 3-3 5 5" />
           </svg>
@@ -316,10 +373,16 @@ export function Rail({ children }: { children: ReactNode }) {
   );
 }
 
-export function ProgressBar({ value }: { value: number }) {
+/**
+ * A thin bar. With a `label` it is a real progressbar for a screen reader ("Storage used"); without one it
+ * is decoration, because the number beside it already says it.
+ */
+export function ProgressBar({ value, label }: { value: number; label?: string }) {
+  const pct = Math.round(Math.min(1, Math.max(0, Number.isFinite(value) ? value : 0)) * 100);
   return (
-    <div className="h-1 w-full overflow-hidden rounded-full bg-ink-700">
-      <div className="h-full rounded-full bg-accent" style={{ width: `${Math.round(value * 100)}%` }} />
+    <div className="h-1 w-full overflow-hidden rounded-full bg-ink-700"
+      {...(label ? { role: 'progressbar', 'aria-label': label, 'aria-valuemin': 0, 'aria-valuemax': 100, 'aria-valuenow': pct } : { 'aria-hidden': true })}>
+      <div className="h-full rounded-full bg-accent" style={{ width: `${pct}%` }} />
     </div>
   );
 }

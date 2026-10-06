@@ -41,11 +41,13 @@ export function PullToRefresh({ onRefresh, children }: { onRefresh: () => Promis
     <div onTouchStart={onStart} onTouchMove={onMove} onTouchEnd={onEnd}>
       <div style={{ height: dist }} className="flex items-center justify-center overflow-hidden text-fog-500 transition-[height] duration-200">
         {dist > 0 && (
-          <span className={`text-xs ${busy ? 'animate-pulse-soft text-accent' : ''}`}>
+          <span aria-hidden className={`text-xs ${busy ? 'animate-pulse-soft text-accent' : ''}`}>
             {busy ? tr('Refreshing…') : dist >= THRESHOLD ? tr('Release to refresh') : tr('Pull to refresh')}
           </span>
         )}
       </div>
+      {/* Mounted before it has anything to say, or a screen reader never announces the first change. */}
+      <div role="status" className="sr-only">{busy ? tr('Refreshing…') : ''}</div>
       {children}
     </div>
   );

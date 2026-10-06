@@ -1,5 +1,5 @@
 'use client';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useId, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, img } from '@/lib/api';
@@ -129,14 +129,15 @@ export function ServerDownloadsView({ focusFolder }: { focusFolder?: string | nu
   const state = viewState({ data, isLoading, isError }, s);
   if (state === 'loading') {
     return (
-      <div className={`${GRID} pt-5`} aria-busy="true">
+      <div className={`${GRID} pt-5`} role="status" aria-busy="true">
+        <span className="sr-only">{tr('Loading…')}</span>
         {Array.from({ length: 6 }).map((_, i) => <div key={i} className="skeleton aspect-[2/3] rounded-2xl" />)}
       </div>
     );
   }
   if (state === 'error') {
     return (
-      <div data-downloads-error className="flex flex-col items-center px-6 py-16 text-center">
+      <div data-downloads-error role="alert" className="flex flex-col items-center px-6 py-16 text-center">
         <IcAlert width={28} height={28} className="text-amber-300" aria-hidden />
         <p className="mt-3 font-display text-lg font-semibold text-fog-50">{tr('Could not load the downloads')}</p>
         <p className="mt-1 max-w-xs text-sm text-fog-400">{tr('The server did not answer. Try again in a moment.')}</p>
@@ -224,14 +225,14 @@ export function ServerDownloadsView({ focusFolder }: { focusFolder?: string | nu
           {/* A download stopped by its Cancel: what landed is above; this is how far it got, and its Dismiss. */}
           {s.stopped.length > 0 && (
             <ul className={`${ROWS} mt-4`}>
-              {s.stopped.map((j) => (
+              {s.stopped.map((j, i) => (
                 <li key={j.folder} className="card flex min-w-0 items-start gap-3 px-4 py-3">
                   <div className="min-w-0 flex-1">
-                    <p dir="auto" className="truncate text-sm text-fog-100">{j.title}</p>
+                    <p id={`dl-stopped-${i}`} dir="auto" className="truncate text-sm text-fog-100">{j.title}</p>
                     <p dir="auto" className="mt-0.5 text-[12px] text-fog-400">{reasonText(j) || tr('Cancelled; what landed is kept.')}</p>
                   </div>
                   {(isAdmin || j.mine) && (
-                    <button type="button" onClick={() => dismissJob(j.folder)} className="btn-key">{tr('Dismiss')}</button>
+                    <button type="button" onClick={() => dismissJob(j.folder)} aria-describedby={`dl-stopped-${i}`} className="btn-key">{tr('Dismiss')}</button>
                   )}
                 </li>
               ))}
@@ -308,18 +309,19 @@ function AttentionRow({ a, nameOf, onRetry, onDismissJob, onDismissRun, focusRef
   onRetry: (seriesId: string, numbers: number[]) => void; onDismissJob: (folder: string) => void; onDismissRun: (kind: string) => void;
   focusRef?: (el: HTMLElement | null) => void;
 }) {
+  const titleId = useId();
   if (a.kind === 'run') {
     const r = a.run;
     return (
       <li data-attention="run" className="card flex min-w-0 items-start gap-3 px-4 py-3">
-        <span className="mt-0.5 grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-amber-500/10 text-amber-300"><IcAlert width={18} height={18} /></span>
+        <span className="mt-0.5 grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-amber-500/10 text-amber-300"><IcAlert width={18} height={18} aria-hidden /></span>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium text-fog-100">{runName(r)}</p>
+          <p id={titleId} className="truncate text-sm font-medium text-fog-100">{runName(r)}</p>
           <p dir="auto" className="mt-0.5 text-[12px] leading-relaxed text-amber-300">{reasonText(r) || tr('Stopped.')}</p>
           {runProgress(r) && <p className="mt-0.5 text-[11px] tabular-nums text-fog-500">{runProgress(r)}</p>}
           {a.dismiss && (
             <div className="mt-2 flex flex-wrap gap-2">
-              <button type="button" onClick={() => onDismissRun(r.kind)} className="btn-key">{tr('Dismiss')}</button>
+              <button type="button" onClick={() => onDismissRun(r.kind)} aria-describedby={titleId} className="btn-key">{tr('Dismiss')}</button>
             </div>
           )}
         </div>
@@ -333,7 +335,7 @@ function AttentionRow({ a, nameOf, onRetry, onDismissJob, onDismissRun, focusRef
       <Img src={thumb.src} fallbackSrc={thumb.fallback} alt="" className="h-[60px] w-10 shrink-0 rounded-md" />
       <div className="min-w-0 flex-1">
         {/* `dir="auto"`, as every series title here: the page's direction cut an English title at its start in Arabic. */}
-        <p dir="auto" className="truncate text-sm font-medium text-fog-100">{a.title}</p>
+        <p id={titleId} dir="auto" className="truncate text-sm font-medium text-fog-100">{a.title}</p>
         {a.kind === 'job' ? (
           <>
             {/* The reason has always been recorded; the strip used to say only "Download stopped." for every cause.
@@ -358,15 +360,15 @@ function AttentionRow({ a, nameOf, onRetry, onDismissJob, onDismissRun, focusRef
         )}
         <div className="mt-2 flex flex-wrap gap-2">
           {a.seriesId && a.retry.length > 0 && (
-            <button type="button" onClick={() => onRetry(a.seriesId!, a.retry)} className="btn-key">{tr('Try again')}</button>
+            <button type="button" onClick={() => onRetry(a.seriesId!, a.retry)} aria-describedby={titleId} className="btn-key">{tr('Try again')}</button>
           )}
           {/* A card that is only chapters that failed has no job, and is dismissed by its folder all the same (v0.50.0):
               the route clears the folder's failures from the day's feed. */}
           {a.dismiss && (
             <button type="button" onClick={() => (a.kind === 'job' ? [a.job.folder] : [...new Set(a.failed.map((f) => f.folder))]).forEach(onDismissJob)}
-              className="btn-key">{tr('Dismiss')}</button>
+              aria-describedby={titleId} className="btn-key">{tr('Dismiss')}</button>
           )}
-          {a.seriesId && <Link href={`/series/?id=${encodeURIComponent(a.seriesId)}`} className="btn-key">{tr('Open')}</Link>}
+          {a.seriesId && <Link href={`/series/?id=${encodeURIComponent(a.seriesId)}`} aria-describedby={titleId} className="btn-key">{tr('Open')}</Link>}
         </div>
       </div>
     </li>

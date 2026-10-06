@@ -83,7 +83,7 @@ export function EngineInstall({ span = '' }: { span?: string }) {
           {state === 'failed' && (
             <p role="alert" className="mt-2 max-w-prose text-[11px] leading-relaxed text-red-300">
               {tr('The extension engine could not be installed.')}
-              {st?.error ? <span className="block break-words font-mono text-[10px] text-red-300/80">{st.error}</span> : null}
+              {st?.error ? <span className="block break-words font-mono text-[11px] text-red-300/80">{st.error}</span> : null}
             </p>
           )}
           <button type="button" onClick={install} className="btn-accent mt-3 px-4 py-2 text-sm">
@@ -99,7 +99,7 @@ export function EngineInstall({ span = '' }: { span?: string }) {
           </p>
           {(state === 'asking' || state === 'downloading') && (
             <>
-              <div className="mt-2" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(pct * 100)}>
+              <div className="mt-2" role="progressbar" aria-label={tr('Downloading the extension engine…')} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(pct * 100)}>
                 <ProgressBar value={Math.min(1, Math.max(0, pct))} />
               </div>
               <p className="mt-1 text-[11px] tabular-nums text-fog-500">

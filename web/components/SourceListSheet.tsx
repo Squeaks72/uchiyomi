@@ -53,7 +53,7 @@ export function SourceListSheet({ sources, asking, total, stateOf, selected, onS
       action={
         <button type="button" onClick={onExplain} aria-label={tr('What are sources and extensions?')}
           className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-ink-800/80 text-fog-300">
-          <IcInfo width={16} height={16} />
+          <IcInfo aria-hidden width={16} height={16} />
         </button>
       }
       footer={
@@ -95,7 +95,7 @@ export function SourceListSheet({ sources, asking, total, stateOf, selected, onS
                   </span>
                 )}
               </span>
-              {on && <IcCheck width={15} height={15} className="shrink-0" />}
+              {on && <IcCheck aria-hidden width={15} height={15} className="shrink-0" />}
             </button>
           );
         })}

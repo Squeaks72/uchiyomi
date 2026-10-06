@@ -152,7 +152,7 @@ test('the match sheet keeps search at the top and the comparison in the pinned f
 test('the intake copy names the button that commits, and the review copy tells the truth about time', () => {
   // Reintroduce by writing "until you press Continue" back: there is no Continue on this page.
   const src = read('app/admin/import/page.tsx');
-  assert.ok(src.includes('nothing lands in your library until you press Import selected.'), 'the intake card promises a button that does not exist');
+  assert.ok(src.includes('Nothing is added until you press Import selected.'), 'the intake card promises a button that does not exist');
   assert.doesNotMatch(code(src), /press Continue/, '"Continue" is back');
   assert.ok(src.includes("tr('Import selected — {n}', { n: selectedIds.size })"), 'the commit button is no longer "Import selected — {n}"');
   // Adding with nothing downloaded still asks each source for the series, one title at a time.
@@ -357,20 +357,19 @@ test('the review filter finds a row by its matched title too', () => {
   assert.match(src, /c\.backup_title\.toLowerCase\(\)\.includes\(needle\) && !\(c\.match_title \|\| ''\)\.toLowerCase\(\)\.includes\(needle\)/, 'the filter ignores match_title');
 });
 
-test('the intake card tells the truth about what a backup gives up: title, source AND address', () => {
-  // The matcher reads each entry's url (its address on the source) and uses it as the same-source proof;
-  // the card and the docs said only the titles and their source were read. Reintroduce by restoring the
-  // old sentence, in the page or in any locale file.
-  const key = "A .tachibk backup stays on your server — only each entry's title, its source and its address on that source are read.";
+test('the intake card tells the truth about what a backup gives up: title, source AND link', () => {
+  // The matcher reads each entry's url (its link on the source) and uses it as the same-source proof; the card
+  // once said only the titles and their source were read. Reintroduce by restoring the old sentence, in the
+  // page or in any locale file.
+  const key = 'Your backup stays on your server. Only each title, its source and its link are read.';
   const src = read('app/admin/import/page.tsx');
-  assert.ok(src.includes("only each entry\\'s title, its source and its address on that source are read."), 'the card no longer names the address');
+  assert.ok(src.includes(key), 'the card no longer names the link');
   assert.doesNotMatch(src, /only the titles \(and, where available/, 'the old sentence is back on the card');
+  assert.doesNotMatch(src, /its address on that source are read/, 'the old wording is back on the card');
   const dir = join(ROOT, 'public/locales');
   for (const f of readdirSync(dir).filter((x) => x.endsWith('.json'))) {
     const d = JSON.parse(readFileSync(join(dir, f), 'utf8'));
     assert.ok(typeof d[key] === 'string' && d[key].trim(), `${f} has no translation of the new sentence`);
-    const old = Object.keys(d).find((k) => k.startsWith('A .tachibk backup stays on your server') && k !== key);
-    assert.equal(old, undefined, `${f} still carries the old sentence: ${old}`);
   }
 });
 
@@ -479,7 +478,7 @@ test('the tracker intake is a nested box, and the intake card still ends on its 
   assert.doesNotMatch(src, /keys\([^)]*'Completed'/, '"Completed" (the series status) is used for the read state');
   // The body the server takes, and the three refusals in the person's words.
   assert.match(src, /start\(\{ origin: 'tracker', tracker, statuses \}\)/, 'Load list does not post the tracker body');
-  assert.match(src, /body\.error === 'tracker_rejected'\) toast\(tr\('The tracker rejected the saved token — reconnect it under Profile'\), 'error'\)/, 'tracker_rejected has no sentence');
+  assert.match(src, /body\.error === 'tracker_rejected'\) toast\(tr\('Your tracker rejected the saved login. Reconnect it under Profile.'\), 'error'\)/, 'tracker_rejected has no sentence');
   assert.match(src, /body\.error === 'tracker_unavailable'\) toast\(tr\('Could not read your list right now'\), 'error'\)/, 'tracker_unavailable has no sentence');
   assert.match(src, /body\.error === 'not_connected'\) \{ qc\.invalidateQueries\(\{ queryKey: \['trackers'\] \}\); toast\(NOT_CONNECTED\(\), 'info'\); \}/, 'not_connected does not fall back to the dim line');
 });
@@ -659,7 +658,7 @@ test('the sources sheet marks an automatic follower in its one chip, not as a th
   // Reintroduce by adding a `{s.auto && <span …>}` beside the chip: "a third span is back" fails.
   const src = code(read('components/SourcesSheet.tsx'));
   const rowSrc = src.slice(src.indexOf('function SourceRow('), src.indexOf('function GroupRow('));
-  assert.match(rowSrc, /<span className="chip shrink-0 px-2 py-0\.5 text-\[10px\]">\{s\.primary \? tr\('main'\) : s\.auto \? tr\('followed for you'\) : tr\('also checked'\)\}<\/span>/, 'the chip does not carry "followed for you"');
+  assert.match(rowSrc, /<span className="chip shrink-0 px-2 py-0\.5 text-\[11px\]">\{s\.primary \? tr\('main'\) : s\.auto \? tr\('followed for you'\) : tr\('also checked'\)\}<\/span>/, 'the chip does not carry "followed for you"');
   assert.doesNotMatch(rowSrc, /s\.auto && <span/, 'a third span is back');
   assert.match(rowSrc, /aria-label=\{tr\('Stop following \{s\}', \{ s: s\.name \}\)\}/, 'the × label changed');
   assert.match(read('lib/types.ts'), /auto\?: boolean;/, 'SeriesSource has no `auto`');

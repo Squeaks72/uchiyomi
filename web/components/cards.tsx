@@ -95,28 +95,31 @@ export function SeriesCard({ series, w = 'w-32', eager = false }: { series: Seri
         style={{ ...tilt.style, ...tint }}
         className="grad-border relative aspect-[2/3] overflow-hidden rounded-2xl border border-ink-700/60 shadow-lift transition-all duration-300 group-hover:-translate-y-1.5 group-hover:shadow-glow group-active:scale-[0.97]"
       >
-        <Img src={img.seriesThumb(series.id)} alt={series.metadata?.title || series.name} eager={eager} className="h-full w-full transition-transform duration-500 group-hover:scale-[1.07]" />
+        <Img src={img.seriesThumb(series.id)} alt="" eager={eager} className="h-full w-full transition-transform duration-500 group-hover:scale-[1.07]" />
         <div aria-hidden className="pointer-events-none absolute inset-0 z-10" style={tilt.glare} />
         {series.yomi?.favorite && (
           <span className="absolute left-2 top-2 z-10 rounded-full bg-black/55 p-1.5 text-accent backdrop-blur">
             <IcHeart width={14} height={14} fill="currentColor" stroke="none" />
+            <span className="sr-only">{tr('Favorite')}</span>
           </span>
         )}
         {/* dir="ltr": "99+" is a number and a sign, and in Arabic the paragraph's direction put the sign first ("+99"). */}
         {unread > 0 && (
           <span dir="ltr" data-unread={unread} className="absolute right-2 top-2 z-10 rounded-full bg-accent px-2 py-0.5 text-[11px] font-bold text-black shadow-glow">
-            {unread > 99 ? '99+' : unread}
+            <span aria-hidden dir="ltr">{unread > 99 ? '99+' : unread}</span>
+            <span className="sr-only">{tr('{n} unread', { n: unread })}</span>
           </span>
         )}
         {/* Bottom-right: NEW owns bottom-left, the unread count owns top-right, favourite owns top-left. */}
         {savedOffline && (
-          <span title={tr('Saved for offline')} aria-label={tr('Saved for offline')}
+          <span title={tr('Saved for offline')}
             className="absolute bottom-1.5 right-1.5 z-10 rounded-full bg-black/60 p-1 text-fog-200 backdrop-blur">
             <IcWifiOff width={11} height={11} />
+            <span className="sr-only">{tr('Saved for offline')}</span>
           </span>
         )}
         {(series.yomi?.newCount ?? 0) > 0 && (
-          <span className="absolute bottom-2 left-2 z-10 rounded-full bg-accent px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-black shadow-glow rtl:tracking-normal">{tr('New')}</span>
+          <span className="absolute bottom-2 left-2 z-10 rounded-full bg-accent px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-black shadow-glow rtl:tracking-normal">{tr('New')}</span>
         )}
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-linear-to-t from-black/85 to-transparent" />
       </div>
@@ -143,7 +146,7 @@ export function ContinueCard({ book, eager = false }: { book: Book; eager?: bool
       href={`/reader/?book=${book.id}`}
       className="group relative h-44 w-72 shrink-0 overflow-hidden rounded-3xl border border-ink-700/60 shadow-lift transition-all duration-300 hover:-translate-y-1 hover:shadow-glow [scroll-snap-align:start]"
     >
-      <Img src={img.bookThumb(book.id)} alt={book.seriesTitle} eager={eager} className="absolute inset-0 h-full w-full transition-transform duration-500 group-hover:scale-105" />
+      <Img src={img.bookThumb(book.id)} alt="" eager={eager} className="absolute inset-0 h-full w-full transition-transform duration-500 group-hover:scale-105" />
       <div className="absolute inset-0 bg-linear-to-t from-black via-black/45 to-black/10" />
       <div className="absolute inset-x-0 bottom-0 p-4">
         <p className="line-clamp-1 font-display text-base font-semibold text-white">{book.seriesTitle}</p>
@@ -183,40 +186,43 @@ export function SeriesTile({ series, eager = false, selectable, selected, onTogg
   const menu = useSeriesMenu(series);
   const Wrap: any = selectable ? 'button' : Link;
   const wrapProps = selectable
-    ? { type: 'button', onClick: onToggle, className: 'group w-full text-left' }
+    ? { type: 'button', onClick: onToggle, 'aria-pressed': !!selected, className: 'group w-full text-start' }
     : { href: `/series/?id=${series.id}`, className: 'group', ...menu.bind };
   return (
     <>
     <Wrap {...wrapProps}>
       <div style={tint} className="grad-border relative aspect-[2/3] overflow-hidden rounded-2xl border border-ink-700/60 transition-all duration-300 group-hover:-translate-y-1 group-hover:shadow-glow group-active:scale-[0.97]">
-        <Img src={img.seriesThumb(series.id)} alt={series.metadata?.title || series.name} eager={eager} className="h-full w-full transition-transform duration-500 group-hover:scale-[1.07]" />
+        <Img src={img.seriesThumb(series.id)} alt="" eager={eager} className="h-full w-full transition-transform duration-500 group-hover:scale-[1.07]" />
         {selectable && (
           <>
-            {selected && <span className="absolute inset-0 z-10 rounded-2xl border-2 border-accent bg-accent/20" />}
-            <span className={`absolute left-1.5 top-1.5 z-20 grid h-6 w-6 place-items-center rounded-full border text-[11px] font-bold ${
+            {selected && <span aria-hidden className="absolute inset-0 z-10 rounded-2xl border-2 border-accent bg-accent/20" />}
+            <span aria-hidden className={`absolute left-1.5 top-1.5 z-20 grid h-6 w-6 place-items-center rounded-full border text-[11px] font-bold ${
               selected ? 'border-accent bg-accent text-black' : 'border-white/50 bg-black/50 text-transparent'}`}>✓</span>
           </>
         )}
         {series.yomi?.favorite && (
           <span className="absolute left-1.5 top-1.5 z-10 rounded-full bg-black/55 p-1 text-accent backdrop-blur">
             <IcHeart width={12} height={12} fill="currentColor" stroke="none" />
+            <span className="sr-only">{tr('Favorite')}</span>
           </span>
         )}
         {/* Bottom-right: NEW owns bottom-left, the unread count owns top-right, favourite owns top-left. */}
         {savedOffline && (
-          <span title={tr('Saved for offline')} aria-label={tr('Saved for offline')}
+          <span title={tr('Saved for offline')}
             className="absolute bottom-1.5 right-1.5 z-10 rounded-full bg-black/60 p-1 text-fog-200 backdrop-blur">
             <IcWifiOff width={11} height={11} />
+            <span className="sr-only">{tr('Saved for offline')}</span>
           </span>
         )}
         {/* dir="ltr", as SeriesCard's: "99+" read "+99" in Arabic. */}
         {unread > 0 && (
-          <span dir="ltr" data-unread={unread} className="absolute right-1.5 top-1.5 z-10 rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-bold text-black">
-            {unread > 99 ? '99+' : unread}
+          <span dir="ltr" data-unread={unread} className="absolute right-1.5 top-1.5 z-10 rounded-full bg-accent px-1.5 py-0.5 text-[11px] font-bold text-black">
+            <span aria-hidden dir="ltr">{unread > 99 ? '99+' : unread}</span>
+            <span className="sr-only">{tr('{n} unread', { n: unread })}</span>
           </span>
         )}
         {(series.yomi?.newCount ?? 0) > 0 && (
-          <span className="absolute bottom-1.5 left-1.5 z-10 rounded-full bg-accent px-1.5 py-0.5 text-[9px] font-bold uppercase text-black">{tr('New')}</span>
+          <span className="absolute bottom-1.5 left-1.5 z-10 rounded-full bg-accent px-1.5 py-0.5 text-[11px] font-bold uppercase text-black">{tr('New')}</span>
         )}
       </div>
       <p dir="auto" className="mt-1.5 line-clamp-2 text-xs font-medium leading-tight text-fog-300 transition group-hover:text-fog-100">
@@ -226,7 +232,7 @@ export function SeriesTile({ series, eager = false, selectable, selected, onTogg
           browse, and this line says so -- `EN · ES-419`, the edition this card opens brighter. The names are its
           title, for a hover and a screen reader. */}
       {!!series.edition?.langs && series.edition.langs.length > 1 && (
-        <p data-edition-langs className="mt-0.5 truncate text-[10px] font-semibold tracking-wide text-fog-600"
+        <p data-edition-langs className="mt-0.5 truncate text-[11px] font-semibold tracking-wide text-fog-600"
           title={series.edition.langs.map(languageName).join(' · ')}>
           {libraryCaption(series.edition.langs, series.lang).map((c, i) => (
             <span key={c.lang}>
@@ -320,7 +326,7 @@ export function SourceCard({ item, providers, onAdd, eager }: {
     <>
       <div className={`grad-border relative aspect-[2/3] overflow-hidden rounded-2xl border border-ink-700/60 transition-all duration-300
                        ${owned ? 'opacity-55' : 'group-hover:-translate-y-1 group-hover:shadow-glow group-active:scale-[0.97]'}`}>
-        <Img src={sourceCover(item.source, item.coverUrl)} alt={item.title} eager={eager}
+        <Img src={sourceCover(item.source, item.coverUrl)} alt="" eager={eager}
           fallbackSrc={item.coverUrl || undefined}
           className="h-full w-full" imgClassName="transition-transform duration-500 group-hover:scale-[1.07]" />
 
@@ -346,7 +352,7 @@ export function SourceCard({ item, providers, onAdd, eager }: {
             its own direction and land at the other corner, away from the icons it sits under. */}
         {item.rating === 'adult' && (
           <span data-rating-mark
-            className={`absolute end-1.5 ${stack ? 'top-9' : 'top-1.5'} z-10 rounded-md bg-ink-950/80 px-1.5 py-0.5 text-[10px] font-semibold text-red-300 backdrop-blur`}>
+            className={`absolute end-1.5 ${stack ? 'top-9' : 'top-1.5'} z-10 rounded-md bg-ink-950/80 px-1.5 py-0.5 text-[11px] font-semibold text-red-300 backdrop-blur`}>
             <bdi dir="ltr">{tr('18+')}</bdi>
           </span>
         )}
@@ -355,7 +361,7 @@ export function SourceCard({ item, providers, onAdd, eager }: {
             here, in the bottom-start corner, across from the add button. Codes, never names: "EN · ES" fits a 110-px
             tile. */}
         {!owned && !!item.libraryLangs?.length && (
-          <span data-library-langs className="absolute bottom-1.5 start-1.5 z-10 max-w-[70%] truncate rounded-md bg-ink-950/80 px-1.5 py-0.5 text-[10px] font-semibold text-fog-200 backdrop-blur">
+          <span data-library-langs className="absolute bottom-1.5 start-1.5 z-10 max-w-[70%] truncate rounded-md bg-ink-950/80 px-1.5 py-0.5 text-[11px] font-semibold text-fog-200 backdrop-blur">
             {tr('{langs} in library', { langs: item.libraryLangs.map(codeLabel).join(' · ') })}
           </span>
         )}
@@ -382,5 +388,5 @@ export function SourceCard({ item, providers, onAdd, eager }: {
   const described = stack ? stackId : undefined;
   return owned && item.librarySeriesId
     ? <Link href={`/series/?id=${encodeURIComponent(item.librarySeriesId)}`} aria-label={item.title} aria-describedby={described} className={rootCls}>{body}</Link>
-    : <button type="button" onClick={onAdd} disabled={owned} aria-label={owned ? item.title : tr('Add to library')} aria-describedby={described} className={rootCls}>{body}</button>;
+    : <button type="button" onClick={onAdd} disabled={owned} aria-label={owned ? item.title : `${item.title} · ${tr('Add to library')}`} aria-describedby={described} className={rootCls}>{body}</button>;
 }

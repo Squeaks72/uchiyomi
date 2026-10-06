@@ -40,7 +40,7 @@ export function HealthMarker() {
     <Link href={HEALTH_HREF} title={label} aria-label={label}
       className={`relative grid h-10 w-10 shrink-0 place-items-center rounded-full border border-ink-700 transition hover:border-accent/50 ${tone === 'problem' ? 'text-red-400' : 'text-amber-300'}`}>
       <IcAlert width={19} height={19} />
-      <span className={`absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full ${tone === 'problem' ? 'bg-red-400' : 'bg-amber-300'}`} />
+      <span aria-hidden className={`absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full ${tone === 'problem' ? 'bg-red-400' : 'bg-amber-300'}`} />
     </Link>
   );
 }
@@ -72,8 +72,8 @@ export function HealthBanner() {
       <IcAlert width={14} height={14} className="shrink-0" />
       <span dir="auto" className="min-w-0">{headlineText(data) ?? countLine(data.count)}</span>
       {data.count > 1 && <span className="text-fog-400">{countLine(data.count)}</span>}
-      <Link href={HEALTH_HREF} onClick={dismiss} className="font-semibold underline-offset-2 hover:underline">{tr('Take a look')}</Link>
-      <button type="button" onClick={dismiss} className="text-fog-400 hover:text-fog-100">{tr('Not now')}</button>
+      <Link href={HEALTH_HREF} onClick={dismiss} className="inline-flex min-h-6 items-center font-semibold underline-offset-2 hover:underline">{tr('Take a look')}</Link>
+      <button type="button" onClick={dismiss} className="inline-flex min-h-6 items-center text-fog-400 hover:text-fog-100">{tr('Not now')}</button>
     </div>
   );
 }

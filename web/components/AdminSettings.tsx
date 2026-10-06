@@ -124,7 +124,7 @@ function ChaptersSection({ data, save }: { data: any; save: Save }) {
       {/* Off by default: outbound traffic to sources that carry nothing else for a series. A series can
           switch it for itself on its Sources & translations sheet. */}
       <SwitchRow label={tr('Borrow chapter names from other sources')}
-        help={tr('Off by default. When a series’ own source only ever says “Chapter 12”, take the names from another source whose numbering was checked against this one — a source that numbers the chapters differently is never used, and the names go into the chapter name only, never the file. The chapter’s own source naming it later wins, and switching this off takes the borrowed names back.')}
+        help={tr('Off by default. If a series’ own source only says “Chapter 12”, use the chapter name from another source whose numbering matches. A source that numbers chapters differently is never used. Only the displayed name changes, never the file. If the series’ own source names the chapter later, that name wins. Switching this off removes borrowed names.')}
         on={data.borrow_names === true} onChange={(next) => save({ borrowNames: next })} />
       {/* v0.56.0: Discover's names looked up on AniList, MangaDex and MangaUpdates, beside the other row that sends titles
           off the server. ON by default, which `!== false` reads as: a server that does not send the key yet looks them up. */}
@@ -132,7 +132,7 @@ function ChaptersSection({ data, save }: { data: any; save: Save }) {
         help={tr('On by default. Titles shown in Discover are looked up on AniList, MangaDex and MangaUpdates, once each and in the background, so that a series several sources name differently shows as one card and one you already have stays hidden. Off, only the names themselves are compared and nothing is sent anywhere.')}
         on={data.discover_lookups !== false} onChange={(next) => save({ discoverLookups: next })} />
       <SwitchRow label={tr('Upgrade chapters to a preferred group')}
-        help={tr('Off by default. Once a night, a chapter you already have from another group is replaced when a group you rank higher releases it on a source the series follows — only files Uchiyomi downloaded itself, never with a copy that has fewer pages, never a chapter someone picked a version for by hand, and at most ten a night unless the server is told otherwise. Reading progress is kept.')}
+        help={tr('Off by default. Each night, a chapter you have from one group is replaced if a group you rank higher releases it on a source the series follows. Only files Uchiyomi downloaded itself are replaced. A copy with fewer pages never replaces one with more, a chapter you picked a version for by hand is never touched, and at most ten are replaced a night. Reading progress is kept.')}
         on={data.group_upgrade === true} onChange={(next) => save({ groupUpgrade: next })} />
       <SourceOrderBlock data={data} save={save} />
       <NoticeChaptersBlock data={data} save={save} />
@@ -168,8 +168,8 @@ function NoticeChaptersBlock({ data, save }: { data: any; save: Save }) {
   return (
     <Block id="notice-chapters" title={tr('Notice chapters')}
       description={shortOnly
-        ? tr('Sources often post notices for readers as a short chapter numbered after the latest one, like 100.5. For each type switched on, chapters numbered like 12.5 with 3 pages or fewer are hidden from the library, the reader, OPDS and Mihon; longer ones, and any whose pages are not counted yet, stay. A chapter a source already lists with 3 pages or fewer is not downloaded. Nothing is deleted: switching a type off shows them again. A series can override this in its Sources & translations sheet.')
-        : tr('Sources often post notices for readers as a short chapter numbered after the latest one, like 100.5. For each type switched on, every chapter numbered like 12.5 is hidden from the library, the reader, OPDS and Mihon, and one a source lists is not downloaded. Nothing is deleted: switching a type off shows them again. A series can override this in its Sources & translations sheet.')}>
+        ? tr('Some sources post notices as a short chapter numbered like 100.5. For each type switched on, chapters numbered like 12.5 with 3 pages or fewer are hidden from the library, reader, OPDS and Mihon. Longer ones stay, and so do any whose pages are not counted yet. A hidden chapter is not downloaded. Nothing is deleted; switching a type off shows them again. A series can override this in its Sources & translations sheet.')
+        : tr('Some sources post notices as a short chapter numbered like 100.5. For each type switched on, every chapter numbered like 12.5 is hidden from the library, reader, OPDS and Mihon, and is not downloaded. Nothing is deleted; switching a type off shows them again. A series can override this in its Sources & translations sheet.')}>
       <div data-notice-types>
         {SERIES_TYPES.map((t) => (
           <SwitchRow key={t} label={tr(seriesTypeKey(t))} on={types.includes(t)} onChange={(next) => flip(t, next)} />
@@ -314,9 +314,9 @@ function ContentRatingsSection({ data, save }: { data: any; save: Save }) {
           ))}
         </div>
         <p className="mb-1 mt-4 max-w-prose text-[11px] leading-relaxed text-fog-500">
-          {tr('A rating for a whole source. 18+ keeps it off Discover and search while “Show 18+” is off; below 18, accounts at least that old see it; All ages ignores the extension’s own adult flag; Default follows the extension.')}
+          {tr('Rate a whole source. 18+ keeps it out of Discover and search while “Show 18+” is off. A lower age means only accounts at least that old can see it. All ages ignores the extension’s own adult flag. Default follows the extension.')}
         </p>
-        <p className="mb-2 text-[11px] text-fog-400" data-ratings-summary>
+        <p role="status" className="mb-2 text-[11px] text-fog-400" data-ratings-summary>
           {summary.rated === 1 ? tr('1 source rated') : tr('{n} sources rated', { n: summary.rated })} · {tr('Treated as 18+: {m}', { m: summary.adult })}
         </p>
         {sources.length > 8 && (
@@ -324,7 +324,7 @@ function ContentRatingsSection({ data, save }: { data: any; save: Save }) {
             aria-label={tr('Find a source')} placeholder={tr('Find a source')} />
         )}
         {/* data-lenis-prevent: this list scrolls inside the page (lenisScrollers.test.ts). */}
-        <ul className="max-h-96 divide-y divide-ink-800/80 overflow-y-auto rounded-xl border border-ink-700 bg-ink-950/40 px-3" data-lenis-prevent data-source-ratings>
+        <ul aria-label={tr('Content ratings')} className="max-h-96 divide-y divide-ink-800/80 overflow-y-auto rounded-xl border border-ink-700 bg-ink-950/40 px-3" data-lenis-prevent data-source-ratings>
           {sources.length === 0 && <li className="py-3 text-[11px] text-fog-500">{tr('No sources yet.')}</li>}
           {sources.length > 0 && rows.length === 0 && <li className="py-3 text-[11px] text-fog-500">{tr('No source matches that.')}</li>}
           {rows.map((x) => {
@@ -427,11 +427,11 @@ function SourceOrderBlock({ data, save }: { data: any; save: Save }) {
                 : <span className="truncate text-sm text-fog-500" title={r.id}>{tr('Not available right now')}</span>}
               <span className="ms-auto flex shrink-0 gap-1">
                 <button type="button" onClick={() => commit(moveIn(order, i, -1))} disabled={i === 0}
-                  aria-label={tr('Move up')} className="chip px-2 py-0.5 text-xs disabled:opacity-30">↑</button>
+                  aria-label={`${tr('Move up')}: ${r.name || r.id}`} className="chip px-2 py-0.5 text-xs disabled:opacity-30"><span aria-hidden>↑</span></button>
                 <button type="button" onClick={() => commit(moveIn(order, i, 1))} disabled={i === rows.length - 1}
-                  aria-label={tr('Move down')} className="chip px-2 py-0.5 text-xs disabled:opacity-30">↓</button>
+                  aria-label={`${tr('Move down')}: ${r.name || r.id}`} className="chip px-2 py-0.5 text-xs disabled:opacity-30"><span aria-hidden>↓</span></button>
                 <button type="button" onClick={() => commit(order.filter((x) => x !== r.id))}
-                  aria-label={tr('Remove')} className="chip px-2 py-0.5 text-xs">✕</button>
+                  aria-label={tr('Remove {name}', { name: r.name || r.id })} className="chip px-2 py-0.5 text-xs"><span aria-hidden>✕</span></button>
               </span>
             </li>
           ))}
@@ -740,7 +740,7 @@ function HousekeepingSection({ data, save: patch }: { data: any; save: Save }) {
               : tr('Counted from the moment the last reader finished. Re-opening the chapter starts the wait again.')}
           </p>
           <p className="mt-1 max-w-prose text-[11px] leading-relaxed text-fog-500">
-            {tr('Only chapters Uchiyomi downloaded itself are removed — nothing in a library you built by hand is touched. The chapter stays listed and everyone keeps their reading history; the pages are what goes. It is not downloaded again by itself; Fetch again on the series page brings it back.')}
+            {tr('Only chapters Uchiyomi downloaded itself are removed. Chapters in a library you built by hand are never touched. The chapter stays listed and everyone keeps their reading history; only the pages go. It is not downloaded again automatically. Use Fetch again on the series page to bring it back.')}
           </p>
         </div>
         {/* The reveal for the cleanup above, and for a followed series nobody has fetched: without it Mihon
@@ -750,7 +750,7 @@ function HousekeepingSection({ data, save: patch }: { data: any; save: Save }) {
         {/* Only the Komga-compatible API reads it, and desktop does not serve that API (lib/desktop.ts). */}
         {!isDesktop() && (
           <SwitchRow label={tr('Show missing chapters in Mihon')} on={!!data.komga_ghost_chapters}
-            help={tr('List the chapters this server has not downloaded, and those whose files were deleted, alongside the ones it holds — so Mihon and your trackers count the whole series rather than only what is on disk. These rows cannot be opened; they are marked “not downloaded”. Only the Mihon extension sees them.')}
+            help={tr('Show chapters this server hasn’t downloaded, or whose files were deleted, next to the ones it has. Mihon and your trackers then count the whole series, not just what is on disk. These rows can’t be opened and are marked “not downloaded”. Only the Mihon extension sees them.')}
             onChange={(next) => patch({ komgaGhostChapters: next })} />
         )}
         {/* Display only (bff lib/deletedGhosts.ts): a deleted chapter keeps its row, its progress and its place; it is
@@ -833,11 +833,11 @@ function GroupChips({ label, hint, value, ordered, onChange, suggestions }: {
             {g}
             {ordered && (
               <>
-                <button type="button" onClick={() => onChange(reorder(value, i, -1))} disabled={i === 0} aria-label={tr('Move up')} className="text-fog-500 hover:text-fog-200 disabled:opacity-30">▲</button>
-                <button type="button" onClick={() => onChange(reorder(value, i, 1))} disabled={i === value.length - 1} aria-label={tr('Move down')} className="text-fog-500 hover:text-fog-200 disabled:opacity-30">▼</button>
+                <button type="button" onClick={() => onChange(reorder(value, i, -1))} disabled={i === 0} aria-label={`${tr('Move up')}: ${g}`} className="-m-1 p-1 text-fog-500 hover:text-fog-200 disabled:opacity-30"><span aria-hidden>▲</span></button>
+                <button type="button" onClick={() => onChange(reorder(value, i, 1))} disabled={i === value.length - 1} aria-label={`${tr('Move down')}: ${g}`} className="-m-1 p-1 text-fog-500 hover:text-fog-200 disabled:opacity-30"><span aria-hidden>▼</span></button>
               </>
             )}
-            <button type="button" onClick={() => onChange(withoutGroup(value, g))} aria-label={tr('Remove {name}', { name: g })} className="text-fog-500 hover:text-rose-400">×</button>
+            <button type="button" onClick={() => onChange(withoutGroup(value, g))} aria-label={tr('Remove {name}', { name: g })} className="-m-1 p-1 text-fog-500 hover:text-rose-400"><span aria-hidden>×</span></button>
           </span>
         ))}
         <input
@@ -849,7 +849,7 @@ function GroupChips({ label, hint, value, ordered, onChange, suggestions }: {
           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add(draft); }
                               else if (e.key === 'Backspace' && !draft && value.length) onChange(value.slice(0, -1)); }}
           placeholder={tr('Add a group…')}
-          className="min-w-[8rem] flex-1 bg-transparent px-1 py-1 text-sm text-fog-50 outline-hidden"
+          className="min-w-[8rem] flex-1 bg-transparent px-1 py-1 text-sm text-fog-50 outline-hidden focus-visible:outline-accent focus-visible:outline-offset-0"
         />
       </div>
       {/* Names the server has actually seen, filtered by what is being typed: the exact spelling a source
@@ -924,12 +924,12 @@ function ScanlatorsBlock({ data, save }: { data: any; save: Save }) {
           hint={tr('Tried in this order. A series with its own ranking ignores this list.')} />
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <label className="text-xs font-semibold uppercase tracking-wider text-fog-500" htmlFor="scanlator-patience">{tr('Patience (days)')}</label>
-          <input id="scanlator-patience" type="number" min={0} max={30} step={1} inputMode="numeric" placeholder="2"
+          <input id="scanlator-patience" type="number" min={0} max={30} step={1} inputMode="numeric" placeholder="2" aria-describedby="scanlator-patience-help"
             value={cur.patienceDays ?? ''}
             onChange={(e) => set({ patienceDays: e.target.value === '' ? null : Math.max(0, Math.min(30, Math.floor(Number(e.target.value)))) })}
             className="field w-24" />
         </div>
-        <p className="mt-1 max-w-prose text-[11px] text-fog-500">
+        <p id="scanlator-patience-help" className="mt-1 max-w-prose text-[11px] text-fog-500">
           {tr('How long a new chapter waits for a ranked group before the best available copy is fetched instead. 0 takes the best copy at once; blank means 2.')}
         </p>
         <div className="mt-3 flex items-center justify-end gap-3">

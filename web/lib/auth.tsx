@@ -8,6 +8,7 @@ import { applyReduceEffects, restoreReduceEffects } from './effects';
 import { adoptAccountPrefs, clearAccountPrefs, localOnlyPrefs } from './accountPrefs';
 import { isDesktop, serverReachableHint, untilReachable } from './desktop';
 import { t as tr } from './i18n';
+import { readableAccent } from './theme';
 
 export interface Avatar { emoji?: string; color?: string }
 interface User {
@@ -71,14 +72,8 @@ export function canDownload(user: { role?: string; perms?: Record<string, boolea
 }
 
 function applyAccent(settings?: Record<string, any>) {
-  const hex: string | undefined = settings?.accent;
-  if (hex && /^#?[0-9a-fA-F]{6}$/.test(hex)) {
-    const h = hex.replace('#', '');
-    const r = parseInt(h.slice(0, 2), 16);
-    const g = parseInt(h.slice(2, 4), 16);
-    const b = parseInt(h.slice(4, 6), 16);
-    document.documentElement.style.setProperty('--accent', `${r} ${g} ${b}`);
-  }
+  const t = readableAccent(settings?.accent);
+  if (t) document.documentElement.style.setProperty('--accent', t);
 }
 
 /**

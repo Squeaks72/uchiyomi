@@ -96,12 +96,12 @@ export function ConsoleNav<T extends string>({
 
         {/* ---- phone: the group is a sheet, its panels stay a pill row ---- */}
         <div className="min-w-0 flex-1">
-          <div className="mb-4 flex items-center gap-2 lg:hidden">
+          <nav className="mb-4 flex items-center gap-2 lg:hidden" aria-label={ariaLabel}>
             {!flat && (
               <button onClick={() => setSheet(true)}
                 className="chip shrink-0 gap-1 text-xs" aria-haspopup="dialog">
                 {tr(group.label)}
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+                <svg aria-hidden width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
               </button>
             )}
             <div className="-me-4 flex gap-1.5 overflow-x-auto pe-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -118,7 +118,7 @@ export function ConsoleNav<T extends string>({
                 <Link key={l.href} href={l.href} className="shrink-0 rounded-full bg-ink-800 px-3.5 py-1.5 text-sm font-medium text-fog-300 transition">{tr(l.label)}</Link>
               ))}
             </div>
-          </div>
+          </nav>
           {/* A flat nav has no group sheet, so on a phone the footer would have nowhere to live. */}
           {footer && flat && <div className="mb-4 flex flex-wrap gap-2 lg:hidden">{footer}</div>}
 
@@ -178,7 +178,7 @@ function GroupSheet<T extends string>({ groups, ariaLabel, current, footer, onPi
         role="dialog" aria-modal="true" aria-label={ariaLabel} data-lenis-prevent onClick={(e) => e.stopPropagation()}>
         <div className="mb-4 flex items-start justify-between gap-3">
           <h3 className="font-display text-lg font-semibold leading-tight">{ariaLabel}</h3>
-          <button onClick={onClose} aria-label={tr('Close')} className="shrink-0 text-fog-500 hover:text-fog-200">✕</button>
+          <button onClick={onClose} aria-label={tr('Close')} className="-m-1.5 shrink-0 p-1.5 text-fog-500 hover:text-fog-200"><span aria-hidden>✕</span></button>
         </div>
         <div className="space-y-4">
           {groups.map((g) => (
@@ -187,6 +187,7 @@ function GroupSheet<T extends string>({ groups, ariaLabel, current, footer, onPi
               <div className="flex flex-wrap gap-1.5">
                 {g.tabs.map((t) => (
                   <button key={t} onClick={() => onPick(t)}
+                    aria-current={current === t ? 'page' : undefined}
                     className={`chip text-xs ${current === t ? 'chip-active' : ''}`}>{tr(t)}</button>
                 ))}
                 {g.links?.map((l) => (

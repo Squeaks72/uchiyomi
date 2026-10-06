@@ -89,7 +89,7 @@ test('a chapter row says how many pages are missing, as an amber chip before the
   assert.match(cap, /missing === 1 \? tr\('1 page missing'\) : tr\('\{n\} pages missing', \{ n: missing \}\)/, 'the chip text or its singular is gone');
   assert.match(cap, /if \(!parts\.length && !pruned && !short\) return null;/, 'a caption that is only the chip is not drawn');
   assert.match(cap, /\.\.\.\(short \? \[short\] : \[\]\), \.\.\.plain\]\.join\(' · '\)/, 'the chip text is not in the hover title');
-  assert.match(cap, /\{short && <span className="me-1 rounded-full border border-amber-500\/40 bg-amber-500\/10 px-1\.5 text-\[10px\] leading-4 text-amber-300">\{short\}<\/span>\}\s*\{parts\.map/, 'the chip is not an amber chip before the caption parts');
+  assert.match(cap, /\{short && <span className="me-1 rounded-full border border-amber-500\/40 bg-amber-500\/10 px-1\.5 text-\[11px\] leading-4 text-amber-300">\{short\}<\/span>\}\s*\{parts\.map/, 'the chip is not an amber chip before the caption parts');
   assert.doesNotMatch(cap, /<button/, 'RowCaption renders a button inside the row opener');
   // And ChapterRow feeds it from the DTO.
   const row = between(page, 'function ChapterRow(', 'function GhostRow(', 'ChapterRow');
