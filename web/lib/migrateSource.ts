@@ -24,3 +24,15 @@ export function migrateTerms(title: string, alts: readonly string[], max = 6): s
 export function attachButtons(mainId: string | null): { follower: boolean; main: boolean } {
   return mainId ? { follower: true, main: true } : { follower: false, main: true };
 }
+
+/**
+ * The `sources=` value for a search over the picked sources, or null when the pick is every source (or nothing was
+ * picked yet), which searches everything and keeps the URL short.
+ */
+export function sourcesParam(selected: readonly string[] | null, allIds: readonly string[]): string | null {
+  if (!selected) return null;
+  const known = new Set(allIds);
+  const picked = selected.filter((id) => known.has(id));
+  if (picked.length === 0 || picked.length === known.size) return null;
+  return picked.join(',');
+}

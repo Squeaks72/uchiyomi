@@ -17,7 +17,8 @@ import { msgOf } from '@/components/ConfirmDialog';
 import { IcCheck, IcSearch, IcX } from '@/components/icons';
 import { t as tr } from '@/lib/i18n';
 import { bookCountText } from '@/lib/format';
-import { attachButtons, migrateTerms } from '@/lib/migrateSource';
+import { attachButtons, migrateTerms, sourcesParam } from '@/lib/migrateSource';
+import type { Src } from '@/lib/sourceGroups';
 import type { AltTitle } from '@/lib/findSources';
 
 interface SourceResult { sourceId: string; title: string; coverUrl?: string }
@@ -50,6 +51,9 @@ export function MigrateSourceSheet({ id, title, attached, mainId, listed, onDone
   const [keepOld, setKeepOld] = useState(false);
   const [busy, setBusy] = useState(false);
   const [refusal, setRefusal] = useState<string | null>(null);
+  const [choosing, setChoosing] = useState(false);
+  /** The ids to search; null means every source. */
+  const [selected, setSelected] = useState<string[] | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   useEffect(() => { inputRef.current?.focus(); inputRef.current?.select(); }, []);
 
@@ -60,9 +64,24 @@ export function MigrateSourceSheet({ id, title, attached, mainId, listed, onDone
   });
   const terms = migrateTerms(title, (alts.data?.titles ?? []).map((a) => a.title));
 
+  const srcs = useQuery({
+    queryKey: ['sources'],
+    queryFn: () => api<{ content: Src[] }>('/api/sources'),
+    staleTime: 60_000,
+  });
+  const allSources = srcs.data?.content ?? [];
+  const allIds = allSources.map((s) => s.id);
+  const pickedIds = selected ?? allIds;
+  const only = sourcesParam(selected, allIds);
+  const toggleSource = (sid: string) => {
+    const cur = new Set(pickedIds);
+    if (cur.has(sid)) cur.delete(sid); else cur.add(sid);
+    setSelected(allIds.filter((x) => cur.has(x)));
+  };
+
   const { data, isFetching, error } = useQuery({
-    queryKey: ['migrate-search', debounced],
-    queryFn: () => api<{ content: SourceGroup[] }>(`/api/sources/search-all?groupBy=source&q=${encodeURIComponent(debounced)}`),
+    queryKey: ['migrate-search', debounced, only],
+    queryFn: () => api<{ content: SourceGroup[] }>(`/api/sources/search-all?groupBy=source&q=${encodeURIComponent(debounced)}${only ? `&sources=${encodeURIComponent(only)}` : ''}`),
     enabled: debounced.length >= 2,
     staleTime: 30_000,
   });
@@ -146,6 +165,37 @@ export function MigrateSourceSheet({ id, title, attached, mainId, listed, onDone
           </div>
         )}
       </div>
+
+      {allSources.length > 1 && (
+        <div className="mb-3" data-migrate-sources>
+          <button type="button" onClick={() => setChoosing((v) => !v)} aria-expanded={choosing}
+            className="flex w-full items-center justify-between rounded-xl border border-ink-700 bg-ink-900/40 px-3 py-2 text-start text-xs text-fog-300">
+            <span>{selected ? tr('Searching {n} of {total} sources', { n: pickedIds.length, total: allIds.length }) : tr('Searching all {total} sources', { total: allIds.length })}</span>
+            <span className="text-accent">{choosing ? tr('Done') : tr('Choose')}</span>
+          </button>
+          {choosing && (
+            <div className="mt-2 rounded-xl border border-ink-700 bg-ink-900/40 p-2">
+              <div className="mb-1 flex gap-3 px-1 text-[11px]">
+                <button type="button" onClick={() => setSelected(null)} className="text-accent" data-migrate-sources-all>{tr('Select all')}</button>
+                <button type="button" onClick={() => setSelected([])} className="text-accent" data-migrate-sources-none>{tr('Select none')}</button>
+              </div>
+              <div className="max-h-56 overflow-y-auto">
+                {allSources.map((s) => (
+                  <label key={s.id} className="flex items-center gap-2 rounded-lg px-1 py-1.5 text-xs text-fog-200">
+                    <input type="checkbox" checked={pickedIds.includes(s.id)} onChange={() => toggleSource(s.id)} className="accent-[rgb(var(--accent))]" />
+                    <SourceIcon id={s.id} name={s.name} size={16} />
+                    <span className="truncate">{s.name}{s.lang ? ` (${s.lang.toUpperCase()})` : ''}</span>
+                    {attached.includes(s.id) && <span className="chip px-1.5 py-0 text-[9px]">{s.id === mainId ? tr('main') : tr('attached')}</span>}
+                  </label>
+                ))}
+              </div>
+              {selected && selected.length === 0 && (
+                <p className="px-1 pt-1 text-[11px] text-amber-300">{tr('Pick at least one source to search them; searching all for now.')}</p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {debounced.length < 2 ? (
         <p className="py-10 text-center text-sm text-fog-500">{tr('Type at least 2 characters to search.')}</p>
