@@ -554,7 +554,9 @@ answer for 18+: `safe` (Discover's *Hide 18+*) leaves out every result known to 
 those, and `all` (the default; anything else reads as it) keeps everything. A result is 18+ when its source is (an
 extension that declares itself adult -- except under `safe`, see below -- or one on the source list of Admin → Settings → Content ratings), when MangaDex rates
 the title erotica or pornographic, or when one of its genres is on the 18+ filter's genre list (trimmed and case-blind,
-as the library compares them). It is not 18+ when MangaDex rates it safe or suggestive, or when it names genres, the
+as the library compares them). Built in as well (lib/adultSignals.ts), unless the admin rated the source below 18: a source whose own
+name says it is adult (Hentai, Porn, Doujin, 18, Adult, Lust ...), a set of explicit genres (Blowjob, Creampie, Anal ...) and an explicit word in the
+title. Such a source also drops out of the fan-out while *Show 18+* is off. It is not 18+ when MangaDex rates it safe or suggestive, or when it names genres, the
 genre list has some, and none of them match; otherwise it is unknown — kept under `all` and `safe`, left out of
 `adult`. A card is 18+ when any of its providers is — except that, since v0.55.5, a provider that is 18+ only because
 its extension declares itself adult counts only when every provider of the card is such a one (the flag covers a whole

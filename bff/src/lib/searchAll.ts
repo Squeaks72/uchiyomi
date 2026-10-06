@@ -22,6 +22,7 @@ import { SOLVER_CONCURRENCY } from './sources/flaresolverr';
 import { scanOrder } from './scanOrder';
 import { classify, noteStage, reportFail, reportSlow, reportTimely, type SourceHealth } from './sourceHealth';
 import { canonLang } from './lang';
+import { adultSourceName, explicitGenre, explicitTitle } from './adultSignals';
 
 /** An env knob: a finite number at or above `min`, else the default. An empty string is unset. */
 const knob = (name: string, def: number, min = 0): number => {
@@ -368,15 +369,18 @@ export interface AdultLists { genres: readonly string[]; sources: readonly strin
  * (and the admin's source list) answer. A title nothing speaks for is then unknown, and shown.
  */
 export function ratingOf(
-  item: Pick<SourceSeries, 'genres' | 'contentRating'>, src: { id?: string; isNsfw?: boolean } | null | undefined, lists: AdultLists,
+  item: Pick<SourceSeries, 'genres' | 'contentRating'> & { title?: string }, src: { id?: string; name?: string; isNsfw?: boolean } | null | undefined, lists: AdultLists,
   trustFlag = true,
 ): Judged | undefined {
   if (src?.id && lists.sources.includes(String(src.id).toLowerCase())) return 'adult';
+  // A source whose name says it is adult (lib/adultSignals.ts), unless the admin rated it below 18.
+  if (adultSourceName(src?.name) && !(src?.id && lists.cleared?.includes(String(src.id).toLowerCase()))) return 'adult';
   if (item.contentRating === 'erotica' || item.contentRating === 'pornographic') return 'adult';
   const fold = (g: string) => g.trim().toLowerCase();
   const adult = new Set(lists.genres.map(fold).filter(Boolean));
   const genres = (Array.isArray(item.genres) ? item.genres : []).filter((g): g is string => typeof g === 'string').map(fold).filter(Boolean);
-  if (genres.some((g) => adult.has(g))) return 'adult';
+  if (genres.some((g) => adult.has(g) || explicitGenre(g))) return 'adult';
+  if (explicitTitle(item.title)) return 'adult';
   if (trustFlag && src?.isNsfw && !(src.id && lists.cleared?.includes(String(src.id).toLowerCase()))) return 'flagged';
   if (item.contentRating === 'safe' || item.contentRating === 'suggestive') return 'safe';
   if (genres.length && adult.size) return 'safe';
