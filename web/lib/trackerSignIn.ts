@@ -18,20 +18,22 @@ const random = (bytes: number) => {
 
 export function readPending(): Pending | null {
   try {
-    const p = JSON.parse(sessionStorage.getItem(KEY) || 'null') as Pending | null;
+    const p = JSON.parse(localStorage.getItem(KEY) || 'null') as Pending | null;
     return p && Date.now() - p.at < FRESH_MS ? p : null;
   } catch { return null; }
 }
-export const clearPending = () => { try { sessionStorage.removeItem(KEY); } catch { /* storage off: nothing to clear */ } };
+export const clearPending = () => { try { localStorage.removeItem(KEY); } catch { /* storage off: nothing to clear */ } };
 
 /**
- * Leave for the service's login page. `state` and the PKCE `verifier` stay in this tab's sessionStorage, so
- * only the tab that started the sign-in can finish it. AniList's implicit flow has no PKCE; MyAnimeList's
- * only supports `plain`, so its challenge IS the verifier.
+ * Leave for the service's login page. `state` and the PKCE `verifier` stay in this browser's localStorage (not
+ * sessionStorage: a browser may start a tab's session storage afresh after a detour through another site's login
+ * page, and AniList's has sent people back to "this sign-in was not started here"). MyAnimeList's `state` is still
+ * checked on return; AniList's implicit flow has none, so there a recent, unfinished sign-in is the whole guard.
+ * AniList's implicit flow has no PKCE; MyAnimeList's only supports `plain`, so its challenge IS the verifier.
  */
 export function startSignIn(t: { provider: string; authorizeUrl?: string; clientId?: string }, origin: string) {
   const p: Pending = { provider: t.provider, state: random(24), verifier: random(48), redirectUri: callbackUrl(origin), at: Date.now() };
-  sessionStorage.setItem(KEY, JSON.stringify(p));
+  localStorage.setItem(KEY, JSON.stringify(p));
   const u = new URL(t.authorizeUrl!);
   u.searchParams.set('client_id', t.clientId!);
   if (t.provider === 'myanimelist') {

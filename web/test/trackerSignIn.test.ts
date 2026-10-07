@@ -11,7 +11,7 @@ const read = (p: string) => readFileSync(new URL(`../${p}`, import.meta.url), 'u
 function browser() {
   const store = new Map<string, string>();
   let went = '';
-  (globalThis as any).sessionStorage = { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => void store.set(k, v), removeItem: (k: string) => void store.delete(k) };
+  (globalThis as any).localStorage = { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => void store.set(k, v), removeItem: (k: string) => void store.delete(k) };
   (globalThis as any).window = { location: { assign: (u: string) => { went = u; } } };
   return () => went;
 }
@@ -48,7 +48,7 @@ test('MyAnimeList: code flow with a plain PKCE challenge equal to the verifier k
 
 test('a sign-in left unfinished for a long time is not one we are coming back from', () => {
   browser();
-  (globalThis as any).sessionStorage.setItem('uchiyomi.trackerSignIn', JSON.stringify({ provider: 'anilist', state: 's', verifier: 'v', redirectUri: 'r', at: Date.now() - 31 * 60 * 1000 }));
+  (globalThis as any).localStorage.setItem('uchiyomi.trackerSignIn', JSON.stringify({ provider: 'anilist', state: 's', verifier: 'v', redirectUri: 'r', at: Date.now() - 31 * 60 * 1000 }));
   assert.equal(readPending(), null);
 });
 
