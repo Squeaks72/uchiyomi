@@ -58,3 +58,9 @@ test('the search box does not steal focus when a sheet opens', () => {
   assert.match(src('components/SourceTools.tsx'), /data-no-autofocus/);
   assert.match(src('components/ui.tsx'), /input:not\(\[data-no-autofocus\]\)/);
 });
+
+test('admins get a link from the source sheet to the Source order setting', () => {
+  const s = src('components/SourceListSheet.tsx');
+  assert.match(s, /isAdmin &&/);
+  assert.match(s, /\/admin\/\?tab=Settings&section=source-order/);
+});
