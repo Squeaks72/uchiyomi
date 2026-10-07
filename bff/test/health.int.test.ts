@@ -333,9 +333,10 @@ test('the engine being off is the reason, not the source limit', { skip: DSN ? f
     // v0.55.0: the limit is a slot to free, not a source to replace -- the source works. Reintroduce by offering Replace
     // there (keysFor -> sourceKeys): the over-limit row reads replace_source.
     const slot = await actions('up', 'Engine Fixture');
-    assert.deepEqual(slot.actions, ['free_slot', 'ignore'], 'the over-limit row offers a slot to free, never Replace');
+    assert.deepEqual(slot.actions, ['free_slot', 'find_sources', 'ignore'], 'the over-limit row offers a slot to free, never Replace');
     assert.equal(slot.sourceId, 'sw:health-engine', 'naming the source Admin → Sources opens on');
-    assert.deepEqual((await actions('off', 'Engine Fixture')).actions, ['ignore'], 'with the engine away there is no slot to free either: the engine is the fix');
+    assert.deepEqual((await actions('off', 'Engine Fixture')).actions, ['find_sources', 'ignore'], 'with the engine away there is no slot to free either: the engine is the fix');
+    assert.equal((await actions('off', 'Engine Fixture')).findScope, 'series', 'and the one key searches for this series alone');
     assert.deepEqual((await actions('up', 'Gone Fixture')).actions, ['replace_source', 'find_sources', 'ignore'], 'a source that is gone still offers Replace');
     // A source that is not an extension's is not the engine's to explain.
     for (const engine of ['off', 'switched_off', 'unreachable', 'up'] as const) {

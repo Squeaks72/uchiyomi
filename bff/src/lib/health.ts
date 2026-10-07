@@ -123,6 +123,11 @@ export interface HealthItem {
    */
   findSeries?: number;
   /**
+   * v0.56.0, beside a `find_sources` action on a "Series that can no longer update" row: the run is over THIS row's
+   * series alone (POST /api/admin/sources/find {seriesIds: [seriesId]}), not every series of `sourceId`.
+   */
+  findScope?: 'series';
+  /**
    * Of `seriesIds`, the one the merge should keep (lib/libraryAdmin.ts keepOrder, v0.57.0): one in a work, then the one
    * whose main source still works, then more live chapters, more readers, the older.
    */
@@ -1059,6 +1064,8 @@ export async function frozenSeries(
   // Reintroduce `source: r.source_id`: "a switched-off source is said to be switched off" and "the engine is the
   // reason" in health.int.test.ts read the id.
   const named = (r: typeof rows[number]): string => (r.source_id ? sourceLabel(r.source_id, r.engine_name) : '');
+  const withFind = (k: { sourceId?: string; actions?: HealthAction[]; findSeries?: number }) =>
+    ({ ...k, actions: [...(k.actions ?? []), 'find_sources' as const] as HealthAction[] });
   const found: HealthItem[] = frozen.map((r) => {
     const p = { n: r.books_count, source: named(r) };
     return {
@@ -1070,7 +1077,12 @@ export async function frozenSeries(
         : engineWhy(r)
           ? say(engine === 'unreachable' ? 'frozen.engineDown' : 'frozen.engineOff', p)
           : why(r, p)]),
-      ...keysFor(r, ['replace_source', 'find_sources']),
+      // v0.56.0: every frozen series can be searched for another source, whatever the reason -- including one with no
+      // source at all -- and the run is over THIS series (`findScope: 'series'`), not every series of its source.
+      // Reintroduce the source-wide key by dropping `findScope`: "the find key of a frozen row is for that series
+      // alone" in findSources.int.test.ts finds the web starting a run over the whole source.
+      ...withFind(keysFor(r, ['replace_source'])),
+      findScope: 'series' as const,
     };
   });
   const ignored = applyIgnores('frozen-series', found, ctx, !readFailed);
