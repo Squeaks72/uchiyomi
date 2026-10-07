@@ -17,6 +17,8 @@ import { msgOf } from '@/components/ConfirmDialog';
 import { IcCheck, IcSearch, IcX } from '@/components/icons';
 import { t as tr } from '@/lib/i18n';
 import { bookCountText } from '@/lib/format';
+import { NoSourceMatch, SourceTools, useSourceTools } from '@/components/SourceTools';
+import { arrangeSources, SOURCE_TOOLS_MIN } from '@/lib/sourceList';
 import { attachButtons, migrateTerms, sourcesParam } from '@/lib/migrateSource';
 import type { Src } from '@/lib/sourceGroups';
 import type { AltTitle } from '@/lib/findSources';
@@ -75,6 +77,8 @@ export function MigrateSourceSheet({ id, title, attached, mainId, listed, onDone
     [srcs.data],
   );
   const allIds = allSources.map((s) => s.id);
+  const tools = useSourceTools();
+  const choices = useMemo(() => arrangeSources(allSources, tools.query, tools.sort === 'za' ? 'za' : 'default'), [allSources, tools.query, tools.sort]);
   const pickedIds = selected ?? allIds;
   const only = sourcesParam(selected, allIds);
   const toggleSource = (sid: string) => {
@@ -183,8 +187,13 @@ export function MigrateSourceSheet({ id, title, attached, mainId, listed, onDone
                 <button type="button" onClick={() => setSelected(null)} className="text-accent" data-migrate-sources-all>{tr('Select all')}</button>
                 <button type="button" onClick={() => setSelected([])} className="text-accent" data-migrate-sources-none>{tr('Select none')}</button>
               </div>
+              {allSources.length >= SOURCE_TOOLS_MIN && (
+                <SourceTools className="mb-2 px-1" query={tools.query} onQuery={tools.setQuery} sort={tools.sort} onSort={tools.setSort}
+                  defaultLabel={tr('A–Z')} sorts={['default', 'za']} shown={choices.length} total={allSources.length} />
+              )}
               <div className="max-h-56 overflow-y-auto" data-lenis-prevent>
-                {allSources.map((s) => (
+                {choices.length === 0 && <NoSourceMatch query={tools.query} />}
+                {choices.map((s) => (
                   <label key={s.id} className="flex items-center gap-2 rounded-lg px-1 py-1.5 text-xs text-fog-200">
                     <input type="checkbox" checked={pickedIds.includes(s.id)} onChange={() => toggleSource(s.id)} className="accent-[rgb(var(--accent))]" />
                     <SourceIcon id={s.id} name={s.name} size={16} />

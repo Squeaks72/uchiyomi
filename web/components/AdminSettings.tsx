@@ -24,6 +24,8 @@
 // ("Thank you — counted" / "No longer counted", because opting out destroys the identifier) and the
 // read-chapter cleanup ("Read chapters will be deleted" / "Read chapters are kept", because it deletes
 // files). Every other row's outcome is its own state plus the tick.
+import { NoSourceMatch, SourceTools, useSourceTools } from '@/components/SourceTools';
+import { arrangeSources, SOURCE_TOOLS_MIN } from '@/lib/sourceList';
 import { useEffect, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -405,6 +407,8 @@ function SourceOrderBlock({ data, save }: { data: any; save: Save }) {
   const all = srcList?.content ?? [];
   const rows = orderRows(order, all);
   const rest = addable(order, all);
+  const tools = useSourceTools();
+  const choices = arrangeSources(rest, tools.query, tools.sort);
   // A failed save puts the list back and says so, rather than leaving an order on screen that is not stored.
   const commit = (next: string[]) => {
     const was = order;
@@ -441,8 +445,13 @@ function SourceOrderBlock({ data, save }: { data: any; save: Save }) {
       {rest.length > 0 && (
         <div className="mt-3">
           <p className="mb-1.5 text-[11px] text-fog-500">{tr('Add a source to the order')}</p>
+          {rest.length >= SOURCE_TOOLS_MIN && (
+            <SourceTools className="mb-2" query={tools.query} onQuery={tools.setQuery} sort={tools.sort} onSort={tools.setSort}
+              defaultLabel={tr('Install order')} shown={choices.length} total={rest.length} />
+          )}
+          {choices.length === 0 && <NoSourceMatch query={tools.query} />}
           <div className="flex flex-wrap gap-1.5">
-            {rest.map((x) => (
+            {choices.map((x) => (
               <button key={x.id} type="button" onClick={() => commit([...order, x.id])} className="chip text-xs">{x.name}</button>
             ))}
           </div>
