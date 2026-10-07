@@ -15,6 +15,7 @@
 // again while the page is open (lib/useLiveWorks.ts); `applyWorks` lays the answers over the rows as they came.
 //
 // Split out of the page so it can be tested without a browser, like sourceGroups.ts.
+import { keys } from './i18n';
 import { normTitle } from './normTitle';
 import type { SrcState } from './sourceGroups';
 import type { SourceItem } from '../components/cards';
@@ -188,4 +189,40 @@ export function mergeGroups<G extends GroupLike>(groups: G[]): G[] {
     } as G;
   }
   return out;
+
+const WALL_SORT_LABELS = keys('Source order', 'A–Z', 'Z–A', 'Most sources', 'Not in library first');
+/**
+ * How the wall can be ordered. The first is how it arrives (the order sources answered, or the server's order for a
+ * search) and is the default. No "rating": no source lists a score, and a Discover card is not in the library yet, so
+ * there are no stars of yours to sort by.
+ */
+export const WALL_SORTS = [
+  { key: 'arrival', label: WALL_SORT_LABELS[0] },
+  { key: 'az', label: WALL_SORT_LABELS[1] },
+  { key: 'za', label: WALL_SORT_LABELS[2] },
+  { key: 'sources', label: WALL_SORT_LABELS[3] },
+  { key: 'new', label: WALL_SORT_LABELS[4] },
+] as const;
+export type WallSort = typeof WALL_SORTS[number]['key'];
+
+const byTitle = (a: WallItem, b: WallItem) => a.title.localeCompare(b.title, undefined, { sensitivity: 'base', numeric: true });
+
+/**
+ * `items` in `sort` order, as a new array. Stable: ties keep the arrival order, so equal cards never swap places.
+ *
+ * "Most sources" counts the card's providers, which since v0.56.0 live in the fold's `groups` rather than on the row
+ * (the `providerCount` the "3 sources" badge read is gone): pass the same record `foldByWork` returned beside these
+ * items, keyed by work. A card with no entry -- an older server's title the fold passed through -- is one source.
+ */
+export function sortWall(items: WallItem[], sort: WallSort, groups: Readonly<Record<string, WallProvider[]>> = {}): WallItem[] {
+  const keyed = items.map((it, i) => ({ it, i }));
+  const sources = (it: WallItem) => groups[workKey(it)]?.length ?? 1;
+  const cmp: Record<WallSort, (a: WallItem, b: WallItem) => number> = {
+    arrival: () => 0,
+    az: byTitle,
+    za: (a, b) => byTitle(b, a),
+    sources: (a, b) => sources(b) - sources(a),
+    new: (a, b) => Number(!!a.inLibrary) - Number(!!b.inLibrary),
+  };
+  return keyed.sort((a, b) => cmp[sort](a.it, b.it) || a.i - b.i).map((k) => k.it);
 }

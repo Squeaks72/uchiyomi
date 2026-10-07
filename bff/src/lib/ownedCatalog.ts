@@ -326,6 +326,7 @@ function condSql(cond: any, params: any[], hasUser = false): string {
 
 /** Exposed for tests: the translator is pure apart from the params it pushes. */
 export const _condSql = condSql;
+export const _sortSql = sortSql;
 
 /**
  * @param perUser whether the `mine`/`fav` joins are present in the FROM clause. The per-user sorts name
@@ -337,6 +338,12 @@ function sortSql(sort?: string, perUser = false): string {
   const [field, dir0] = String(sort).split(',');
   const dir = (dir0 || 'asc').toLowerCase() === 'desc' ? 'DESC' : 'ASC';
   if (/random/i.test(field)) return 'random()';
+  // The viewer's own stars (the `rate` CTE). Unrated series go last in either direction: "lowest rated" is
+  // the ones you scored low, not the ones you never scored.
+  if (/rating/i.test(field)) return perUser ? `rt.stars ${dir} NULLS LAST, title ASC` : `title ${dir}`;
+  // When the viewer last read in the series (`mine.last_at`); never-read series go last.
+  if (/lastread/i.test(field)) return perUser ? `m.last_at ${dir} NULLS LAST, title ASC` : `title ${dir}`;
+  if (/chapters|books/i.test(field)) return `books_count ${dir}, title ASC`;
   if (/title|name/i.test(field)) return `title ${dir}`;
   if (/created|added/i.test(field)) return `created_at ${dir}`;
   if (/updated|date|modified/i.test(field)) return `latest_mtime ${dir}`;
@@ -364,6 +371,8 @@ function sortSql(sort?: string, perUser = false): string {
  * userId is always $1 when present, because condSql pushes its own parameters as it walks the tree.
  * Built per query, not once: the notice fragment in it is a constant while nothing hides (lib/noticeChapters.ts).
  */
+const PER_USER_JOINS = 'LEFT JOIN mine m ON m.series_id = sv.id LEFT JOIN fav f ON f.series_id = sv.id LEFT JOIN rate rt ON rt.series_id = sv.id';
+
 const mineCte = () => `WITH mine AS (
   SELECT series_id,
          count(*) FILTER (WHERE completed)::int     AS done,
@@ -377,6 +386,8 @@ const mineCte = () => `WITH mine AS (
    GROUP BY series_id
 ), fav AS (
   SELECT series_id FROM favorites WHERE user_id = $1
+), rate AS (
+  SELECT series_id, stars FROM ratings WHERE user_id = $1
 )`;
 
 /**
@@ -384,7 +395,7 @@ const mineCte = () => `WITH mine AS (
  * filters and the gates, the one this viewer read most recently, else the oldest -- the original. The window runs
  * over the ALREADY filtered set, so a search that matches only the Spanish title shows the Spanish edition, and a
  * viewer who may browse one edition sees that one. `total` counts works, so the grid's paging agrees with its cards.
- * The outer query reads the per-user CTEs again by the chosen row's id: `sortSql` names `m` and `f`, and a filter
+ * The outer query reads the per-user CTEs again by the chosen row's id: `sortSql` names `m`, `f` and `rt`, and a filter
  * already applied inside is not applied twice.
  *
  * Reintroduce by returning the plain search: "the Library shows one card per work" in editions.int.test.ts finds
@@ -396,7 +407,7 @@ async function collapsedSearch(cte: string, from: string, where: string, p: Para
     clone(p).values as any[],
   ))?.c ?? 0;
   const mine = perUser ? 'm.last_at DESC NULLS LAST, ' : '';
-  const joins = perUser ? 'LEFT JOIN mine m ON m.series_id = sv.id LEFT JOIN fav f ON f.series_id = sv.id' : '';
+  const joins = perUser ? PER_USER_JOINS : '';
   const rows = await q(
     `${cte} SELECT ${SERIES_COLS} FROM (
        SELECT sv.*, row_number() OVER (PARTITION BY COALESCE(sv.work_id::text, sv.id) ORDER BY ${mine}sv.created_at, sv.id) AS edition_pick
@@ -625,13 +636,13 @@ export const owned = {
   searchSeries: async (ctx: ViewCtx, body: any, pg = 0, size = 40, sort?: string) => {
     const collapse = body?.collapseEditions === true;
     const wantsUser = !!ctx.userId
-      && (collapse || JSON.stringify(body?.condition ?? {}).includes('readStatus') || /unread|favou?rite/i.test(sort || ''));
+      && (collapse || JSON.stringify(body?.condition ?? {}).includes('readStatus') || /unread|favou?rite|rating|lastread/i.test(sort || ''));
     const p = new Params();
     const cte = wantsUser ? mineCte() : '';
     if (wantsUser) p.add(ctx.userId); // mineCte reads $1
     const src = browseSrc(ctx, p);
     const from = wantsUser
-      ? `${src} LEFT JOIN mine m ON m.series_id = sv.id LEFT JOIN fav f ON f.series_id = sv.id`
+      ? `${src} ${PER_USER_JOINS}`
       : src;
 
     let where = body?.condition ? condSql(body.condition, p.values as any[], wantsUser) : 'TRUE';

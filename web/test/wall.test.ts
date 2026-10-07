@@ -323,5 +323,33 @@ test('the page reads both views through the live answers, hides owned works on t
   assert.match(code, /const keys = fromKey\.current \? \[fromKey\.current\] :/, 'an add is not keyed by the card\'s work');
   assert.doesNotMatch(code, /\.add\(normTitle\(r\.title\)\)/, 'an add is not keyed by the card\'s work');
   assert.match(code, /onClose=\{\(\) => \{ fromKey\.current = null; setSeed\(null\); \}\}/, 'a closed dialog leaves its card for the next add from the hero');
-  assert.match(code, /item=\{\{ \.\.\.it, inLibrary: it\.inLibrary \|\| shownAdded\.has\(workKey\(it\)\) \}\}/, 'a search card added on this visit does not read In library');
+  assert.match(code, /item=\{addedItem\(it\)\}/, 'a search card added on this visit does not read In library');
+  assert.match(code, /const a = shownAddedInfo\.get\(workKey\(it\)\);/, 'a card added on this visit is not read by its work');
+
+import { sortWall, type WallProvider } from '../lib/wall';
+const w = (title: string, extra: Partial<WallItem> = {}): WallItem => ({ source: 's', sourceId: title, title, ...extra });
+/** The providers a card folded to, in the shape foldByWork returns beside its items: what "Most sources" counts. */
+const providersOf = (counts: Record<string, number>): Record<string, WallProvider[]> =>
+  Object.fromEntries(Object.entries(counts).map(([title, n]) => [
+    workKey({ title }),
+    Array.from({ length: n }, (_, i) => ({ source: `s${i}`, name: `S${i}`, sourceId: title, title })),
+  ]));
+
+test('sortWall: arrival keeps the order, A–Z and Z–A order by title', () => {
+  const items = [w('Bleach'), w('akira'), w('Claymore')];
+  assert.deepEqual(sortWall(items, 'arrival').map((i) => i.title), ['Bleach', 'akira', 'Claymore']);
+  assert.deepEqual(sortWall(items, 'az').map((i) => i.title), ['akira', 'Bleach', 'Claymore']);
+  assert.deepEqual(sortWall(items, 'za').map((i) => i.title), ['Claymore', 'Bleach', 'akira']);
+});
+
+test('sortWall: most sources first, not-in-library first, ties keep arrival order, input untouched', () => {
+  const items = [w('a', { inLibrary: true }), w('b'), w('c', { inLibrary: true }), w('d')];
+  const groups = providersOf({ a: 1, b: 3, c: 3 });
+  assert.deepEqual(sortWall(items, 'sources', groups).map((i) => i.title), ['b', 'c', 'a', 'd']);
+  assert.deepEqual(sortWall(items, 'new').map((i) => i.title), ['b', 'd', 'a', 'c']);
+  assert.deepEqual(items.map((i) => i.title), ['a', 'b', 'c', 'd']);
+});
+
+test('sortWall: numbers in a title sort as numbers', () => {
+  assert.deepEqual(sortWall([w('Vol 10'), w('Vol 2')], 'az').map((i) => i.title), ['Vol 2', 'Vol 10']);
 });

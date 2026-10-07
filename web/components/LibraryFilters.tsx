@@ -24,13 +24,19 @@ import { keys, t as tr } from '@/lib/i18n';
  * tap is a navigation, exactly as it was before, so the back button still walks your filters backwards.
  */
 
-const SORT_LABELS = keys('Updated', 'Newest', 'A–Z', 'Most unread');
+const SORT_LABELS = keys('Updated', 'Newest', 'A–Z', 'Most unread', 'Z–A', 'Highest rated', 'Recently read', 'Most chapters', 'Author');
 export const SORTS = [
   { key: 'updated', label: SORT_LABELS[0], sort: 'lastModified,desc' },
   { key: 'new', label: SORT_LABELS[1], sort: 'createdDate,desc' },
   { key: 'az', label: SORT_LABELS[2], sort: 'metadata.titleSort,asc' },
   // per-user unread is now expressible server-side, so the label can say what it does
   { key: 'unread', label: SORT_LABELS[3], sort: 'unread,desc' },
+  { key: 'za', label: SORT_LABELS[4], sort: 'metadata.titleSort,desc' },
+  // Your own stars, then the unrated; and when you last read in it, then the never-read
+  { key: 'rating', label: SORT_LABELS[5], sort: 'rating,desc' },
+  { key: 'read', label: SORT_LABELS[6], sort: 'lastRead,desc' },
+  { key: 'chapters', label: SORT_LABELS[7], sort: 'chapters,desc' },
+  { key: 'author', label: SORT_LABELS[8], sort: 'author,asc' },
 ];
 // ⚠️ NO "RANDOM" SORT, EVEN THOUGH THE SERVER HAS ONE. `sortSql()` maps it to `ORDER BY random()`
 // (ownedCatalog.ts), and the grid pages through `LIMIT/OFFSET` with `useInfiniteQuery` APPENDING each page.
