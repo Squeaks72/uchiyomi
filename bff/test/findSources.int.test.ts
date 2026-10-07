@@ -179,7 +179,7 @@ beforeEach(async () => {
   await q('DELETE FROM lib_series WHERE library_id = ANY($1)', [[LIB, ADULT_LIB]]);
   await q('DELETE FROM source_find_runs');
   await q(`DELETE FROM source_health WHERE source_id LIKE 'fs-%'`);
-  await q(`DELETE FROM audit_log WHERE event IN ('source.find', 'source.find.stop') OR (event = 'series.follow_source' AND detail->>'via' = 'find_sources')`);
+  await q(`DELETE FROM audit_log WHERE event IN ('source.find', 'source.find.stop') OR (event = 'series.follow_source' AND detail->>'via' IN ('find_sources', 'find_review'))`);
   (await import('../src/lib/downloadJobs')).clearRuns();
 });
 
@@ -1036,6 +1036,38 @@ test('review first moves nothing, proposes what it would promote, and promote do
   assert.deepEqual(await followersOf('a'), [], 'the replaced source dropped, nothing else followed');
   assert.equal((await promote(runId, { seriesId: S('a'), sourceId: 'fs-c' })).statusCode, 404, 'a source never proposed');
   assert.equal((await state(`?runId=${runId}`)).run.promoted, 2, 'the run counts what was promoted from it');
+});
+
+test("a Find review over one source's series can follow a match and make it main too, keeping the source that struggles", { skip }, async () => {
+  await series('a', 'Alpha Tale');
+  await series('c', 'Gamma Legend');
+  const r = await post({ sourceId: MAIN, review: true });
+  assert.equal(r.statusCode, 202, r.body);
+  const runId = r.json().runId;
+  await fsLib.findSettled();
+  assert.deepEqual([(await state()).run.mode ?? null, await mainOf('a')], [null, MAIN], 'a Find run follows nothing in review');
+
+  // Not yet followed: followed first, then made main, and the old main stays as a follower (Replace would drop it).
+  const one = await promote(runId, { seriesId: S('a'), sourceId: 'fs-a' });
+  assert.equal(one.statusCode, 200, one.body);
+  assert.deepEqual([one.json().result.promoted.via, one.json().result.promoted.old, await mainOf('a')], ['search', 'kept', 'fs-a']);
+  assert.deepEqual((await followersOf('a')).includes(MAIN), true, 'the struggling source is kept, never dropped');
+  assert.equal((await state(`?runId=${runId}`)).run.followed, 1);
+  assert.equal((await promote(runId, { seriesId: S('a'), sourceId: 'fs-a' })).json().error, 'decided', 'once');
+
+  // Followed first, made main after: no second follow, the run's count unchanged.
+  const f = await decide(runId, 'follow', S('c'), 'fs-b');
+  assert.equal(f.statusCode, 200, f.body);
+  assert.equal((await state(`?runId=${runId}`)).run.followed, 2);
+  // The follow's own listing check is still inside the series: a switch waits for it, as it does for any check.
+  let m = await promote(runId, { seriesId: S('c'), sourceId: 'fs-b' });
+  for (let i = 0; i < 50 && m.statusCode === 409 && m.json().error === 'busy'; i++) {
+    await new Promise((r) => setTimeout(r, 100));
+    m = await promote(runId, { seriesId: S('c'), sourceId: 'fs-b' });
+  }
+  assert.equal(m.statusCode, 200, m.body);
+  assert.deepEqual([await mainOf('c'), (await followersOf('c')).includes(MAIN)], ['fs-b', true]);
+  assert.equal((await state(`?runId=${runId}`)).run.followed, 2, 'a followed match made main is not counted twice');
 });
 
 test('turnOff turns the replaced source off only when no series is left on it, and drops its follows elsewhere', { skip }, async () => {

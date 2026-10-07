@@ -11502,7 +11502,9 @@ paths:
         Requires an admin account and a token carrying the admin scope. Scopes only ever restrict. Body {seriesId,
         sourceId}; what is promoted is the run's own record. A follower's proposal is switched to as POST
         /api/admin/series/{id}/main-source switches (the replaced source dropped); a search's is checked again as a
-        follow is, followed under the cap -- dead followers making room -- and then switched to. The proposal reads
+        follow is, followed under the cap -- dead followers making room -- and then switched to. In a review run over
+        one source's series that is not a Replace (Sources -> Add backups) the old main source is kept as a follower,
+        and a proposal already followed can be made main too. The proposal reads
         `promoted`, and the series' result carries `promoted` (and, for a search's, `followed` gains it). Audited as
         `series.main_source` with `via: review` (and the follow as `series.follow_source` with `via: replace_review`).
       parameters:

@@ -2393,7 +2393,9 @@ would promote is marked `promote: true`. `POST /api/admin/sources/find/:runId/pr
 one: a follower's is switched to; a search's is checked as a follow, followed under the cap and switched to. It answers
 `{result}` (the proposal `promoted`, the result's `promoted`), **404** `not_found`, or **409** `decided` (with `state`),
 `posting_order`, `source_unavailable`, `language_differs` (with `edition`), `full`, `moved`, `busy`,
-`renumber_pending`, `not_followed` or `is_main`, with `messageSaid` where it has one. Find and Replace share the one
+`renumber_pending`, `not_followed` or `is_main`, with `messageSaid` where it has one. In a review over one source's
+series that is not a Replace (`{sourceId, review: true}`, Sources -> Add backups) promote keeps the old main source as a
+follower, and also makes an already followed proposal main. Find and Replace share the one
 run at a time (**409** `busy`). `GET /api/admin/sources/:id/replace-preview` answers what a Replace run over the
 source would do, counted as the run decides it: `{main, withBackup, toSearch, postingOrder, busy}` -- the series
 whose main source it is, those a working follower takes over at once, those it would search for, those numbered by

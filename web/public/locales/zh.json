@@ -2,7 +2,7 @@
   "_meta": {
     "language": "zh",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 3895
+    "strings": 3903
   },
   "1 check found something": "1 项检查发现问题",
   "1 member": "1 位成员",
@@ -3900,5 +3900,13 @@
   "Recently read": "最近阅读",
   "Most chapters": "章节最多",
   "Most sources": "来源最多",
-  "Not in library first": "未入库的优先"
+  "Not in library first": "未入库的优先",
+  "Add backup sources": "添加备用来源",
+  "Add backups": "添加备用",
+  "Searches your other sources for each series that uses {name} as its main source, and follows what it finds as a backup.": "在你的其他来源中搜索以 {name} 为主要来源的每个系列，并将找到的作为备用来源关注。",
+  "{name} is not replaced or removed: if its trouble is only temporary, it carries on as before.": "{name} 不会被替换或移除：如果故障只是暂时的，它会照常继续工作。",
+  "Follow and make main": "关注并设为主要",
+  "Follow this source and make it the series’ main source; the current main source stays as a backup": "关注此来源并将其设为该系列的主要来源；当前的主要来源保留为备用",
+  "In the review, a match can also be made the main source; {name} stays as a backup.": "在审核中，也可以将匹配项设为主要来源；{name} 保留为备用。",
+  "Series that already follow a working source get another backup too.": "已关注可用来源的系列也会再获得一个备用来源。"
 }

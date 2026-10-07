@@ -1478,6 +1478,10 @@ sheet, or for every extension at once with **Languages**) and they fold away.
 
 - a source that is offline, failing or switched off and still the **main source** of some series, with how many,
   and how many of those already follow a working source: **Replace** ([below](#replace-a-source));
+  **Add backups** sits beside it: it never replaces anything or turns the source off, it only adds
+  redundancy. It runs *Find other sources* over every series that source is the main source of and, by default,
+  shows what it found before anything is followed: for each series **Follow**, **Follow and make main** (the failing
+  source stays on as a backup, so a temporary outage costs nothing) or **Skip**;
 - the failing sources nothing uses, by name, with **Turn off all**, which asks first;
 - an extension update, with **Update** (**Update all** for several).
 
@@ -1687,7 +1691,8 @@ version alone. In the desktop app it is the app's own version.
 ### Health
 
 **Content → Health** audits your library and tells you what is wrong before you run into it: series with missing
-chapters, chapters that downloaded as one or two images, the same title sitting in the library twice, chapter
+chapters, chapters that downloaded as one or two images (not a manhwa, manhua or webtoon whose pages are all very tall, which is
+just how a strip is cut), the same title sitting in the library twice, chapter
 numbers that can't be real, series waiting for a renumbering review, any source that is failing or blocked, and the
 extension engine. Each check says what it found and what it cannot see. Hit **Re-check** to run them again. Since
 v0.49.1 the page says the server's findings in your language, with dates and times in your own time zone.

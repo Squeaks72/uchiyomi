@@ -188,7 +188,7 @@ test('Needs attention shows only when something needs someone, a row each, Repla
   assert.deepEqual(replaceLine({ ...AQUA, offline: false, standing: 'failing', state: 'failing', main: 1, withBackup: 1 }), ['Failing', 'main source of 1 series', '1 already has a working backup']);
   const installed = [{ pkgName: 'pkg.asura', name: 'Asura Scans', hasUpdate: true, sources: [], on: 0, used: 47 }] as never;
   const html = renderToStaticMarkup(createElement(Attention, {
-    overview: OVERVIEW, evidence: new Map(), installed, actions: ACTIONS, onOpen: noop, onReplace: noop, onChanged: later,
+    overview: OVERVIEW, evidence: new Map(), installed, actions: ACTIONS, onOpen: noop, onReplace: noop, onBackup: noop, onChanged: later,
   }));
   assert.match(html, />Needs attention<span[^>]*>3<\/span>/);
   const replace = slice(html, 'data-sources-attention-row="replace"', '</li>');
@@ -196,6 +196,14 @@ test('Needs attention shows only when something needs someone, a row each, Repla
   assert.match(replace, /Site offline<\/span><span> · main source of 195 series<\/span><span> · 184 already have a working backup<\/span>/);
   assert.match(replace, /<button type="button" aria-label="Replace: Aqua Manga" class="btn-key btn-key-primary" data-sources-replace="aqua">Replace<\/button>/, 'Replace is not the row\'s filled key');
   assert.equal((html.match(/btn-key-primary/g) ?? []).length, 1, 'Needs attention has a filled key besides Replace');
+  // Add backups sits beside Replace, a plain key: it opens the dialog that follows other sources WITHOUT replacing anything.
+  assert.match(replace, /aria-label="Add backups: Aqua Manga" class="btn-key" data-sources-backup="aqua">Add backups<\/button>/, 'Add backups is not on the row');
+  const backup = code('components/FindSources.tsx');
+  const panelSrc = code('components/SourcesPanel.tsx');
+  assert.match(panelSrc, /fr\.start\(`backup:\$\{backing\.id\}`, \{ sourceId: backing\.id, \.\.\.\(review \? \{ review: true \} : \{\}\) \}\)/, 'Add backups starts something other than a plain Find run');
+  assert.doesNotMatch(panelSrc, /backup:[^\n]*mode: 'replace'/, 'Add backups must never replace or turn the source off');
+  assert.match(backup, /export function BackupStartDialog/);
+  assert.match(backup, /useState\(true\);\s*const \[busy/, 'Add backups opens on review first');
   assert.match(slice(html, 'data-sources-attention-row="failing-unused"', '</li>'), /1 source nothing uses is failing[\s\S]*data-source-bulk-off="true">Turn off</);
   assert.match(slice(html, 'data-sources-attention-row="updates"', '</li>'), /1 extension has an update[\s\S]*data-ext-update="true"[^>]*>Update</);
 });
@@ -329,25 +337,25 @@ test('the sheet\'s keys by state and kind: Replace only for a dead main source, 
   // fails; Remove for every kind: "a working built-in offers a key it has no use for" does; Test for a source its
   // extension switched off (it is not loaded, and its Test would only say so): "an unloaded source offers Test" does.
   const a = OVERVIEW.attention;
-  assert.deepEqual(sheetKeys(AQUA, a), ['replace', 'test', 'turn-on', 'remove']);
+  assert.deepEqual(sheetKeys(AQUA, a), ['replace', 'backup', 'test', 'turn-on', 'remove']);
   assert.deepEqual(sheetKeys(src('mangaread', { main: 125 }), a), ['test', 'turn-off'], 'a working built-in offers a key it has no use for (Replace, Remove)');
   assert.deepEqual(sheetKeys(src('x', { standing: 'failing', state: 'failing' }), a), ['test', 'turn-off'], 'a source nothing uses offers Replace');
-  assert.deepEqual(sheetKeys(src('x', { standing: 'failing', state: 'failing', main: 3 }), a), ['replace', 'test', 'turn-off']);
+  assert.deepEqual(sheetKeys(src('x', { standing: 'failing', state: 'failing', main: 3 }), a), ['replace', 'backup', 'test', 'turn-off']);
   assert.deepEqual(sheetKeys(src('n', { standing: 'cooling', state: 'blocked', main: 123 }), a), ['test', 'unblock', 'turn-off'], 'a cooldown offers Replace, or no Clear block');
   assert.deepEqual(sheetKeys(src('sw:3001', { kind: 'extension', standing: 'off', offBy: 'language', state: 'off' }), a), ['turn-on'], 'an unloaded source offers Test');
-  assert.deepEqual(sheetKeys(src('sw:9', { kind: 'extension', standing: 'not_loaded', state: 'ok', main: 2 }), a), ['replace'], 'an unloaded source offers Test');
+  assert.deepEqual(sheetKeys(src('sw:9', { kind: 'extension', standing: 'not_loaded', state: 'ok', main: 2 }), a), ['replace', 'backup'], 'an unloaded source offers Test');
   assert.deepEqual(sheetKeys(src('site', { kind: 'site' }), a), ['test', 'turn-off', 'remove']);
   assert.ok(!sheetKeys(src('b'), a).includes('remove'), 'a built-in offers Remove');
   // A source Needs attention replaces is replaced from its sheet too, whatever its standing says.
-  assert.deepEqual(sheetKeys(src('q', { main: 5 }), { replace: ['q'] }), ['replace', 'test', 'turn-off']);
+  assert.deepEqual(sheetKeys(src('q', { main: 5 }), { replace: ['q'] }), ['replace', 'backup', 'test', 'turn-off']);
   // Drawn: aqua's sheet leads with Replace, filled, says Offline and offers Remove in its footer; Turn off is not offered.
   const sheet = (target: { id: string }, s = OVERVIEW) => withQueries(createElement(SourceSheet, {
     target, overview: s, evidence: new Map(), testMs: 53_000, status: undefined, actions: ACTIONS, installed: [], hiddenLangs: [],
-    onClose: noop, onReplace: noop, onLanguages: noop, onChanged: noop,
+    onClose: noop, onReplace: noop, onBackup: noop, onLanguages: noop, onChanged: noop,
   }));
   const html = sheet({ id: 'aqua' });
   const keys = [...slice(html, 'data-source-keys', '</div>').matchAll(/data-source-key="([a-z-]+)"/g)].map((m) => m[1]);
-  assert.deepEqual(keys, ['replace', 'test', 'turn-on'], 'the sheet draws other keys than sheetKeys says');
+  assert.deepEqual(keys, ['replace', 'backup', 'test', 'turn-on'], 'the sheet draws other keys than sheetKeys says');
   assert.match(html, /class="btn-key btn-key-primary tabular-nums[^"]*"[^>]*>Replace</, 'Replace is not the filled key');
   assert.match(html, /data-source-key="remove"[^>]*>Remove</, 'a site has no Remove');
   assert.match(html, /data-source-status="off"/);
@@ -366,7 +374,7 @@ test('a source the engine\'s limit left out is not broken: no Replace on its she
   // Replace" fails; drop the line from the sheet: "the sheet does not say why it is not loaded" fails.
   const over = src('sw:2522', { name: 'Manga Ball (EN)', kind: 'extension', standing: 'not_loaded', state: 'ok', main: 12, overLimit: { limit: 25 } });
   assert.deepEqual(sheetKeys(over, OVERVIEW.attention), [], 'a source over the limit offers Replace');
-  assert.deepEqual(sheetKeys({ ...over, overLimit: null }, OVERVIEW.attention), ['replace'], 'not loaded for another reason, Replace stays');
+  assert.deepEqual(sheetKeys({ ...over, overLimit: null }, OVERVIEW.attention), ['replace', 'backup'], 'not loaded for another reason, Replace stays');
   assert.equal(limitLine(over, false), 'The engine’s limit of 25 sources is full. Turn off a source you don’t use, or raise SUWAYOMI_MAX_SOURCES.');
   assert.equal(limitLine({ overLimit: { limit: 1 } }, false), 'The engine’s limit of 1 source is full. Turn off a source you don’t use, or raise SUWAYOMI_MAX_SOURCES.');
   assert.equal(limitLine(over, true), 'The engine’s limit of 25 sources is full. Turn off a source you don’t use.',
@@ -376,7 +384,7 @@ test('a source the engine\'s limit left out is not broken: no Replace on its she
   // but the state's own mark.
   const html = withQueries(createElement(SourceSheet, {
     target: { id: over.id }, overview: { ...OVERVIEW, sources: [...OVERVIEW.sources, over] }, evidence: new Map(), testMs: 53_000,
-    status: undefined, actions: ACTIONS, installed: [], hiddenLangs: [], onClose: noop, onReplace: noop, onLanguages: noop, onChanged: noop,
+    status: undefined, actions: ACTIONS, installed: [], hiddenLangs: [], onClose: noop, onReplace: noop, onBackup: noop, onLanguages: noop, onChanged: noop,
   }));
   assert.deepEqual([...slice(html, 'data-source-keys', '</div>').matchAll(/data-source-key="([a-z-]+)"/g)].map((m) => m[1]), [], 'its sheet draws a key');
   assert.doesNotMatch(html, /btn-key-primary/, 'Replace is the filled key of a source over the limit');

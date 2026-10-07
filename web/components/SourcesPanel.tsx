@@ -57,7 +57,7 @@ import { MangadexLanguages, UnstatedLanguageRow } from '@/components/MangadexCar
 import { SourceSheet, type SheetTarget } from '@/components/SourceSheet';
 import { SourceTile } from '@/components/SourceTile';
 import { ReplaceDialog } from '@/components/ReplaceDialog';
-import { FindResultsSheet } from '@/components/FindSources';
+import { BackupStartDialog, FindResultsSheet } from '@/components/FindSources';
 import { IcChevronRight, IcInfo, IcRefresh } from '@/components/icons';
 
 /** The view, from `?view=` (or `card=mangadex`) once on arrival, and written back on a switch (lib/useTabParam.ts's rule). */
@@ -96,6 +96,7 @@ export function SourcesPanel() {
     return arrived ? { id: arrived } : null;
   });
   const [replacing, setReplacing] = useState<{ id: string; name: string } | null>(null);
+  const [backing, setBacking] = useState<{ id: string; name: string } | null>(null);
   const [aside, setAside] = useState<'langs' | 'repos' | 'results' | null>(null);
 
   const { data: status } = useQuery({ queryKey: ['ext-status'], queryFn: () => api<ExtStatus>('/api/admin/extensions/status') });
@@ -132,6 +133,16 @@ export function SourcesPanel() {
 
   const closeSheet = () => { setSheet(null); dropSettingsParam(); };
   const openReplace = (s: OverviewSource) => { setSheet(null); setReplacing({ id: s.id, name: s.name }); };
+  const openBackup = (s: OverviewSource) => { setSheet(null); setBacking({ id: s.id, name: s.name }); };
+  // Starts the run, then shows it in the results sheet, where a review's matches are decided. A refusal stays in the dialog.
+  const startBackup = async (review: boolean): Promise<string | null> => {
+    if (!backing || !fr) return null;
+    const slot = await fr.start(`backup:${backing.id}`, { sourceId: backing.id, ...(review ? { review: true } : {}) });
+    if (slot.phase === 'refused' || slot.phase === 'failed') return slot.reason ?? tr('Could not start the search');
+    setBacking(null);
+    setAside('results');
+    return null;
+  };
   // A settings link to a source the overview does not hold (an extension's source the engine lists but Uchiyomi does
   // not know yet): its settings alone, as before. A `source=` link to one (v0.55.0): no sheet -- the list is the place.
   const unknown = !!sheet && 'id' in sheet && !!overview && !overview.sources.some((s) => s.id === sheet.id);
@@ -148,7 +159,7 @@ export function SourcesPanel() {
 
       {overview && needsAttention(overview.attention) && (
         <Attention overview={overview} evidence={evidence} installed={installed} actions={actions}
-          onOpen={(id) => setSheet({ id })} onReplace={openReplace} onChanged={changed} />
+          onOpen={(id) => setSheet({ id })} onReplace={openReplace} onBackup={openBackup} onChanged={changed} />
       )}
 
       <section aria-label={tr('Sources')} className="space-y-4">
@@ -180,7 +191,7 @@ export function SourcesPanel() {
       {sheet && !lostSettings && !lostSource && (
         <OnBody>
           <SourceSheet target={sheet} overview={overview} evidence={evidence} testMs={adminRows?.testMs} status={status} actions={actions}
-            installed={installed} hiddenLangs={srcs?.hiddenLangs ?? []} onClose={closeSheet} onReplace={openReplace}
+            installed={installed} hiddenLangs={srcs?.hiddenLangs ?? []} onClose={closeSheet} onReplace={openReplace} onBackup={openBackup}
             onLanguages={() => { closeSheet(); setAside('langs'); }} onChanged={changed} />
         </OnBody>
       )}
@@ -193,6 +204,7 @@ export function SourcesPanel() {
             onClose={() => setReplacing(null)} onResults={() => { setReplacing(null); setAside('results'); }} />
         </OnBody>
       )}
+      {backing && <BackupStartDialog sourceId={backing.id} name={backing.name} onStart={startBackup} onClose={() => setBacking(null)} />}
       {aside === 'results' && <FindResultsSheet onClose={() => setAside(null)} poll={false} />}
       {aside === 'langs' && <OnBody><LanguagesSheet onClose={() => setAside(null)} /></OnBody>}
       {aside === 'repos' && <OnBody><ReposSheet repos={repos?.content ?? []} onClose={() => setAside(null)} /></OnBody>}
@@ -248,13 +260,14 @@ function Names({ names }: { names: string[] }) {
   return <>{names.map((n, i) => <span key={`${n}-${i}`}>{i > 0 && sep}<bdi>{n}</bdi></span>)}</>;
 }
 
-export function Attention({ overview, evidence, installed, actions, onOpen, onReplace, onChanged }: {
+export function Attention({ overview, evidence, installed, actions, onOpen, onReplace, onBackup, onChanged }: {
   overview: SourcesOverview;
   evidence: ReadonlyMap<string, SourceEvidenceRow>;
   installed: ReturnType<typeof installedList>;
   actions: ReturnType<typeof useExtensionActions>;
   onOpen: (id: string) => void;
   onReplace: (s: OverviewSource) => void;
+  onBackup: (s: OverviewSource) => void;
   onChanged: () => Promise<unknown>;
 }) {
   const a = overview.attention;
@@ -278,6 +291,7 @@ export function Attention({ overview, evidence, installed, actions, onOpen, onRe
               lead={<SourceTile id={s.id} name={s.name} icon={s.icon} tone="warn" size={40} />}
               title={<bdi dir="auto">{s.name}</bdi>} tag={kindLabel(s.kind)}
               line={<><span className="font-medium text-amber-300">{why}</span>{rest.map((r) => <span key={r}> · {r}</span>)}</>}>
+              <button type="button" onClick={() => onBackup(s)} aria-label={`${tr('Add backups')}: ${s.name}`} className="btn-key" data-sources-backup={s.id}>{tr('Add backups')}</button>
               <button type="button" onClick={() => onReplace(s)} aria-label={`${tr('Replace')}: ${s.name}`} className="btn-key btn-key-primary" data-sources-replace={s.id}>{tr('Replace')}</button>
             </AttentionRow>
           );

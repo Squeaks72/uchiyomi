@@ -78,7 +78,7 @@ function ageNote(s: AgeFacts): string {
   return tr('Accounts limited below {age}+ can’t use this source.', { age: String(now) });
 }
 
-export function SourceSheet({ target, overview, evidence, testMs, status, actions, installed, hiddenLangs, onClose, onReplace, onLanguages, onChanged }: {
+export function SourceSheet({ target, overview, evidence, testMs, status, actions, installed, hiddenLangs, onClose, onReplace, onBackup, onLanguages, onChanged }: {
   target: SheetTarget;
   overview: SourcesOverview | undefined;
   /** GET /api/admin/sources, by source id: the stored evidence behind Details. */
@@ -93,6 +93,8 @@ export function SourceSheet({ target, overview, evidence, testMs, status, action
   onClose: () => void;
   /** Replace this source: the panel closes this sheet and opens the Replace dialog. */
   onReplace: (s: OverviewSource) => void;
+  /** Add backup sources to its series, keeping it: the panel closes this sheet and opens that dialog. */
+  onBackup: (s: OverviewSource) => void;
   /** The languages hidden in every extension: the panel closes this sheet and opens that one. */
   onLanguages: () => void;
   /** After anything here changed: the lists and Health are asked again. */
@@ -239,6 +241,7 @@ export function SourceSheet({ target, overview, evidence, testMs, status, action
             {limit && <p className="mt-1.5 text-[12px] leading-relaxed text-fog-400" data-source-limit>{limit}</p>}
             <div className="mt-3 flex flex-wrap items-center gap-2" data-source-keys>
               {keys.includes('replace') && key('replace', tr('Replace'), () => onReplace(s), 'btn-key btn-key-primary')}
+              {keys.includes('backup') && key('backup', tr('Add backups'), () => onBackup(s), 'btn-key', { 'data-source-backup': s.id })}
               {keys.includes('test') && key('test', busy === 'test' ? testClock(now - testFrom, testMs) : tr('Test'), test, 'btn-key', { 'data-source-test': s.id })}
               {keys.includes('unblock') && key('unblock', tr('Clear block'), () => void unblock())}
               {keys.includes('turn-on') && key('turn-on', busy === 'turn-on' ? <Busy tone="muted">{tr('Turning on…')}</Busy> : tr('Turn on'), () => void turnOn(), 'btn-key btn-key-accent')}

@@ -2,7 +2,7 @@
   "_meta": {
     "language": "ru",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 3895
+    "strings": 3903
   },
   "1 check found something": "1 проверка нашла проблему",
   "1 member": "1 участник",
@@ -3900,5 +3900,13 @@
   "Recently read": "Недавно читали",
   "Most chapters": "Больше всего глав",
   "Most sources": "Больше всего источников",
-  "Not in library first": "Сначала не из библиотеки"
+  "Not in library first": "Сначала не из библиотеки",
+  "Add backup sources": "Добавить резервные источники",
+  "Add backups": "Добавить резерв",
+  "Searches your other sources for each series that uses {name} as its main source, and follows what it finds as a backup.": "Ищет в ваших других источниках каждую серию, основным источником которой является {name}, и подписывается на найденное как на резервный источник.",
+  "{name} is not replaced or removed: if its trouble is only temporary, it carries on as before.": "{name} не заменяется и не удаляется: если сбой временный, источник продолжит работать как раньше.",
+  "Follow and make main": "Подписаться и сделать основным",
+  "Follow this source and make it the series’ main source; the current main source stays as a backup": "Подписаться на этот источник и сделать его основным для серии; текущий основной останется резервным",
+  "In the review, a match can also be made the main source; {name} stays as a backup.": "При проверке совпадение можно также сделать основным источником; {name} останется резервным.",
+  "Series that already follow a working source get another backup too.": "Серии, которые уже следуют за рабочим источником, получат ещё один резервный."
 }
