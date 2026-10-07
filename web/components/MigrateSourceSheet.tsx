@@ -8,6 +8,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { withAdult } from '@/lib/adult';
 import { Sheet, Img } from '@/components/ui';
 import { ScrollRail } from '@/components/ScrollRail';
 import { SourceIcon } from '@/components/SourcePicker';
@@ -67,8 +68,10 @@ export function MigrateSourceSheet({ id, title, attached, mainId, listed, onDone
   const terms = migrateTerms(title, (alts.data?.titles ?? []).map((a) => a.title));
 
   const srcs = useQuery({
-    queryKey: ['sources'],
-    queryFn: () => api<{ content: Src[] }>('/api/sources'),
+    // Under a key of its own and asked with the reveal: this sheet is an admin's tool for one series, so the 18+ filter
+    // does not hide adult sources from it, and its list must not be the one Discover reads.
+    queryKey: ['sources', 'migrate'],
+    queryFn: () => api<{ content: Src[] }>(withAdult('/api/sources', true)),
     staleTime: 60_000,
   });
   // A to Z by name, so a source can be found by eye in a list of fifty; the server's order is install order.
@@ -89,13 +92,13 @@ export function MigrateSourceSheet({ id, title, attached, mainId, listed, onDone
 
   const { data, isFetching, error } = useQuery({
     queryKey: ['migrate-search', debounced, only],
-    queryFn: () => api<{ content: SourceGroup[] }>(`/api/sources/search-all?groupBy=source&q=${encodeURIComponent(debounced)}${only ? `&sources=${encodeURIComponent(only)}` : ''}`),
+    queryFn: () => api<{ content: SourceGroup[] }>(withAdult(`/api/sources/search-all?groupBy=source&q=${encodeURIComponent(debounced)}${only ? `&sources=${encodeURIComponent(only)}` : ''}`, true)),
     enabled: debounced.length >= 2,
     staleTime: 30_000,
   });
   const detail = useQuery({
     queryKey: ['migrate-detail', pick?.source, pick?.sourceId],
-    queryFn: () => api<Detail>(`/api/sources/detail?source=${encodeURIComponent(pick!.source)}&sourceId=${encodeURIComponent(pick!.sourceId)}`),
+    queryFn: () => api<Detail>(withAdult(`/api/sources/detail?source=${encodeURIComponent(pick!.source)}&sourceId=${encodeURIComponent(pick!.sourceId)}`, true)),
     enabled: !!pick,
     staleTime: 60_000,
   });

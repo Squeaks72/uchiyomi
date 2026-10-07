@@ -8,6 +8,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { withAdult } from '@/lib/adult';
 import { Sheet, Img } from '@/components/ui';
 import { ScrollRail } from '@/components/ScrollRail';
 import { SourceIcon } from '@/components/SourcePicker';
@@ -82,15 +83,15 @@ export function ImportMatchSheet({ batchId, candidate, onClose }: {
 
   const { data, isFetching, error } = useQuery({
     queryKey: ['import-search-source', debounced],
-    queryFn: () => api<{ content: SourceGroup[] }>(`/api/sources/search-all?groupBy=source&q=${encodeURIComponent(debounced)}`),
+    queryFn: () => api<{ content: SourceGroup[] }>(withAdult(`/api/sources/search-all?groupBy=source&q=${encodeURIComponent(debounced)}`, true)),
     enabled: debounced.length >= 2,
     staleTime: 30_000,
   });
 
   // Source display names for the preview cards -- the candidate row only carries the source id.
   const { data: sourcesData } = useQuery({
-    queryKey: ['sources'],
-    queryFn: () => api<{ content: Src[] }>('/api/sources'),
+    queryKey: ['sources', 'import'],
+    queryFn: () => api<{ content: Src[] }>(withAdult('/api/sources', true)),
     staleTime: 30_000,
   });
   const sourceName = (id: string | null | undefined): string => (id && sourcesData?.content.find((s) => s.id === id)?.name) || id || '';
@@ -100,13 +101,13 @@ export function ImportMatchSheet({ batchId, candidate, onClose }: {
   // so it is looked up the same way the add dialog looks it up: GET /api/sources/detail.
   const currentDetail = useQuery({
     queryKey: ['import-detail', candidate.match_source, candidate.match_source_id],
-    queryFn: () => api<Detail>(`/api/sources/detail?source=${encodeURIComponent(candidate.match_source!)}&sourceId=${encodeURIComponent(candidate.match_source_id!)}`),
+    queryFn: () => api<Detail>(withAdult(`/api/sources/detail?source=${encodeURIComponent(candidate.match_source!)}&sourceId=${encodeURIComponent(candidate.match_source_id!)}`, true)),
     enabled: !!candidate.match_source && !!candidate.match_source_id,
     staleTime: 60_000,
   });
   const pendingDetail = useQuery({
     queryKey: ['import-detail', pending?.source, pending?.sourceId],
-    queryFn: () => api<Detail>(`/api/sources/detail?source=${encodeURIComponent(pending!.source)}&sourceId=${encodeURIComponent(pending!.sourceId)}`),
+    queryFn: () => api<Detail>(withAdult(`/api/sources/detail?source=${encodeURIComponent(pending!.source)}&sourceId=${encodeURIComponent(pending!.sourceId)}`, true)),
     enabled: !!pending,
     staleTime: 60_000,
   });

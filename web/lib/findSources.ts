@@ -310,6 +310,18 @@ export function stepSeriesIds(results: readonly FindResult[] | null | undefined)
 }
 
 /**
+ * The series of a finished review-first search that still wait for a decision, for the Health row that started it: just
+ * the row's series for a series-scoped row, every series of the source for a source row. Empty while it runs, for a
+ * search that followed on its own, and for a Replace run (reviewed from its own dialog).
+ */
+export function reviewIdsFor(run: FindRun | null | undefined, item: { seriesId?: string; sourceId?: string; findScope?: 'series' }): string[] {
+  if (!run || !run.review || run.status === 'running' || isReplace(run)) return [];
+  const open = (run.results ?? []).filter((r) => r.proposals?.some((p) => !p.state));
+  if (item.findScope === 'series') return open.filter((r) => r.seriesId === item.seriesId).map((r) => r.seriesId);
+  return item.sourceId && run.sourceId === item.sourceId ? open.map((r) => r.seriesId) : [];
+}
+
+/**
  * Whether a series needs nothing more in a one-by-one review: one of its matches was followed or made main, every match
  * was decided, or the person attached a source by hand (`handled`).
  */
