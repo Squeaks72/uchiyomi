@@ -227,17 +227,17 @@ test('sources: who may reach them, and how long they get', { skip }, async (t) =
       // one that also strips "(Reader)", or trips on "(PT-BR)" -- or a null for an sw: source only shows up
       // as a wrong card count on that page, so the field is pinned over the route here.
       // Reintroduce by returning null from extensionOf for every source: the first two assertions fail;
-      // by dropping the `-[A-Z]{2,4}` alternative from stripLangSuffix: the PT-BR one reads "3Hentai (PT-BR)".
+      // by dropping the `-[A-Z]{2,4}` alternative from stripLangSuffix: the PT-BR one reads "ReadAnything (PT-BR)".
       const { registerAdapter } = await import('../src/lib/sources');
-      for (const [id, name] of [['sw:30', '3Hentai (EN)'], ['sw:31', '3Hentai (JA)'], ['sw:32', '3Hentai (PT-BR)'], ['sw:34', 'Manga (Reader)'], ['mangadex', 'MangaDex']]) {
+      for (const [id, name] of [['sw:30', 'ReadAnything (EN)'], ['sw:31', 'ReadAnything (JA)'], ['sw:32', 'ReadAnything (PT-BR)'], ['sw:34', 'Manga (Reader)'], ['mangadex', 'MangaDex']]) {
         calls[id] = 0;
         registerAdapter(fake(id, name) as any);
       }
-      const pkgName = 'eu.kanade.tachiyomi.extension.all.hentai3';
+      const pkgName = 'eu.kanade.tachiyomi.extension.all.readanything';
       await q(
         `INSERT INTO suwayomi_sources (source_id, name, lang, enabled, pkg_name, ext_name) VALUES
-           ('30', '3Hentai', 'en', true, $1, '3Hentai'), ('31', '3Hentai', 'ja', true, $1, '3Hentai'),
-           ('32', '3Hentai', 'pt-BR', true, NULL, NULL), ('34', 'Manga (Reader)', 'en', true, NULL, NULL)
+           ('30', 'ReadAnything', 'en', true, $1, 'ReadAnything'), ('31', 'ReadAnything', 'ja', true, $1, 'ReadAnything'),
+           ('32', 'ReadAnything', 'pt-BR', true, NULL, NULL), ('34', 'Manga (Reader)', 'en', true, NULL, NULL)
          ON CONFLICT (source_id) DO UPDATE SET enabled = true, pkg_name = EXCLUDED.pkg_name, ext_name = EXCLUDED.ext_name`,
         [pkgName],
       );
@@ -245,9 +245,9 @@ test('sources: who may reach them, and how long they get', { skip }, async (t) =
         const r = await app.inject({ method: 'GET', url: '/api/sources', headers: tok(ids.plain) });
         assert.equal(r.statusCode, 200);
         const ext = (id: string) => r.json().content.find((s: any) => s.id === id)?.extension;
-        assert.deepEqual(ext('sw:30'), { pkgName, name: '3Hentai' }, 'a registered variant names its package');
-        assert.deepEqual(ext('sw:31'), { pkgName, name: '3Hentai' }, 'and the second variant the same one');
-        assert.deepEqual(ext('sw:32'), { pkgName: null, name: '3Hentai' }, 'no package known: the name minus its language tag, pkgName null so the client knows it is a guess');
+        assert.deepEqual(ext('sw:30'), { pkgName, name: 'ReadAnything' }, 'a registered variant names its package');
+        assert.deepEqual(ext('sw:31'), { pkgName, name: 'ReadAnything' }, 'and the second variant the same one');
+        assert.deepEqual(ext('sw:32'), { pkgName: null, name: 'ReadAnything' }, 'no package known: the name minus its language tag, pkgName null so the client knows it is a guess');
         assert.deepEqual(ext('sw:34'), { pkgName: null, name: 'Manga (Reader)' }, 'a bracket that is not a language tag is part of the name');
         assert.equal(ext('mangadex'), null, 'a built-in has no extension');
         assert.equal(ext(CLEAN), null);
