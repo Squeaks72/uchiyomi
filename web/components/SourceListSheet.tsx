@@ -11,6 +11,8 @@
 // the chips called. Filtering is display-only there, and nothing here may change that -- see the stall
 // warning on SourceLatest.
 import { useMemo } from 'react';
+import Link from 'next/link';
+import { useAuth } from '@/lib/auth';
 import { Sheet } from '@/components/ui';
 import { NoSourceMatch, SourceTools, useSourceTools } from '@/components/SourceTools';
 import { arrangeSources, SOURCE_TOOLS_MIN } from '@/lib/sourceList';
@@ -48,6 +50,7 @@ export function SourceListSheet({ sources, asking, total, stateOf, selected, onS
   onExplain: () => void;
   onClose: () => void;
 }) {
+  const { isAdmin } = useAuth();
   const { query, setQuery, sort, setSort } = useSourceTools();
   const rows = useMemo(() => arrangeSources(sources, query, sort), [sources, query, sort]);
   return (
@@ -73,11 +76,19 @@ export function SourceListSheet({ sources, asking, total, stateOf, selected, onS
       {/* The order is the ranking the wall asks in (healthy first, then what the library reads from), so it is
           said out loud; and a long list can be filtered or put in A-Z, which changes only what is shown here. */}
       <div className="sticky top-0 z-10 -mx-4 mb-1 bg-ink-950/90 px-4 pb-2 backdrop-blur-xs">
-        <p className="mb-2 text-[11px] leading-snug text-fog-500" data-source-order-note>
-          {sort === 'default'
-            ? tr('Listed by priority: the best sources come first and are asked first.')
-            : tr('Sorted by name. Choose Priority to see the order sources are asked in.')}
-        </p>
+        <div className="mb-2 flex items-start justify-between gap-3">
+          <p className="text-[11px] leading-snug text-fog-500" data-source-order-note>
+            {sort === 'default'
+              ? tr('Listed by priority: the best sources come first and are asked first.')
+              : tr('Sorted by name. Choose Priority to see the order sources are asked in.')}
+          </p>
+          {/* The one editable order lives in Admin → Settings, which is admin-only. */}
+          {isAdmin && (
+            <Link href="/admin/?tab=Settings&section=source-order" className="btn-key shrink-0" data-edit-source-order>
+              {tr('Edit source order')}
+            </Link>
+          )}
+        </div>
         {sources.length >= SOURCE_TOOLS_MIN && (
           <SourceTools query={query} onQuery={setQuery} sort={sort} onSort={setSort} defaultLabel={tr('Priority')}
             shown={rows.length} total={sources.length} />

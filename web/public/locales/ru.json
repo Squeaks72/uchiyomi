@@ -2,7 +2,7 @@
   "_meta": {
     "language": "ru",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 3915
+    "strings": 3916
   },
   "1 check found something": "1 проверка нашла проблему",
   "1 member": "1 участник",
@@ -3920,5 +3920,6 @@
   "Install order": "Порядок установки",
   "No source matches “{q}”.": "Нет источников по запросу «{q}».",
   "Listed by priority: the best sources come first and are asked first.": "По приоритету: лучшие источники вверху, их опрашивают первыми.",
-  "Sorted by name. Choose Priority to see the order sources are asked in.": "По названию. Выберите «Приоритет», чтобы увидеть порядок опроса."
+  "Sorted by name. Choose Priority to see the order sources are asked in.": "По названию. Выберите «Приоритет», чтобы увидеть порядок опроса.",
+  "Edit source order": "Изменить порядок источников"
 }

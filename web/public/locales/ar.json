@@ -2,7 +2,7 @@
   "_meta": {
     "language": "ar",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 3986
+    "strings": 3987
   },
   "1 check found something": "فحص واحد وجد شيئًا",
   "1 member": "عضو واحد",
@@ -3991,5 +3991,6 @@
   "Install order": "ترتيب التثبيت",
   "No source matches “{q}”.": "لا يوجد مصدر يطابق «{q}».‏",
   "Listed by priority: the best sources come first and are asked first.": "مرتبة حسب الأولوية: أفضل المصادر في الأعلى ويتم الاستعلام عنها أولاً.",
-  "Sorted by name. Choose Priority to see the order sources are asked in.": "مرتبة حسب الاسم. اختر الأولوية لرؤية ترتيب الاستعلام."
+  "Sorted by name. Choose Priority to see the order sources are asked in.": "مرتبة حسب الاسم. اختر الأولوية لرؤية ترتيب الاستعلام.",
+  "Edit source order": "تعديل ترتيب المصادر"
 }
