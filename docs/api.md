@@ -602,6 +602,14 @@ for a week. Short chapters use confirm-short, which already records the same jud
 `POST /api/admin/health/recheck` takes `{check}` (a check id) and runs that one check again, read-only: `{generatedAt, check}`,
 `check` null when it has nothing to report any more. Health's Recheck beside each finding uses it.
 
+Since v0.56.0 Health has seven more checks: `files` (chapter files that are missing, empty or zips cut short; a few
+thousand files are looked at per run, never-seen and last-bad first, and Recheck looks at all of them), `covers`
+(series with no cover set, fetched or takeable from a chapter), `details` (no description or genres), `disk` (free
+space, and the library, downloads and config folders being readable and not empty-looking), `trackers` (sign-ins a
+tracker refused, failed syncs, and sign-ins expired or expiring within 14 days), and the information-only `stalled`
+(series whose status looks out of date) and `orphans` (reading data of removed series and chapters). All but
+`stalled` and `orphans` can be ignored per finding, and all seven can be rechecked.
+
 **Fix everything** (since v0.55.0). `POST /api/admin/health/autofix` (`{}`) starts one background run that drives
 every Health card it can to green -- 202 `{ok, runId}`, or 409 `{error: 'busy', running}` beside another run
 (`autofix`), a repair (`repair`), a Find or Replace (`find`) or a chapter sweep (`sweep`); a repair and a Find started

@@ -46,6 +46,9 @@ import { mainSourceCounts } from './findScope';
 import { carries, EXTENSION_OFF, EXTENSION_OFF_BY, standingOf, standingRows, type Standing, type StandingRow } from './sourceStanding';
 import { numKey } from './postingOrder';
 import type { ListingCopy } from './seriesListing';
+import { chapterFiles } from './healthFiles';
+import { diskAndFolders, orphanedData, seriesCovers, seriesDetails, seriesStatus, trackerSync } from './healthMore';
+import { DAY_MS, hiddenPart, ignoredPart, MAX_ITEMS, truncate, verdict } from './healthKit';
 
 export type HealthStatus = 'ok' | 'warn' | 'problem';
 
@@ -300,35 +303,12 @@ export interface HealthReport {
   checks: HealthCheck[];
 }
 
-const MAX_ITEMS = 50; // keep the payload sane; the summary always reports the true total
 /** The most gap numbers one item carries. A "Fill now" chip needs to NAME them; it does not need 4,000. */
 const MAX_NUMBERS = 100;
 /** The most chapters one Delete chip acts on, and the most an admin can sensibly read in a confirmation. */
 const MAX_BOOK_IDS = 20;
-const DAY_MS = 24 * 60 * 60 * 1000;
 /** How long a repair's conclusion about a gap stays a conclusion rather than a finding again. */
 const GAPS_FRESH_MS = 7 * DAY_MS;
-
-/**
- * ⚠️ FINDINGS FIRST, always, before the slice. A check's status is decided by the items WITHOUT `info`
- * (the page's one invariant, pinned in health.int.test.ts), so a check holding sixty greyed rows and three
- * real ones could cut the real ones off and report a warning with nothing in it -- which reads as a page
- * bug rather than as a finding. Sorting by severity first costs nothing and makes the slice safe whatever
- * order the check itself built its rows in.
- */
-function truncate<T extends { info?: boolean }>(rows: T[]): { items: T[]; hidden: number } {
-  const ordered = [...rows].sort((a, b) => Number(!!a.info) - Number(!!b.info));
-  return { items: ordered.slice(0, MAX_ITEMS), hidden: Math.max(0, rows.length - MAX_ITEMS) };
-}
-
-/** A check's verdict, from the items that are findings: the invariant, written once. */
-const verdict = (items: HealthItem[], bad: HealthStatus = 'warn'): HealthStatus =>
-  items.some((i) => !i.info) ? bad : 'ok';
-
-/** A summary's "; 2 ignored": the findings an admin chose to stop being told about (lib/healthIgnore.ts). */
-const ignoredPart = (n: number): Part | null => (n ? say('ignored', { n }) : null);
-/** A note's " 3 more not shown.": the rows past the slice. */
-const hiddenPart = (n: number): Part | null => (n > 0 ? joined('sentence', say('hidden', { n })) : null);
 
 /**
  * The shape lib/repair.ts stores in `lib_series.gaps_result`.
@@ -2147,6 +2127,13 @@ export async function runHealthChecks(): Promise<HealthReport> {
     ...(suwayomiConfigured() ? [extensionCap()] : []),
     // #72: the engine itself; null when there is none and nothing depends on one (lib/engineHealth.ts).
     extensionEngineCheck().catch(() => null),
+    chapterFiles(ctx).catch(() => null),
+    seriesCovers(ctx).catch(() => null),
+    seriesDetails(ctx).catch(() => null),
+    diskAndFolders(ctx).catch(() => null),
+    seriesStatus().catch(() => null),
+    orphanedData().catch(() => null),
+    trackerSync(ctx).catch(() => null),
   ])).filter((c): c is HealthCheck => c !== null);
   await keepIgnoresAlive(ctx);
   // worst first, so the page opens on whatever needs attention
@@ -2170,6 +2157,11 @@ export async function findingOf(check: IgnorableCheck, key: string): Promise<Fin
     case 'frozen-series': await frozenSeries(ctx); break;
     case 'duplicates': await duplicateSeries(ctx); break;
     case 'downloads-missing': await downloadsMissing(ctx); break;
+    case 'files': await chapterFiles(ctx); break;
+    case 'covers': await seriesCovers(ctx); break;
+    case 'details': await seriesDetails(ctx); break;
+    case 'disk': await diskAndFolders(ctx); break;
+    case 'trackers': await trackerSync(ctx); break;
   }
   return ctx.found.get(`${check}\u0000${key}`) ?? null;
 }
@@ -2178,6 +2170,7 @@ export const RECHECKABLE_CHECKS = [
   'chapter-gaps', 'numbering', 'short-chapters', 'outliers', 'saved-twice', 'duplicates', 'sources',
   'chapter-failures', 'frozen-series', 'solver', 'update', 'library-scan', 'downloads-missing',
   'folders-twice', 'extension-cap', 'extension-engine',
+  'files', 'covers', 'details', 'disk', 'stalled', 'orphans', 'trackers',
 ] as const;
 export type RecheckableCheck = typeof RECHECKABLE_CHECKS[number];
 
@@ -2205,5 +2198,13 @@ export async function recheckCheck(id: RecheckableCheck): Promise<HealthCheck | 
     case 'folders-twice': return foldersScannedTwice().catch(() => null);
     case 'extension-cap': return suwayomiConfigured() ? extensionCap() : null;
     case 'extension-engine': return extensionEngineCheck().catch(() => null);
+    // A Recheck of the files looks at every one (up to a minute), where the page's own run looks at a slice.
+    case 'files': return chapterFiles(ctx, { full: true }).catch(() => null);
+    case 'covers': return seriesCovers(ctx).catch(() => null);
+    case 'details': return seriesDetails(ctx).catch(() => null);
+    case 'disk': return diskAndFolders(ctx).catch(() => null);
+    case 'stalled': return seriesStatus().catch(() => null);
+    case 'orphans': return orphanedData().catch(() => null);
+    case 'trackers': return trackerSync(ctx).catch(() => null);
   }
 }

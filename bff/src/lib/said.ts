@@ -679,6 +679,79 @@ const EN = {
   // helper and never a backup, so neither is ever said there.
   'autofix.clears.mainSolverDown': () => 'The main Cloudflare solver is not answering, and the backup is solving meanwhile',
   'autofix.clears.backupSolverDown': () => 'The backup Cloudflare solver is not answering, and the main one is solving',
+
+  // ---- Chapter files (lib/healthFiles.ts)
+  'files.detail': ({ missing, empty, broken }: { missing: number; empty: number; broken: number }) =>
+    [missing && `Missing: ${missing}`, empty && `Empty: ${empty}`, broken && `Incomplete: ${broken}`].filter(Boolean).join(' · '),
+  'files.bad': ({ n, m }: { n: number; m: number }) => `Chapters with a missing or damaged file: ${n}; series affected: ${m}`,
+  'files.ok': ({ looked, total }: { looked: number; total: number }) => `no missing or damaged chapter files found (checked: ${looked} of ${total})`,
+  'files.note': ({ looked, total }: { looked: number; total: number }) =>
+    'A slice of the library is looked at on every run, chapters never looked at or last found wrong first, so all of it is covered over several runs ' +
+    `(looked at so far: ${looked} of ${total}). A chapter is damaged when its file is empty, or a zip that ends too early. ` +
+    'Rescan everything and Verify chapter files (Admin → Tasks) put right what is missing; Recheck looks at every file.',
+  'files.skipped': ({ roots }: { roots: string[] }) =>
+    `Not counted: ${roots.join(', ')} holds none of its files, so the share is probably not mounted (see Disk space and folders).`,
+
+  // ---- Series covers (lib/healthMore.ts)
+  'covers.detail': () => 'no cover set, none fetched, and no chapter to take one from',
+  'covers.bad': ({ n }: { n: number }) => `Series with nothing to show as a cover: ${n}`,
+  'covers.ok': () => 'every series has a cover, or a chapter to take one from',
+  'covers.note': () => 'A cover is one set by hand, one fetched from a source or the web, or the first page of a chapter. A cover that exists but is blank cannot be detected here.',
+
+  // ---- Series details
+  'details.missing': ({ summary, genres, author }: { summary: boolean; genres: boolean; author: boolean }) =>
+    `Missing: ${[summary && 'description', genres && 'genres', author && 'author'].filter(Boolean).join(', ')}`,
+  'details.bad': ({ n }: { n: number }) => `Series missing a description or genres: ${n}`,
+  'details.ok': () => 'every series has a description and genres',
+  'details.note': () => 'Descriptions and genres come from a source or a metadata lookup. Open a series to edit them or fetch them again. A series missing only its author is listed for reference.',
+
+  // ---- Disk space and folders
+  'disk.where': ({ kind }: { kind: string }) => (kind === 'library' ? 'Library folder' : kind === 'downloads' ? 'Downloads folder' : 'Config folder'),
+  'disk.free': ({ free, total }: { free: number; total: number }) => `${free} GB free of ${total} GB`,
+  'disk.low': ({ free, total }: { free: number; total: number }) => `only ${free} GB free of ${total} GB`,
+  'disk.cannotRead': ({ error }: { error: string }) => `could not be read (${error})`,
+  'disk.looksEmpty': ({ n }: { n: number }) => `looks empty, but the library records chapters under it (count: ${n}). Is the share mounted?`,
+  'disk.bad': ({ n }: { n: number }) => `Folders or disks needing attention: ${n}`,
+  'disk.ok': () => 'enough free space, and every folder can be read',
+  'disk.note': () =>
+    'Free space is flagged under 5 % on a disk of under 200 GB, and always under 2 % or 5 GB. A library or download folder that cannot be read, ' +
+    'or looks empty while chapters are recorded under it, is usually a share that is not mounted: nothing is marked missing until it is back.',
+
+  // ---- Series status
+  'stalled.quiet': ({ since }: { since: string }) => `marked ongoing, but nothing new since ${day(since)}`,
+  'stalled.revived': ({ status }: { status: string }) => `marked ${status.toLowerCase()}, but new chapters arrived in the last 30 days`,
+  'stalled.some': ({ n }: { n: number }) => `Series whose status may be out of date: ${n}`,
+  'stalled.none': () => 'no series looks out of date',
+  'stalled.note': () =>
+    'For reference only; nothing is changed. A series marked ongoing with no new chapter in a year may have ended, and one marked finished that is still ' +
+    'getting chapters may be ongoing. Set the status on the series page.',
+
+  // ---- Reading data
+  'orphans.kind': ({ kind }: { kind: string }) => ({
+    eventsSeries: 'Reading history of removed series',
+    eventsChapter: 'Reading history of removed chapters',
+    trackerSeries: 'Tracker records of removed series',
+    downloads: 'Offline downloads of removed chapters',
+    removed: 'Favourites and progress held by removed or merged series',
+  } as Record<string, string>)[kind] ?? kind,
+  'orphans.rows': ({ n }: { n: number }) => `Records: ${n}`,
+  'orphans.some': ({ n }: { n: number }) => `Leftover records: ${n}`,
+  'orphans.none': () => 'no leftover reading data',
+  'orphans.note': () =>
+    'Reading history is kept on purpose when a series or chapter goes away, so it comes back if the series is added again, and tracker progress is a ' +
+    'floor that stops a tracker being rewound. Nothing here is deleted; it is listed so the growth is visible.',
+
+  // ---- Tracker sync
+  'trackers.rejected': () => 'the tracker refused the saved sign-in; it has to be reconnected',
+  'trackers.error': ({ error }: { error: string }) => `last sync failed: ${error}`,
+  'trackers.expired': ({ at }: { at: string }) => `sign-in expired ${day(at)}`,
+  'trackers.expiring': ({ at }: { at: string }) => `sign-in expires ${day(at)}`,
+  'trackers.bad': ({ n }: { n: number }) => `Tracker sign-ins needing attention: ${n}`,
+  'trackers.ok': ({ n }: { n: number }) => `all tracker sign-ins look fine (count: ${n})`,
+  'trackers.none': () => 'no one has connected a tracker',
+  'trackers.note': () =>
+    'Each person reconnects their own tracker under Settings → Trackers; one whose sign-in was refused stays switched off until they do. ' +
+    'Sign-ins ending within 14 days are findings, and within 30 days listed for reference.',
 };
 
 /** Why Fix everything passed a part of its run over (`autofix.item.skipped`). */

@@ -10636,7 +10636,7 @@ paths:
               properties:
                 check:
                   type: string
-                  enum: [chapter-gaps, chapter-failures, sources, frozen-series, duplicates, outliers, downloads-missing]
+                  enum: [chapter-gaps, chapter-failures, sources, frozen-series, duplicates, outliers, downloads-missing, files, covers, details, disk, trackers]
                 key:
                   type: string
                 ignored:
@@ -10675,7 +10675,7 @@ paths:
               properties:
                 check:
                   type: string
-                  enum: [chapter-gaps, numbering, short-chapters, outliers, saved-twice, duplicates, sources, chapter-failures, frozen-series, solver, update, library-scan, downloads-missing, folders-twice, extension-cap, extension-engine]
+                  enum: [chapter-gaps, numbering, short-chapters, outliers, saved-twice, duplicates, sources, chapter-failures, frozen-series, solver, update, library-scan, downloads-missing, folders-twice, extension-cap, extension-engine, files, covers, details, disk, stalled, orphans, trackers]
       responses:
         "200":
           description: OK

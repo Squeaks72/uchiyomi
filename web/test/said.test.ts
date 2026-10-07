@@ -54,6 +54,9 @@ const SAMPLE: Record<string, (c: number) => unknown> = {
   ok: (c) => c === 1, into: () => 'Walk Tale', why: () => 'time',
   // v0.55.3, solver.ready: which solver answered (bff lib/sources/flaresolverr.ts SolverKind), named before its version.
   kind: () => 'trawl',
+  // The chapter files, details and disk checks (bff lib/healthFiles.ts, healthMore.ts).
+  looked: (c) => c, roots: () => ['/library-dl'], missing: (c) => c, empty: () => 1, broken: () => 2,
+  summary: () => true, genres: () => true, author: () => false, free: () => 12.5,
 };
 
 /**
