@@ -186,6 +186,9 @@ test('detaching the main promotes a follower; with none, the series is left with
     assert.equal(r.statusCode, 200, r.body);
     assert.equal(await mainOf(S('det')), 'at-b');
     assert.deepEqual(await followers(S('det')), []);
+    // The promotion starts a check of the series; a second detach while it runs is refused as busy, so let it finish.
+    await settle(S('det'));
+    holdListings();
     const r2 = await detach(S('det'), 'at-b');
     assert.equal(r2.statusCode, 200, r2.body);
     assert.equal(await mainOf(S('det')), null);

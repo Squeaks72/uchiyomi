@@ -545,7 +545,7 @@ test("a site's own 18+ flag makes a card 18+ only when no unflagged site carries
   registerAdapter(probe('sb-plainsite', 'Plain Site', TERM, [
     { title: 'Flag Shared' }, { title: 'Flag Erotica Elsewhere', contentRating: 'erotica' }, { title: 'Flag Safe Elsewhere', contentRating: 'safe' },
   ]) as any);
-  registerAdapter(probe('sb-adultsite', 'Adult Site', TERM, [{ title: 'Flag Two Adult Sites' }], { isNsfw: true }) as any);
+  registerAdapter(probe('sb-adultsite', 'Second Flagged Site', TERM, [{ title: 'Flag Two Adult Sites' }], { isNsfw: true }) as any);
   registerAdapter(probe('sb-named', 'Named Site', TERM, [{ title: 'Flag Named Elsewhere' }]) as any);
   await q(`UPDATE server_settings SET adult_sources = '["sb-named"]'::jsonb WHERE id = 1`);
   invalidateAdultFilter();
