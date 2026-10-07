@@ -2,7 +2,7 @@
   "_meta": {
     "language": "es",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 3906
+    "strings": 3915
   },
   "1 check found something": "1 comprobación encontró algo",
   "1 member": "1 miembro",
@@ -3911,5 +3911,14 @@
   "Series that already follow a working source get another backup too.": "Las series que ya siguen una fuente que funciona también reciben otro respaldo.",
   "Recommended for you": "Recomendado para ti",
   "Search above, or choose Newest or Popular, to browse your sources.": "Busca arriba, o elige Novedades o Popular, para explorar tus fuentes.",
-  "MangaUpdates list": "Lista de MangaUpdates"
+  "MangaUpdates list": "Lista de MangaUpdates",
+  "Find a source by name": "Buscar una fuente por nombre",
+  "Sort sources": "Ordenar fuentes",
+  "Sort": "Ordenar",
+  "Priority": "Prioridad",
+  "Most series": "Más series",
+  "Install order": "Orden de instalación",
+  "No source matches “{q}”.": "Ninguna fuente coincide con «{q}».",
+  "Listed by priority: the best sources come first and are asked first.": "Por prioridad: las mejores fuentes van primero y se consultan primero.",
+  "Sorted by name. Choose Priority to see the order sources are asked in.": "Ordenadas por nombre. Elige Prioridad para ver el orden en que se consultan."
 }

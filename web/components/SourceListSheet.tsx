@@ -10,7 +10,10 @@
 // keys) is untouched: a row reads `stateOf(id)` exactly as the chips did, and a tap calls the same `onSelect`
 // the chips called. Filtering is display-only there, and nothing here may change that -- see the stall
 // warning on SourceLatest.
+import { useMemo } from 'react';
 import { Sheet } from '@/components/ui';
+import { NoSourceMatch, SourceTools, useSourceTools } from '@/components/SourceTools';
+import { arrangeSources, SOURCE_TOOLS_MIN } from '@/lib/sourceList';
 import { IcCheck, IcInfo } from '@/components/icons';
 import { SourceIcon } from '@/components/SourcePicker';
 import { noteFor, retryIn, type Src, type SrcState } from '@/lib/sourceGroups';
@@ -45,6 +48,8 @@ export function SourceListSheet({ sources, asking, total, stateOf, selected, onS
   onExplain: () => void;
   onClose: () => void;
 }) {
+  const { query, setQuery, sort, setSort } = useSourceTools();
+  const rows = useMemo(() => arrangeSources(sources, query, sort), [sources, query, sort]);
   return (
     <Sheet
       title={tr('Sources')}
@@ -65,8 +70,22 @@ export function SourceListSheet({ sources, asking, total, stateOf, selected, onS
         </p>
       }
     >
+      {/* The order is the ranking the wall asks in (healthy first, then what the library reads from), so it is
+          said out loud; and a long list can be filtered or put in A-Z, which changes only what is shown here. */}
+      <div className="sticky top-0 z-10 -mx-4 mb-1 bg-ink-950/90 px-4 pb-2 backdrop-blur-xs">
+        <p className="mb-2 text-[11px] leading-snug text-fog-500" data-source-order-note>
+          {sort === 'default'
+            ? tr('Listed by priority: the best sources come first and are asked first.')
+            : tr('Sorted by name. Choose Priority to see the order sources are asked in.')}
+        </p>
+        {sources.length >= SOURCE_TOOLS_MIN && (
+          <SourceTools query={query} onQuery={setQuery} sort={sort} onSort={setSort} defaultLabel={tr('Priority')}
+            shown={rows.length} total={sources.length} />
+        )}
+      </div>
+      {rows.length === 0 && <NoSourceMatch query={query} />}
       <div className="-mx-1 divide-y divide-ink-800/70">
-        {sources.map((s) => {
+        {rows.map((s) => {
           const st = stateOf(s.id);
           const { dot, note } = noteFor(s, st);
           // `title` is invisible on a touchscreen, which is most of this app's use, so the reason has to

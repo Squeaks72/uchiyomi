@@ -1,4 +1,6 @@
 'use client';
+import { NoSourceMatch, SourceTools, useSourceTools } from '@/components/SourceTools';
+import { arrangeSources } from '@/lib/sourceList';
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api, img } from '@/lib/api';
@@ -111,8 +113,13 @@ function SourceSection({ title, help, rows, none, count, value, onPick }: {
   count: (s: LibrarySource) => number; value: string; onPick: (id: string) => void;
 }) {
   const [all, setAll] = useState(false);
-  const listed = rows.filter((s) => count(s) > 0).sort((a, b) => count(b) - count(a) || a.name.localeCompare(b.name));
-  const head = all ? listed : listed.slice(0, SOURCE_HEAD);
+  const tools = useSourceTools();
+  const counted = rows.filter((s) => count(s) > 0).sort((a, b) => count(b) - count(a) || a.name.localeCompare(b.name));
+  // The tools appear once some sources sit behind "Show all"; a filter or a name sort looks through all of them.
+  const toolsOn = counted.length > SOURCE_HEAD;
+  const narrowed = toolsOn && (tools.query.trim() !== '' || tools.sort !== 'default');
+  const listed = toolsOn ? arrangeSources(counted, tools.query, tools.sort) : counted;
+  const head = all || narrowed ? listed : listed.slice(0, SOURCE_HEAD);
   const shown = head.some((s) => s.id === value) || !value ? head : [...head, ...listed.filter((s) => s.id === value)];
   const hidden = listed.length - shown.length;
   const noneShown = none !== undefined && (none > 0 || value === NO_SOURCE);
@@ -121,6 +128,11 @@ function SourceSection({ title, help, rows, none, count, value, onPick }: {
     <section>
       <Eyebrow>{title}</Eyebrow>
       <p className="-mt-1 mb-1.5 text-[11px] leading-snug text-fog-600">{help}</p>
+      {toolsOn && (
+        <SourceTools className="mb-2" query={tools.query} onQuery={tools.setQuery} sort={tools.sort} onSort={tools.setSort}
+          defaultLabel={tr('Most series')} shown={listed.length} total={counted.length} />
+      )}
+      {toolsOn && tools.query.trim() !== '' && listed.length === 0 && <NoSourceMatch query={tools.query} />}
       <Chips label={title}>
         {shown.map((s) => (
           <button key={s.id} type="button" onClick={() => onPick(value === s.id ? '' : s.id)} aria-pressed={value === s.id}

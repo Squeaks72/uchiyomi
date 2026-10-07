@@ -2,7 +2,7 @@
   "_meta": {
     "language": "ar",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 3977
+    "strings": 3986
   },
   "1 check found something": "فحص واحد وجد شيئًا",
   "1 member": "عضو واحد",
@@ -3982,5 +3982,14 @@
   "Series that already follow a working source get another backup too.": "السلاسل التي تتابع بالفعل مصدرًا يعمل تحصل أيضًا على مصدر احتياطي آخر.",
   "Recommended for you": "موصى به لك",
   "Search above, or choose Newest or Popular, to browse your sources.": "ابحث بالأعلى، أو اختر الأحدث أو الأكثر شيوعًا لتصفّح مصادرك.",
-  "MangaUpdates list": "قائمة MangaUpdates"
+  "MangaUpdates list": "قائمة MangaUpdates",
+  "Find a source by name": "ابحث عن مصدر بالاسم",
+  "Sort sources": "ترتيب المصادر",
+  "Sort": "ترتيب",
+  "Priority": "الأولوية",
+  "Most series": "الأكثر مسلسلات",
+  "Install order": "ترتيب التثبيت",
+  "No source matches “{q}”.": "لا يوجد مصدر يطابق «{q}».‏",
+  "Listed by priority: the best sources come first and are asked first.": "مرتبة حسب الأولوية: أفضل المصادر في الأعلى ويتم الاستعلام عنها أولاً.",
+  "Sorted by name. Choose Priority to see the order sources are asked in.": "مرتبة حسب الاسم. اختر الأولوية لرؤية ترتيب الاستعلام."
 }

@@ -195,7 +195,7 @@ export function Sheet({ title, onClose, overBottomNav, action, footer, wrapTitle
     // the first field, else to the panel itself so Tab starts at the top of it.
     const panel = panelRef.current;
     if (panel && !panel.contains(document.activeElement)) {
-      (bodyRef.current?.querySelector<HTMLElement>('input, textarea, select') ?? panel).focus({ preventScroll: true });
+      (bodyRef.current?.querySelector<HTMLElement>('input:not([data-no-autofocus]), textarea, select') ?? panel).focus({ preventScroll: true });
     }
     const back = opener.current as HTMLElement | null;
     return () => { document.removeEventListener('keydown', onKey); back?.focus?.({ preventScroll: true }); };
