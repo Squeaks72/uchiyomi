@@ -99,7 +99,8 @@ import {
 } from '../lib/numbering';
 import { numKey } from '../lib/postingOrder';
 import { groupStats } from '../lib/groupStats';
-import { fetchAniListArt, fetchTrendingManhwa, TrendingItem } from '../lib/anilist';
+import { titleKey } from '../lib/adultTitles';
+import { fetchAniListArt, fetchTrending, TRENDING_KINDS, TrendingItem, type TrendingKind } from '../lib/anilist';
 import { automaticAniListAllowed, withAniListMutation } from '../lib/anilistPolicy';
 import { learnDirection, learnDirectionWith, directionFromAniListMatch } from '../lib/readingDirection';
 import { learnTypeFromSource, learnTypeFromAniListWith } from '../lib/seriesType';
@@ -834,7 +835,7 @@ export function startDownloadJob(input: DownloadJobInput, reserved?: DownloadJob
 }
 
 // Trending recommendations are global + slow-moving; cache the AniList pull for a few hours.
-let trendingCache: { at: number; items: TrendingItem[] } | null = null;
+const trendingCache = new Map<TrendingKind, { at: number; items: TrendingItem[] }>();
 /** Canonical title key used for dedupe, grouping and "already in library" checks. */
 export const norm = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, '');
 
@@ -3430,23 +3431,29 @@ export default async function sourceRoutes(app: FastifyInstance) {
   // this is both budgets at once. AniList returns 40 in the one query already, so raising it costs nothing.
   const TREND_KEEP = 36;
 
-  // Globally trending manhwa you don't already have, for the Discover recommendations rail.
-  app.get('/api/discover/trending', async (_req, reply) => {
+  // Globally trending titles you don't already have, for the Discover trending rails. `?kind=` is where the work
+  // comes from -- manhwa (the default, and the only one the hero uses), manga or manhua -- each cached on its own,
+  // so a cold start costs at most three AniList calls per six hours however many people open Discover.
+  app.get('/api/discover/trending', async (req, reply) => {
     reply.header('cache-control', 'no-store'); // never let a stale/empty copy get pinned client-side
-    if (!trendingCache || Date.now() - trendingCache.at > 6 * 3600_000) {
+    const asked = String((req.query as { kind?: string }).kind || 'manhwa').toLowerCase();
+    const kind: TrendingKind = asked in TRENDING_KINDS ? (asked as TrendingKind) : 'manhwa';
+    let cached = trendingCache.get(kind);
+    if (!cached || Date.now() - cached.at > 6 * 3600_000) {
       try {
-        let items = await fetchTrendingManhwa();
+        let items = await fetchTrending(kind);
         // A second page, only when the first cannot fill the wall. On a large library most of page 1 is
         // already owned: measured on a 215-series install, 40 fetched became 28 after the library filter,
         // and only 7 of those carried the wide art the hero prefers. The common case still costs one
         // request per six-hour cache miss, and the page argument has been there unused since this shipped.
         if (items.length < TREND_KEEP + 8) {
-          const more = await fetchTrendingManhwa(2).catch(() => [] as typeof items);
+          const more = await fetchTrending(kind, 2).catch(() => [] as typeof items);
           const seen = new Set(items.map((t) => norm(t.title)));
           items = items.concat(more.filter((t) => !seen.has(norm(t.title))));
         }
-        trendingCache = { at: Date.now(), items };
-      } catch { if (!trendingCache) return { content: [] }; }
+        cached = { at: Date.now(), items };
+        trendingCache.set(kind, cached);
+      } catch { if (!cached) return { content: [] }; }
     }
     // No per-user filter here on purpose: `isAdult:false` is an argument to the AniList query, so adult
     // titles never arrive, and the cache is shared for six hours -- filtering it per viewer would pin one
@@ -3457,11 +3464,13 @@ export default async function sourceRoutes(app: FastifyInstance) {
     // across two. Left out when the library holds it (v0.56.0): by any name the library knows it by, or by its
     // AniList entry -- before, only by the library's own title.
     const seen = new Set<string>();
-    const out = trendingCache.items.filter((t) => {
+    // Per viewer, after the shared cache: titles an admin marked 18+ (lib/adultTitles.ts) while this viewer hides 18+.
+    const marked = vc(req).hideAdultLibraries ? (await adultFilter()).titles : null;
+    const out = cached.items.filter((t) => {
       const k = norm(t.title);
       const held = heldFor(idx, { source: '', sourceId: '', title: t.title }).length > 0
         || (t.id != null && (idx.byWork.get(`al:${t.id}`)?.length ?? 0) > 0);
-      return !held && !seen.has(k) && (seen.add(k), true);
+      return !held && !seen.has(k) && !marked?.has(titleKey(t.title)) && (seen.add(k), true);
     });
     return { content: out.slice(0, TREND_KEEP) };
   });

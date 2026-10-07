@@ -7,12 +7,15 @@ import { api } from '@/lib/api';
 import { ART } from '@/lib/art';
 import { relativeTime } from '@/lib/format';
 import { useAuth, canDownload } from '@/lib/auth';
+import { useAccountPrefValue } from '@/lib/accountPrefs';
 import { t as tr } from '@/lib/i18n';
 import { isDesktop } from '@/lib/desktop';
 import { EmptyState } from '@/components/EmptyState';
 import { Reveal } from '@/components/ui';
 import { SourceCard, SourceItem } from '@/components/cards';
 import { ScrollRail } from '@/components/ScrollRail';
+import { TrendingRail } from '@/components/TrendingRail';
+import { useIsHiddenTitle } from '@/lib/hiddenTitles';
 import { DiscoverHero, TrendingCard, Trending } from '@/components/DiscoverHero';
 import { RecommendationRail } from '@/components/RecommendationRail';
 import { SourcePicker, SourceLatest, Src, SrcState } from '@/components/SourcePicker';
@@ -34,7 +37,7 @@ import type { Page, Series } from '@/lib/types';
  * language; both absent from an older server.
  */
 interface SearchGroup {
-  title: string; coverUrl?: string; inLibrary?: boolean; librarySeriesId?: string; libraryLangs?: string[]; updatedAt?: string;
+  title: string; coverUrl?: string; inLibrary?: boolean; librarySeriesId?: string; libraryLangs?: string[]; updatedAt?: string; summary?: string;
   rating?: 'adult' | 'safe';
   work?: string; owned?: boolean;
   providers: { source: string; name: string; sourceId: string; title: string; coverUrl?: string; lang?: string | null; inLibrary?: boolean; rating?: 'adult' | 'safe' }[];
@@ -307,7 +310,7 @@ export default function DiscoverPage() {
     if (!pick) return [];
     return [{
       source: pick.source ?? '', sourceId: pick.sourceId ?? g.title,
-      title: g.title, coverUrl: g.coverUrl, updatedAt: g.updatedAt,
+      title: g.title, coverUrl: g.coverUrl, updatedAt: g.updatedAt, ...(g.summary ? { summary: g.summary } : {}),
       // Held when the library has the title in ANY provider's language, so a click opens that entry (a Spanish source
       // in the same search no longer makes it an add); `moreEditions` keeps "add another edition" in the card's menu.
       inLibrary: !!g.inLibrary || g.providers.some((p) => p.inLibrary), librarySeriesId: g.librarySeriesId,
@@ -388,7 +391,12 @@ export default function DiscoverPage() {
     (wall.groups[workKey(it)] ?? [{ source: it.source, name: nameOf(it.source) ?? it.source }])
       .map((p) => ({ source: p.source, name: p.name, extension: extOf.get(p.source) ?? null }));
 
-  const wall = useMemo(() => ({ items: sortWall(arrived.items, wallSort, arrived.groups), groups: arrived.groups }), [arrived, wallSort]);
+  // Titles marked 18+ from a card's menu leave the wall the moment they are marked; the server keeps them out after.
+  const isHidden = useIsHiddenTitle();
+  const wall = useMemo(
+    () => ({ items: sortWall(arrived.items, wallSort, arrived.groups).filter((it) => !isHidden(it.title)), groups: arrived.groups }),
+    [arrived, wallSort, isHidden],
+  );
 
   // Skeleton tiles: in search mode only until the FIRST answer (or a failure) -- after that the wall shows
   // what has landed and the progress line says what has not, so a skeleton would sit beside real tiles and
@@ -484,16 +492,20 @@ export default function DiscoverPage() {
    * Topping up costs nothing, because the hero already handles a missing banner: it falls back to the 2:3
    * cover and letterboxes it on wide viewports.
    */
+  // The hero is a setting (Profile → Settings, off by default). Off, there are no slides, so `rail` below is the
+  // whole trending list rather than what the hero skipped.
+  const banners = useAccountPrefValue('showBanners');
   const heroSlides = useMemo(() => {
-    const all = trending?.content ?? [];
+    if (!banners) return [];
+    const all = (trending?.content ?? []).filter((t) => !isHidden(t.title));
     const withArt = all.filter((t) => t.banner);
     const rest = all.filter((t) => !t.banner);
     return [...withArt, ...rest].slice(0, HERO_SLIDES);
-  }, [trending]);
+  }, [trending, banners, isHidden]);
   const rail = useMemo(() => {
     const lead = new Set(heroSlides.map((s) => s.title));
-    return (trending?.content ?? []).filter((t) => !lead.has(t.title));
-  }, [trending, heroSlides]);
+    return (trending?.content ?? []).filter((t) => !lead.has(t.title) && !isHidden(t.title));
+  }, [trending, heroSlides, isHidden]);
 
   // ---------------------------------------------------------------- may they be here at all
   // The tab is hidden for this account and every route this page calls now refuses it, so a typed URL would
@@ -704,6 +716,12 @@ export default function DiscoverPage() {
           </ScrollRail>
         </section>
       )}
+
+      {/* The same row for the other two kinds of work, under it. */}
+      {mode === 'newest' && (['manga', 'manhua'] as const).map((k) => (
+        <TrendingRail key={k} kind={k} enabled={mayAdd}
+          onPick={(x) => setSeed({ kind: 'trending', title: x.title })} onSearch={searchFor} />
+      ))}
 
       {seed && (
         <AddSeriesDialog

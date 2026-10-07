@@ -129,6 +129,7 @@ function AppearanceSection() {
   useEffect(() => { setTypeSearch(typeToSearchOn()); }, []);
   const [contextMenus, setContextMenus] = useState(true);
   useEffect(() => { setContextMenus(contextMenusOn()); }, []);
+  const [banners, setBanners] = useAccountPref('showBanners');
   const saveReduceEffects = async (next: boolean) => {
     const prev = reduceEffects;
     setSettings({ reduceEffects: next });
@@ -207,6 +208,9 @@ function AppearanceSection() {
       <SwitchRow label={tr('Reduce effects')}
         help={tr('Turns off the animated background, blur, smooth scrolling and transitions. Try it if scrolling feels slow.')}
         on={reduceEffects} onChange={saveReduceEffects} />
+      <SwitchRow label={tr('Big banners')}
+        help={tr('Shows the large banner at the top of Home (the daily pick) and of Discover (trending now). Off by default.')}
+        on={banners} onChange={setBanners} />
 
       <Sub title={tr('On this device')} />
       {/* This device only (lib/typeToSearch.ts says why): single-key shortcuts must be possible to switch off. */}

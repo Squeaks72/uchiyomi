@@ -23,6 +23,7 @@ import { scanOrder } from './scanOrder';
 import { classify, noteStage, reportFail, reportSlow, reportTimely, type SourceHealth } from './sourceHealth';
 import { canonLang } from './lang';
 import { adultSourceName, explicitGenre, explicitTitle } from './adultSignals';
+import { titleKey } from './adultTitles';
 
 /** An env knob: a finite number at or above `min`, else the default. An empty string is unset. */
 const knob = (name: string, def: number, min = 0): number => {
@@ -350,7 +351,7 @@ export function narrowTo(raw: unknown): Set<string> | null {
 }
 
 /** The admin's 18+ filter lists (lib/visibility.ts adultFilter): genres as typed, source ids lowercased. */
-export interface AdultLists { genres: readonly string[]; sources: readonly string[]; /** Sources the admin rated below 18: their extension's flag does not count. */ cleared?: readonly string[] }
+export interface AdultLists { genres: readonly string[]; sources: readonly string[]; /** Sources the admin rated below 18: their extension's flag does not count. */ cleared?: readonly string[]; /** Titles an admin marked 18+ (lib/adultTitles.ts titleKey). */ titles?: ReadonlySet<string> }
 
 /**
  * Whether a search result is 18+, by every signal it carries.
@@ -381,6 +382,7 @@ export function ratingOf(
   const genres = (Array.isArray(item.genres) ? item.genres : []).filter((g): g is string => typeof g === 'string').map(fold).filter(Boolean);
   if (genres.some((g) => adult.has(g) || explicitGenre(g))) return 'adult';
   if (explicitTitle(item.title)) return 'adult';
+  if (item.title && lists.titles?.size && lists.titles.has(titleKey(item.title))) return 'adult';
   if (trustFlag && src?.isNsfw && !(src.id && lists.cleared?.includes(String(src.id).toLowerCase()))) return 'flagged';
   if (item.contentRating === 'safe' || item.contentRating === 'suggestive') return 'safe';
   if (genres.length && adult.size) return 'safe';
@@ -420,7 +422,12 @@ export interface Provider { source: string; name: string; sourceId: string; cove
  * `rating` (v0.55.4; weighed by cardRating since v0.55.5): 18+, safe, or absent when nothing says. `work` (v0.56.0): the
  * key the card was folded by, when the caller gave one (groupByTitle's keyOf).
  */
-export interface TitleGroup { title: string; coverUrl?: string; updatedAt?: string; providers: Provider[]; rating?: Rating; work?: string }
+export interface TitleGroup {
+  title: string; coverUrl?: string; updatedAt?: string;
+  /** The first description any provider gave, cut short: the card shows its first lines. */
+  summary?: string;
+  providers: Provider[]; rating?: Rating; work?: string;
+}
 export interface SourceRail { source: string; name: string; lang: string | null; results: Array<SourceSeries & { name: string; rating?: Rating }> }
 
 /**
@@ -453,6 +460,7 @@ export function groupByTitle(
       }
       if (!g.coverUrl && r.coverUrl) g.coverUrl = r.coverUrl;
       if (!g.updatedAt && r.updatedAt) g.updatedAt = r.updatedAt;
+      if (!g.summary && r.summary?.trim()) g.summary = r.summary.trim().slice(0, 400);
       if (!g.providers.some((p) => p.source === r.source)) {
         const j = rated?.of(r, src);
         const rating = answered(j);

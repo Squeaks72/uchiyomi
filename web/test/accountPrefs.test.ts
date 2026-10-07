@@ -12,7 +12,7 @@ const mem = new Map<string, string>();
 beforeEach(() => mem.clear());
 
 test('the defaults are what the device-only switches had: compact off, ghosts on, also-follow off', () => {
-  assert.deepEqual(ACCOUNT_PREFS, ['compactChapters', 'showGhosts', 'alsoFollow']);
+  assert.deepEqual(ACCOUNT_PREFS, ['compactChapters', 'showGhosts', 'alsoFollow', 'showBanners']);
   assert.equal(readAccountPref('compactChapters'), false);
   assert.equal(readAccountPref('showGhosts'), true);
   assert.equal(readAccountPref('alsoFollow'), false);

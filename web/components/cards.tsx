@@ -16,6 +16,7 @@ import { effectsReduced } from '@/lib/effects';
 import { t as tr } from '@/lib/i18n';
 import { useSeriesMenu } from './SeriesMenu';
 import { useDiscoverMenu } from './DiscoverMenu';
+import { Blurb } from './Blurb';
 
 /** Pointer-tracked 3D tilt + moving glare for cover cards. Desktop-only (hover+fine pointer),
  *  disabled under prefers-reduced-motion; on touch the handlers never fire so nothing changes. */
@@ -127,6 +128,7 @@ export function SeriesCard({ series, w = 'w-32', eager = false }: { series: Seri
       <p className="mt-2 line-clamp-2 px-0.5 text-[13px] font-medium leading-tight text-fog-200 transition group-hover:text-fog-50">
         {series.metadata?.title || series.name}
       </p>
+      <Blurb text={series.metadata?.summary} className="px-0.5" />
     </Link>
     {menu.element}
     </>
@@ -241,6 +243,7 @@ export function SeriesTile({ series, eager = false, selectable, selected, onTogg
       <p dir="auto" className="mt-1.5 line-clamp-2 text-xs font-medium leading-tight text-fog-300 transition group-hover:text-fog-100">
         {series.metadata?.title || series.name}
       </p>
+      <Blurb text={series.metadata?.summary} />
       {/* The work's languages (v0.52.0, #72): the Library shows one card for every language edition the viewer may
           browse, and this line says so -- `EN · ES-419`, the edition this card opens brighter. The names are its
           title, for a hover and a screen reader. */}
@@ -306,6 +309,8 @@ export interface SourceItem {
   work?: string;
   /** The library holds this work in any language (v0.56.0): the wall does not show it; search does, with its marks. */
   owned?: boolean;
+  /** The source's own description, when its listing carries one (MangaDex and most Suwayomi sources do). */
+  summary?: string;
 }
 
 /**
@@ -403,6 +408,7 @@ export function SourceCard({ item, providers, onAdd, onOpenAdded, onSearch, eage
       <p className="mt-1.5 line-clamp-2 text-xs font-medium leading-tight text-fog-300 transition group-hover:text-fog-100">
         {item.title}
       </p>
+      <Blurb text={item.summary} />
     </>
   );
   // The sources are the card's description: the name says what pressing it does, and a button's own content is not

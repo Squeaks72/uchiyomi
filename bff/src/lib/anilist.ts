@@ -195,7 +195,7 @@ export async function fetchAnimeBanner(rawTitle: string, names: readonly string[
   return m && namesMatch(names, titlesOf(m)) ? (m.bannerImage ?? null) : null;
 }
 
-const TRENDING = `query($page:Int){Page(page:$page,perPage:40){media(type:MANGA,countryOfOrigin:"KR",sort:TRENDING_DESC,isAdult:false){id title{romaji english}coverImage{extraLarge large}bannerImage description(asHtml:false)genres averageScore chapters status}}}`;
+const TRENDING = `query($page:Int,$c:CountryCode){Page(page:$page,perPage:40){media(type:MANGA,countryOfOrigin:$c,format_not_in:[NOVEL],sort:TRENDING_DESC,isAdult:false){id title{romaji english}coverImage{extraLarge large}bannerImage description(asHtml:false)genres averageScore chapters status}}}`;
 
 const CANDIDATES = `query($s:String){Page(perPage:5){media(search:$s,type:MANGA,sort:SEARCH_MATCH){title{romaji english}coverImage{extraLarge}bannerImage}}}`;
 
@@ -272,18 +272,22 @@ export interface TrendingItem {
   status: string | null;
 }
 
-/** Globally trending manhwa (Korean-origin manga) from AniList — for the Discover "Trending" rail. */
-export async function fetchTrendingManhwa(page = 1, retry = 0): Promise<TrendingItem[]> {
+/** The three trending rails, by where the work comes from: manhwa is Korean, manga Japanese, manhua Chinese. */
+export const TRENDING_KINDS = { manhwa: 'KR', manga: 'JP', manhua: 'CN' } as const;
+export type TrendingKind = keyof typeof TRENDING_KINDS;
+
+/** Globally trending titles of one kind (by AniList country of origin) — for Discover's "Trending" rails. */
+export async function fetchTrending(kind: TrendingKind = 'manhwa', page = 1, retry = 0): Promise<TrendingItem[]> {
   const r = await fetch(ANILIST, {
     method: 'POST',
     headers: { 'content-type': 'application/json', accept: 'application/json' },
-    body: JSON.stringify({ query: TRENDING, variables: { page } }),
+    body: JSON.stringify({ query: TRENDING, variables: { page, c: TRENDING_KINDS[kind] } }),
     signal: AbortSignal.timeout(10000),
   });
   if (r.status === 429 && retry < 2) {
     const wait = Math.min(6, Number(r.headers.get('retry-after')) || 4);
     await new Promise((res) => setTimeout(res, (wait + 0.5) * 1000));
-    return fetchTrendingManhwa(page, retry + 1);
+    return fetchTrending(kind, page, retry + 1);
   }
   if (!r.ok) throw new Error(`anilist ${r.status}`);
   const j: any = await r.json();

@@ -11,9 +11,10 @@ import { z } from 'zod';
  * first paint and an offline launch do not wait for the server (web/lib/accountPrefs.ts):
  *   - `compactChapters`: the denser chapter list on a computer (default off);
  *   - `showGhosts`: show chapters the sources list that this server lacks (default on);
- *   - `alsoFollow`: the Add dialog's "also check the other sources" switch (default off).
+ *   - `alsoFollow`: the Add dialog's "also check the other sources" switch (default off);
+ *   - `showBanners`: the big hero banners -- Discover's "Trending now" and Home's "Daily pick" (default off).
  */
-export const ACCOUNT_BOOL_SETTINGS = ['compactChapters', 'showGhosts', 'alsoFollow'] as const;
+export const ACCOUNT_BOOL_SETTINGS = ['compactChapters', 'showGhosts', 'alsoFollow', 'showBanners'] as const;
 
 const shape = Object.fromEntries(ACCOUNT_BOOL_SETTINGS.map((k) => [k, z.boolean().optional()]));
 

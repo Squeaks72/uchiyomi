@@ -1546,6 +1546,8 @@ GET    /api/admin/series/:id/scanlators GET    /api/admin/scanlators
 POST   /api/admin/series/:id/sources DELETE /api/admin/series/:id/sources/:sourceId
 POST   /api/admin/series/:id/main-source
 POST   /api/admin/series/:id/attach-source
+POST   /api/admin/series/:id/adult
+GET    /api/admin/adult-titles   POST   /api/admin/adult-titles
 GET    /api/admin/series/:id/alt-titles POST   /api/admin/series/:id/alt-titles
 DELETE /api/admin/series/:id/alt-titles/:norm
 GET    /api/admin/libraries       POST   /api/admin/libraries

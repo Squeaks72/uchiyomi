@@ -6,6 +6,7 @@ import { IcPause, IcPlay, IcPlus, IcSparkle } from '@/components/icons';
 import { t as tr } from '@/lib/i18n';
 import { dotWindow } from '@/lib/carousel';
 import { useDiscoverMenu } from '@/components/DiscoverMenu';
+import { Blurb } from '@/components/Blurb';
 
 export interface Trending {
   title: string;
@@ -168,6 +169,7 @@ export function TrendingCard({ t, onPick, onSearch }: { t: Trending; onPick: (t:
         </span>
       </div>
       <p className="mt-1.5 line-clamp-2 text-xs font-medium leading-tight text-fog-300 transition group-hover:text-fog-100">{t.title}</p>
+      <Blurb text={t.description} />
     </button>
     {menu.element}
     </>

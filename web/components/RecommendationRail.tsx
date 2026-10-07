@@ -7,6 +7,7 @@ import { sourceCover } from '@/components/cards';
 import { ScrollRail } from '@/components/ScrollRail';
 import { IcPlus } from '@/components/icons';
 import { useDiscoverMenu } from '@/components/DiscoverMenu';
+import { useIsHiddenTitle } from '@/lib/hiddenTitles';
 import { badgeOf, becauseOf, pollAfter, provenance, type Recommendation, type Recommendations } from '@/lib/recommendations';
 
 function RecCard({ r, onPick, onSearch }: { r: Recommendation; onPick: (r: Recommendation) => void; onSearch?: (title: string) => void }) {
@@ -53,7 +54,8 @@ export function RecommendationRail({ enabled, onPick, onSearch }: {
     staleTime: 10 * 60_000,
     refetchInterval: (q) => pollAfter(q.state.data, q.state.dataUpdateCount),
   });
-  const items = data?.content ?? [];
+  const isHidden = useIsHiddenTitle();
+  const items = (data?.content ?? []).filter((r) => !isHidden(r.title));
   if (!items.length) return null;
   return (
     <section className="pt-5 pb-1">

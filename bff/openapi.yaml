@@ -8052,6 +8052,91 @@ paths:
             source_unavailable (main.unavailable: not loaded, switched off, or beyond the admin's age reach);
             moved (main.moved: the main source changed meanwhile); language_differs (the follow route's refusal:
             follow.languageDiffers or follow.languageDiffersEdition, with `edition: {of, lang, existing?}`).
+  /api/admin/series/{id}/adult:
+    post:
+      tags:
+        - admin
+      summary: Mark a library series 18+ from its card menu, or take the mark off.
+      operationId: postApiAdminSeriesIdAdult
+      description: >-
+        Requires an admin account and a token carrying the admin scope. Scopes only ever restrict. Writes only the age
+        rating (18) on the series and its other language editions, and clears "Always show", which would outrank the
+        mark. `adult: false` removes a rating of 18 and leaves any other. Audited as `series.mark_adult`.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [adult]
+              properties:
+                adult: { type: boolean }
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: Done.
+        "400":
+          description: Malformed body
+        "401":
+          description: Not authenticated
+        "403":
+          description: "Forbidden: token scope, account permission or age limit"
+        "404":
+          description: Not found, or not visible to this account
+  /api/admin/adult-titles:
+    get:
+      tags:
+        - admin
+      summary: The Discover titles marked 18+.
+      operationId: getApiAdminAdultTitles
+      description: >-
+        Requires an admin account and a token carrying the admin scope. Scopes only ever restrict. Titles marked from a
+        Discover card, keyed by normalised title; they are hidden from every listing while the viewer is hiding 18+.
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: The marked titles.
+        "401":
+          description: Not authenticated
+        "403":
+          description: "Forbidden: token scope, account permission or age limit"
+    post:
+      tags:
+        - admin
+      summary: Mark a Discover title 18+, or take the mark off.
+      operationId: postApiAdminAdultTitles
+      description: >-
+        Requires an admin account and a token carrying the admin scope. Scopes only ever restrict. Answers
+        `{ok, changed}`. Audited as `discover.mark_adult`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, adult]
+              properties:
+                title: { type: string, minLength: 1, maxLength: 300 }
+                adult: { type: boolean }
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: Done.
+        "400":
+          description: Malformed body
+        "401":
+          description: Not authenticated
+        "403":
+          description: "Forbidden: token scope, account permission or age limit"
   /api/admin/series/{id}/attach-source:
     post:
       tags:

@@ -101,6 +101,7 @@ export function foldByWork(
       ...(langs.length ? { libraryLangs: langs } : {}),
       librarySeriesId: card.librarySeriesId || it.librarySeriesId,
       coverUrl: card.coverUrl || it.coverUrl,
+      ...(card.summary || it.summary ? { summary: card.summary || it.summary } : {}),
     };
   }
   return { items: out, groups };

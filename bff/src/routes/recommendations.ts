@@ -2,7 +2,8 @@
 // The work, and the care taken not to wear out AniList and MyAnimeList, is in lib/trackerRecs.ts.
 import type { FastifyInstance } from 'fastify';
 import { authenticate, userIdOf, roleOf } from '../lib/auth';
-import { viewCtxFor, hideAdult, ADULT_RATING } from '../lib/visibility';
+import { viewCtxFor, hideAdult, ADULT_RATING, adultFilter } from '../lib/visibility';
+import { titleKey } from '../lib/adultTitles';
 import { recommendationsFor } from '../lib/trackerRecs';
 import { normTitle } from '../lib/trackerProviders';
 import { heldFor, libraryIndex, noIndex } from '../lib/discoverIdentity';
@@ -15,7 +16,7 @@ export default async function recommendationRoutes(app: FastifyInstance) {
     const ctx = await viewCtxFor(userIdOf(req), roleOf(req), { hideAdult: hideAdult(req) });
     // An adult title is shown only to a viewer who is neither hiding 18+ nor capped below it.
     const restrictAdult = ctx.hideAdultLibraries || (ctx.maxAgeRating !== null && ctx.maxAgeRating < ADULT_RATING);
-    return recommendationsFor(userIdOf(req), {
+    const out = await recommendationsFor(userIdOf(req), {
       restrictAdult,
       // Which of these names the library already holds, asked of the index Discover answers from (v0.56.0, which
       // replaced routes/sources.ts inLibrary): a name, or a name the services know to be the same work. No source or
@@ -28,5 +29,9 @@ export default async function recommendationRoutes(app: FastifyInstance) {
         return held;
       },
     });
+    // Titles an admin marked 18+ from a card's menu (lib/adultTitles.ts), for a viewer who is hiding 18+.
+    if (!ctx.hideAdultLibraries) return out;
+    const marked = (await adultFilter()).titles;
+    return marked.size ? { ...out, content: out.content.filter((r) => !marked.has(titleKey(r.title))) } : out;
   });
 }

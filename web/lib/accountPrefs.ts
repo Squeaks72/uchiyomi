@@ -2,14 +2,15 @@
 import { useSyncExternalStore } from 'react';
 
 /**
- * Three switches that used to be per-device and are now per-ACCOUNT, stored in the account's settings
+ * Switches that used to be per-device (and one that never was) and are now per-ACCOUNT, stored in the account's settings
  * (`compactChapters`, `showGhosts`, `alsoFollow` in `/api/settings`, bff lib/accountSettings.ts), the way
  * Reduce effects is (lib/effects.ts): someone who turns the compact chapter list on at their desk should not
  * have to find the switch again on every other browser.
  *
  *  - `compactChapters`: the denser chapter list on a computer (off by default; lib/compactChapters.ts);
  *  - `showGhosts`: chapters the sources list that this server lacks, on the series page (ON by default);
- *  - `alsoFollow`: the Add dialog's "also check the other sources" (off by default).
+ *  - `alsoFollow`: the Add dialog's "also check the other sources" (off by default);
+ *  - `showBanners`: the big hero banners on Discover and Home (off by default).
  *
  * localStorage stays as a MIRROR, under the same keys and values these switches always used, for the two starts
  * that cannot ask the server: the first paint and an offline launch. Local wins until the account's value has
@@ -18,7 +19,7 @@ import { useSyncExternalStore } from 'react';
  * keeps what this device has, and `localOnlyPrefs` says what to upload so the choice is not lost on upgrade.
  * Type-to-search and right-click menus are NOT here: they are about this keyboard and this pointer.
  */
-export type AccountPref = 'compactChapters' | 'showGhosts' | 'alsoFollow';
+export type AccountPref = 'compactChapters' | 'showGhosts' | 'alsoFollow' | 'showBanners';
 
 interface Spec { mirror: string; on: string; off: string | null; fallback: boolean }
 // The strings are the ones the device-only versions wrote, so nothing already stored stops being read.
@@ -26,6 +27,7 @@ const SPECS: Record<AccountPref, Spec> = {
   compactChapters: { mirror: 'uchiyomi.compactChapters', on: 'on', off: null, fallback: false },
   showGhosts: { mirror: 'uchiyomi.showGhosts', on: 'on', off: 'off', fallback: true },
   alsoFollow: { mirror: 'uchiyomi.alsoFollow', on: '1', off: '0', fallback: false },
+  showBanners: { mirror: 'uchiyomi.showBanners', on: 'on', off: null, fallback: false },
 };
 export const ACCOUNT_PREFS = Object.keys(SPECS) as AccountPref[];
 

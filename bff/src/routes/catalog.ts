@@ -111,7 +111,12 @@ async function tasteRecs(req: FastifyRequest): Promise<any[]> {
   // while 18+ was revealed would otherwise be handed straight back after it was hidden again.
   const key = `${uid}:${vc(req).hideAdultLibraries ? 'safe' : 'all'}`;
   const cached = forYouCache.get(key);
-  if (cached && Date.now() - cached.ts < 10 * 60 * 1000) return cached.pool;
+  if (cached && Date.now() - cached.ts < 10 * 60 * 1000) {
+    // Re-checked on the way out: a series marked 18+ since the pool was built (the card menu's "Mark as 18+") must not
+    // keep coming back for the rest of the ten minutes.
+    const ok = await browsableIds(cached.pool.map((s) => s.id), vc(req));
+    return cached.pool.filter((s) => ok.has(s.id));
+  }
   const favIds = (await q<{ series_id: string }>('SELECT series_id FROM favorites WHERE user_id = $1', [uid])).map((r) => r.series_id);
   const doneIds = (await q<{ series_id: string }>('SELECT DISTINCT series_id FROM read_progress WHERE user_id = $1 AND completed = true', [uid])).map((r) => r.series_id);
   const sourceIds = Array.from(new Set([...favIds, ...doneIds])).slice(0, 30);

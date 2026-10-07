@@ -1696,6 +1696,16 @@ CREATE TABLE IF NOT EXISTS title_works (
 ALTER TABLE server_settings ADD COLUMN IF NOT EXISTS discover_lookups boolean NOT NULL DEFAULT true;
 CREATE INDEX IF NOT EXISTS lib_series_source_pair_idx ON lib_series (source_id, source_series_id);
 CREATE INDEX IF NOT EXISTS series_sources_source_pair_idx ON series_sources (source_id, source_series_id);
+
+-- Titles an admin marked 18+ from a card's right-click menu on Discover, where a listing is not a library row and has no
+-- series id to put a rating on. Keyed on the folded title (lib/adultTitles.ts titleKey), so every source's copy of it and
+-- the trending and recommendation rows hide together while the 18+ reveal is off. The reveal still shows them.
+CREATE TABLE IF NOT EXISTS adult_titles (
+  key        text PRIMARY KEY,
+  title      text NOT NULL,
+  marked_by  uuid REFERENCES users(id) ON DELETE SET NULL,
+  marked_at  timestamptz NOT NULL DEFAULT now()
+);
 `;
 
 // Serialises migrate() across processes. CREATE TABLE IF NOT EXISTS is not safe to run concurrently:

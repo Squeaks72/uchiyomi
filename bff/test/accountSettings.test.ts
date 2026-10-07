@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { ACCOUNT_BOOL_SETTINGS, settingsBody } from '../src/lib/accountSettings';
 
 test('the three switches are named', () => {
-  assert.deepEqual([...ACCOUNT_BOOL_SETTINGS], ['compactChapters', 'showGhosts', 'alsoFollow']);
+  assert.deepEqual([...ACCOUNT_BOOL_SETTINGS], ['compactChapters', 'showGhosts', 'alsoFollow', 'showBanners']);
 });
 
 test('booleans pass, alone or with the free-form keys', () => {

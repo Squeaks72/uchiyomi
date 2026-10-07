@@ -32,6 +32,7 @@ import { listRunRecords, runDigest, type RunTarget } from '../lib/repairRuns';
 import { worstCase } from '../lib/repairEstimate';
 import { authenticate, requireAdmin, userIdOf, roleOf, revokeAllSessions, revokeRefreshTokenById, passwordError } from '../lib/auth';
 import { logAudit, recentAudit } from '../lib/audit';
+import { listAdultTitles, setAdultTitle, titleKey } from '../lib/adultTitles';
 import { namesOf, recordAltTitles } from '../lib/altTitles';
 import { healthAllWithEvidence, setDisabled, clearBlock, pruneOrphanedHealth, isDisabled, blockedNow } from '../lib/sourceHealth';
 import { smokeTest } from '../lib/sourceProbe';
@@ -2286,6 +2287,50 @@ export default async function adminRoutes(app: FastifyInstance) {
     });
     await logAudit('series.meta_override', { userId: userIdOf(req), detail: { id }, req });
     return { ok: true };
+  });
+
+  /**
+   * "Mark as 18+" from a library card's menu: the quick version of the edit modal's age rating. Writes ONLY the
+   * rating (the modal's route writes every column, so it cannot be called for one field), on the series and on its
+   * other language editions, as the modal does. Marking also clears "Always show", which would otherwise outrank the
+   * mark; clearing removes a rating of 18 and leaves any other the admin typed. A listing's own genres and library
+   * still hide it as before -- this adds a reason, it never removes one.
+   */
+  app.post('/api/admin/series/:id/adult', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const b = z.object({ adult: z.boolean() }).safeParse(req.body);
+    if (!b.success) return reply.code(400).send({ error: 'bad_request' });
+    const row = await one<{ title: string }>('SELECT title FROM lib_series WHERE id = $1', [id]);
+    if (!row) return reply.code(404).send({ error: 'not_found' });
+    await tx(async (qq) => {
+      await qq(
+        `INSERT INTO series_overrides (series_id, age_rating, adult_exempt)
+         SELECT x.id, CASE WHEN $2::boolean THEN 18 END, CASE WHEN $2::boolean THEN false END
+           FROM (SELECT $1::text AS id
+                 UNION SELECT o.id FROM lib_series s JOIN lib_series o ON o.work_id = s.work_id AND o.id <> s.id
+                  WHERE s.id = $1 AND s.work_id IS NOT NULL) x
+         ON CONFLICT (series_id) DO UPDATE SET
+           age_rating = CASE WHEN $2::boolean THEN 18 WHEN series_overrides.age_rating = 18 THEN NULL ELSE series_overrides.age_rating END,
+           adult_exempt = CASE WHEN $2::boolean THEN false ELSE series_overrides.adult_exempt END,
+           updated_at = now()`,
+        [id, b.data.adult],
+      );
+    });
+    await logAudit('series.mark_adult', { userId: userIdOf(req), detail: { id, title: row.title, adult: b.data.adult }, req });
+    return { ok: true };
+  });
+
+  /** The titles marked 18+ from Discover (lib/adultTitles.ts), for the card menu to say "Mark" or "Not 18+". */
+  app.get('/api/admin/adult-titles', async () => ({ content: await listAdultTitles() }));
+
+  /** Mark (or unmark) a Discover title 18+: hidden from every listing while the viewer is hiding 18+. */
+  app.post('/api/admin/adult-titles', async (req, reply) => {
+    const b = z.object({ title: z.string().trim().min(1).max(300), adult: z.boolean() }).safeParse(req.body);
+    if (!b.success || !titleKey(b.data.title)) return reply.code(400).send({ error: 'bad_request' });
+    const changed = await setAdultTitle(b.data.title, b.data.adult, userIdOf(req));
+    invalidateAdultFilter();
+    await logAudit('discover.mark_adult', { userId: userIdOf(req), detail: { title: b.data.title, adult: b.data.adult }, req });
+    return { ok: true, changed };
   });
 
   /**

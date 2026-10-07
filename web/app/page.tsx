@@ -6,6 +6,7 @@ import { api, img } from '@/lib/api';
 import { HomePayload, Series } from '@/lib/types';
 import { chapterLabel, progressOf } from '@/lib/format';
 import { useAuth } from '@/lib/auth';
+import { useAccountPrefValue } from '@/lib/accountPrefs';
 import { triggerRefresh } from '@/lib/refresh';
 import { applyCover, clearCover } from '@/lib/theme';
 import { ART } from '@/lib/art';
@@ -79,6 +80,7 @@ function greeting(name?: string) {
 
 export default function HomePage() {
   const { user } = useAuth();
+  const banners = useAccountPrefValue('showBanners');
   const qc = useQueryClient();
   // A second reason for the 18+ reveal to render: a genre or source on the admin's 18+ filter.
   const adultFilter = useAdultFilterConfigured();
@@ -135,9 +137,13 @@ export default function HomePage() {
       {/* The welcome is for a library with nothing in it for this viewer -- `/api/featured` is the latest series they
           can see, so it is empty only then -- and never a flash while that answer is on its way: it now offers the
           import (v0.55.4), which a full library must not show for the second before its carousel arrives. */}
+      {/* The banner is a setting (Profile → Settings, off by default): off, a page still needs its one heading, so
+          the carousel and its skeleton give way to a screen-reader-only "Home". The welcome is not a banner -- it
+          is what an empty library shows, and stays. */}
       {(featured?.content?.length ?? 0) > 0 ? (
-        <HeroCarousel slides={featured!.content} />
+        banners ? <HeroCarousel slides={featured!.content} /> : <h1 className="sr-only" data-no-banner>{tr('Home')}</h1>
       ) : isLoading || featuredPending ? (
+        !banners ? <h1 className="sr-only" data-no-banner>{tr('Home')}</h1> :
         <div className="skeleton h-[62vh] min-h-[440px] w-full lg:-mx-6 lg:w-[calc(100%+3rem)]" role="status">
           <h1 className="sr-only">{tr('Home')}</h1>
           <span className="sr-only">{tr('Loading…')}</span>
