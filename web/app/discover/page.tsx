@@ -22,7 +22,7 @@ import { applyWorks, foldByWork, followWorks, mergeGroups, sortWall, unknownWork
 import { useLiveWorks } from '@/lib/useLiveWorks';
 import { AddSeriesDialog, AddSeed } from '@/components/AddSeriesDialog';
 import { AdultToggle, useAdultShown } from '@/components/AdultToggle';
-import { IcChevronLeft, IcSearch, IcSparkle, IcX } from '@/components/icons';
+import { IcSearch, IcSparkle, IcX } from '@/components/icons';
 import { downloadsHref } from '@/lib/libraryView';
 import type { Page, Series } from '@/lib/types';
 /**
@@ -148,6 +148,10 @@ export default function DiscoverPage() {
    */
   const [listMode, setListMode] = useState<ListMode>('newest');
   const [selected, setSelected] = useState<string | null>(null);
+  // No source is asked until the person asks for something: a listing, a source, a sort, a filter or a search.
+  // Opening Discover costs the sources nothing; this flips on the first of those and stays on.
+  const [browsing, setBrowsing] = useState(false);
+  const idle = mode === 'newest' && !browsing;
   const [wallSort, setWallSort] = useState<WallSort>('arrival');
   const [q, setQ] = useState('');
   // What was SUBMITTED, as opposed to `q`, which is whatever is in the field. The search is keyed on this, so
@@ -404,7 +408,7 @@ export default function DiscoverPage() {
   // After that the wall shows what has landed and its last card (and in a search the progress line) says what has
   // not, so a skeleton would sit beside real tiles and read as a stuck load. Since v0.58.0 browsing too: with every
   // source asked, eighteen skeletons sat under the covers for as long as the slowest source took.
-  const pending = mode === 'newest' ? Math.max(0, budget.length - settled) : (!searchQ.data && !searchQ.isError ? 3 : 0);
+  const pending = idle ? 0 : mode === 'newest' ? Math.max(0, budget.length - settled) : (!searchQ.data && !searchQ.isError ? 3 : 0);
 
   // The empty card for ONE source browsed alone says that source's own reason and wait, the way its sheet
   // row does -- "Rate-limited … · back in ~12 min", not the wall's "nothing new". `selected` names a
@@ -430,6 +434,7 @@ export default function DiscoverPage() {
   // `term` is kept: the query is disabled by the mode, and keeping its observer keeps the answer cached, so
   // searching the same title again after browsing is instant.
   const backToNewest = () => { setQ(''); setMode('newest'); };
+  const startBrowsing = () => { if (mode === 'newest') setBrowsing(true); };
   // A card's menu: search every source for its title, as if it had been typed and submitted.
   const searchFor = (title: string) => { setQ(title); setMode('search'); setTerm(title.trim()); };
 
@@ -475,8 +480,8 @@ export default function DiscoverPage() {
   const sentinel = useRef<HTMLDivElement>(null);
   // The next page once every source has answered this one (v0.58.0: once each had answered at all, so a page could
   // start while the last one was still being asked -- and with the gate counting by page, the sources it had not
-  // reached yet would have been skipped).
-  const canPage = mode === 'newest' && answered >= budget.length && budget.length > 0 && page < 5;
+  // reached yet would have been skipped). Nothing pages on a page that has asked nothing yet.
+  const canPage = mode === 'newest' && browsing && answered >= budget.length && budget.length > 0 && page < 5;
   useEffect(() => {
     const el = sentinel.current;
     if (!el || !canPage) return;
@@ -559,9 +564,7 @@ export default function DiscoverPage() {
         <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-3">
           <div className="min-w-0">
             <h1 className="font-display text-2xl font-bold tracking-tight lg:text-3xl">{tr('Discover')}</h1>
-            {/* Follows the listing, or the toggle below says Popular while the page says Newest. */}
             <div className="mt-0.5 flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
-              <p className="text-sm text-fog-400">{listMode === 'popular' ? tr('Popular on your sources') : tr('Newest from your sources')}</p>
               {/* In the HEADER and not on the chip row below, deliberately: SourcePicker is mounted only
                   while `mode === 'newest'`, so a chip anchored there would disappear the moment someone
                   searched — and search is one of the surfaces the reveal now changes. */}
@@ -600,41 +603,26 @@ export default function DiscoverPage() {
         a browse action, so from a search it returns to browsing that list.
       */}
       <SourcePicker
-        sources={budget} states={states} settled={settled} total={budget.length}
+        sources={budget} states={states} settled={idle ? 0 : settled} total={idle ? 0 : budget.length}
         // The chip's number is the whole pool: every source that can answer this listing. Since v0.58.0 that is
         // also every source asked; it was a budget of six widening to ten, and a ranked list capped at twelve,
         // and "12 sources" on a 14-source install was simply false.
         count={pool.length}
-        selected={selected} onSelect={setSelected}
-        mode={listMode}
-        onMode={(m) => { setListMode(m); setSelected(null); setPage(1); if (mode === 'search') backToNewest(); }}
-      />
-
-      {/* One mounted child per source asked -- every one in the pool -- and `enabled` only while the gate lets it
-          (four at a time). Renders nothing; owns one request.
-          The key carries the listing mode, so switching Newest/Popular REMOUNTS these and they fetch the
-          other listing. That pairing is not optional: a child that keeps its key keeps its cached query,
-          never re-reports, and the wall waits forever on a source it thinks it has not heard from. */}
-      {mode === 'newest' && budget.map((s, i) => (
-        <SourceLatest key={`${listMode}:${s.id}:${page}`} source={s} listMode={listMode}
-          page={page} enabled={i < gate} onSettled={onSettled} />
-      ))}
-
-      <div className="mb-3 mt-6 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-        <h2 className="font-display text-lg font-semibold tracking-tight text-fog-50 lg:text-xl">
-          {mode === 'search' ? tr('Results across your sources') : listMode === 'popular' ? tr('Popular on your sources') : tr('Newest from your sources')}
-        </h2>
-        {mode === 'search' ? (
-          <button onClick={backToNewest} className="chip shrink-0 text-xs">
-            <IcChevronLeft width={13} height={13} />{tr('Newest')}
-          </button>
-        ) : budget.length > 0 && settled < budget.length ? (
-          <span className="shrink-0 text-xs tabular-nums text-fog-500">
-            {tr('{done} of {total} sources', { done: settled, total: budget.length })}
-          </span>
-        ) : null}
-        {/* The 18+ filter (v0.55.4, #158), on its own row under the heading: three chips do not fit beside it at 390 px.
-            Search mode only, and only while it can change something (`offerRating`). */}
+        selected={selected}
+        onSelect={(id) => { if (id) startBrowsing(); setSelected(id); }}
+        mode={idle ? null : listMode}
+        onMode={(m) => { setListMode(m); setSelected(null); setPage(1); setBrowsing(true); if (mode === 'search') backToNewest(); }}
+      >
+        {/* The page's one control region: listing and sources above, how the wall is ordered and filtered here. Choosing
+            a sort or filter is a request to browse, so on a page that has not asked any source yet it starts that. */}
+        <div role="group" aria-label={tr('Sort by')} className="flex basis-full flex-wrap items-center gap-1.5" data-wall-sorts>
+          <span className="me-1 text-xs text-fog-500">{tr('Sort by')}</span>
+          {WALL_SORTS.map((s) => (
+            <button key={s.key} type="button" onClick={() => { setWallSort(s.key); startBrowsing(); }} aria-pressed={wallSort === s.key}
+              className={`chip text-xs ${wallSort === s.key ? 'chip-active' : ''}`}>{tr(s.label)}</button>
+          ))}
+        </div>
+        {/* The 18+ filter (v0.55.4, #158). Search mode only, and only while it can change something (`offerRating`). */}
         {mode === 'search' && offerRating && (
           <div role="group" aria-label={tr('Results')} className="flex basis-full flex-wrap items-center gap-1.5" data-rating-chips>
             <span className="me-1 text-xs text-fog-500">{tr('Results')}</span>
@@ -644,18 +632,32 @@ export default function DiscoverPage() {
             ))}
           </div>
         )}
-        {/* How the wall is ordered. Arrival is the default and the one a still-loading wall keeps stable; the rest
-            reorder what has landed, and tiles landing later are placed by the same rule. Hidden until there is
-            more than one card to order. */}
-        {wall.items.length > 1 && (
-          <div role="group" aria-label={tr('Sort by')} className="flex basis-full flex-wrap items-center gap-1.5" data-wall-sorts>
-            <span className="me-1 text-xs text-fog-500">{tr('Sort by')}</span>
-            {WALL_SORTS.map((s) => (
-              <button key={s.key} type="button" onClick={() => setWallSort(s.key)} aria-pressed={wallSort === s.key}
-                className={`chip text-xs ${wallSort === s.key ? 'chip-active' : ''}`}>{tr(s.label)}</button>
-            ))}
-          </div>
-        )}
+      </SourcePicker>
+
+      {/* One mounted child per source asked -- every one in the pool -- and `enabled` only while the gate lets it
+          (four at a time), and only once the person has asked to browse. Renders nothing; owns one request.
+          The key carries the listing mode, so switching Newest/Popular REMOUNTS these and they fetch the
+          other listing. That pairing is not optional: a child that keeps its key keeps its cached query,
+          never re-reports, and the wall waits forever on a source it thinks it has not heard from. */}
+      {mode === 'newest' && browsing && budget.map((s, i) => (
+        <SourceLatest key={`${listMode}:${s.id}:${page}`} source={s} listMode={listMode}
+          page={page} enabled={i < gate} onSettled={onSettled} />
+      ))}
+
+      {idle ? (
+        <p className="card mt-6 p-6 text-center text-sm text-fog-400" data-discover-idle>
+          {tr('Search above, or choose Newest or Popular, to browse your sources.')}
+        </p>
+      ) : (
+      <div className="mb-3 mt-6 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+        <h2 className="font-display text-lg font-semibold tracking-tight text-fog-50 lg:text-xl">
+          {mode === 'search' ? tr('Results across your sources') : listMode === 'popular' ? tr('Popular on your sources') : tr('Newest from your sources')}
+        </h2>
+        {mode === 'newest' && budget.length > 0 && settled < budget.length ? (
+          <span className="shrink-0 text-xs tabular-nums text-fog-500">
+            {tr('{done} of {total} sources', { done: settled, total: budget.length })}
+          </span>
+        ) : null}
         {/* Search's own progress, on its own row: with three source names it does not fit beside the
             heading at 390 px, and it is gone the moment the last source answers. Announced, since the wall
             it describes changes under a screen reader without a focus change. */}
@@ -665,6 +667,7 @@ export default function DiscoverPage() {
           </p>
         )}
       </div>
+      )}
 
       <div className="grid grid-cols-3 gap-x-3 gap-y-5 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 lg:gap-x-4 xl:grid-cols-8 2xl:grid-cols-9 3xl:grid-cols-10">
         {/* Every card names its sources, one of them or five, in Newest, Popular and search alike (v0.56.0). */}
@@ -685,7 +688,7 @@ export default function DiscoverPage() {
 
       {/* No "no results" while sources are still being asked: the first answer often has nothing yet and the
           sentence would be a verdict on a search that is still running. The progress line covers that gap. */}
-      {!wall.items.length && !pending && !stillAsking && (
+      {!idle && !wall.items.length && !pending && !stillAsking && (
         <div className="card col-span-full mt-2 p-8 text-center">
           <p role="status" className={`text-sm ${alone?.warn ? 'text-amber-300' : 'text-fog-400'}`}>
             {mode === 'search' ? (searchQ.isError ? tr('Search failed') : tr('No results across your sources — try another title.'))
