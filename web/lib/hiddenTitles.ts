@@ -17,18 +17,22 @@ let hidden: ReadonlySet<string> = new Set();
 const listeners = new Set<() => void>();
 const emit = () => listeners.forEach((f) => f());
 
-export function hideTitle(title: string): void {
-  const k = titleKey(title);
-  if (!k || hidden.has(k)) return;
-  hidden = new Set(hidden).add(k);
+// A library series is also hidden by its id: the card a person marked may carry a different title (an edition's, an
+// alternative one) than the menu was opened with, and the same series sits on other shelves under yet another.
+const idKey = (id: string) => `series:${id}`;
+
+export function hideTitle(title: string, seriesId?: string): void {
+  const keys = [titleKey(title), seriesId ? idKey(seriesId) : ''].filter((k) => k && !hidden.has(k));
+  if (!keys.length) return;
+  hidden = new Set([...hidden, ...keys]);
   emit();
 }
 
-export function unhideTitle(title: string): void {
-  const k = titleKey(title);
-  if (!hidden.has(k)) return;
+export function unhideTitle(title: string, seriesId?: string): void {
+  const keys = [titleKey(title), seriesId ? idKey(seriesId) : ''].filter((k) => k && hidden.has(k));
+  if (!keys.length) return;
   const next = new Set(hidden);
-  next.delete(k);
+  for (const k of keys) next.delete(k);
   hidden = next;
   emit();
 }
@@ -38,8 +42,11 @@ const snapshot = () => hidden;
 const server = (): ReadonlySet<string> => new Set();
 
 /** Whether a title should be left off the screen now. Never, while 18+ is revealed: the reader asked to see it. */
-export function useIsHiddenTitle(): (title: string) => boolean {
+export function useIsHiddenTitle(): (title: string, seriesId?: string) => boolean {
   const set = useSyncExternalStore(subscribe, snapshot, server);
   const revealed = useAdultShown();
-  return useCallback((title: string) => !revealed && set.size > 0 && set.has(titleKey(title)), [set, revealed]);
+  return useCallback(
+    (title: string, seriesId?: string) => !revealed && set.size > 0 && (set.has(titleKey(title)) || (!!seriesId && set.has(idKey(seriesId)))),
+    [set, revealed],
+  );
 }

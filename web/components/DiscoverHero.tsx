@@ -6,6 +6,7 @@ import { IcPause, IcPlay, IcPlus, IcSparkle } from '@/components/icons';
 import { t as tr } from '@/lib/i18n';
 import { dotWindow } from '@/lib/carousel';
 import { useDiscoverMenu } from '@/components/DiscoverMenu';
+import { useIsHiddenTitle } from '@/lib/hiddenTitles';
 import { useGlance } from '@/components/GlanceCard';
 import { glanceOfTrending } from '@/lib/glance';
 
@@ -160,6 +161,8 @@ export function TrendingCard({ t, onPick, onSearch }: { t: Trending; onPick: (t:
     actions: [{ label: tr('Add to library'), primary: true, onClick: () => onPick(t) }],
   });
   const menu = useDiscoverMenu({ title: t.title, onAdd: () => onPick(t), onSearch, onDescribe: glance.show });
+  const isHidden = useIsHiddenTitle();
+  if (isHidden(t.title)) return null;
   return (
     <>
     <button type="button" onClick={() => onPick(t)} className="group w-36 shrink-0 snap-start text-start lg:w-40" {...menu.bind}>

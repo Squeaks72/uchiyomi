@@ -32,8 +32,8 @@ export function useAdultMark(title: string, seriesId?: string, seriesRating?: nu
       await api('/api/admin/adult-titles', { json: { title, adult } });
       if (seriesId) await api(`/api/admin/series/${encodeURIComponent(seriesId)}/adult`, { json: { adult } });
     } catch { toast(tr('Could not do that'), 'error'); return; }
-    if (adult) hideTitle(title); else unhideTitle(title);
-    for (const key of [['adult-titles'], ['library'], ['home'], ['series'], ['discover-trending'], ['discover-recommendations'], ['adult-filter']]) {
+    if (adult) hideTitle(title, seriesId); else unhideTitle(title, seriesId);
+    for (const key of [['adult-titles'], ['library'], ['home'], ['series'], ['discover-trending'], ['discover-recommendations'], ['adult-filter'], ['foryou'], ['trending'], ['featured'], ['because'], ['collection'], ['collections'], ['updates']]) {
       qc.invalidateQueries({ queryKey: key });
     }
     toast(adult ? tr('Marked 18+ and hidden. Turn on Show 18+ content to find it again.') : tr('18+ mark cleared'), 'success');
