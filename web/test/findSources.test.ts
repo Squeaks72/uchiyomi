@@ -818,7 +818,7 @@ test('the start dialog remembers the last choice on this device; storage that th
   assert.match(dialog, /const \[review, setReview\] = useState\(findReviewFirst\);/, 'the dialog forgets the last choice');
   assert.match(dialog, /onClick=\{\(\) => \{ setFindReviewFirst\(review\); onStart\(review\); \}\}/, 'Start does not remember the choice');
   const health = code(read('components/HealthActions.tsx'));
-  assert.match(health, /\{asking === 'find' && \(\s*<FindStartDialog onClose=\{\(\) => setAsking\(null\)\}\s*onStart=\{\(review\) => \{ setAsking\(null\); const scope = findScopeOf\(item\); if \(scope\) void fr\?\.start\(slotKey, \{ \.\.\.scope, \.\.\.\(review \? \{ review \} : \{\}\) \}\); \}\} \/>/,
+  assert.match(health, /\{asking === 'find' && \(\s*<FindStartDialog onClose=\{\(\) => setAsking\(null\)\}\s*onHand=\{item\.findScope === 'series' && item\.seriesId \? \(\) => setAsking\('hand'\) : undefined\}\s*onStart=\{\(review\) => \{ setAsking\(null\); const scope = findScopeOf\(item\); if \(scope\) void fr\?\.start\(slotKey, \{ \.\.\.scope, \.\.\.\(review \? \{ review \} : \{\}\) \}\); \}\} \/>/,
     "Health's dialog does not start the run it chose");
   const sheet = slice(code(read('components/SourcesSheet.tsx')), 'function FindMore(', 'function OtherNames(');
   assert.match(sheet, /<FindModeChoice review=\{review\} onChange=\{setReview\} \/>/, 'the Sources sheet does not offer the choice');
@@ -859,4 +859,13 @@ test('the review sheet offers a one-by-one pass, with a search by hand and a ski
   assert.match(comp, /tr\('Skip this series'\)/, 'a series cannot be skipped');
   assert.match(comp, /tr\('Search by hand'\)/, 'there is no way to adjust the search');
   assert.match(comp, /tr\('Series \{n\} of \{total\}'/);
+});
+
+test('a frozen series\' Find key can be searched by hand, and its row can remove the series', () => {
+  // Drop `onHand` from the dialog or the 'hand' sheet: pressing the key can only start a run that waits behind a source check.
+  const health = code(read('components/HealthActions.tsx'));
+  assert.match(health, /\{asking === 'hand' && item\.seriesId && \(\s*<ManualMatch seriesId=\{item\.seriesId\} title=\{itemTitle\(item\)\}/, 'there is no hand search for a frozen series');
+  assert.match(health, /api\(`\/api\/admin\/series\/\$\{encodeURIComponent\(item\.seriesId \|\| ''\)\}`, \{ method: 'DELETE' \}\)/, 'the row does not remove the series');
+  const dialog = slice(code(read('components/FindSources.tsx')), 'export function FindStartDialog(', 'export function BackupStartDialog(');
+  assert.match(dialog, /\{onHand && \(/, 'the start dialog has no hand search');
 });

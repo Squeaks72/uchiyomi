@@ -8,6 +8,7 @@
 import { SourceAdapter, SourceSeries, SourceChapter } from './types';
 import { directionFromLanguage } from '../directionSignals';
 import { canonLang, langLabel, mdLang } from '../lang';
+import { decodeEntities } from '../htmlText';
 
 /**
  * Where MangaDex's API is: MANGADEX_API_URL moves it (v0.56.0), a test knob like ANILIST_API_URL -- the browser walk points it
@@ -134,7 +135,7 @@ function toSeries(m: any, source: string): SourceSeries {
     sourceId: m.id,
     // The adapter's own id: a hit from MangaDex (ES-419) is added from MangaDex (ES-419), not from English.
     source,
-    title: firstLang(a.title) || (a.altTitles || []).map((t: any) => firstLang(t)).find(Boolean) || 'Untitled',
+    title: decodeEntities(firstLang(a.title) || (a.altTitles || []).map((t: any) => firstLang(t)).find(Boolean) || 'Untitled'),
     summary: firstLang(a.description),
     status: a.status ? String(a.status).toUpperCase() : undefined,
     genres,

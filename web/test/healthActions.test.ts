@@ -78,6 +78,8 @@ const ACTIONS: { action: string; labels: string[]; wants: RegExp }[] = [
   // label is the counted one in healthCopy.ts ("Find other sources (189 series)"), whose tr() findSources.test.ts holds.
   // v0.51.0: the press opens the start dialog (follow automatically, or review first); its Start posts the source.
   { action: 'find_sources', labels: ['label: copy.label({ ...ctx, n: item.findSeries })'], wants: /onRun: \(\) => setAsking\('find'\)/ },
+  // v0.56.0: a frozen series is hidden from the library right from its row, after a confirmation (DELETE /api/admin/series/:id).
+  { action: 'remove_series', labels: ["tr('Remove from library')"], wants: /onRun: \(\) => setAsking\('remove'\)/ },
   // v0.52.0 (#72): a duplicate pair in two languages is linked as editions after a confirmation that names both.
   { action: 'link_editions', labels: ["tr('Link as editions')"], wants: /onRun: \(\) => setAsking\('link'\)/ },
   // v0.54.0: a dead main source's series move in one run (POST /api/admin/sources/find, mode 'replace'). The press opens
@@ -203,7 +205,7 @@ test('every dialog a Health card opens is on <body>, out of the card', () => {
   // its overflow-hidden cuts the dialog off. Reintroduce by rendering a ConfirmDialog in place: this names it.
   const src = code(read(KEYS));
   const opens = [...src.matchAll(/<ConfirmDialog\b/g)].map((m) => m.index!);
-  assert.equal(opens.length, 6, 'the Health confirmations moved -- update this count');
+  assert.equal(opens.length, 7, 'the Health confirmations moved -- update this count');
   for (const at of opens) {
     const before = src.slice(0, at);
     assert.ok(before.lastIndexOf('<OnBody>') > before.lastIndexOf('</OnBody>'), `a Health confirmation is rendered inside its card: ${src.slice(at, at + 90)}`);

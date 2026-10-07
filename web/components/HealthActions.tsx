@@ -31,7 +31,7 @@ import { Disclosure } from '@/components/settings';
 import { StatusMark } from '@/components/StatusMark';
 import { OnBody } from '@/components/ui';
 import { NumberingSheet } from '@/components/NumberingSheet';
-import { FindStartDialog } from '@/components/FindSources';
+import { FindStartDialog, ManualMatch } from '@/components/FindSources';
 import { ReplaceDialog } from '@/components/ReplaceDialog';
 import { t as tr } from '@/lib/i18n';
 import { deletedText, skippedBookmarkedText, skippedNotOursText } from '@/lib/counted';
@@ -208,7 +208,7 @@ export function HealthRow({ check, item, rowKey, links, children, compact }: {
   const slot = slots[slotKey];
   // Answers-at-once actions keep their own state: pressed, asked, re-checked, then what they said.
   const [sync, setSync] = useState<{ action: HealthAction; state: ActionState; at: number } | null>(null);
-  const [asking, setAsking] = useState<'delete' | 'disable' | 'merge' | 'link' | 'find' | 'replace' | null>(null);
+  const [asking, setAsking] = useState<'delete' | 'disable' | 'merge' | 'link' | 'find' | 'hand' | 'replace' | 'remove' | null>(null);
   // #116: the renumbering plan a numbering key opened, and which key opened it (its row state is that key's).
   const [plan, setPlan] = useState<{ action: HealthAction; mode: PlanMode } | null>(null);
   const [keepFirst, setKeepFirst] = useState(() => keptIndex(item) === 0);
@@ -347,6 +347,16 @@ export function HealthRow({ check, item, rowKey, links, children, compact }: {
     return { text };
   };
 
+  // A frozen series hidden from the library (the series page's Remove from library): files and progress stay.
+  const doRemove = async (): Promise<{ text: string }> => {
+    setAsking(null);
+    await api(`/api/admin/series/${encodeURIComponent(item.seriesId || '')}`, { method: 'DELETE' });
+    for (const k of [['library'], ['home'], ['series', item.seriesId]]) void qc.invalidateQueries({ queryKey: k });
+    const text = tr('Removed from the library');
+    toast(text, 'success');
+    return { text };
+  };
+
   const doDisable = async (): Promise<{ text: string }> => {
     setAsking(null);
     await disableSource(item.sourceId || '');
@@ -402,6 +412,8 @@ export function HealthRow({ check, item, rowKey, links, children, compact }: {
         return { ...base, danger: true, label: tr('Turn off'), onRun: () => setAsking('disable') };
       case 'merge':
         return { ...base, label: tr('Merge'), onRun: () => setAsking('merge') };
+      case 'remove_series':
+        return { ...base, danger: true, label: tr('Remove from library'), onRun: () => setAsking('remove') };
       case 'link_editions':
         return { ...base, primary: true, label: tr('Link as editions'), onRun: () => setAsking('link') };
       case 'ignore':
@@ -528,7 +540,31 @@ export function HealthRow({ check, item, rowKey, links, children, compact }: {
 
       {asking === 'find' && (
         <FindStartDialog onClose={() => setAsking(null)}
+          onHand={item.findScope === 'series' && item.seriesId ? () => setAsking('hand') : undefined}
           onStart={(review) => { setAsking(null); const scope = findScopeOf(item); if (scope) void fr?.start(slotKey, { ...scope, ...(review ? { review } : {}) }); }} />
+      )}
+
+      {asking === 'hand' && item.seriesId && (
+        <ManualMatch seriesId={item.seriesId} title={itemTitle(item)} onClose={() => setAsking(null)}
+          onDone={() => { setAsking(null); void rr.recheck().catch(() => {}); }} />
+      )}
+
+      {asking === 'remove' && (
+        <OnBody>
+          <ConfirmDialog
+            title={tr('Remove from library?')}
+            confirmLabel={tr('Remove')}
+            danger
+            body={
+              <>
+                <p><strong className="text-fog-100">{tr('No files are deleted.')}</strong></p>
+                <p className="mt-2">{tr('Everyone’s reading progress, history, favourites and ratings are kept, so Admin → Library can put it back at any time.')}</p>
+              </>
+            }
+            onConfirm={() => act('remove_series', doRemove)}
+            onClose={() => setAsking(null)}
+          />
+        </OnBody>
       )}
 
       {/* On <body>: a Health card is a `.card`, whose backdrop blur would make it the sheet's containing block. A source

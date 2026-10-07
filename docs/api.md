@@ -2328,7 +2328,7 @@ and the counts (each follow as `series.follow_source` with `via: find_sources`).
 own `waiting`) while it waits for one of those. On Health, a failing (or turned-off) source that is some
 series' main source carries the action `find_sources` with `findSeries`, and so does every "Series that can no longer
 update" row, whatever its reason (even a series with no source at all). Since v0.56.0 that row's item has
-`findScope: 'series'`: its key starts a run with `{ seriesIds: [seriesId] }` for that series alone, not the source. Since v0.54.0 such a source row carries `replace_source` before it, when the
+`findScope: 'series'`: its key starts a run with `{ seriesIds: [seriesId] }` for that series alone, not the source. Each such row also carries `remove_series` (before `find_sources`): `DELETE /api/admin/series/{id}`, which hides the series and keeps its files and everyone's progress. Since v0.54.0 such a source row carries `replace_source` before it, when the
 source is switched off or failing at a step an update needs (the chapter list, the pages or the images, or the
 site's own offline notice; not a cooldown, not a failure at search alone): the replace mode below. The
 `frozen-series` check also lists a series whose main source is loaded but switched off or failing

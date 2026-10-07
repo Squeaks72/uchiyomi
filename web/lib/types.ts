@@ -493,6 +493,8 @@ export type HealthAction =
   | 'find_sources'
   // v0.52.0 (#72): a duplicate pair in two languages, linked as editions of one work (POST /api/admin/series/:id/editions).
   | 'link_editions'
+  // v0.56.0: a frozen series removed from the library from Health (DELETE /api/admin/series/:id): hidden, files kept.
+  | 'remove_series'
   // v0.54.0: move every series whose main source is `sourceId` -- off or failing -- to a working source, in one Replace
   // run (POST /api/admin/sources/find in its replace mode); the source and the frozen-series rows offer it.
   | 'replace_source'

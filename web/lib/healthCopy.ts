@@ -215,6 +215,13 @@ export const ACTION_COPY: Readonly<Record<string, ActionCopy>> = {
     what: () => tr('Keeps both series, each with its own chapters and reading progress, as language editions of one work: the Library shows one card for them. Unlinking from the series page undoes it.'),
     eta: moment,
   },
+  // v0.56.0: a frozen series, removed from the library right from the row. The same hide as the series page's Remove from
+  // library: nothing on disk is touched and Admin → Library puts it back.
+  remove_series: {
+    label: () => tr('Remove from library'),
+    what: () => tr('Hides this series from the library. No files are deleted, everyone keeps their reading progress, and Admin → Library puts it back.'),
+    eta: moment,
+  },
   // Card-level: the step acts on every source that blames the solver, whatever row was pressed.
   solver_reset: {
     label: (c) => (c.n === 1 ? tr('Reset the solver (1 source)') : tr('Reset the solver ({n} sources)', { n: c.n ?? 0 })),

@@ -82,7 +82,10 @@ export type HealthAction =
   | 'link_editions'
   // v0.55.0: a frozen row whose source is dropped by SUWAYOMI_MAX_SOURCES -- open Admin → Sources on `sourceId` to free
   // a slot (no server action). Offered in place of Replace there: the source works, the limit is the cause.
-  | 'free_slot';
+  | 'free_slot'
+  // v0.56.0: a frozen series, removed from the library right there (DELETE /api/admin/series/{id}): hidden, files kept,
+  // everyone's progress kept, and Admin → Library puts it back.
+  | 'remove_series';
 
 export interface HealthItem {
   seriesId?: string;
@@ -1054,7 +1057,7 @@ export async function frozenSeries(
   // reason" in health.int.test.ts read the id.
   const named = (r: typeof rows[number]): string => (r.source_id ? sourceLabel(r.source_id, r.engine_name) : '');
   const withFind = (k: { sourceId?: string; actions?: HealthAction[]; findSeries?: number }) =>
-    ({ ...k, actions: [...(k.actions ?? []), 'find_sources' as const] as HealthAction[] });
+    ({ ...k, actions: [...(k.actions ?? []), 'remove_series' as const, 'find_sources' as const] as HealthAction[] });
   const found: HealthItem[] = frozen.map((r) => {
     const p = { n: r.books_count, source: named(r) };
     return {
