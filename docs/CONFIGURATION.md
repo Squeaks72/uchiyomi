@@ -79,7 +79,7 @@ an empty string to make sure it can never send anything regardless of the settin
 
 ### Progress trackers
 
-The tracker calls are the only ones this server makes **with your token**: AniList, MyAnimeList and Kitsu,
+The tracker calls are the only ones this server makes **with your token**: AniList, MyAnimeList, Kitsu and MangaUpdates,
 each connected by you under **Profile → Connections → Progress tracking**, and only for reading your list (the
 import) and reporting what you finished. Nothing carrying a token goes to a tracker you have not connected.
 
@@ -89,7 +89,7 @@ Progress tracking** (admins see a *Set up sign-in* card; the redirect URL to reg
 button, and is `<your Uchiyomi address>/tracker-callback/`). AniList: *Settings → Developer → Create new client*,
 paste that redirect URL, and copy the client ID. MyAnimeList: *Account settings → API → Create ID*, app type *web*,
 the same redirect URL, and copy the client ID (and the secret, if it shows one). After that every member just clicks
-**Connect**. Kitsu needs no setup: members sign in with their username and password, which is used once to get a token
+**Connect**. Kitsu and MangaUpdates need no setup: members sign in with their username and password, which is used once to get a token
 and not kept. The same IDs can come from the environment instead (`ANILIST_CLIENT_ID`, `MYANIMELIST_CLIENT_ID`,
 `MYANIMELIST_CLIENT_SECRET`); an ID saved in the app wins. The redirect address has to be the one people open
 Uchiyomi at, so a server reached by two names needs the sign-in done at the registered one. MyAnimeList tokens last
@@ -121,9 +121,9 @@ off with **Match Discover titles online** under Admin → Settings; cards then f
 `MANGADEX_API_URL` and `MANGAUPDATES_API_URL` are test knobs like the ones below (defaults `https://api.mangadex.org`
 and `https://api.mangaupdates.com/v1`); `MANGADEX_API_URL` moves every MangaDex request, the MangaDex sources' included.
 
-`ANILIST_API_URL`, `MYANIMELIST_API_URL` and `KITSU_API_URL` are **test knobs**: they point an adapter at a
+`ANILIST_API_URL`, `MYANIMELIST_API_URL`, `KITSU_API_URL` and `MANGAUPDATES_API_URL` are **test knobs**: they point an adapter at a
 stand-in server instead of the real service (the defaults are `https://graphql.anilist.co`,
-`https://api.myanimelist.net/v2` and `https://kitsu.app/api/edge`). They exist so the browser tests can
+`https://api.myanimelist.net/v2`, `https://kitsu.app/api/edge` and `https://api.mangaupdates.com/v1`). They exist so the browser tests can
 drive a tracker import without a real account — and, `ANILIST_API_URL` since v0.55.7, check online matches
 against a fake AniList, so it moves every AniList call, the title lookups above included. There is no reason to
 set them on an install you read on — a wrong value here makes every tracker call fail, or worse, sends your token

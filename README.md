@@ -108,7 +108,7 @@ sites' terms and your local law.
   or Suwayomi with one API token: [uchiyomi-extension](https://github.com/AngeloSha/uchiyomi-extension).
 - **A Komga-compatible API** — point Mihon's own Komga extension at Uchiyomi instead and its built-in Komga
   tracker syncs reading progress back in both directions, forward-only: [how to set it up](docs/extensions.md#komga-compatible-api).
-- **Progress sync** to AniList, MyAnimeList and Kitsu.
+- **Progress sync** to AniList, MyAnimeList, Kitsu and MangaUpdates.
 - **Nine languages**, with right-to-left layout for Arabic.
 - **A Windows and macOS app (beta)** — the whole thing as a program on your own computer, with the library in a
   folder there and no server to run; or, if you already run a server, a window onto it:

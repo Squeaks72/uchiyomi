@@ -74,7 +74,7 @@ interface TrackerStatus {
   /** Sent by the server so the UI never hardcodes the provider list. */
   label?: string;
   tokenHelp?: string;
-  /** How this service signs people in: a redirect (AniList, MyAnimeList) or a username and password (Kitsu). */
+  /** How this service signs people in: a redirect (AniList, MyAnimeList) or a username and password (Kitsu, MangaUpdates). */
   method?: 'oauth-implicit' | 'oauth-code' | 'password';
   /** false until an admin has registered the sign-in application. */
   configured?: boolean;
@@ -90,7 +90,7 @@ interface TrackerStatus {
  * where a token comes from, so adding a fourth service is a backend change alone.
  *
  * How each connects is the server's to say (`method`, `configured`): AniList and MyAnimeList go to the service's own
- * login and come back to app/tracker-callback, Kitsu takes a username and password, and a pasted token still works
+ * login and come back to app/tracker-callback, Kitsu and MangaUpdates take a username and password, and a pasted token still works
  * for all of them. The redirect services need an application registered once, which an admin does on the row
  * (TrackerSetup); everyone else just presses Connect. See lib/trackerSignIn.ts and bff/src/lib/trackerOauth.ts.
  *
@@ -160,11 +160,11 @@ function TrackerRow({ t, refetch }: { t: TrackerStatus; refetch: () => void }) {
     setBusy(false);
   };
 
-  const signInKitsu = async () => {
+  const signInWithPassword = async () => {
     if (!username.trim() || !password) return;
     setBusy(true);
     try {
-      const r = await api<{ account: string }>('/api/trackers/kitsu/login', { json: { username: username.trim(), password } });
+      const r = await api<{ account: string }>(`/api/trackers/${t.provider}/login`, { json: { username: username.trim(), password } });
       await connected(r.account);
     } catch (e: any) { toast(msgOf(e, tr('{name} did not accept that sign-in', { name: label })), 'error'); }
     setBusy(false);
@@ -251,9 +251,9 @@ function TrackerRow({ t, refetch }: { t: TrackerStatus; refetch: () => void }) {
             <input value={username} onChange={(e) => setUsername(e.target.value)} placeholder={tr('Username or email')} aria-label={tr('Username or email')}
               autoCapitalize="none" autoCorrect="off" autoComplete="username" spellCheck={false} className="field min-w-0 flex-1" />
             <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" placeholder={tr('Password')} aria-label={tr('Password')}
-              onKeyDown={(e) => { if (e.key === 'Enter' && !busy) signInKitsu(); }}
+              onKeyDown={(e) => { if (e.key === 'Enter' && !busy) signInWithPassword(); }}
               autoComplete="current-password" className="field min-w-0 flex-1" />
-            <button type="button" onClick={signInKitsu} disabled={busy || !username.trim() || !password} className="btn-accent shrink-0 px-4 py-2 text-sm disabled:opacity-50">
+            <button type="button" onClick={signInWithPassword} disabled={busy || !username.trim() || !password} className="btn-accent shrink-0 px-4 py-2 text-sm disabled:opacity-50">
               {busy ? tr('Working…') : tr('Sign in')}
             </button>
           </div>

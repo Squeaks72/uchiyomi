@@ -15,7 +15,7 @@ import { enrichSeries, seenCounts } from '../lib/enrich';
 import { env } from '../env';
 import { pushEnabled, vapidPublicKey, saveSubscription, removeSubscription } from '../lib/push';
 import { statusFor, saveConnection, disconnect, whoAmI, pushSeriesProgress, pushSeriesProgressAsync, clearTrackerFloor } from '../lib/trackers';
-import { ADAPTERS, isProvider, type Provider } from '../lib/trackerProviders';
+import { ADAPTERS, isProvider, mangaupdatesLogin, type Provider } from '../lib/trackerProviders';
 import { exchangeMalCode, kitsuPasswordLogin, type TokenGrant } from '../lib/trackerOauth';
 import { logAudit } from '../lib/audit';
 import { noticeBook } from '../lib/noticeChapters';
@@ -842,6 +842,16 @@ export default async function personalRoutes(app: FastifyInstance) {
     try { grant = await kitsuPasswordLogin(b.data.username.trim(), b.data.password); }
     catch (e) { return grantFailed('kitsu', reply, e); }
     return finishConnect('kitsu', req, reply, grant.token, grant.expiresInSec);
+  });
+
+  // MangaUpdates: the same, a username and password for a session token. Nothing else of the login is kept.
+  app.post('/api/trackers/mangaupdates/login', async (req, reply) => {
+    const b = z.object({ username: z.string().min(1).max(320), password: z.string().min(1).max(500) }).safeParse(req.body);
+    if (!b.success) return reply.code(400).send({ error: 'bad_request', message: 'Enter your MangaUpdates username and password.' });
+    let grant: { token: string };
+    try { grant = await mangaupdatesLogin(b.data.username.trim(), b.data.password); }
+    catch (e) { return grantFailed('mangaupdates', reply, e); }
+    return finishConnect('mangaupdates', req, reply, grant.token);
   });
 
   // Kept as its own path for the clients and docs that already reference it.

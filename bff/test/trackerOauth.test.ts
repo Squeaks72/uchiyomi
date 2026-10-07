@@ -20,7 +20,7 @@ test.afterEach(() => { globalThis.fetch = realFetch; });
 
 test('each tracker has one way of connecting', async () => {
   const { METHOD } = await oauth();
-  assert.deepEqual(METHOD, { anilist: 'oauth-implicit', myanimelist: 'oauth-code', kitsu: 'password' });
+  assert.deepEqual(METHOD, { anilist: 'oauth-implicit', myanimelist: 'oauth-code', kitsu: 'password', mangaupdates: 'password' });
 });
 
 test('Kitsu: the password goes to the token endpoint once and a token comes back', async () => {

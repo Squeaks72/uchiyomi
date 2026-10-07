@@ -7,11 +7,11 @@
 // import intake pick an adapter instead of hardcoding AniList.
 //
 // People connect by signing in (lib/trackerOauth.ts: AniList and MyAnimeList through a redirect back to the app,
-// Kitsu with its username and password). Pasting an access token still works for each, for anyone who already
+// Kitsu and MangaUpdates with a username and password). Pasting an access token still works for each, for anyone who already
 // has one and for installs where no admin has registered an application. Either way the token ends up in
 // the same place, so everything below this comment neither knows nor cares which way it arrived.
 
-export type Provider = 'anilist' | 'myanimelist' | 'kitsu';
+export type Provider = 'anilist' | 'myanimelist' | 'kitsu' | 'mangaupdates';
 
 /** The reading-list buckets every tracker has, in the app's own words; each adapter maps its service's names. */
 export const LIST_STATUSES = ['reading', 'plan_to_read', 'completed', 'on_hold', 'dropped'] as const;
@@ -486,6 +486,133 @@ export const kitsuAdapter: TrackerAdapter = {
   },
 };
 
+// ---------------------------------------------------------------------------- MangaUpdates
+
+const MU_API = apiUrl('MANGAUPDATES_API_URL', 'https://api.mangaupdates.com/v1');
+const MU_PAGE = 100;
+/** MangaUpdates' five standard lists, by the `type` /lists names them with; a custom list has none of these. */
+const MU_LIST_TYPE: Record<ListStatus, string> = {
+  reading: 'read', plan_to_read: 'wish', completed: 'complete', on_hold: 'hold', dropped: 'unfinished',
+};
+/** The standard lists' fixed ids, used when /lists does not answer for one (a brand-new account lists them all). */
+const MU_LIST_ID: Record<ListStatus, number> = { reading: 0, plan_to_read: 1, completed: 2, dropped: 3, on_hold: 4 };
+const muFormat = (t: unknown): LibraryEntry['format'] => {
+  const s = String(t ?? '');
+  if (s === 'Novel') return 'novel';
+  return ['Manga', 'Manhwa', 'Manhua', 'OEL', 'Doujinshi', 'Filipino', 'Indonesian', 'Thai', 'Vietnamese', 'Malaysian', 'Nordic', 'French', 'Spanish', 'German'].includes(s) ? 'manga' : 'other';
+};
+
+async function muCall(token: string, path: string, init?: RequestInit): Promise<any> {
+  const r = await fetch(`${MU_API}${path}`, {
+    ...init,
+    headers: { authorization: `Bearer ${token}`, accept: 'application/json', ...(init?.headers as any) },
+    signal: AbortSignal.timeout(15000),
+  });
+  // A 401 is a session that is gone or never was ("This action requires a user account"). Writes are refused with a
+  // 412 when two come within five seconds of each other; that is the service asking us to wait, not a verdict on the
+  // token, so it travels as a plain error (`throttled`) for the caller to wait out.
+  if (r.status === 401) throw authFail('MangaUpdates rejected the token');
+  if (r.status === 412) throw Object.assign(new Error('mangaupdates 412'), { throttled: true });
+  if (r.status === 404) throw Object.assign(new Error('mangaupdates 404'), { notFound: true });
+  if (!r.ok) throw new Error(`mangaupdates ${r.status}`);
+  return r.json().catch(() => null);
+}
+
+/** The id each standard list has on this account, by bucket; falls back to the fixed ids. */
+async function muListIds(token: string): Promise<Record<ListStatus, number>> {
+  const out = { ...MU_LIST_ID };
+  const lists = await muCall(token, '/lists').catch((e) => { if ((e as any).authFailed) throw e; return null; });
+  for (const l of Array.isArray(lists) ? lists : []) {
+    if (l?.custom || l?.list_id == null) continue;
+    for (const st of LIST_STATUSES) if (MU_LIST_TYPE[st] === l.type) out[st] = Number(l.list_id);
+  }
+  return out;
+}
+
+/** Log in with a username and password; the session token is all that is kept. */
+export async function mangaupdatesLogin(username: string, password: string): Promise<{ token: string }> {
+  const r = await fetch(`${MU_API}/account/login`, {
+    method: 'PUT', headers: { 'content-type': 'application/json', accept: 'application/json' },
+    body: JSON.stringify({ username, password }), signal: AbortSignal.timeout(15000),
+  });
+  const j: any = await r.json().catch(() => null);
+  const token = j?.context?.session_token;
+  if (!r.ok || typeof token !== 'string' || !token) {
+    const why = typeof j?.reason === 'string' ? j.reason : '';
+    throw Object.assign(new Error(why ? `MangaUpdates: ${why}` : `MangaUpdates did not give a token (${r.status})`), { rejected: r.status === 400 || r.status === 401 });
+  }
+  return { token };
+}
+
+export const mangaupdatesAdapter: TrackerAdapter = {
+  id: 'mangaupdates',
+  label: 'MangaUpdates',
+  tokenHelp: 'Sign in with your MangaUpdates username and password, or paste a session token you already have.',
+  tokenDays: null,
+  async whoAmI(token) {
+    const d = await muCall(token, '/account/profile');
+    return d?.user_id != null ? { id: String(d.user_id), name: String(d.username ?? d.user_id) } : null;
+  },
+  async listLibrary(token, { statuses, max }) {
+    if (!statuses.length || !(max > 0)) return [];
+    const ids = await muListIds(token);
+    const out: LibraryEntry[] = [];
+    const seen = new Set<string>();
+    // One paged read per bucket asked for: a list is its own endpoint, and the page is our own number.
+    for (const status of statuses) {
+      for (let page = 1; ; page++) {
+        const d = await muCall(token, `/lists/${ids[status]}/search`, {
+          method: 'POST', headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ page, perpage: MU_PAGE }),
+        });
+        const rows: any[] = Array.isArray(d?.results) ? d.results : [];
+        for (const row of rows) {
+          const sid = row?.record?.series?.id ?? row?.metadata?.series?.series_id;
+          if (sid == null || seen.has(String(sid))) continue;
+          const t = titlesOf([row?.record?.series?.title, row?.metadata?.series?.title]);
+          if (!t) continue;
+          seen.add(String(sid));
+          out.push({
+            externalId: String(sid), ...t, status,
+            progress: Math.max(0, Math.floor(Number(row?.record?.status?.chapter) || 0)),
+            format: muFormat(row?.metadata?.series?.type),
+            ...(Number(row?.metadata?.user_rating) > 0 ? { score: Number(row.metadata.user_rating) } : {}),
+          });
+          if (out.length >= max) return out;
+        }
+        const total = Number(d?.total_hits) || 0;
+        if (!rows.length || page * MU_PAGE >= total) break;
+      }
+    }
+    return out;
+  },
+  async setProgress(token, externalId, chapters, finished) {
+    const sid = Number(externalId);
+    if (!Number.isInteger(sid)) throw new Error('mangaupdates: not a series id');
+    const ids = await muListIds(token);
+    let current: any = null;
+    try { current = await muCall(token, `/lists/series/${sid}`); }
+    catch (e) { if (!(e as any).notFound) throw e; }
+    // Finished moves it to the complete list. Otherwise it stays where it is, except that a wish, hold or
+    // unfinished entry being read goes to reading; an entry on a custom list is left on it.
+    const onList: number | null = current?.list_id != null ? Number(current.list_id) : null;
+    const standard = Object.values(ids);
+    const target = finished ? ids.completed
+      : onList != null && !standard.includes(onList) ? onList
+      : ids.reading;
+    const item = { series: { id: sid }, list_id: target, status: { chapter: chapters } };
+    const write = () => muCall(token, current ? '/lists/series/update' : '/lists/series', {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify([item]),
+    });
+    try { await write(); }
+    catch (e) {
+      if (!(e as any).throttled) throw e;
+      await new Promise((r) => setTimeout(r, 5500));
+      await write();
+    }
+  },
+};
+
 // ---------------------------------------------------------------------------- Recommendations
 
 /**
@@ -623,6 +750,7 @@ export const ADAPTERS: Record<Provider, TrackerAdapter> = {
   anilist: anilistAdapter,
   myanimelist: malAdapter,
   kitsu: kitsuAdapter,
+  mangaupdates: mangaupdatesAdapter,
 };
 
 export const PROVIDERS = Object.keys(ADAPTERS) as Provider[];
