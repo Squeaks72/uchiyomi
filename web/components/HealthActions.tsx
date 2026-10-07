@@ -31,7 +31,7 @@ import { Disclosure } from '@/components/settings';
 import { StatusMark } from '@/components/StatusMark';
 import { OnBody } from '@/components/ui';
 import { NumberingSheet } from '@/components/NumberingSheet';
-import { FindStartDialog, ManualMatch } from '@/components/FindSources';
+import { FindStartDialog, ManualMatch, RunReviewSheet } from '@/components/FindSources';
 import { ReplaceDialog } from '@/components/ReplaceDialog';
 import { t as tr } from '@/lib/i18n';
 import { deletedText, skippedBookmarkedText, skippedNotOursText } from '@/lib/counted';
@@ -53,7 +53,7 @@ import { useRepairRun } from '@/lib/useRepairRun';
 import { testStep } from '@/lib/sourceEvidence';
 import { diagnosisReason, itemDetail, itemTitle, type Said } from '@/lib/said';
 import { useFindRun } from '@/lib/useFindRun';
-import { findGate, findScopeOf, findSlotState } from '@/lib/findSources';
+import { findGate, findScopeOf, findSlotState, reviewIdsFor } from '@/lib/findSources';
 import { numberingOutcome, refusalText, type NumberingAnswer, type PlanMode, type RenumberMode } from '@/lib/numbering';
 import { freeSlotHref } from '@/lib/sourcesPanel';
 import type { HealthAction, HealthCheck, HealthItem } from '@/lib/types';
@@ -246,6 +246,20 @@ export function HealthRow({ check, item, rowKey, links, children, compact }: {
   // started, never the row's Find other sources -- with its own status line under the row.
   const replaceKey = `${slotKey}:replace`;
   const replaceNow = findSlotState(fr?.slots[replaceKey], fr?.runOf(replaceKey), () => { void fr?.stop(replaceKey); });
+  // A review-first search that has ended, with matches of this row's waiting: the row says so with a key of its own that
+  // opens them, where the status line alone ("1 series to review") led nowhere. Read from the newest run too, so the key
+  // is still there after the page is reloaded.
+  const [reviewing, setReviewing] = useState(false);
+  const reviewRun = fr?.runOf(slotKey) ?? fr?.status?.run ?? null;
+  const reviewIds = reviewIdsFor(reviewRun, item);
+  const reviewKey = reviewRun && reviewIds.length > 0 && (
+    <div data-health-review className="mt-1.5">
+      <button type="button" className="btn-key btn-key-primary" data-health-action="review_matches"
+        aria-label={`${tr('Review matches')}: ${itemTitle(item)}`} onClick={() => setReviewing(true)}>
+        {tr('Review matches')}
+      </button>
+    </div>
+  );
   // The newest of the two is the row's line.
   const useSync = !!sync && sync.state.kind !== 'idle' && (repairState.kind === 'idle' || sync.at >= (slot?.startedAt ?? live?.startedAt ?? record?.finishedAt ?? 0));
   const rowNow: ActionState = useSync ? sync!.state : repairState;
@@ -544,6 +558,10 @@ export function HealthRow({ check, item, rowKey, links, children, compact }: {
           onStart={(review) => { setAsking(null); const scope = findScopeOf(item); if (scope) void fr?.start(slotKey, { ...scope, ...(review ? { review } : {}) }); }} />
       )}
 
+      {reviewing && reviewRun && reviewIds.length > 0 && (
+        <RunReviewSheet runId={reviewRun.id} ids={reviewIds} onClose={() => setReviewing(false)} />
+      )}
+
       {asking === 'hand' && item.seriesId && (
         <ManualMatch seriesId={item.seriesId} title={itemTitle(item)} onClose={() => setAsking(null)}
           onDone={() => { setAsking(null); void rr.recheck().catch(() => {}); }} />
@@ -704,6 +722,7 @@ export function HealthRow({ check, item, rowKey, links, children, compact }: {
           {rc.note && <p data-health-recheck-note={rc.note.kind} role="status" className={`mt-1 text-[11px] leading-relaxed ${rc.note.kind === 'failed' ? 'text-amber-300' : 'text-fog-300'}`}>{rc.note.text}</p>}
           <ActionStatus state={rowNow} />
           {finds.length > 0 && <ActionStatus state={findNow} />}
+          {reviewKey}
           {actions.includes('replace_source') && <ActionStatus state={replaceNow} />}
           {compact.details && (
             <div data-health-details>
@@ -738,6 +757,7 @@ export function HealthRow({ check, item, rowKey, links, children, compact }: {
       {rc.note && <p data-health-recheck-note={rc.note.kind} role="status" className={`mt-1 text-[11px] leading-relaxed ${rc.note.kind === 'failed' ? 'text-amber-300' : 'text-fog-300'}`}>{rc.note.text}</p>}
       <ActionStatus state={rowNow} />
       {finds.length > 0 && <ActionStatus state={findNow} />}
+          {reviewKey}
       {actions.includes('replace_source') && <ActionStatus state={replaceNow} />}
 
       {dialogs}

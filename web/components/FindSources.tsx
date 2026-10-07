@@ -722,6 +722,44 @@ function ReviewGroup({ run, rows, onOpen, onAddEdition }: {
   );
 }
 
+/**
+ * A review-first search's matches for the Health row that started it (the row's "Review matches"): the one-by-one review
+ * of those series, opened straight from the row instead of by way of the results sheet at the foot of the page.
+ */
+export function RunReviewSheet({ runId, ids, onClose }: { runId: string; ids: string[]; onClose: () => void }) {
+  const { isAdmin } = useAuth();
+  const router = useRouter();
+  const q = useQuery({ queryKey: [...FIND_KEY, 'run', runId], queryFn: () => fetchFindRun(runId), enabled: isAdmin, retry: false });
+  const [step, setStep] = useState<StepState>({ ids, at: 0, handled: [] });
+  const [adding, setAdding] = useState<EditionAsk | null>(null);
+  const qc = useQueryClient();
+  const run = q.data?.run ?? null;
+  if (adding) {
+    return (
+      <OnBody>
+        <AddSeriesDialog seed={{ kind: 'edition', of: adding.of, title: adding.title, lang: adding.lang, source: adding.source }}
+          sources={[]} mayFollow={isAdmin} onClose={() => setAdding(null)}
+          onAdded={() => { for (const k of [['series', adding.of], ['library'], ['home'], ['source-jobs']]) void qc.invalidateQueries({ queryKey: k }); }} />
+      </OnBody>
+    );
+  }
+  if (!run) {
+    return (
+      <OnBody>
+        <Sheet title={tr('Review one series at a time')} onClose={onClose} overBottomNav>
+          {q.isError
+            ? <p role="alert" className="text-xs text-rose-300">{tr('Could not load the results')}</p>
+            : <div role="status" aria-label={tr('Loading…')} className="skeleton h-16 rounded-xl" />}
+        </Sheet>
+      </OnBody>
+    );
+  }
+  return (
+    <ReviewStepper run={run} step={step} setStep={setStep} onClose={onClose} onOpen={onClose}
+      onAddEdition={(ask) => { if (ask.existing) { onClose(); router.push(seriesHref(ask.existing.id)); return; } setAdding(ask); }} />
+  );
+}
+
 /** Health's card: the running run or the newest one, with its results a press away. Nothing before the first run. */
 export function FindRunCard() {
   const fr = useFindRun();

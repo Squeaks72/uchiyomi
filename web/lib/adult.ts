@@ -56,7 +56,12 @@ export function setAdultShown(on: boolean): void {
  * Only when ON, so the common case is byte-for-byte the URLs the app has always used and nothing already
  * cached is invalidated by shipping this.
  */
-export function withAdult(path: string): string {
-  if (!adultShown()) return path;
+export function withAdult(path: string, force = false): string {
+  // Admin tooling is not a browsing surface (Health, Find other sources, the library's repair screens): the filter tidies
+  // what is put in front of a reader unasked, and an admin fixing a series has asked for it by name. `force` is the same
+  // for an admin sheet that calls the browsing routes (the source search of "Add or move source").
+  const admin = path.startsWith('/api/admin/');
+  if (!force && !admin && !adultShown()) return path;
+  if (/[?&]adult=1(&|$)/.test(path)) return path;
   return `${path}${path.includes('?') ? '&' : '?'}adult=1`;
 }

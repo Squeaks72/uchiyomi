@@ -3,6 +3,7 @@ import { useCallback, useId, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, img } from '@/lib/api';
+import { withAdult } from '@/lib/adult';
 import { useAuth, canDownload } from '@/lib/auth';
 import { useToast } from '@/components/Toast';
 import { msgOf } from '@/components/ConfirmDialog';
@@ -82,8 +83,8 @@ export function ServerDownloadsView({ focusFolder }: { focusFolder?: string | nu
   // Names for the "took chapter 12 from …" lines. Asked for only once a card has a switch to name, and only by a
   // viewer who may download, which is who the route answers.
   const { data: sources } = useQuery({
-    queryKey: ['sources'],
-    queryFn: () => api<{ content: { id: string; name: string }[] }>('/api/sources'),
+    queryKey: ['sources', 'names'],
+    queryFn: () => api<{ content: { id: string; name: string }[] }>(withAdult('/api/sources', true)),
     staleTime: 60_000,
     enabled: mayAdd && jobs.some((j) => !!j.switched?.length),
   });

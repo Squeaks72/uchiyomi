@@ -1053,7 +1053,9 @@ export async function frozenSeries(
       // source at all -- and the run is over THIS series (`findScope: 'series'`), not every series of its source.
       // Reintroduce the source-wide key by dropping `findScope`: "the find key of a frozen row is for that series
       // alone" in findSources.int.test.ts finds the web starting a run over the whole source.
-      ...withFind(keysFor(r, ['replace_source'])),
+      // Replace is not offered per series: it moves EVERY series of the source, which is not what reviewing one is for
+      // (Admin → Sources and the source's own Health row have it). Reintroduce by adding 'replace_source' here.
+      ...withFind(keysFor(r, [])),
       findScope: 'series' as const,
     };
   });
@@ -1069,7 +1071,7 @@ export async function frozenSeries(
         ? say('frozen.followingDown', { source: named(r), state: stall, names: followed.get(r.id)! })
         : say('frozen.following', { source: r.source_id ? named(r) : null, names: followed.get(r.id)! })]),
       info: true,
-      ...keysFor(r, ['replace_source']),
+      ...keysFor(r, []),
     });
   }
   return {

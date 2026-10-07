@@ -16,6 +16,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/lib/api';
+import { withAdult } from '@/lib/adult';
 import { useAuth } from '@/lib/auth';
 import { useToast } from '@/components/Toast';
 import { ConfirmDialog, msgOf } from '@/components/ConfirmDialog';
@@ -552,8 +553,8 @@ function ImportWizardInner() {
   };
 
   const { data: sourcesData } = useQuery({
-    queryKey: ['sources'],
-    queryFn: () => api<{ content: Src[] }>('/api/sources'),
+    queryKey: ['sources', 'import'],
+    queryFn: () => api<{ content: Src[] }>(withAdult('/api/sources', true)),
     staleTime: 30_000,
   });
   const sourceName = (id: string | null): string => (id && sourcesData?.content.find((s) => s.id === id)?.name) || id || '';

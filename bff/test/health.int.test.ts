@@ -313,7 +313,7 @@ test('the engine being off is the reason, not the source limit', { skip: DSN ? f
     // a sheet offering Replace.
     assert.match((await detail('up', 'Engine Fixture')).detail, /its source Engine Source is no longer installed$/,
       'switched on but not left out by the limit is not over it');
-    assert.deepEqual((await actions('up', 'Engine Fixture')).actions, ['replace_source', 'remove_series', 'find_sources', 'ignore']);
+    assert.deepEqual((await actions('up', 'Engine Fixture')).actions, ['remove_series', 'find_sources', 'ignore'], 'a series row never offers Replace: it moves every series of the source');
     // Left out by the limit as a load leaves it: an engine that answered, a limit of one, and a source some series reads
     // through ahead of it in the engine's order.
     const was = { url: env.SUWAYOMI_URL, cap: env.SUWAYOMI_MAX_SOURCES };
@@ -337,7 +337,7 @@ test('the engine being off is the reason, not the source limit', { skip: DSN ? f
     assert.equal(slot.sourceId, 'sw:health-engine', 'naming the source Admin → Sources opens on');
     assert.deepEqual((await actions('off', 'Engine Fixture')).actions, ['remove_series', 'find_sources', 'ignore'], 'with the engine away there is no slot to free either: the engine is the fix');
     assert.equal((await actions('off', 'Engine Fixture')).findScope, 'series', 'and the one key searches for this series alone');
-    assert.deepEqual((await actions('up', 'Gone Fixture')).actions, ['replace_source', 'remove_series', 'find_sources', 'ignore'], 'a source that is gone still offers Replace');
+    assert.deepEqual((await actions('up', 'Gone Fixture')).actions, ['remove_series', 'find_sources', 'ignore'], 'a source that is gone is replaced from its own row, not the series');
     // A source that is not an extension's is not the engine's to explain.
     for (const engine of ['off', 'switched_off', 'unreachable', 'up'] as const) {
       assert.match((await detail(engine, 'Gone Fixture')).detail, /gone-pack-source is no longer installed$/, `a non-extension source (${engine})`);
@@ -2011,14 +2011,14 @@ test('a series whose loaded main is off or failing, with no working follower, ca
     // Named as the rest of Health names them (sourceLabel, v0.55.1): the main source by its name, as its followers were.
     assert.equal(item('s_fz_off').detail, '4 chapters; its source Name fz-off is switched off');
     assert.deepEqual([item('s_fz_off').sourceId, item('s_fz_off').actions, item('s_fz_off').findSeries],
-      ['fz-off', ['replace_source', 'remove_series', 'find_sources', 'ignore'], 2], 'Replace first, over every series whose main source it is');
+      ['fz-off', ['remove_series', 'find_sources', 'ignore'], 2], 'no Replace on a series row, which would move every series of the source');
     assert.ok(item('s_fz_failoff'), 'a series whose only follower is switched off');
     assert.equal(item('s_fz_failoff').info, undefined, 'a switched-off follower carries nothing: still a finding');
     assert.equal(item('s_fz_failoff').detail, '4 chapters; its source Name fz-fail is failing');
     assert.equal(item('s_fz_offline').detail, '4 chapters; its source Name fz-offline says it is offline', "the site's own offline notice, said so");
     assert.equal(item('s_fz_failok').info, true, 'a working follower carries it: reference');
     assert.equal(item('s_fz_failok').detail, 'primary Name fz-fail failing; still following Name fz-ok');
-    assert.deepEqual([item('s_fz_failok').sourceId, item('s_fz_failok').actions], ['fz-fail', ['replace_source']], 'its follower can be made the main source');
+    assert.deepEqual([item('s_fz_failok').sourceId, item('s_fz_failok').actions], ['fz-fail', []], 'a covered series carries no keys either');
     assert.equal(item('s_fz_offcool').info, true, 'a follower in a cooldown still carries a series');
     assert.equal(item('s_fz_offcool').detail, 'primary Name fz-off switched off; still following Name fz-cool');
     assert.equal(item('s_fz_cool'), undefined, 'a main that is only cooling down is not listed');
