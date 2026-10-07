@@ -30,7 +30,7 @@ test('Kitsu: the password goes to the token endpoint once and a token comes back
   const g = await kitsuPasswordLogin('me@example.com', 'hunter2');
   assert.equal(g.token, 'tok_abcdefghij');
   assert.equal(g.expiresInSec, 2592000);
-  assert.match(seen.url!, /kitsu\.app\/api\/oauth\/token$/);
+  assert.match(seen.url!, /kitsu\.io\/api\/oauth\/token$/);
   assert.deepEqual(JSON.parse(String(seen.init!.body)), { grant_type: 'password', username: 'me@example.com', password: 'hunter2' });
 });
 

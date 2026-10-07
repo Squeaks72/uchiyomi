@@ -2,7 +2,7 @@
   "_meta": {
     "language": "zh",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 3903
+    "strings": 3904
   },
   "1 check found something": "1 项检查发现问题",
   "1 member": "1 位成员",
@@ -3908,5 +3908,6 @@
   "Follow and make main": "关注并设为主要",
   "Follow this source and make it the series’ main source; the current main source stays as a backup": "关注此来源并将其设为该系列的主要来源；当前的主要来源保留为备用",
   "In the review, a match can also be made the main source; {name} stays as a backup.": "在审核中，也可以将匹配项设为主要来源；{name} 保留为备用。",
-  "Series that already follow a working source get another backup too.": "已关注可用来源的系列也会再获得一个备用来源。"
+  "Series that already follow a working source get another backup too.": "已关注可用来源的系列也会再获得一个备用来源。",
+  "Recommended for you": "为你推荐"
 }

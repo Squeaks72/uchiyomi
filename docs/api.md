@@ -1221,7 +1221,7 @@ GET    /api/sources/detail        GET    /api/sources/search
 GET    /api/sources/search-all    GET    /api/sources/latest
 GET    /api/sources/jobs          POST   /api/sources/add
 GET    /api/discover/trending     POST   /api/sources/fill/scan
-GET    /api/discover/works
+GET    /api/discover/works        GET    /api/discover/recommendations
 GET    /api/sources/fill/scan/:id POST   /api/sources/fill
 POST   /api/sources/fetch
 GET    /api/sources/archive       POST   /api/sources/archive

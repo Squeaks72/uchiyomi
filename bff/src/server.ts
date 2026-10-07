@@ -52,6 +52,7 @@ import adminRoutes, { sweepImportBatches } from './routes/admin';
 import catalogRoutes from './routes/catalog';
 import imageRoutes, { authorizeImageRequest } from './routes/images';
 import personalRoutes from './routes/personal';
+import recommendationRoutes from './routes/recommendations';
 import downloadRoutes from './routes/downloads';
 import sourceRoutes, { jobBusy } from './routes/sources';
 import opdsRoutes from './routes/opds';
@@ -204,6 +205,7 @@ async function main() {
   await app.register(catalogRoutes);
   await app.register(imageRoutes);
   await app.register(personalRoutes);
+  await app.register(recommendationRoutes);
   await app.register(downloadRoutes);
   await app.register(sourceRoutes);
   // Neither OPDS nor the Komga-compatible API exists on desktop: both are for OTHER devices reading this

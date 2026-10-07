@@ -2,7 +2,7 @@
   "_meta": {
     "language": "fr",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 3903
+    "strings": 3904
   },
   "1 check found something": "1 vérification a trouvé quelque chose",
   "1 member": "1 membre",
@@ -3908,5 +3908,6 @@
   "Follow and make main": "Suivre et définir comme principale",
   "Follow this source and make it the series’ main source; the current main source stays as a backup": "Suivre cette source et la définir comme source principale de la série ; l’actuelle reste en secours",
   "In the review, a match can also be made the main source; {name} stays as a backup.": "Dans la revue, une correspondance peut aussi devenir la source principale ; {name} reste en secours.",
-  "Series that already follow a working source get another backup too.": "Les séries qui suivent déjà une source qui fonctionne reçoivent aussi une source de secours de plus."
+  "Series that already follow a working source get another backup too.": "Les séries qui suivent déjà une source qui fonctionne reçoivent aussi une source de secours de plus.",
+  "Recommended for you": "Recommandé pour vous"
 }

@@ -15,6 +15,7 @@ import { ProgressBar, Reveal } from '@/components/ui';
 import { SourceCard, SourceItem } from '@/components/cards';
 import { ScrollRail } from '@/components/ScrollRail';
 import { DiscoverHero, TrendingCard, Trending } from '@/components/DiscoverHero';
+import { RecommendationRail } from '@/components/RecommendationRail';
 import { SourcePicker, SourceLatest, Src, SrcState } from '@/components/SourcePicker';
 import { aloneEmpty, budgetForMode, withPicked, type ListMode, type SrcExtension, type StackSource } from '@/lib/sourceGroups';
 import { normTitle } from '@/lib/normTitle';
@@ -580,6 +581,10 @@ export default function DiscoverPage() {
           </form>
         </div>
       </header>
+
+      {mode === 'newest' && (
+        <RecommendationRail enabled={mayAdd} onPick={(title) => setSeed({ kind: 'trending', title })} onSearch={searchFor} />
+      )}
 
       {/*
         In both modes, not just while browsing. The picker is the only place the chosen source is visible or

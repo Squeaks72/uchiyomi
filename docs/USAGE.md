@@ -2719,6 +2719,25 @@ admin has switched on **Show missing chapters in Mihon**, and only as part of an
 from the start: chapters read to 12 plus a mark on chapter 1000 still send 12, because a number sent to a
 tracker cannot be taken back there. Section 4, *Marking chapters you don't have as read*, has the whole rule.
 
+**Recommended for you.** With AniList or MyAnimeList connected, **Discover** shows a *Recommended for you* row above
+the wall. It is built from the series you rated 7 or higher (or, unrated, finished or are reading), up to eight from
+AniList and five from MyAnimeList: for each, the service's own readers' "if you liked this" suggestions. Every card
+says which service it came from and, under the title, *Because you read …*; a title both services suggest is one card
+naming both. Left out: everything on any of your connected lists under any status (read, reading, on hold, dropped or
+planned) and anything the library already holds. Light novels are never suggested, and neither is adult work while
+18+ is hidden or your account is capped below 18 (a MyAnimeList suggestion whose age rating AniList cannot confirm
+counts as adult). Nothing is shown until a tracker is connected, and the row is empty when nothing is left to suggest.
+Tapping a card opens the same add dialog as Trending.
+
+The services are asked as little as possible. Your list is read at most every 12 hours (one request per 500 AniList
+entries, one per 1,000 MyAnimeList entries); what readers suggest after a title is asked once per title for the whole
+server and kept for two weeks, so two people who both love Berserk cost one question; AniList is asked for all of a
+person's seeds in one request; MyAnimeList is asked one title at a time, at most one every 1.5 seconds server-wide, with
+a ceiling per hour. A service that refuses (a rate limit, an outage) is left alone for 10 to 45 minutes while the last
+answer keeps showing. Reopening Discover, or several people opening it together, adds no requests. Disconnecting a
+tracker, or signing in to a different account, forgets that list. Kitsu's list is read for the exclusion, but Kitsu
+offers no suggestions.
+
 ![AniList sync](shots/crop-anilist.webp)
 
 ## 11. Install as an app & offline

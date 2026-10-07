@@ -15,6 +15,7 @@ import { seal, open as unseal } from './secretbox';
 import { withGate } from './gate';
 import { ADAPTERS, PROVIDERS, type Provider } from './trackerProviders';
 import { connectInfo, type ConnectInfo } from './trackerOauth';
+import { dropListCache } from './trackerRecs';
 import { ghostsEnabled, ghostNumbers } from './komgaGhosts';
 import { continuousRun, marksFor, mergeRun, realRows } from './listingProgress';
 import { noticeShown } from './noticeChapters';
@@ -56,10 +57,13 @@ export async function saveConnection(
            expires_at = EXCLUDED.expires_at, enabled = true, last_error = NULL`,
     [userId, provider, seal(token), accountName, expiresAt],
   );
+  // A new sign-in can be a different account, whose list is not the one cached.
+  await dropListCache(userId, provider);
 }
 
 export async function disconnect(userId: string, provider: Provider): Promise<void> {
   await q('DELETE FROM user_trackers WHERE user_id = $1 AND provider = $2', [userId, provider]);
+  await dropListCache(userId, provider);
 }
 
 export async function statusFor(userId: string): Promise<TrackerStatus[]> {
