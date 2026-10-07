@@ -18,7 +18,7 @@ import { DiscoverHero, TrendingCard, Trending } from '@/components/DiscoverHero'
 import { SourcePicker, SourceLatest, Src, SrcState } from '@/components/SourcePicker';
 import { aloneEmpty, answeredPage, budgetForMode, WALL_IN_FLIGHT, type ListMode, type SrcExtension, type StackSource } from '@/lib/sourceGroups';
 import { normTitle } from '@/lib/normTitle';
-import { applyWorks, foldByWork, followWorks, mergeGroups, unknownWorks, workKey, type WallProvider } from '@/lib/wall';
+import { applyWorks, foldByWork, followWorks, mergeGroups, sortWall, unknownWorks, WALL_SORTS, workKey, type WallProvider, type WallSort } from '@/lib/wall';
 import { useLiveWorks } from '@/lib/useLiveWorks';
 import { AddSeriesDialog, AddSeed } from '@/components/AddSeriesDialog';
 import { AdultToggle, useAdultShown } from '@/components/AdultToggle';
@@ -150,6 +150,7 @@ export default function DiscoverPage() {
    */
   const [listMode, setListMode] = useState<ListMode>('newest');
   const [selected, setSelected] = useState<string | null>(null);
+  const [wallSort, setWallSort] = useState<WallSort>('arrival');
   const [q, setQ] = useState('');
   // What was SUBMITTED, as opposed to `q`, which is whatever is in the field. The search is keyed on this, so
   // typing never fires a request and a term is searched exactly once per five minutes however it is reached.
@@ -358,7 +359,7 @@ export default function DiscoverPage() {
     return budget.filter((s) => (!selected || s.id === selected) && (upTo[kOf(s.id)] ?? 0) < page).map((s) => s.name);
   }, [mode, searchQ.data, budget, selected, upTo, kOf, page]);
 
-  const wall = useMemo(() => {
+  const arrived = useMemo(() => {
     // Search arrives already folded: the server grouped it, and searchGroups merges what it has placed since.
     if (mode === 'search') return { items: searchHits, groups: searchProviders };
     const seen = new Set<string>();
@@ -398,6 +399,8 @@ export default function DiscoverPage() {
   const stackOf = (it: SourceItem): StackSource[] =>
     (wall.groups[workKey(it)] ?? [{ source: it.source, name: nameOf(it.source) ?? it.source }])
       .map((p) => ({ source: p.source, name: p.name, extension: extOf.get(p.source) ?? null }));
+
+  const wall = useMemo(() => ({ items: sortWall(arrived.items, wallSort, arrived.groups), groups: arrived.groups }), [arrived, wallSort]);
 
   // Skeleton tiles: only until the FIRST cards land -- in search mode until the first answer (or a failure).
   // After that the wall shows what has landed and its last card (and in a search the progress line) says what has
@@ -690,6 +693,18 @@ export default function DiscoverPage() {
             {([['all', tr('All')], ['safe', tr('No 18+')], ['adult', tr('18+ only')]] as const).map(([key, label]) => (
               <button key={key} type="button" onClick={() => setRating(key)} aria-pressed={rating === key}
                 className={`chip text-xs ${rating === key ? 'chip-active' : ''}`}>{label}</button>
+            ))}
+          </div>
+        )}
+        {/* How the wall is ordered. Arrival is the default and the one a still-loading wall keeps stable; the rest
+            reorder what has landed, and tiles landing later are placed by the same rule. Hidden until there is
+            more than one card to order. */}
+        {wall.items.length > 1 && (
+          <div role="group" aria-label={tr('Sort by')} className="flex basis-full flex-wrap items-center gap-1.5" data-wall-sorts>
+            <span className="me-1 text-xs text-fog-500">{tr('Sort by')}</span>
+            {WALL_SORTS.map((s) => (
+              <button key={s.key} type="button" onClick={() => setWallSort(s.key)} aria-pressed={wallSort === s.key}
+                className={`chip text-xs ${wallSort === s.key ? 'chip-active' : ''}`}>{tr(s.label)}</button>
             ))}
           </div>
         )}
