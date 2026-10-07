@@ -19,7 +19,7 @@ import { setActiveLocale } from '../lib/format';
 import {
   AUTOFIX_PHASES, AUTOFIX_POLL_MS, DONE_SHOWN, autofixEndedIds, autofixHeadline, autofixOfRecord, autofixPhaseLabel, autofixPollMs,
   autofixProgress, autofixStepLine, canRunAgain, cardsToLook, clearsLines, doneLines, fixView, needsYouKey, needsYouLines,
-  nightlyModeOf, showFixEverything,
+  lastFixLine, nightlyModeOf, showFixEverything,
   type AutofixRun, type AutofixStatus, type AutofixSummary,
 } from '../lib/autofix';
 import { pageBody, pagePlan } from '../lib/repairRun';
@@ -449,4 +449,26 @@ test('Recent repairs lists a Fix everything run with its headline and its first 
   assert.doesNotMatch(lines, /useQuery|AUTOFIX_URL|api</, 'Recent repairs asks for nothing per row');
   assert.match(lines, /if \(!run\) return r\.status === 'running' \? null : <p className="[^"]*">\{runStatusWord\(r\.status\)\}<\/p>;/,
     'a run that ended before its summary says nothing');
+});
+
+test('Needs you: what a person decides comes first, the cards no run can change last, each keeping its order', () => {
+  const lines = needsYouLines(summary({
+    needsYou: [
+      { check: 'covers', said: said('3 covers need a look') },
+      { check: 'duplicates', said: said('1 duplicate needs your decision') },
+      { check: 'disk', said: said('Low on space') },
+      { check: 'short-chapters', said: said('2 short chapters need your decision') },
+    ],
+  }));
+  assert.deepEqual(lines.map((l) => l.check), ['duplicates', 'short-chapters', 'covers', 'disk']);
+});
+
+test('the last-run line: the nightly says so, a live run or no run says nothing', () => {
+  const done = run({ origin: 'nightly', summary: summary({ needsYou: [{ check: 'covers', said: said('x') }] }) });
+  const nightly = lastFixLine({ run: null, last: done } as AutofixStatus);
+  assert.match(nightly ?? '', /^Last nightly Fix everything .+: 1 needs you$/);
+  assert.match(lastFixLine({ run: null, last: run({ origin: 'manual', summary: summary({ green: true }) }) } as AutofixStatus) ?? '', /^Last Fix everything .+: All green$/);
+  assert.equal(lastFixLine({ run: run({ status: 'running' }), last: done } as AutofixStatus), null);
+  assert.equal(lastFixLine({ run: null, last: null } as AutofixStatus), null);
+  assert.equal(lastFixLine(undefined), null);
 });
