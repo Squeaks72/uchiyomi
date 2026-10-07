@@ -24,8 +24,10 @@ const AUTHORIZE: Partial<Record<Provider, string>> = {
 };
 const stripSlash = (s: string) => s.replace(/\/+$/, '');
 const MAL_TOKEN = () => process.env.MYANIMELIST_OAUTH_URL || 'https://myanimelist.net/v1/oauth2/token';
+// kitsu.app puts a Cloudflare bot challenge in front of POST /oauth/token (a server's login call gets a 403 page, never
+// a password check); kitsu.io, the same service, answers it. The data API is fine on either host.
 const KITSU_TOKEN = () => process.env.KITSU_OAUTH_URL
-  || `${stripSlash(process.env.KITSU_API_URL || 'https://kitsu.app/api/edge').replace(/\/edge$/, '')}/oauth/token`;
+  || `${stripSlash(process.env.KITSU_API_URL || 'https://kitsu.io/api/edge').replace(/\/edge$/, '')}/oauth/token`;
 
 const ENV_ID: Partial<Record<Provider, string>> = { anilist: 'ANILIST_CLIENT_ID', myanimelist: 'MYANIMELIST_CLIENT_ID' };
 const ENV_SECRET: Partial<Record<Provider, string>> = { myanimelist: 'MYANIMELIST_CLIENT_SECRET' };
