@@ -9,6 +9,7 @@
 import { UNNUMBERED, type SourceAdapter, type SourceSeries, type SourceChapter } from '../types';
 import { gql as defaultGql, suwayomiUrl, suwayomiImageHeaders, type Gql } from './client';
 import { env } from '../../../env';
+import { decodeEntities } from '../../htmlText';
 
 export const SW_PREFIX = 'sw:';
 
@@ -127,7 +128,9 @@ function toSeries(m: RemoteManga, adapterId: string): SourceSeries | null {
   return {
     sourceId: String(m.id),
     source: adapterId,
-    title: m.title.trim(),
+    // The engine hands titles over as the site wrote them, entities and all: "Nana &amp; Kaoru" would be saved as that, and
+    // ComicInfo's own escaping turned it into &amp;amp; on the way back.
+    title: decodeEntities(m.title).trim(),
     summary: m.description?.trim() || undefined,
     author: m.author?.trim() || m.artist?.trim() || undefined,
     genres: Array.isArray(m.genre) ? m.genre.filter((g) => typeof g === 'string' && g.trim()) : undefined,
@@ -155,7 +158,7 @@ function toChapter(c: RemoteChapter, position: number, byListOrder?: number): So
     // The extension's number, raw, even when many posts share it (#116): what to do about that is decided per
     // series in the listing layer (lib/postingOrder.ts), which can see the series and this adapter cannot.
     number: num,
-    title: c.name?.trim() || `Chapter ${num}`,
+    title: (c.name ? decodeEntities(c.name).trim() : '') || `Chapter ${num}`,
     pages: typeof c.pageCount === 'number' && c.pageCount > 0 ? c.pageCount : undefined,
     publishedAt: Number.isFinite(when) && when > 0 ? new Date(when).toISOString() : undefined,
     // Mihon's free-text scanlator column, verbatim. Blank means the extension does not know, and the

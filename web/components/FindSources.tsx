@@ -304,11 +304,19 @@ export function FindModeChoice({ review, onChange }: { review: boolean; onChange
  * The start dialog of every one-press start point (Health's row, the Library's More): the choice above, opening on the
  * admin's last one on this device, and Start. On <body>, as Health's own confirmations are: a `.card` would hold it.
  */
-export function FindStartDialog({ onStart, onClose }: { onStart: (review: boolean) => void; onClose: () => void }) {
+/** `onHand`: also offers the series searched by hand instead (a one-series start, where there is a series to pick for). */
+export function FindStartDialog({ onStart, onClose, onHand }: { onStart: (review: boolean) => void; onClose: () => void; onHand?: () => void }) {
   const [review, setReview] = useState(findReviewFirst);
   return (
     <OnBody>
       <Modal title={tr('Find other sources')} onClose={onClose}>
+        {onHand && (
+          <div className="mb-4 rounded-xl border border-ink-700 bg-ink-900/50 p-3">
+            <p className="text-[13px] leading-relaxed text-fog-300">{tr('Change what is searched, look through the sources yourself and pick the match.')}</p>
+            <button type="button" onClick={onHand} className="btn-key mt-2" data-find-by-hand>{tr('Search by hand')}</button>
+          </div>
+        )}
+        {onHand && <p className="mb-2 text-[13px] font-medium text-fog-100">{tr('Or search automatically')}</p>}
         <FindModeChoice review={review} onChange={setReview} />
         <div className="mt-4 flex justify-end gap-2">
           <button type="button" onClick={onClose} className="btn-key">{tr('Cancel')}</button>
@@ -564,7 +572,7 @@ function ReviewSeries({ r, act, head = true, onOpen, replace = false, makeMain =
 interface StepState { ids: string[]; at: number; handled: string[] }
 
 /** The series by hand: its page's own data (sources and chapter count), then the same search-and-attach sheet. */
-function ManualMatch({ seriesId, title, onDone, onClose }: { seriesId: string; title: string; onDone: () => void; onClose: () => void }) {
+export function ManualMatch({ seriesId, title, onDone, onClose }: { seriesId: string; title: string; onDone: () => void; onClose: () => void }) {
   const series = useQuery({ queryKey: ['series', seriesId], queryFn: () => api<Series>(`/api/series/${encodeURIComponent(seriesId)}`), retry: false });
   const sources = series.data?.sources ?? [];
   const main = sources.find((s) => s.primary) ?? sources[0];
