@@ -318,7 +318,7 @@ export interface SourceItem {
  * Chrome is `SeriesTile`'s, deliberately, so the things you own and the things you could own read as one
  * system rather than as two grids that happen to be adjacent.
  */
-export function SourceCard({ item, providers, onAdd, onSearch, eager }: {
+export function SourceCard({ item, providers, onAdd, onOpenAdded, onSearch, eager }: {
   item: SourceItem;
   /**
    * Every place the card can be added from (v0.56.0), drawn as up to three overlapping favicons in a corner box and a
@@ -330,6 +330,8 @@ export function SourceCard({ item, providers, onAdd, onSearch, eager }: {
    */
   providers?: StackSource[];
   onAdd: () => void;
+  /** Just added, and the library row is not known yet: tapping the card finds it and opens it. */
+  onOpenAdded?: () => void;
   /** Search every source for this title: the card's menu offers it when the page can. */
   onSearch?: (title: string) => void;
   eager?: boolean;
@@ -410,7 +412,7 @@ export function SourceCard({ item, providers, onAdd, onSearch, eager }: {
     <>
       {libraryHref
         ? <Link href={libraryHref} aria-label={item.title} aria-describedby={described} className={rootCls} {...menu.bind}>{body}</Link>
-        : <button type="button" onClick={onAdd} disabled={owned} aria-label={owned ? item.title : `${item.title} · ${tr('Add to library')}`} aria-describedby={described} className={rootCls} {...menu.bind}>{body}</button>}
+        : <button type="button" onClick={onOpenAdded ?? onAdd} disabled={owned && !onOpenAdded} aria-label={owned ? item.title : `${item.title} · ${tr('Add to library')}`} aria-describedby={described} className={rootCls} {...menu.bind}>{body}</button>}
       {menu.element}
     </>
   );

@@ -1,6 +1,7 @@
 'use client';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { ART } from '@/lib/art';
@@ -24,6 +25,7 @@ import { AdultToggle, useAdultShown } from '@/components/AdultToggle';
 import { IcChevronLeft, IcSearch, IcSparkle, IcX } from '@/components/icons';
 import { forStrip } from '@/lib/jobs';
 import { downloadsHref, stripHref } from '@/lib/libraryView';
+import type { Page, Series } from '@/lib/types';
 import { useServerDownloads } from '@/lib/useServerDownloads';
 /**
  * One search card. Since v0.52.0 (#72) `inLibrary` means held in every provider's language, `libraryLangs` the
@@ -91,6 +93,7 @@ const HERO_SLIDES = 10;
  */
 export default function DiscoverPage() {
   const qc = useQueryClient();
+  const router = useRouter();
   const { user, isAdmin } = useAuth();
 
   // Not fired at all for an account that may not add series: every route behind this page answers 403 for
@@ -152,8 +155,12 @@ export default function DiscoverPage() {
   /**
    * What this visit added, by work (v0.56.0; by title before): off the wall at once, and "In library" in a search, with
    * no refetch. `fromKey` is the work of the card the open dialog came from -- null from the hero, which has none.
+   *
+   * Each work carries what its add learned -- the series the server named (when it could) and the folder to fall back
+   * on -- so a card added this visit opens its entry the way a title the library already held does.
    */
-  const [added, setAdded] = useState<Set<string>>(new Set());
+  const [added, setAdded] = useState<Map<string, { seriesId?: string; folder: string; title: string }>>(new Map());
+  const addedKeys = useMemo(() => new Set(added.keys()), [added]);
   const fromKey = useRef<string | null>(null);
 
   // Every source that can answer this listing, best first. A source that cannot answer the chosen listing is
@@ -198,7 +205,7 @@ export default function DiscoverPage() {
   const wallKeys = useMemo(() => unknownWorks(mine(byId).flatMap(([, list]) => list)), [byId, mine]);
   const wallWorks = useLiveWorks(wallKeys, mayAdd && mode === 'newest');
   const rows = useMemo(() => Object.fromEntries(mine(byId).map(([k, list]) => [k, applyWorks(list, wallWorks)])), [byId, mine, wallWorks]);
-  const wallAdded = useMemo(() => followWorks(added, wallWorks), [added, wallWorks]);
+  const wallAdded = useMemo(() => followWorks(addedKeys, wallWorks), [addedKeys, wallWorks]);
 
   // Counted by what the wall SHOWS (v0.56.0): a source whose whole page the library already holds puts nothing on it,
   // and earns its replacement like one that answered with nothing.
@@ -283,7 +290,7 @@ export default function DiscoverPage() {
   // The search's own unplaced names, asked about while its results are on screen, as the wall's are (v0.56.0).
   const searchKeys = useMemo(() => unknownWorks(searchQ.data?.content ?? []), [searchQ.data]);
   const searchWorks = useLiveWorks(searchKeys, mayAdd && mode === 'search');
-  const searchAdded = useMemo(() => followWorks(added, searchWorks), [added, searchWorks]);
+  const searchAdded = useMemo(() => followWorks(addedKeys, searchWorks), [addedKeys, searchWorks]);
   // The answer's groups read through what the server has placed since, one per work: two it could not tell apart when
   // it answered are one card once it can (lib/wall.ts mergeGroups). Owned ones stay -- search shows what you have, with
   // its ribbon. Derived, so a poll's answer replaces them without anything being cleared.
@@ -363,6 +370,14 @@ export default function DiscoverPage() {
   }, [mode, listMode, selected, searchHits, searchProviders, order, rows, nameOf, rankOf, wallAdded]);
   // What this visit added, in the keys of the view on screen: each view follows the works through its own answers.
   const shownAdded = mode === 'search' ? searchAdded : wallAdded;
+  // The same works, carrying what each add learned: a work the server has placed since answers under its new key too,
+  // exactly as `followWorks` carries the keys above. What a just-added card reads to open its entry.
+  const shownAddedInfo = useMemo(() => {
+    const works = mode === 'search' ? searchWorks : wallWorks;
+    const out = new Map(added);
+    for (const [k, v] of added) { const w = works[k]?.work; if (w) out.set(w, v); }
+    return out;
+  }, [added, mode, searchWorks, wallWorks]);
   // Each card's icons: every provider behind it, with the extension it came out of, so MangaDex's languages are one
   // icon (lib/sourceGroups.ts iconStack). A row the fold passed through untouched is its one source.
   const extOf = useMemo(() => new Map<string, SrcExtension | null>(sources.map((s) => [s.id, s.extension ?? null])), [sources]);
@@ -401,6 +416,24 @@ export default function DiscoverPage() {
   const backToNewest = () => { setQ(''); setMode('newest'); };
   // A card's menu: search every source for its title, as if it had been typed and submitted.
   const searchFor = (title: string) => { setQ(title); setMode('search'); setTerm(title.trim()); };
+
+  // A title added this visit reads as held, and opens its entry like one the library already had. The server names
+  // the series when it can; a fresh download's row is created behind the answer, so that one is looked up by its
+  // exact title when tapped, and falls back to the download in progress (as the add dialog's Open does).
+  const addedItem = (it: SourceItem): SourceItem => {
+    const a = shownAddedInfo.get(workKey(it));
+    if (!a || it.inLibrary) return it;
+    return { ...it, inLibrary: true, librarySeriesId: a.seriesId ?? it.librarySeriesId };
+  };
+  const openAdded = async (key: string) => {
+    const a = shownAddedInfo.get(key);
+    if (!a) return;
+    try {
+      const p = await api<Page<Series>>('/api/series/search', { json: { fullTextSearch: a.title, size: 5 } });
+      const hit = p.content.find((x) => normTitle(x.metadata?.title || x.name) === normTitle(a.title));
+      router.push(hit ? `/series/?id=${hit.id}` : downloadsHref(a.folder));
+    } catch { router.push(downloadsHref(a.folder)); }
+  };
 
   const open = (it: SourceItem, edition = false) => {
     const key = workKey(it);
@@ -655,9 +688,10 @@ export default function DiscoverPage() {
       <div className="grid grid-cols-3 gap-x-3 gap-y-5 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 lg:gap-x-4 xl:grid-cols-8 2xl:grid-cols-9 3xl:grid-cols-10">
         {/* Every card names its sources, one of them or five, in Newest, Popular and search alike (v0.56.0). */}
         {wall.items.map((it, i) => (
-          <SourceCard key={`${it.source}:${it.sourceId}`} item={{ ...it, inLibrary: it.inLibrary || shownAdded.has(workKey(it)) }}
+          <SourceCard key={`${it.source}:${it.sourceId}`} item={addedItem(it)}
             providers={stackOf(it)}
-            onAdd={() => open(it, true)} onSearch={searchFor} eager={i < 12} />
+            onAdd={() => open(it, true)} onOpenAdded={shownAddedInfo.has(workKey(it)) ? () => openAdded(workKey(it)) : undefined}
+            onSearch={searchFor} eager={i < 12} />
         ))}
         {pending > 0 && <span role="status" className="sr-only">{tr('Loading…')}</span>}
         {Array.from({ length: Math.min(18, pending * 6) }).map((_, i) => (
@@ -719,7 +753,12 @@ export default function DiscoverPage() {
             // no card, and every card under the added title goes, as the title flipped them before v0.56.0.
             const title = normTitle(r.title);
             const keys = fromKey.current ? [fromKey.current] : title ? wall.items.filter((c) => normTitle(c.title) === title).map(workKey) : [];
-            setAdded((prev) => new Set([...prev, ...keys.filter(Boolean)]));
+            const info = { seriesId: r.seriesId, folder: r.folder, title: r.title };
+            setAdded((prev) => {
+              const next = new Map(prev);
+              for (const k of keys.filter(Boolean)) next.set(k, info);
+              return next;
+            });
             qc.invalidateQueries({ queryKey: ['source-jobs'] });
           }}
         />

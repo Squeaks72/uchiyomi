@@ -202,7 +202,7 @@ export function AddSeriesDialog({ seed, sources, mayFollow, onClose, onAdded }: 
    */
   mayFollow: boolean;
   onClose: () => void;
-  onAdded: (r: { title: string; folder: string; chapters: number }) => void;
+  onAdded: (r: { title: string; folder: string; chapters: number; seriesId?: string }) => void;
 }) {
   const toast = useToast();
   const router = useRouter();
