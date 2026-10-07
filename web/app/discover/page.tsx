@@ -318,6 +318,7 @@ export default function DiscoverPage() {
       ...(!g.inLibrary && g.providers.some((p) => p.inLibrary) ? { moreEditions: true } : {}),
       ...(g.libraryLangs ? { libraryLangs: g.libraryLangs } : {}), ...(pick.lang !== undefined ? { lang: pick.lang } : {}),
       ...(g.rating === 'adult' ? { rating: 'adult' as const } : {}),
+      ...(g.providers.length > 1 ? { altTitles: g.providers.map((p) => p.title) } : {}),
     }];
   }), [searchGroups, selected]);
   // Each hit's providers, keyed by work the way the wall's fold keys its own (by title until v0.56.0): what a card's

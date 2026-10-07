@@ -6,7 +6,8 @@ import { IcPause, IcPlay, IcPlus, IcSparkle } from '@/components/icons';
 import { t as tr } from '@/lib/i18n';
 import { dotWindow } from '@/lib/carousel';
 import { useDiscoverMenu } from '@/components/DiscoverMenu';
-import { Blurb } from '@/components/Blurb';
+import { useGlance } from '@/components/GlanceCard';
+import { glanceOfTrending } from '@/lib/glance';
 
 export interface Trending {
   title: string;
@@ -154,13 +155,18 @@ export function DiscoverHero({ slides, onPick }: { slides: Trending[]; onPick: (
 
 /** The trending items the hero did not take, as a rail. Same art, one size down. */
 export function TrendingCard({ t, onPick, onSearch }: { t: Trending; onPick: (t: Trending) => void; onSearch?: (title: string) => void }) {
-  const menu = useDiscoverMenu({ title: t.title, onAdd: () => onPick(t), onSearch });
+  const glance = useGlance(glanceOfTrending(t), {
+    cover: sourceCover(undefined, t.cover, 800), fallbackCover: t.cover || undefined,
+    actions: [{ label: tr('Add to library'), primary: true, onClick: () => onPick(t) }],
+  });
+  const menu = useDiscoverMenu({ title: t.title, onAdd: () => onPick(t), onSearch, onDescribe: glance.show });
   return (
     <>
     <button type="button" onClick={() => onPick(t)} className="group w-36 shrink-0 snap-start text-start lg:w-40" {...menu.bind}>
       <div className="grad-border relative aspect-[2/3] overflow-hidden rounded-2xl border border-ink-700/60 transition-all duration-300 group-hover:-translate-y-1 group-hover:shadow-glow">
         <Img src={sourceCover(undefined, t.cover)} alt="" fallbackSrc={t.cover || undefined}
           className="h-full w-full" imgClassName="transition-transform duration-500 group-hover:scale-[1.06]" />
+        {glance.overlay}
         {t.score != null && (
           <span className="absolute end-1.5 top-1.5 rounded-md bg-ink-950/80 px-1.5 py-0.5 text-[11px] font-semibold text-accent backdrop-blur">{t.score}%</span>
         )}
@@ -169,9 +175,9 @@ export function TrendingCard({ t, onPick, onSearch }: { t: Trending; onPick: (t:
         </span>
       </div>
       <p className="mt-1.5 line-clamp-2 text-xs font-medium leading-tight text-fog-300 transition group-hover:text-fog-100">{t.title}</p>
-      <Blurb text={t.description} />
     </button>
     {menu.element}
+    {glance.modal}
     </>
   );
 }

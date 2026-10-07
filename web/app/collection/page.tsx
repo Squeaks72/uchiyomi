@@ -180,3 +180,4 @@ export default function CollectionPage() {
     </Suspense>
   );
 }
+

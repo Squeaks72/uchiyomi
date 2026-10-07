@@ -19,11 +19,14 @@ export function Modal({
   onClose,
   children,
   wide,
+  xwide,
 }: {
   title: string;
   onClose: () => void;
   children: React.ReactNode;
   wide?: boolean;
+  /** Wider still: a dialog with a picture beside its text. */
+  xwide?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   // On the notices' layer stack (lib/layers.ts), as a dialog that keeps the phone's nav band free -- see the
@@ -74,7 +77,7 @@ export function Modal({
         tabIndex={-1}
         onKeyDown={(e) => trapTab(e, ref.current)}
         data-lenis-prevent
-        className={`glass outline-none max-h-[calc(100dvh-7.5rem-env(safe-area-inset-bottom))] w-full lg:max-h-[88vh] ${wide ? 'max-w-lg' : 'max-w-md'} overflow-y-auto rounded-2xl border border-ink-700 p-5`}
+        className={`glass outline-none max-h-[calc(100dvh-7.5rem-env(safe-area-inset-bottom))] w-full lg:max-h-[88vh] ${xwide ? 'max-w-xl' : wide ? 'max-w-lg' : 'max-w-md'} overflow-y-auto rounded-2xl border border-ink-700 p-5`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-3 flex items-start justify-between gap-3">
