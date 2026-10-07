@@ -5445,6 +5445,37 @@ paths:
           description: Not authenticated
         "502":
           description: The tracker could not be reached
+  /api/trackers/mangaupdates/login:
+    post:
+      tags:
+        - personal
+      summary: Connect MangaUpdates with a username and password.
+      operationId: postApiTrackersMangaUpdatesLogin
+      description: >-
+        Trades the credentials for a MangaUpdates token in one call, then stores the token. The password is not stored
+        or logged.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Malformed body or parameter
+        "401":
+          description: Not authenticated
+        "502":
+          description: The tracker could not be reached
   /api/trackers/{provider}:
     delete:
       tags:
@@ -5488,7 +5519,7 @@ paths:
       description: >-
         The one deliberate way down. Progress is otherwise monotonic per series (a tracker takes a lower
         number and rewrites the entry with no undo): this deletes the caller's `tracker_progress` floor for
-        the series on THAT provider only -- `anilist`, `myanimelist` or `kitsu`; any other name is 404
+        the series on THAT provider only -- `anilist`, `myanimelist`, `kitsu` or `mangaupdates`; any other name is 404
         `unknown_provider` -- and pushes the current local count at once, lower or not. The other providers'
         floors are untouched. No web control calls it; a floor the tracker has since corrected is taken by
         reading the list again (POST /api/admin/import/batches with `origin: tracker` replaces the floor).
@@ -10980,7 +11011,7 @@ paths:
                   description: Names the tracker intake; `tracker` says which service.
                 tracker:
                   type: string
-                  enum: [anilist, myanimelist, kitsu]
+                  enum: [anilist, myanimelist, kitsu, mangaupdates]
                   description: Which connected tracker to read the requesting admin's own list from.
                 statuses:
                   type: array

@@ -2,8 +2,8 @@
 //
 // An admin registers one OAuth application per service (AniList, MyAnimeList) and puts its client id here, in
 // the app, once; after that everyone connects with a button and a redirect back to Uchiyomi. Kitsu has no
-// application to register: it takes a username and password and hands back a token, which the server
-// exchanges and then forgets the password.
+// application to register, and neither has MangaUpdates: each takes a username and password and hands back a
+// token, which the server exchanges and then forgets the password.
 //
 //   AniList      implicit grant. The browser goes to the authorize URL; AniList sends it back to the
 //                registered redirect URL with `#access_token=` in the fragment, which only the browser sees.
@@ -11,12 +11,13 @@
 //   MyAnimeList  authorization code with PKCE (plain). The callback page posts the code and its verifier to
 //                POST /api/trackers/myanimelist/oauth; the server swaps them for a token.
 //   Kitsu        POST /api/trackers/kitsu/login {username, password}.
+//   MangaUpdates POST /api/trackers/mangaupdates/login {username, password}.
 import { q, one } from './db';
 import { seal, open as unseal } from './secretbox';
 import type { Provider } from './trackerProviders';
 
 export type ConnectMethod = 'oauth-implicit' | 'oauth-code' | 'password';
-export const METHOD: Record<Provider, ConnectMethod> = { anilist: 'oauth-implicit', myanimelist: 'oauth-code', kitsu: 'password' };
+export const METHOD: Record<Provider, ConnectMethod> = { anilist: 'oauth-implicit', myanimelist: 'oauth-code', kitsu: 'password', mangaupdates: 'password' };
 
 const AUTHORIZE: Partial<Record<Provider, string>> = {
   anilist: 'https://anilist.co/api/v2/oauth/authorize',

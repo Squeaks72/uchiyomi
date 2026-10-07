@@ -4012,7 +4012,7 @@ export default async function adminRoutes(app: FastifyInstance) {
       let capped = false;
       try {
         if (b.data.origin === 'tracker' || b.data.tracker) {
-          if (!b.data.tracker) return reply.code(400).send({ error: 'bad_request', message: 'Say which tracker to read: anilist, myanimelist or kitsu.' });
+          if (!b.data.tracker) return reply.code(400).send({ error: 'bad_request', message: 'Say which tracker to read: anilist, myanimelist, kitsu or mangaupdates.' });
           tracker = b.data.tracker;
           const read = await readTrackerList(userId, tracker, b.data.statuses ?? ['reading', 'plan_to_read']);
           if ('error' in read) return reply.code(read.status).send({ error: read.error, message: read.message });

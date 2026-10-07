@@ -76,7 +76,7 @@ test('the callback page clears the address bar and only acts on a sign-in this t
 test('the tracker row signs in, and the token field is the way out rather than the way in', () => {
   const row = read('components/ProfileConnections.tsx');
   assert.match(row, /startSignIn\(t, window\.location\.origin\)/);
-  assert.match(row, /\/api\/trackers\/kitsu\/login/);
+  assert.match(row, /\/api\/trackers\/\$\{t\.provider\}\/login/);
   assert.match(row, /\/api\/admin\/trackers\/apps\/\$\{t\.provider\}/, 'an admin registers the application here');
   assert.match(row, /tr\('Paste an access token instead'\)/);
   assert.match(row, /tr\('Sync your reading to \{name\}'/, 'scripts/shots/capture.mjs finds the card by this text');

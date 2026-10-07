@@ -16,7 +16,7 @@ export interface Recommendations {
   pending: boolean;
 }
 
-const SHORT: Record<string, string> = { anilist: 'AniList', myanimelist: 'MAL', kitsu: 'Kitsu' };
+const SHORT: Record<string, string> = { anilist: 'AniList', myanimelist: 'MAL', kitsu: 'Kitsu', mangaupdates: 'MangaUpdates' };
 
 /** The card's corner badge: where the suggestion came from, short enough for a 9rem card. */
 export const badgeOf = (r: Recommendation): string =>

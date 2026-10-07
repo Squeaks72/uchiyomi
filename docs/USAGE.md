@@ -12,7 +12,7 @@ environment variables see [CONFIGURATION.md](CONFIGURATION.md).
 - [7. Sources: extensions, add-a-site and MangaDex](#7-sources-extensions-add-a-site-and-mangadex)
 - [8. The admin panel](#8-the-admin-panel)
 - [9. Security: 2FA, sessions, password](#9-security-2fa-sessions-password)
-- [10. Tracking: AniList, MyAnimeList and Kitsu](#10-tracking-anilist-myanimelist-and-kitsu)
+- [10. Tracking: AniList, MyAnimeList, Kitsu and MangaUpdates](#10-tracking-anilist-myanimelist-kitsu-and-mangaupdates)
 - [11. Install as an app & offline](#11-install-as-an-app--offline)
 - [12. Backups & restore](#12-backups--restore)
 - [13. Troubleshooting & FAQ](#13-troubleshooting--faq)
@@ -2682,7 +2682,7 @@ token on a non-admin account still can't reach the admin API. See [docs/api.md](
 
 ![API tokens](shots/crop-tokens.webp)
 
-## 10. Tracking: AniList, MyAnimeList and Kitsu
+## 10. Tracking: AniList, MyAnimeList, Kitsu and MangaUpdates
 
 Connect your AniList account once under **Profile → Connections → Progress tracking** (tap **Connect** on the
 AniList row and the token field opens under it) and finishing a chapter here updates your AniList list on its own.
@@ -2693,7 +2693,8 @@ your reading. If the service rejects your token, Uchiyomi disables the connectio
 rather than failing silently; a token that has lapsed is noted on the row too, but the connection is left
 in place until you paste a new one. A service that is blocking or rate-limiting the server is a sync
 error to retry on the next chapter, never a verdict on the token, so it does not disconnect anything.
-Disconnect at any time. MyAnimeList and Kitsu connect the same way, each on its own row, and more than one can
+Disconnect at any time. MyAnimeList, Kitsu and MangaUpdates connect the same way, each on its own row (Kitsu and
+MangaUpdates take your username and password, used once to get a token and not kept), and more than one can
 be connected at once; each syncs on its own.
 
 Uchiyomi finds each series' AniList entry by itself, from the same lookup its art comes from, and since v0.55.7 only

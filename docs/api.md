@@ -1415,7 +1415,7 @@ PATCH  /api/opds/token
 GET    /api/trackers              POST   /api/trackers/anilist
 POST   /api/trackers/:provider/connect
 POST   /api/trackers/myanimelist/oauth  POST /api/trackers/kitsu/login
-POST   /api/trackers/anilist/backfill
+POST   /api/trackers/mangaupdates/login  POST   /api/trackers/anilist/backfill
 POST   /api/trackers/:provider/resync/:seriesId
 DELETE /api/trackers/:provider
 GET    /api/push/key              POST   /api/push/subscribe
@@ -1466,7 +1466,7 @@ for Kitsu), `configured` (false until an admin has saved the sign-in application
 `authorizeUrl` and `clientId` the browser needs to start the sign-in. AniList comes back to the app with the token
 in the URL fragment and sends it to `POST /api/trackers/anilist/connect` (or `/api/trackers/anilist`);
 `POST /api/trackers/myanimelist/oauth {code, verifier, redirectUri}` swaps MyAnimeList's code for a token;
-`POST /api/trackers/kitsu/login {username, password}` swaps Kitsu's credentials for one. `POST
+`POST /api/trackers/kitsu/login {username, password}` swaps Kitsu's credentials for one, and `POST /api/trackers/mangaupdates/login {username, password}` does the same for MangaUpdates. `POST
 /api/trackers/:provider/connect {token}` still takes a pasted token for any of them, and `DELETE
 /api/trackers/:provider` drops the connection. The sign-in applications are an admin's to set:
 `GET /api/admin/trackers/apps`, and `PUT /api/admin/trackers/apps/:provider {clientId, clientSecret?}` (an empty
