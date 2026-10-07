@@ -39,3 +39,15 @@ test('a search result from an adult-named source, or with explicit genres or tit
 test('a source the admin rated below 18 is not judged by its name', () => {
   assert.equal(ratingOf({ title: 'Plain' }, { id: 'sw:1', name: 'MyAdultComics', isNsfw: true }, { ...lists, cleared: ['sw:1'] }, false), undefined);
 });
+
+test('a title an admin marked 18+ from a Discover card is 18+ however it is spelled, and only that title', async () => {
+  const { titleKey } = await import('../src/lib/adultTitles');
+  assert.equal(titleKey('  Éclair: The  Series! '), titleKey('eclair the series'));
+  assert.equal(titleKey('進撃の巨人'), '進撃の巨人');
+  assert.equal(titleKey('!!!'), '');
+  const withTitles = { ...lists, titles: new Set([titleKey('Marked Title')]) };
+  const src = { id: 'sw:9', name: 'Some Site', isNsfw: false };
+  assert.equal(ratingOf({ title: 'MARKED title!' }, src, withTitles, false), 'adult');
+  assert.notEqual(ratingOf({ title: 'Another Title' }, src, withTitles, false), 'adult');
+  assert.notEqual(ratingOf({ title: 'Marked Title' }, src, lists, false), 'adult', 'no marks, no effect');
+});

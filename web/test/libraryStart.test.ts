@@ -78,7 +78,7 @@ test('Home\'s welcome offers the same keys, and is never shown for the second be
   // shows while /api/featured is on its way" fails.
   const home = code(read('app/page.tsx'));
   const hero = slice(home, '{(featured?.content?.length ?? 0) > 0 ? (', '<div className="flex items-center justify-between gap-3 px-5 pt-6 lg:px-0">');
-  assert.match(hero, /\) : isLoading \|\| featuredPending \? \(\s*<div className="skeleton/, 'the welcome shows while /api/featured is on its way');
+  assert.match(hero, /\) : isLoading \|\| featuredPending \? \(\s*(?:!banners \? <h1 [^>]*>[^<]*<\/h1> :\s*)?<div className="skeleton/, 'the welcome shows while /api/featured is on its way');
   assert.match(home, /const \{ data: featured, isPending: featuredPending \} = useQuery\(\{ queryKey: \['featured'\]/);
   const welcome = slice(hero, "{tr('Welcome to Uchiyomi')}", '</div>');
   assert.match(welcome, /<LibraryStart align="start" \/>/, 'Home\'s welcome does not offer the import');

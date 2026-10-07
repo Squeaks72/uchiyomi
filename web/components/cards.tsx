@@ -17,6 +17,7 @@ import { effectsReduced } from '@/lib/effects';
 import { t as tr } from '@/lib/i18n';
 import { useSeriesMenu } from './SeriesMenu';
 import { useDiscoverMenu } from './DiscoverMenu';
+import { Blurb } from './Blurb';
 import { publicCoverFallback } from '@/lib/coverFallback';
 
 /** Pointer-tracked 3D tilt + moving glare for cover cards. Desktop-only (hover+fine pointer),
@@ -134,6 +135,7 @@ export function SeriesCard({ series, w = 'w-32', eager = false, note }: {
         {series.metadata?.title || series.name}
       </p>
       {note && <p data-card-note className="mt-0.5 truncate px-0.5 text-[11px] leading-tight text-fog-500 tabular-nums">{note}</p>}
+      <Blurb text={series.metadata?.summary} className="px-0.5" />
     </Link>
     {menu.element}
     </>
@@ -255,6 +257,7 @@ export function SeriesTile({ series, eager = false, selectable, selected, onTogg
       </p>
       {/* In the interface's direction, not the title's `auto`: it is the app's sentence about the series. */}
       {note && <p data-sort-value className="mt-0.5 truncate text-[11px] leading-tight text-fog-500 tabular-nums">{note}</p>}
+      <Blurb text={series.metadata?.summary} />
       {/* The work's languages (v0.52.0, #72): the Library shows one card for every language edition the viewer may
           browse, and this line says so -- `EN · ES-419`, the edition this card opens brighter. The names are its
           title, for a hover and a screen reader. */}
@@ -320,6 +323,8 @@ export interface SourceItem {
   work?: string;
   /** The library holds this work in any language (v0.56.0): the wall does not show it; search does, with its marks. */
   owned?: boolean;
+  /** The source's own description, when its listing carries one (MangaDex and most Suwayomi sources do). */
+  summary?: string;
 }
 
 /**
@@ -418,6 +423,7 @@ export function SourceCard({ item, providers, onAdd, onOpenAdded, onSearch, eage
       <p className="mt-1.5 line-clamp-2 text-xs font-medium leading-tight text-fog-300 transition group-hover:text-fog-100">
         {item.title}
       </p>
+      <Blurb text={item.summary} />
     </>
   );
   // The sources are the card's description: the name says what pressing it does, and a button's own content is not
