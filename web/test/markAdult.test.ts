@@ -43,3 +43,12 @@ test('the big banners are behind the showBanners setting on Home and Discover', 
   assert.match(read('app/discover/page.tsx'), /useAccountPrefValue\('showBanners'\)/);
   assert.match(read('components/ProfileSettings.tsx'), /useAccountPref\('showBanners'\)/);
 });
+
+test('a marked card leaves every shelf at once: each card component asks the hidden set, by title and by series', () => {
+  const cards = read('components/cards.tsx');
+  assert.equal((cards.match(/useIsHiddenTitle\(\)/g) ?? []).length, 4, 'SeriesCard, ContinueCard, SeriesTile and SourceCard');
+  assert.match(cards, /isHidden\(series\.metadata\?\.title \|\| series\.name, series\.id\)/);
+  assert.match(read('components/DiscoverHero.tsx'), /useIsHiddenTitle\(\)/);
+  assert.match(read('components/useAdultMark.ts'), /hideTitle\(title, seriesId\)/);
+  assert.match(read('components/useAdultMark.ts'), /\['foryou'\]/);
+});

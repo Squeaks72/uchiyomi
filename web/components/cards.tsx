@@ -16,6 +16,7 @@ import { effectsReduced } from '@/lib/effects';
 import { t as tr } from '@/lib/i18n';
 import { useSeriesMenu } from './SeriesMenu';
 import { useDiscoverMenu } from './DiscoverMenu';
+import { useIsHiddenTitle } from '@/lib/hiddenTitles';
 import { useGlance } from './GlanceCard';
 import { glanceOfSeries, glanceOfSource } from '@/lib/glance';
 
@@ -90,6 +91,9 @@ export function SeriesCard({ series, w = 'w-32', eager = false }: { series: Seri
   // Right-click, press-and-hold or Shift+F10 (#100, components/SeriesMenu.tsx).
   const glance = useGlance(glanceOfSeries(series), { cover: img.seriesThumb(series.id, series.artVersion, 800), readSeriesId: series.id, actions: [{ label: tr('Open series'), href: `/series/?id=${series.id}` }] });
   const menu = useSeriesMenu(series, glance.show);
+  // Marked 18+ from its menu: gone at once, before the lists are asked again (lib/hiddenTitles.ts).
+  const isHidden = useIsHiddenTitle();
+  if (isHidden(series.metadata?.title || series.name, series.id)) return null;
   return (
     <>
     <Link href={`/series/?id=${series.id}`} className={`group shrink-0 ${w} [scroll-snap-align:start]`} {...menu.bind}>
@@ -151,6 +155,8 @@ export function ContinueCard({ book, eager = false }: { book: Book; eager?: bool
   // stretched over the card and the title link sits above it. The menu is the series' own (SeriesMenu.tsx), from the
   // little a book knows of it -- the Properties sheet and the favourite mark read the rest themselves.
   const menu = useSeriesMenu({ id: book.seriesId, name: book.seriesTitle, metadata: { title: book.seriesTitle } } as unknown as Series);
+  const isHidden = useIsHiddenTitle();
+  if (isHidden(book.seriesTitle, book.seriesId)) return null;
   return (
     <>
     <div
@@ -203,6 +209,8 @@ export function SeriesTile({ series, eager = false, selectable, selected, onTogg
   // Not in Select mode: there a press toggles the tile, and the Library's own bar holds the actions (#100).
   const glance = useGlance(glanceOfSeries(series), { cover: img.seriesThumb(series.id, series.artVersion, 800), readSeriesId: series.id, actions: [{ label: tr('Open series'), href: `/series/?id=${series.id}` }] });
   const menu = useSeriesMenu(series, selectable ? undefined : glance.show);
+  const isHidden = useIsHiddenTitle();
+  if (isHidden(series.metadata?.title || series.name, series.id)) return null;
   const Wrap: any = selectable ? 'button' : Link;
   const wrapProps = selectable
     ? { type: 'button', onClick: onToggle, 'aria-pressed': !!selected, className: 'group w-full text-start' }
@@ -366,6 +374,8 @@ export function SourceCard({ item, providers, onAdd, onOpenAdded, onSearch, eage
       ],
     });
   const menu = useDiscoverMenu({ title: item.title, libraryHref, librarySeriesId: owned ? item.librarySeriesId : undefined, onAdd: !owned || item.moreEditions ? onAdd : undefined, addLabel: owned ? tr('Add another edition') : undefined, onSearch, onDescribe: glance.show });
+  const isHidden = useIsHiddenTitle();
+  if (isHidden(item.title, owned ? item.librarySeriesId : undefined)) return null;
   // An owned title opens its entry in the library; adding it again would only say "already there".
   const rootCls = 'group block w-full text-start disabled:cursor-default';
   const body = (
