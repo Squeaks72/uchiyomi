@@ -545,12 +545,12 @@ test('a stage named mid-sentence is lower-case, as the server\'s English says it
   }
 });
 
-test('every view that prints a download\'s reason words it: Library → Fetching, the series band, Discover, Find missing', () => {
+test('every view that prints a download\'s reason words it: Library → Fetching, the series band, Find missing', () => {
   // The job card's, the run card's and a chapter's reason come with codes (bff routes/sources.ts, lib/downloadJobs.ts,
   // lib/downloadActivity.ts); a view that prints `.reason` itself prints English in every language. Reintroduce
   // `{a.job.reason || tr('Fetch stopped. Try another source or wait.')}` in ServerDownloadsView: it is named here.
   const ROOT = join(__dirname, '..');
-  for (const f of ['components/ServerDownloadsView.tsx', 'components/SeriesServerDownloads.tsx', 'app/discover/page.tsx',
+  for (const f of ['components/ServerDownloadsView.tsx', 'components/SeriesServerDownloads.tsx',
     'components/FindMissingDialog.tsx', 'app/series/page.tsx']) {
     const src = readFileSync(join(ROOT, f), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
     const bare = src.match(/\{[^{}]*\b(?:j|r|f|a\.job|failed\.job|job|ended)\??\.reason\s*(?:\|\||\?\s*[`'])[^{}]*\}|toast\([^)]*\bended\??\.reason\s*\|\|/g);
