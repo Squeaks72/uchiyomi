@@ -556,23 +556,6 @@ test('an all-owned tracker batch says what it did: the done card counts and name
   assert.deepEqual(missingIn('es.json', ['1 linked for progress sync', '{n} linked for progress sync', 'linked for progress sync']), [], 'a linked key is missing from es.json');
 });
 
-test('the Discover strip tells the truth about a carrier card: a nothing-yet add that checked other sources never reads "Fetched"', () => {
-  // A "Nothing yet" add with candidates leaves a job with `total: 0, status: 'done'` and the judgement on
-  // it; the strip rendered every non-downloading, non-error card as "Fetched" in emerald, so the series a
-  // person had just declined to fetch read as fetched for five minutes -- from the moment of the add, while
-  // the check was still running. Reintroduce by deleting the `j.total === 0 && j.autoFollow` branch: "a
-  // carrier card reads Fetched" fails; by rendering one sentence for both states: "the running check reads
-  // as finished" fails.
-  const src = code(read('app/discover/page.tsx'));
-  assert.match(src, /\) : j\.total === 0 && j\.autoFollow \? \(\s*<p className="mt-1 text-\[11px\] text-fog-500">\{j\.autoFollow\.done \? tr\('Checked other sources'\) : tr\('Checking other sources…'\)\}<\/p>\s*\) : \(\s*<p className="mt-1 text-\[11px\] text-emerald-400">\{tr\('Fetched'\)\}<\/p>/, 'a carrier card reads Fetched, or the running check reads as finished');
-  // The strip reads the shared jobs answer (v0.49.0), whose card type is lib/serverDownloads.ts DownloadJob.
-  assert.match(src, /const \{ data: jobsData \} = useServerDownloads\(\);/, "the strip's jobs are not the shared answer");
-  const lib = code(read('lib/serverDownloads.ts'));
-  const card = lib.slice(lib.indexOf('export interface DownloadJob extends JobCard {'), lib.indexOf('\n}\n', lib.indexOf('export interface DownloadJob')));
-  assert.match(card, /autoFollow\?: AutoFollow;/, "the strip's Job does not know the judgement");
-  for (const f of localeFiles()) assert.deepEqual(missingIn(f, ['Checking other sources…', 'Checked other sources']), [], `${f} lacks a strip key`);
-});
-
 test('the switch is for admins: a member sees no "also check" switch, sends no alsoFollow, and is told who can', () => {
   // The manual follow route and the sheet's × are admin-only, so a member who was shown the switch could
   // follow two sources and never undo them; the doc said "(admins)" and the code did not. Discover passes

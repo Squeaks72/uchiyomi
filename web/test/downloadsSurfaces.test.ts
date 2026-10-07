@@ -98,11 +98,10 @@ test('the Library ring: on the phone\'s Library tab, beside the desktop bell, ne
 
 test('every way that used to lead to the pill or the Offline tab leads to Library -> Downloads', () => {
   // Reintroduce the Offline tab as the add dialog's fallback: addSeriesDialog.test.ts and desktopSurfaces.test.ts
-  // fail too. Here: Discover's strip and its "See all", and the series band's "See all".
+  // fail too. Here: the series band's "See all".
   const discover = code(read('app/discover/page.tsx'));
-  // Where each card leads is lib/libraryView.ts stripHref's (libraryView.test.ts); a card it sends nowhere is not a link.
-  assert.match(discover, /const href = stripHref\(j\);[\s\S]*?return href\s*\? <Link key=\{j\.folder\} href=\{href\}/, 'a strip card leads nowhere');
-  assert.match(discover, /<Link href=\{downloadsHref\(\)\}[^>]*>\{tr\('See all'\)\}<\/Link>/, 'the strip has no way to the whole list');
+  // Discover carries no downloads strip: in-progress work lives behind the header's Server fetching button.
+  assert.doesNotMatch(discover, /data-job-card|useServerDownloads/, 'Discover shows downloads again');
   assert.match(code(read('components/SeriesServerDownloads.tsx')), /const href = downloadsHref\(/);
   assert.match(code(read('app/series/page.tsx')), /<SeriesServerDownloads seriesId=\{id\} folder=\{series\?\.folder\} \/>/, 'the series page has no band');
 });

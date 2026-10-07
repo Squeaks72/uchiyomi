@@ -3,23 +3,11 @@
 // Library ring and in Library -> Downloads since.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { downloadsLabel, finished, forStrip, mayCancel, repairStepLabel, runProgress, runTitle, STRIP_DONE_MS, type JobCard, type RunCard } from '../lib/jobs';
+import { downloadsLabel, finished, mayCancel, repairStepLabel, runProgress, runTitle, type JobCard, type RunCard } from '../lib/jobs';
 
 const job = (over: Partial<JobCard>): JobCard => ({ folder: 'f', title: 'T', total: 3, done: 3, status: 'done', ...over });
 const run = (over: Partial<RunCard>): RunCard =>
   ({ kind: 'sweep', startedAt: 0, status: 'running', done: 0, total: 0, fetched: 0, failed: 0, ...over });
-
-test("Discover's strip keeps a finished job for five minutes, as it always did, and a failed one until dismissed", () => {
-  const now = 10 * 3600_000;
-  const jobs = [
-    job({ folder: 'fresh', finishedAt: now - 60_000 }),
-    job({ folder: 'old', finishedAt: now - STRIP_DONE_MS - 1 }),
-    job({ folder: 'failed', status: 'error', finishedAt: now - 5 * 3600_000 }),
-    job({ folder: 'running', status: 'downloading', done: 1 }),
-  ];
-  // Reintroduce by showing every card the server returns: "old" -- hours of green cards -- is back on Discover.
-  assert.deepEqual(forStrip(jobs, now).map((j) => j.folder), ['fresh', 'failed', 'running']);
-});
 
 test('the Finished list is finished downloads, newest first, and never a carrier card with nothing on it', () => {
   const list = finished([

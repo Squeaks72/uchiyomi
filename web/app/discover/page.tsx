@@ -8,10 +8,9 @@ import { ART } from '@/lib/art';
 import { relativeTime } from '@/lib/format';
 import { useAuth, canDownload } from '@/lib/auth';
 import { t as tr } from '@/lib/i18n';
-import { reasonText } from '@/lib/said';
 import { isDesktop } from '@/lib/desktop';
 import { EmptyState } from '@/components/EmptyState';
-import { ProgressBar, Reveal } from '@/components/ui';
+import { Reveal } from '@/components/ui';
 import { SourceCard, SourceItem } from '@/components/cards';
 import { ScrollRail } from '@/components/ScrollRail';
 import { DiscoverHero, TrendingCard, Trending } from '@/components/DiscoverHero';
@@ -24,10 +23,8 @@ import { useLiveWorks } from '@/lib/useLiveWorks';
 import { AddSeriesDialog, AddSeed } from '@/components/AddSeriesDialog';
 import { AdultToggle, useAdultShown } from '@/components/AdultToggle';
 import { IcChevronLeft, IcSearch, IcSparkle, IcX } from '@/components/icons';
-import { forStrip } from '@/lib/jobs';
-import { downloadsHref, stripHref } from '@/lib/libraryView';
+import { downloadsHref } from '@/lib/libraryView';
 import type { Page, Series } from '@/lib/types';
-import { useServerDownloads } from '@/lib/useServerDownloads';
 /**
  * One search card. Since v0.52.0 (#72) `inLibrary` means held in every provider's language, `libraryLangs` the
  * languages the library holds the title in, and each provider carries its own `lang` and `inLibrary`. Since v0.55.4
@@ -470,14 +467,6 @@ export default function DiscoverPage() {
     return () => io.disconnect();
   }, [canPage]);
 
-  // ---------------------------------------------------------------- jobs
-  // The shared jobs answer, read from the cache AppShell's one poller keeps fresh (lib/useServerDownloads.ts):
-  // a poll of this page's own would double the requests while an add downloads.
-  const { data: jobsData } = useServerDownloads();
-  // A finished job stays on the server for a day now (Library -> Downloads lists them, #82); this strip keeps
-  // showing the last few minutes of them, as it always did (lib/jobs.ts `forStrip`).
-  const jobs = forStrip(jobsData?.content ?? []);
-
   /**
    * The hero's slides: everything with wide key art first, then topped up from the rest.
    *
@@ -612,52 +601,6 @@ export default function DiscoverPage() {
         <SourceLatest key={`${listMode}:${s.id}:${page}`} source={s} listMode={listMode}
           page={page} enabled={i < gate || s.id === selected} onSettled={onSettled} />
       ))}
-
-      {jobs.length > 0 && (
-        <div className="board mt-5">
-          {/* Each card opens its series once it has one, else its tile in Library -> Downloads, where it can be
-              followed, cancelled or retried -- and nothing when that view does not list it (`stripHref`). */}
-          {jobs.map((j) => {
-            const href = stripHref(j);
-            const face = (
-              <>
-                <p className="truncate text-xs font-medium text-fog-100">{j.title}</p>
-                {j.status === 'downloading' ? (
-                  <>
-                    <div className="mt-2"><ProgressBar value={j.total ? j.done / j.total : 0.02} /></div>
-                    <p className="mt-1 text-[11px] tabular-nums text-fog-500">{j.done}/{j.total}</p>
-                  </>
-                ) : j.status === 'error' ? (
-                  // `reason` is now written when a job fails and names the source and how far it got. This
-                  // line used to show the same sentence whatever had actually happened.
-                  // A download killed by a rate-limit used to vanish from this strip entirely, taking its
-                  // reason with it: the row was filtered to `downloading` and `reason` was never declared.
-                  <p dir="auto" className="mt-1 text-[11px] text-amber-300">{reasonText(j) || tr('Fetch stopped. Try another source or wait.')}</p>
-                ) : j.cancelled ? (
-                  // Stopped by its Cancel (#82): `done`, but "Fetched" in emerald would claim the whole run landed.
-                  <p dir="auto" className="mt-1 text-[11px] text-fog-400">{reasonText(j) || tr('Cancelled; what landed is kept.')}</p>
-                ) : j.total === 0 && j.autoFollow ? (
-                  // A "Nothing yet" add that asked for the other sources leaves a card with no chapters on it,
-                  // only the judgement: it is not a fetch and must not read as one. "Fetched" in emerald sat
-                  // under the series a person had just declined to fetch, for five minutes.
-                  <p className="mt-1 text-[11px] text-fog-500">{j.autoFollow.done ? tr('Checked other sources') : tr('Checking other sources…')}</p>
-                ) : (
-                  <p className="mt-1 text-[11px] text-emerald-400">{tr('Fetched')}</p>
-                )}
-              </>
-            );
-            const cls = `card block p-3 ${j.status === 'error' ? 'border-amber-500/40' : ''}`;
-            return href
-              ? <Link key={j.folder} href={href} data-job-card className={`${cls} transition hover:border-accent/40`}>{face}</Link>
-              : <div key={j.folder} data-job-card className={cls}>{face}</div>;
-          })}
-        </div>
-      )}
-      {jobs.length > 0 && (
-        <p className="mt-2 text-end">
-          <Link href={downloadsHref()} className="text-xs font-medium text-accent hover:underline">{tr('See all')}</Link>
-        </p>
-      )}
 
       <div className="mb-3 mt-6 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
         <h2 className="font-display text-lg font-semibold tracking-tight text-fog-50 lg:text-xl">
