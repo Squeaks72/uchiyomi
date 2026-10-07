@@ -218,7 +218,7 @@ test('SourcePicker renders one chip and a sheet, not a chip wall', () => {
   assert.match(body, /tr\('\{n\} with issues'/, 'the chip no longer says how many sources are unwell');
   // The parent's bookkeeping is read exactly as the chips read it. A bare id here finds nothing, and every
   // row in the sheet would sit permanently dimmed as "not asked yet".
-  assert.match(body, /states\[`\$\{mode\}:\$\{id\}`\]/, 'stateOf no longer reads the mode-namespaced key');
+  assert.match(body, /states\[`\$\{mode \?\? 'newest'\}:\$\{id\}`\]/, 'stateOf no longer reads the mode-namespaced key');
   // The sheet lives in its own file and opens from the same page, so it must clear the bottom nav too.
   const sheet = readFileSync(join(__dirname, '..', 'components', 'SourceListSheet.tsx'), 'utf8');
   assert.match(sheet, /<Sheet[\s\S]{0,300}?overBottomNav/, 'the source sheet sits under the phone bottom nav');

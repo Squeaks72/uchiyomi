@@ -102,9 +102,9 @@ test('skeletons make way for the first answer; "no results" waits for the last',
   // skeletons on `searchQ.isFetching`: "skeletons are not gated on the answer" fails; by dropping
   // `!stillAsking` from the empty state: "no results is shown while sources are pending" fails.
   const src = code(read(PAGE));
-  assert.match(src, /const pending = mode === 'newest' \? Math\.max\(0, budget\.length - settled\) : \(!searchQ\.data && !searchQ\.isError \? 3 : 0\);/, 'skeletons are not gated on the answer');
+  assert.match(src, /const pending = idle \? 0 : mode === 'newest' \? Math\.max\(0, budget\.length - settled\) : \(!searchQ\.data && !searchQ\.isError \? 3 : 0\);/, 'skeletons are not gated on the answer');
   assert.match(src, /const stillAsking = mode === 'search' \? \(searchQ\.data\?\.pending \?\? 0\) : 0;/, 'stillAsking does not read pending');
-  assert.match(src, /\{!wall\.items\.length && !pending && !stillAsking && \(/, 'no results is shown while sources are pending');
+  assert.match(src, /\{!idle && !wall\.items\.length && !pending && !stillAsking && \(/, 'no results is shown while sources are pending');
   // A failed search says so in the same card and gets the same Try again button; a toast vanished with the
   // reason and left an empty wall.
   assert.match(src, /searchQ\.isError \? tr\('Search failed'\) : tr\('No results across your sources — try another title\.'\)/, 'a failed search is not told apart from an empty one');
@@ -192,4 +192,27 @@ test('every string the search renders is in all eight locale files', () => {
     const missing = [...keys].filter((k) => !(k in d) || !String(d[k]).trim());
     assert.deepEqual(missing, [], `${missing.length} of the page's strings are missing from ${f}: ${missing.slice(0, 12).join(' | ')}`);
   }
+});
+
+test('Discover asks no source until something is chosen: a listing, a source, a sort, a filter or a search', () => {
+  // Opening the page used to fire a request per source at once. The per-source fetchers now mount only after
+  // `browsing` is set, and every control that counts as a choice sets it. Reintroduce by mounting SourceLatest
+  // without the `browsing` gate: "source fetchers mount before anything was chosen" fails; by dropping
+  // startBrowsing() from the sort chips or the picker's onSelect: the matching message fails.
+  const src = code(read(PAGE));
+  assert.match(src, /const \[browsing, setBrowsing\] = useState\(false\);/, 'browsing does not start off');
+  assert.match(src, /\{mode === 'newest' && browsing && budget\.map\(/, 'source fetchers mount before anything was chosen');
+  assert.match(src, /onClick=\{\(\) => \{ setWallSort\(s\.key\); startBrowsing\(\); \}\}/, 'choosing a sort does not start browsing');
+  assert.match(src, /startBrowsing\(\); \} setSelected\(id\)/, 'choosing a source does not start browsing');
+  assert.match(src, /setListMode\(m\);[^\n]*setBrowsing\(true\)/, 'choosing a listing does not start browsing');
+  assert.match(src, /mode=\{idle \? null : listMode\}/, 'a listing chip reads as chosen before one was');
+  assert.match(src, /data-discover-idle/, 'the idle page does not say what to do');
+});
+
+test('the sort and filter chips live in the picker region, not under a second Newest heading', () => {
+  const src = code(read(PAGE));
+  const picker = src.slice(src.indexOf('<SourcePicker'), src.indexOf('</SourcePicker>'));
+  assert.match(picker, /data-wall-sorts/, 'sort chips left the picker region');
+  assert.match(picker, /data-rating-chips/, 'the 18+ filter left the picker region');
+  assert.doesNotMatch(src, /<IcChevronLeft/, 'a second Newest button is back beside the wall heading');
 });

@@ -530,6 +530,8 @@ const SERIES_KEYED_TABLES = [
   // v0.55.8: the durable bulk-delete intent journal deliberately has no series FK. Hard Forget removes its
   // per-series items explicitly while the terminal parent run remains as operation-level history.
   'admin_bulk_delete_items',
+  // Chapter numbers an admin removed by hand (lib/chapterRemovals.ts). Cascades too; named for the same count.
+  'series_chapter_removals',
 ] as const;
 
 export interface ForgetRefusal {

@@ -69,7 +69,7 @@ export function SourceIcon({ id, name, ring = '', size = 20, registered = true }
  * Changing MODE is the one thing here that needs new data, and the parent handles it by namespacing its
  * state per mode rather than clearing anything. See the warning on SourceLatest.
  */
-export function SourcePicker({ sources, all, states, settled, total, count, selected, onSelect, mode, onMode }: {
+export function SourcePicker({ sources, all, states, settled, total, count, selected, onSelect, mode, onMode, children }: {
   /** The sources being asked now: the chip's icons, and how many the sheet says it is asking. */
   sources: Src[];
   /** Every source that can answer this listing. The sheet lists all of them, so one outside `sources` can be picked and is then asked. */
@@ -89,14 +89,17 @@ export function SourcePicker({ sources, all, states, settled, total, count, sele
   /** The source being shown alone, or null for all of them. */
   selected: string | null;
   onSelect: (id: string | null) => void;
-  mode: ListMode;
+  /** The listing being browsed, or null while none has been asked for (no chip reads as chosen). */
+  mode: ListMode | null;
   onMode: (m: ListMode) => void;
+  /** More controls for the same region (sort, filters), laid out under the chips. */
+  children?: React.ReactNode;
 }) {
   const shown = sources;
   const list = all && all.length ? all : shown;
   // The parent namespaces its bookkeeping by listing mode, so a bare id finds nothing here. Getting this
   // wrong is silent: every row would simply read as "not asked yet" and sit permanently dimmed.
-  const stateOf = (id: string): SrcState => states[`${mode}:${id}`] ?? 'idle';
+  const stateOf = (id: string): SrcState => states[`${mode ?? 'newest'}:${id}`] ?? 'idle';
   // Sources that are actually broken, as opposed to merely having nothing new. A count on the chip, in
   // amber; the sentences themselves live in the sheet, and the full story in Admin. Counted by the DOT the
   // sheet lights, not by whether a sentence exists: the two used to differ (a failure without a server note
@@ -158,6 +161,8 @@ export function SourcePicker({ sources, all, states, settled, total, count, sele
           </button>
         )}
       </div>
+
+      {children}
 
       {settled < total && (
         <div className="h-px w-full overflow-hidden bg-ink-700">
