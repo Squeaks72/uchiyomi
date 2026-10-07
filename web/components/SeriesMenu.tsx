@@ -22,7 +22,7 @@ import { useAdultMark } from './useAdultMark';
  * archive of the rest (#117). Offered by role, never offered and then refused, and greyed rather than hidden
  * while offline. Anything larger is the series page, one click away.
  */
-export function useSeriesMenu(series: Series) {
+export function useSeriesMenu(series: Series, onDescribe?: () => void) {
   const qc = useQueryClient();
   const toast = useToast();
   const { isAdmin, status, user } = useAuth();
@@ -55,6 +55,7 @@ export function useSeriesMenu(series: Series) {
   };
 
   const items = (): MenuItem[] => [
+    ...(onDescribe ? [{ label: tr('Description and details'), onSelect: onDescribe }] : []),
     { label: tr('Open in a new tab'), onSelect: () => { window.open(href, '_blank', 'noopener'); } },
     {
       label: tr('Copy link'),

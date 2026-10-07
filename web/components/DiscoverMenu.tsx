@@ -14,7 +14,7 @@ import { useAdultMark } from './useAdultMark';
  * the library entry it already is; search every source for the title; copy it. The card's own click stays the
  * primary action, so nothing here is the only way to anything.
  */
-export function useDiscoverMenu({ title, libraryHref, librarySeriesId, onAdd, addLabel, onSearch }: {
+export function useDiscoverMenu({ title, libraryHref, librarySeriesId, onAdd, addLabel, onSearch, onDescribe }: {
   title: string;
   /** The library entry the title already is: offered instead of Add. */
   libraryHref?: string;
@@ -24,6 +24,8 @@ export function useDiscoverMenu({ title, libraryHref, librarySeriesId, onAdd, ad
   /** The add item's words when it is not plain Add: another edition of a title the library holds. */
   addLabel?: string;
   onSearch?: (title: string) => void;
+  /** Opens the at-a-glance card: the way to it on a touch screen, where a thumbnail has no hover. */
+  onDescribe?: () => void;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -52,6 +54,7 @@ export function useDiscoverMenu({ title, libraryHref, librarySeriesId, onAdd, ad
   };
   const adultItem = useAdultMark(title, librarySeriesId);
   const items = (): MenuItem[] => [
+    ...(onDescribe ? [{ label: tr('Description and details'), onSelect: onDescribe }] : []),
     ...(libraryHref ? [
       { label: tr('Open in library'), onSelect: () => router.push(libraryHref) },
       { label: tr('Open in a new tab'), onSelect: () => { window.open(libraryHref, '_blank', 'noopener'); } },
