@@ -562,6 +562,8 @@ export interface HealthItem {
    * source is `sourceId`. The key's words say the number when it is here.
    */
   findSeries?: number;
+  /** v0.56.0, beside 'find_sources' on a "Series that can no longer update" row: the run is over this row's series alone. */
+  findScope?: 'series';
 
   // ---- v0.53.0, Source health rows only (bff lib/health.ts): the card's group, and what the row's one line and its
   // one key are chosen by. components/SourceHealthBody.tsx reads them; lib/sourceHealth.ts words them.

@@ -757,6 +757,8 @@ test("Health offers Find other sources on a failing source's row and on the seri
   // Reintroduce by dropping the frozen card's action: only Ignore is offered.
   assert.ok(frozen.actions!.includes('find_sources'), JSON.stringify(frozen.actions));
   assert.deepEqual([frozen.sourceId, frozen.findSeries], [GONE, 1]);
+  // v0.56.0: the key of a frozen row is for that series alone, never every series of its source.
+  assert.equal(frozen.findScope, 'series', 'the find key of a frozen row is for that series alone');
   // A source used by nothing, or only as a follower, has no series to search for and no chip.
   await q(`INSERT INTO source_health (source_id, status, consecutive, last_error, last_fail_at, blocked_until)
            VALUES ('fs-d', 'down', 3, 'boom', now(), now() + interval '1 hour')`);

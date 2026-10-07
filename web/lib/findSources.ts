@@ -290,6 +290,36 @@ export function groupResults(results: readonly FindResult[] | null | undefined):
   return g;
 }
 
+/**
+ * What a Health row's "Find other sources" key searches (v0.56.0): this row's series alone when the row says so (a
+ * "Series that can no longer update" row, `findScope: 'series'`), else every series whose main source is the row's.
+ * Null when the row names neither, so nothing is started.
+ */
+export function findScopeOf(item: { seriesId?: string; sourceId?: string; findScope?: 'series' }): { seriesIds: string[] } | { sourceId: string } | null {
+  if (item.findScope === 'series') return item.seriesId ? { seriesIds: [item.seriesId] } : null;
+  return item.sourceId ? { sourceId: item.sourceId } : null;
+}
+
+/**
+ * The series a one-by-one review goes through (v0.56.0): those with matches to look at first, then those where nothing
+ * was found, so a name can be adjusted and a match picked by hand. Series the run skipped or moved are not in it.
+ */
+export function stepSeriesIds(results: readonly FindResult[] | null | undefined): string[] {
+  const g = groupResults(results);
+  return [...g.review, ...g.nothing].map((r) => r.seriesId);
+}
+
+/**
+ * Whether a series needs nothing more in a one-by-one review: one of its matches was followed or made main, every match
+ * was decided, or the person attached a source by hand (`handled`).
+ */
+export function stepDone(r: FindResult | undefined, handled: boolean): boolean {
+  if (!r) return false;
+  if (handled) return true;
+  const ps = r.proposals ?? [];
+  return ps.length > 0 && (ps.some((p) => p.state === 'followed' || p.state === 'promoted') || ps.every((p) => !!p.state));
+}
+
 /** Epoch ms of a server time, ISO or number; NaN when there is none. */
 export const toMs = (t: string | number | null | undefined): number =>
   typeof t === 'number' ? t : t ? Date.parse(t) : NaN;

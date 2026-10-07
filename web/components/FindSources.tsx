@@ -28,7 +28,7 @@ import { seriesHref } from '@/lib/healthLinks';
 import { IDLE, type ActionState } from '@/lib/actionState';
 import {
   amberNote, bulkOutcome, decideRefusal, earlierRuns, findReviewFirst, findRunState, findSlotState, findSummary, findWhyLine,
-  greenToFollow, greenToPromote, groupResults, isReplace, lineUpText, notTriedIds, promoteOutcome, promoteRefusal, setFindReviewFirst, toMs,
+  greenToFollow, greenToPromote, groupResults, isReplace, lineUpText, notTriedIds, promoteOutcome, promoteRefusal, setFindReviewFirst, stepDone, stepSeriesIds, toMs,
   type FindProposal, type FindResult, type FindRun, type FindRunSummary, type FindStatus,
 } from '@/lib/findSources';
 import { replaceRunTitle } from '@/lib/jobs';
@@ -40,6 +40,9 @@ import { sourceCover } from '@/components/cards';
 import { SourceIcon } from '@/components/SourcePicker';
 import { Img, OnBody, Sheet } from '@/components/ui';
 import { AddSeriesDialog } from '@/components/AddSeriesDialog';
+import { MigrateSourceSheet } from '@/components/MigrateSourceSheet';
+import { useToast } from '@/components/Toast';
+import type { Series } from '@/lib/types';
 import { editionOffer, editionOfferKey, type EditionOffer } from '@/lib/editions';
 import { numberText } from '@/lib/format';
 import { replaceSubtitle, type ReplacePreview } from '@/lib/sourcesPanel';
@@ -178,6 +181,9 @@ export function FindResultsSheet({ onClose, poll = true }: { onClose: () => void
   // and the sheet back as it was once the dialog closes. On <body>, as the sheet is: Health's card would hold it.
   // "Open the Spanish edition" instead when the work holds one that may follow the source: the sheet makes way for it.
   const [adding, setAdding] = useState<EditionAsk | null>(null);
+  // v0.56.0: a review-first run gone through one series at a time. Held here, not in the stepper, so adding an edition
+  // from a match (which takes the stepper's place) comes back to the same series.
+  const [step, setStep] = useState<StepState | null>(null);
   const router = useRouter();
   const addOrOpen = (ask: EditionAsk) => {
     if (ask.existing) { onClose(); router.push(seriesHref(ask.existing.id)); return; }
@@ -191,6 +197,9 @@ export function FindResultsSheet({ onClose, poll = true }: { onClose: () => void
           onAdded={() => { for (const k of [['series', adding.of], ['library'], ['home'], ['source-jobs']]) void qc.invalidateQueries({ queryKey: k }); }} />
       </OnBody>
     );
+  }
+  if (step && run) {
+    return <ReviewStepper run={run} step={step} setStep={setStep} onClose={() => setStep(null)} onOpen={onClose} onAddEdition={addOrOpen} />;
   }
   return (
     <OnBody>
@@ -208,6 +217,14 @@ export function FindResultsSheet({ onClose, poll = true }: { onClose: () => void
           {run && (
             <>
               <FindRunRow run={run} label={runStatusWord(run.status)} onStop={isAdmin ? () => { void stop(); } : undefined} stopping={stopping === run.id} />
+              {run.review && run.status !== 'running' && stepSeriesIds(run.results).length > 0 && (
+                <div className="mt-2">
+                  <button type="button" className="btn-key" data-review-stepper-open
+                    onClick={() => setStep({ ids: stepSeriesIds(run.results), at: 0, handled: [] })}>
+                    {tr('Review one series at a time')}
+                  </button>
+                </div>
+              )}
               {untried.length > 0 && (
                 <div className="mt-2">
                   <button type="button" className="btn-key" disabled={retry?.phase === 'starting' || !!data?.running}
@@ -541,6 +558,110 @@ function ReviewSeries({ r, act, head = true, onOpen, replace = false, makeMain =
         </ul>
       )}
     </li>
+  );
+}
+
+interface StepState { ids: string[]; at: number; handled: string[] }
+
+/** The series by hand: its page's own data (sources and chapter count), then the same search-and-attach sheet. */
+function ManualMatch({ seriesId, title, onDone, onClose }: { seriesId: string; title: string; onDone: () => void; onClose: () => void }) {
+  const series = useQuery({ queryKey: ['series', seriesId], queryFn: () => api<Series>(`/api/series/${encodeURIComponent(seriesId)}`), retry: false });
+  const sources = series.data?.sources ?? [];
+  const main = sources.find((s) => s.primary) ?? sources[0];
+  if (!series.data) {
+    return (
+      <OnBody>
+        <Sheet title={tr('Add or move source')} onClose={onClose} overBottomNav>
+          {series.isError
+            ? <p role="alert" className="text-xs text-rose-300">{tr('Could not load the results')}</p>
+            : <div role="status" aria-label={tr('Loading…')} className="skeleton h-16 rounded-xl" />}
+        </Sheet>
+      </OnBody>
+    );
+  }
+  return (
+    <OnBody>
+      <MigrateSourceSheet id={seriesId} title={title} attached={sources.map((x) => x.sourceId)} mainId={main?.primary ? main.sourceId : null}
+        listed={main?.chapters ?? null} onClose={onClose} onDone={onDone} />
+    </OnBody>
+  );
+}
+
+/**
+ * A review-first run, one series at a time (v0.56.0): the series' matches with Follow and Skip, "Search by hand" to
+ * change what is searched and pick a match yourself, and a way past it. Moving on never decides anything -- a series
+ * passed over keeps its matches in the run's To review list.
+ */
+function ReviewStepper({ run, step, setStep, onClose, onOpen, onAddEdition }: {
+  run: FindRun; step: StepState; setStep: (s: StepState) => void; onClose: () => void; onOpen: () => void; onAddEdition: (ask: EditionAsk) => void;
+}) {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const act = useReviewActions(run.id, undefined, onAddEdition);
+  const [manual, setManual] = useState(false);
+  const total = step.ids.length;
+  const id = step.ids[step.at];
+  const r = run.results?.find((x) => x.seriesId === id);
+  const done = stepDone(r, step.handled.includes(id));
+  const last = step.at >= total - 1;
+  const go = (at: number) => { setManual(false); setStep({ ...step, at: Math.max(0, Math.min(total - 1, at)) }); };
+  const replace = isReplace(run);
+
+  if (manual && r?.title) {
+    return (
+      <ManualMatch seriesId={id} title={r.title} onClose={() => setManual(false)}
+        onDone={() => {
+          setManual(false);
+          setStep({ ...step, handled: [...step.handled, id] });
+          for (const k of [['series', id], ['library'], ['home'], ['series-listing', id], ['series-scanlators', id], ['series-groups', id], ['source-jobs']]) void qc.invalidateQueries({ queryKey: k });
+          toast(tr('Source added'), 'success');
+        }} />
+    );
+  }
+  const footer = (
+    <div className="flex items-center gap-2">
+      <button type="button" className="btn-key" disabled={step.at === 0} onClick={() => go(step.at - 1)} data-stepper-prev>{tr('Previous')}</button>
+      <span className="flex-1 text-center text-[11px] tabular-nums text-fog-500" data-stepper-count>
+        {tr('Series {n} of {total}', { n: step.at + 1, total })}
+      </span>
+      <button type="button" className={`btn-key ${done ? 'btn-key-primary' : ''}`} data-stepper-next={done ? 'next' : 'skip'}
+        onClick={() => { if (last) onClose(); else go(step.at + 1); }}>
+        {done ? (last ? tr('Finish') : tr('Next')) : (last ? tr('Skip and finish') : tr('Skip this series'))}
+      </button>
+    </div>
+  );
+  return (
+    <OnBody>
+      <Sheet title={tr('Review one series at a time')} onClose={onClose} overBottomNav footer={footer}>
+        <div data-find-stepper={id} className="pb-2">
+          {!r ? (
+            <p className="text-xs text-fog-500">{tr('That search is no longer kept.')}</p>
+          ) : (
+            <>
+              {r.proposals?.length ? (
+                <ul role="list"><ReviewSeries r={r} act={act} onOpen={onOpen} replace={replace} makeMain={!replace && !!run.sourceId} /></ul>
+              ) : (
+                <div data-stepper-nothing>
+                  {r.title
+                    ? <Link href={seriesHref(r.seriesId)} onClick={onOpen} className="block truncate text-sm font-medium text-fog-100 hover:text-accent" dir="auto">{r.title}</Link>
+                    : <p data-find-hidden className="truncate text-sm text-fog-500">{tr('Hidden by the 18+ filter')}</p>}
+                  <p className="mt-1 text-[11px] leading-relaxed text-fog-500">{r.why ? findWhyLine(r.why) : tr('Nothing found')}</p>
+                </div>
+              )}
+              {done && <p data-stepper-done className="mt-2 text-[11px] text-fog-300">{tr('Done with this series')}</p>}
+              {r.title && (
+                <div className="mt-3">
+                  <button type="button" className="btn-key" onClick={() => setManual(true)} data-stepper-manual>{tr('Search by hand')}</button>
+                  <p className="mt-1 text-[11px] leading-relaxed text-fog-500">
+                    {tr('Change what is searched, look through the sources yourself and pick the match.')}
+                  </p>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </Sheet>
+    </OnBody>
   );
 }
 

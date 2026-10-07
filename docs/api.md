@@ -2326,8 +2326,9 @@ and the counts (each follow as `series.follow_source` with `via: find_sources`).
 /api/sources/jobs` carries its card to admins: `kind: find_sources`, `done`/`total` in series, `followed`,
 `current` (hidden like any run's), `downloads: false`, and `waiting` (`sweep`, `repair` or `check`, as the run's
 own `waiting`) while it waits for one of those. On Health, a failing (or turned-off) source that is some
-series' main source carries the action `find_sources` with `findSeries`, and so does a "Series that can no longer
-update" row whose reason is its source. Since v0.54.0 such a source row carries `replace_source` before it, when the
+series' main source carries the action `find_sources` with `findSeries`, and so does every "Series that can no longer
+update" row, whatever its reason (even a series with no source at all). Since v0.56.0 that row's item has
+`findScope: 'series'`: its key starts a run with `{ seriesIds: [seriesId] }` for that series alone, not the source. Since v0.54.0 such a source row carries `replace_source` before it, when the
 source is switched off or failing at a step an update needs (the chapter list, the pages or the images, or the
 site's own offline notice; not a cooldown, not a failure at search alone): the replace mode below. The
 `frozen-series` check also lists a series whose main source is loaded but switched off or failing

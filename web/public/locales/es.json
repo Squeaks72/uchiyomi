@@ -2,7 +2,7 @@
   "_meta": {
     "language": "es",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 3924
+    "strings": 3935
   },
   "1 check found something": "1 comprobación encontró algo",
   "1 member": "1 miembro",
@@ -3929,5 +3929,16 @@
   "Mark as 18+": "Marcar como 18+",
   "Clear 18+ mark": "Quitar la marca 18+",
   "Marked 18+ and hidden. Turn on Show 18+ content to find it again.": "Marcado como 18+ y oculto. Activa «Mostrar contenido 18+» para volver a encontrarlo.",
-  "18+ mark cleared": "Marca 18+ quitada"
+  "18+ mark cleared": "Marca 18+ quitada",
+  "Review one series at a time": "Revisar una serie a la vez",
+  "Series {n} of {total}": "Serie {n} de {total}",
+  "Finish": "Terminar",
+  "Skip this series": "Omitir esta serie",
+  "Skip and finish": "Omitir y terminar",
+  "Done with this series": "Serie terminada",
+  "Search by hand": "Buscar a mano",
+  "Change what is searched, look through the sources yourself and pick the match.": "Cambia lo que se busca, revisa las fuentes tú mismo y elige la coincidencia.",
+  "Source added": "Fuente añadida",
+  "Find other source": "Buscar otra fuente",
+  "Searches the other sources for this series only, and follows the one whose title and chapter numbers match.": "Busca solo esta serie en las otras fuentes y sigue la que coincida en título y números de capítulo."
 }

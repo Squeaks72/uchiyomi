@@ -2,7 +2,7 @@
   "_meta": {
     "language": "zh",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 3924
+    "strings": 3935
   },
   "1 check found something": "1 项检查发现问题",
   "1 member": "1 位成员",
@@ -3929,5 +3929,16 @@
   "Mark as 18+": "标记为18+",
   "Clear 18+ mark": "清除18+标记",
   "Marked 18+ and hidden. Turn on Show 18+ content to find it again.": "已标记为18+并隐藏。开启“显示18+内容”即可再次找到它。",
-  "18+ mark cleared": "已清除18+标记"
+  "18+ mark cleared": "已清除18+标记",
+  "Review one series at a time": "逐个系列查看",
+  "Series {n} of {total}": "第 {n} 个，共 {total} 个",
+  "Finish": "完成",
+  "Skip this series": "跳过此系列",
+  "Skip and finish": "跳过并完成",
+  "Done with this series": "此系列已处理",
+  "Search by hand": "手动搜索",
+  "Change what is searched, look through the sources yourself and pick the match.": "修改搜索内容，自行浏览各来源并选择匹配项。",
+  "Source added": "已添加来源",
+  "Find other source": "查找其他来源",
+  "Searches the other sources for this series only, and follows the one whose title and chapter numbers match.": "仅在其他来源中搜索此系列，并关注标题和章节号匹配的来源。"
 }

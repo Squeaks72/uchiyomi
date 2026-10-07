@@ -53,7 +53,7 @@ import { useRepairRun } from '@/lib/useRepairRun';
 import { testStep } from '@/lib/sourceEvidence';
 import { diagnosisReason, itemDetail, itemTitle, type Said } from '@/lib/said';
 import { useFindRun } from '@/lib/useFindRun';
-import { findGate, findSlotState } from '@/lib/findSources';
+import { findGate, findScopeOf, findSlotState } from '@/lib/findSources';
 import { numberingOutcome, refusalText, type NumberingAnswer, type PlanMode, type RenumberMode } from '@/lib/numbering';
 import { freeSlotHref } from '@/lib/sourcesPanel';
 import type { HealthAction, HealthCheck, HealthItem } from '@/lib/types';
@@ -432,7 +432,11 @@ export function HealthRow({ check, item, rowKey, links, children, compact }: {
       case 'find_sources':
         return {
           ...base, ...findGate(fr?.status, findNow.kind === 'working' || findNow.kind === 'starting'),
-          state: findNow, what: copy.what({ ...ctx, n: item.findSeries }), label: copy.label({ ...ctx, n: item.findSeries }),
+          state: findNow,
+          // v0.56.0: a frozen series' key searches for THIS series alone, whatever its source.
+          ...(item.findScope === 'series'
+            ? { what: tr('Searches the other sources for this series only, and follows the one whose title and chapter numbers match.'), label: tr('Find other source') }
+            : { what: copy.what({ ...ctx, n: item.findSeries }), label: copy.label({ ...ctx, n: item.findSeries }) }),
           onRun: () => setAsking('find'),
         };
       // v0.54.0: every series whose main source is this row's source -- off or failing -- moved to a working source in ONE
@@ -524,7 +528,7 @@ export function HealthRow({ check, item, rowKey, links, children, compact }: {
 
       {asking === 'find' && (
         <FindStartDialog onClose={() => setAsking(null)}
-          onStart={(review) => { setAsking(null); if (item.sourceId) void fr?.start(slotKey, { sourceId: item.sourceId, ...(review ? { review } : {}) }); }} />
+          onStart={(review) => { setAsking(null); const scope = findScopeOf(item); if (scope) void fr?.start(slotKey, { ...scope, ...(review ? { review } : {}) }); }} />
       )}
 
       {/* On <body>: a Health card is a `.card`, whose backdrop blur would make it the sheet's containing block. A source

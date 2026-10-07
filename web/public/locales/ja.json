@@ -2,7 +2,7 @@
   "_meta": {
     "language": "ja",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 3924
+    "strings": 3935
   },
   "1 check found something": "1 件のチェックで問題を検出",
   "1 member": "メンバー 1 人",
@@ -3929,5 +3929,16 @@
   "Mark as 18+": "18+に設定",
   "Clear 18+ mark": "18+の設定を解除",
   "Marked 18+ and hidden. Turn on Show 18+ content to find it again.": "18+に設定して非表示にしました。もう一度見つけるには「18+コンテンツを表示」をオンにしてください。",
-  "18+ mark cleared": "18+の設定を解除しました"
+  "18+ mark cleared": "18+の設定を解除しました",
+  "Review one series at a time": "シリーズを1つずつ確認",
+  "Series {n} of {total}": "{total}件中{n}件目",
+  "Finish": "完了",
+  "Skip this series": "このシリーズをスキップ",
+  "Skip and finish": "スキップして完了",
+  "Done with this series": "このシリーズは完了",
+  "Search by hand": "手動で検索",
+  "Change what is searched, look through the sources yourself and pick the match.": "検索語を変えて、ソースを自分で見て一致するものを選べます。",
+  "Source added": "ソースを追加しました",
+  "Find other source": "別のソースを探す",
+  "Searches the other sources for this series only, and follows the one whose title and chapter numbers match.": "他のソースでこのシリーズだけを探し、タイトルと話数が一致するものをフォローします。"
 }
