@@ -13,7 +13,7 @@ const BACK = '/profile/?tab=Connections&card=tracking';
 /**
  * Where AniList and MyAnimeList send people back after they sign in (the redirect URL an admin registers is this
  * page's address). Reads what came back, finishes the connection through the server, and returns to the
- * Connections tab with a toast. It only acts on a sign-in this tab began (lib/trackerSignIn.ts), so a link
+ * Connections tab with a toast. It only acts on a sign-in this browser began (lib/trackerSignIn.ts), so a link
  * someone else crafted cannot attach their account to yours.
  */
 export default function TrackerCallbackPage() {
