@@ -779,6 +779,10 @@ const WORDS: Record<string, (p: P) => string | null> = {
   'autofix.now.searching': (p) => tr('Searching {name}', { name: str(p, 'name') }),
   'autofix.now.removing': (p) => tr('Removing {name}', { name: str(p, 'name') }),
   'autofix.now.files': () => tr('Deleting chapters saved twice or numbered impossibly'),
+  'autofix.now.badFiles': () => tr('Fetching again the chapter files that are empty or cut short'),
+  'autofix.now.groups': () => tr('Swapping chapters for a preferred group’s copy'),
+  'autofix.now.names': () => tr('Borrowing chapter names from other sources'),
+  'autofix.now.directions': () => tr('Working out reading directions'),
   'autofix.now.rechecking': () => tr('Checking Health again'),
   'autofix.now.waitSweep': () => tr('Waiting for the chapter sweep to finish'),
 
@@ -824,6 +828,16 @@ const WORDS: Record<string, (p: P) => string | null> = {
     : tr('Tried {n} extensions: none of the series were there', { n: num(p, 'n') })),
   'autofix.done.deletedTwice': (p) => (num(p, 'n') === 1 ? tr('Deleted 1 chapter saved twice') : tr('Deleted {n} chapters saved twice', { n: num(p, 'n') })),
   'autofix.done.deletedOdd': (p) => (num(p, 'n') === 1 ? tr('Deleted 1 chapter numbered impossibly') : tr('Deleted {n} chapters numbered impossibly', { n: num(p, 'n') })),
+  'autofix.done.badFiles': (p) => (num(p, 'n') === 1
+    ? tr('Took 1 broken chapter file off the disk to fetch again')
+    : tr('Took {n} broken chapter files off the disk to fetch again', { n: num(p, 'n') })),
+  'autofix.done.groupsUpgraded': (p) => (num(p, 'n') === 1
+    ? tr('Swapped 1 chapter for a preferred group’s copy')
+    : tr('Swapped {n} chapters for a preferred group’s copy', { n: num(p, 'n') })),
+  'autofix.done.named': (p) => (num(p, 'n') === 1 ? tr('Named 1 chapter from another source') : tr('Named {n} chapters from another source', { n: num(p, 'n') })),
+  'autofix.done.directions': (p) => (num(p, 'n') === 1
+    ? tr('Worked out the reading direction of 1 series')
+    : tr('Worked out the reading direction of {n} series', { n: num(p, 'n') })),
 
   'autofix.item.tested': (p) => (p.ok ? tr('{name} passed its test', { name: str(p, 'name') }) : tr('{name} failed its test again', { name: str(p, 'name') })),
   'autofix.item.unblocked': (p) => tr('Cleared the block on {name}', { name: str(p, 'name') }),
@@ -846,6 +860,9 @@ const WORDS: Record<string, (p: P) => string | null> = {
   'autofix.item.uninstalled': (p) => tr('Tried and removed {name}: none of the series were there', { name: str(p, 'name') }),
   'autofix.item.noRoom': (p) => tr('Did not keep {name}: the source limit is full', { name: str(p, 'name') }),
   'autofix.item.installFailed': (p) => tr('{name} could not be installed', { name: str(p, 'name') }),
+  'autofix.item.refetching': (p) => (num(p, 'n') === 1
+    ? tr('Took 1 broken chapter file of “{title}” off the disk to fetch again', { title: titled(p, 'title') })
+    : tr('Took {n} broken chapter files of “{title}” off the disk to fetch again', { n: num(p, 'n'), title: titled(p, 'title') })),
   'autofix.item.deleted': (p) => (num(p, 'n') === 1
     ? tr('Deleted 1 chapter of “{title}”', { title: titled(p, 'title') })
     : tr('Deleted {n} chapters of “{title}”', { n: num(p, 'n'), title: titled(p, 'title') })),
@@ -908,6 +925,7 @@ const WORDS: Record<string, (p: P) => string | null> = {
   'autofix.needs.downloadsMissing': (p) => (num(p, 'n') === 1
     ? tr('1 downloaded chapter is where the library scan never looks')
     : tr('{n} downloaded chapters are where the library scan never looks', { n: num(p, 'n') })),
+  'autofix.needs.other': (p) => tr('{title} needs a look', { title: str(p, 'title') }),
   'autofix.needs.noRoom': (p) => tr('{name} may carry your series, but the source limit is full: free a slot', { name: str(p, 'name') }),
 
   'autofix.clears.cooldown': (p) => tr('{name} is cooling down', { name: str(p, 'name') }),

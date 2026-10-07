@@ -9,11 +9,14 @@
 // The whole-root rules are the rescan's: a folder where NO file is found is a share that is not mounted (the disk
 // check says so), never a library whose every chapter was deleted, and only "no such file" counts as gone -- any
 // other error is "could not look", which is not a finding.
-import { open, stat } from 'fs/promises';
+import { open, rm, stat } from 'fs/promises';
 import path from 'path';
 import { q } from './db';
 import { visibleToAll } from './visibility';
-import { containedPath } from './fsGuard';
+import { allWritable, containedPath } from './fsGuard';
+import { tombstoneBooks } from './chapterCleanup';
+import { REFETCH_BAK } from './fsAtomic';
+import { logAudit } from './audit';
 import { DL_ROOT, LIBRARY_ROOT } from './library';
 import { applyIgnores, noIgnores, type IgnoreCtx } from './healthIgnore';
 import { DAY_MS, hiddenPart, ignoredPart, truncate } from './healthKit';
@@ -112,8 +115,8 @@ export function goneRoots(rows: BookRow[], states: ReadonlyMap<string, FileState
   return skip;
 }
 
-export async function chapterFiles(ctx: IgnoreCtx = noIgnores(), opts: { full?: boolean } = {}): Promise<HealthCheck> {
-  const base = { id: 'files', title: 'Chapter files' };
+/** Look at the files the way a run of the page does (a slice) or a Recheck does (all of them), and say what was seen. */
+async function scan(opts: { full?: boolean }) {
   const roots = [...new Set([LIBRARY_ROOT, DL_ROOT])];
   const rows = await q<BookRow>(
     `SELECT b.id, b.series_id, s.title, b.root, b.file, b.mtime::text AS mtime
@@ -149,6 +152,68 @@ export async function chapterFiles(ctx: IgnoreCtx = noIgnores(), opts: { full?: 
     const e = seen.get(r.id);
     if (e) states.set(r.id, e.state);
   }
+  return { roots, rows, states };
+}
+
+export interface BadFile { id: string; seriesId: string; title: string; state: 'missing' | 'empty' | 'broken' }
+
+/**
+ * The chapters Fix everything may fetch again: a file in the download folder that is empty, cut short or gone, found by a
+ * full look and never in a root the check treats as not mounted.
+ */
+export async function badChapterFiles(): Promise<BadFile[]> {
+  const { roots, rows, states } = await scan({ full: true });
+  const skip = goneRoots(rows, states, roots);
+  const out: BadFile[] = [];
+  for (const r of rows) {
+    const st = states.get(r.id);
+    if (r.root !== DL_ROOT || skip.has(r.root) || (st !== 'missing' && st !== 'empty' && st !== 'broken')) continue;
+    out.push({ id: r.id, seriesId: r.series_id, title: r.title, state: st });
+  }
+  return out;
+}
+
+/**
+ * Take the bad files of one series off the disk and mark their chapters 'missing', which is what makes the next sweep fetch
+ * them again at the same row (verifyFiles.ts, chapterCleanup.ts heldBooks). Every file is looked at once more first: a
+ * chapter that is whole by now stays, and so does one whose folder is not there (a share that went away, not a chapter
+ * somebody removed). Download folder only, never the root itself. Returns how many were marked.
+ */
+export async function dropBadFiles(seriesId: string, bookIds: readonly string[], o: { userId: string | null; runId?: string }): Promise<number> {
+  const ids = [...new Set(bookIds)];
+  const rows = await q<{ id: string; root: string | null; file: string }>(
+    'SELECT id, root, file FROM lib_books WHERE series_id = $1 AND id = ANY($2) AND pruned_at IS NULL', [seriesId, ids]);
+  if (!rows.length || !(await allWritable([DL_ROOT])).ok) return 0;
+  const root = path.resolve(DL_ROOT);
+  const marked: string[] = [];
+  let bytes = 0;
+  for (const r of rows) {
+    if (r.root !== DL_ROOT) continue;
+    const abs = containedPath(DL_ROOT, r.file);
+    if (!abs || abs === root) continue;
+    const state = await inspectFile(abs);
+    if (state !== 'missing' && state !== 'empty' && state !== 'broken') continue;
+    if (state === 'missing') {
+      if (!(await stat(path.dirname(abs)).catch(() => null))) continue;
+    } else {
+      const st = await stat(abs).catch(() => null);
+      try { await rm(abs, { force: true }); } catch { continue; }
+      bytes += st?.size ?? 0;
+      await rm(`${abs}${REFETCH_BAK}`, { force: true }).catch(() => {});
+    }
+    marked.push(r.id);
+  }
+  if (marked.length) {
+    await tombstoneBooks(marked, 'missing');
+    for (const id of marked) seen.delete(id);
+    await logAudit('series.chapters_refetch', { userId: o.userId, detail: { id: seriesId, bookIds: marked, bytes, via: 'autofix', ...(o.runId ? { runId: o.runId } : {}) } });
+  }
+  return marked.length;
+}
+
+export async function chapterFiles(ctx: IgnoreCtx = noIgnores(), opts: { full?: boolean } = {}): Promise<HealthCheck> {
+  const base = { id: 'files', title: 'Chapter files' };
+  const { roots, rows, states } = await scan(opts);
   const skip = goneRoots(rows, states, roots);
   const bad = badOf(rows, states, skip);
   const all: Array<HealthItem & { members?: string[] }> = [...bad.entries()]

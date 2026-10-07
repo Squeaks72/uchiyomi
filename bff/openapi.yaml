@@ -143,6 +143,7 @@ components:
         startedAt: { type: string, format: date-time }
         finishedAt: { type: string, format: date-time }
         by: { type: string, nullable: true }
+        origin: { type: string, enum: [nightly, manual] }
         phase:
           type: string
           nullable: true
@@ -170,7 +171,7 @@ components:
                   kind:
                     type: string
                     enum: [replaced, retired, tested, unblocked, linked, merged, renumbered, fetched, refetched, shortFixed, shortConfirmed,
-                           failuresCleared, installed, uninstalled, deletedTwice, deletedOdd, scanned, resumedRenumber, solverReset, engineConnected]
+                           failuresCleared, installed, uninstalled, deletedTwice, deletedOdd, scanned, resumedRenumber, solverReset, engineConnected, badFiles, groupsUpgraded, named, directions]
                   n: { type: integer }
                   said: { $ref: '#/components/schemas/AutofixSaid' }
                   items: { type: array, items: { $ref: '#/components/schemas/AutofixSaid' } }

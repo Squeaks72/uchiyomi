@@ -2,7 +2,7 @@
   "_meta": {
     "language": "fr",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 4003
+    "strings": 4020
   },
   "1 check found something": "1 vérification a trouvé quelque chose",
   "1 member": "1 membre",
@@ -4008,5 +4008,22 @@
   "Disk space and folders": "Espace disque et dossiers",
   "Series status": "Statut des séries",
   "Reading data": "Données de lecture",
-  "Tracker sync": "Synchronisation des trackers"
+  "Tracker sync": "Synchronisation des trackers",
+  "Last nightly Fix everything {when}: {what}": "Dernier « Tout réparer » de la nuit {when} : {what}",
+  "Last Fix everything {when}: {what}": "Dernier « Tout réparer » {when} : {what}",
+  "Fetching again the chapter files that are empty or cut short": "Nouveau téléchargement des fichiers de chapitre vides ou tronqués",
+  "Swapping chapters for a preferred group’s copy": "Remplacement de chapitres par la version d’un groupe préféré",
+  "Borrowing chapter names from other sources": "Emprunt de noms de chapitres à d’autres sources",
+  "Working out reading directions": "Détermination des sens de lecture",
+  "Took 1 broken chapter file off the disk to fetch again": "1 fichier de chapitre défectueux retiré du disque pour être retéléchargé",
+  "Took {n} broken chapter files off the disk to fetch again": "{n} fichiers de chapitre défectueux retirés du disque pour être retéléchargés",
+  "Swapped 1 chapter for a preferred group’s copy": "1 chapitre remplacé par la version d’un groupe préféré",
+  "Swapped {n} chapters for a preferred group’s copy": "{n} chapitres remplacés par la version d’un groupe préféré",
+  "Named 1 chapter from another source": "1 chapitre nommé à partir d’une autre source",
+  "Named {n} chapters from another source": "{n} chapitres nommés à partir d’une autre source",
+  "Worked out the reading direction of 1 series": "Sens de lecture déterminé pour 1 série",
+  "Worked out the reading direction of {n} series": "Sens de lecture déterminé pour {n} séries",
+  "Took 1 broken chapter file of “{title}” off the disk to fetch again": "1 fichier de chapitre défectueux de « {title} » retiré du disque pour être retéléchargé",
+  "Took {n} broken chapter files of “{title}” off the disk to fetch again": "{n} fichiers de chapitre défectueux de « {title} » retirés du disque pour être retéléchargés",
+  "{title} needs a look": "{title} demande un coup d’œil"
 }

@@ -2,7 +2,7 @@
   "_meta": {
     "language": "pt-BR",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 4003
+    "strings": 4020
   },
   "1 check found something": "1 verificação encontrou algo",
   "1 member": "1 membro",
@@ -4008,5 +4008,22 @@
   "Disk space and folders": "Espaço em disco e pastas",
   "Series status": "Status das séries",
   "Reading data": "Dados de leitura",
-  "Tracker sync": "Sincronização de trackers"
+  "Tracker sync": "Sincronização de trackers",
+  "Last nightly Fix everything {when}: {what}": "Último «Corrigir tudo» noturno {when}: {what}",
+  "Last Fix everything {when}: {what}": "Último «Corrigir tudo» {when}: {what}",
+  "Fetching again the chapter files that are empty or cut short": "Baixando de novo os arquivos de capítulo vazios ou cortados",
+  "Swapping chapters for a preferred group’s copy": "Trocando capítulos pela cópia de um grupo preferido",
+  "Borrowing chapter names from other sources": "Pegando nomes de capítulos de outras fontes",
+  "Working out reading directions": "Descobrindo as direções de leitura",
+  "Took 1 broken chapter file off the disk to fetch again": "1 arquivo de capítulo corrompido foi removido do disco para ser baixado de novo",
+  "Took {n} broken chapter files off the disk to fetch again": "{n} arquivos de capítulo corrompidos foram removidos do disco para serem baixados de novo",
+  "Swapped 1 chapter for a preferred group’s copy": "1 capítulo trocado pela cópia de um grupo preferido",
+  "Swapped {n} chapters for a preferred group’s copy": "{n} capítulos trocados pela cópia de um grupo preferido",
+  "Named 1 chapter from another source": "1 capítulo nomeado a partir de outra fonte",
+  "Named {n} chapters from another source": "{n} capítulos nomeados a partir de outra fonte",
+  "Worked out the reading direction of 1 series": "Direção de leitura de 1 série descoberta",
+  "Worked out the reading direction of {n} series": "Direção de leitura de {n} séries descoberta",
+  "Took 1 broken chapter file of “{title}” off the disk to fetch again": "1 arquivo de capítulo corrompido de “{title}” foi removido do disco para ser baixado de novo",
+  "Took {n} broken chapter files of “{title}” off the disk to fetch again": "{n} arquivos de capítulo corrompidos de “{title}” foram removidos do disco para serem baixados de novo",
+  "{title} needs a look": "{title} precisa de uma olhada"
 }

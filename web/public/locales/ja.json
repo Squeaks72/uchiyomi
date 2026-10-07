@@ -2,7 +2,7 @@
   "_meta": {
     "language": "ja",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 4003
+    "strings": 4020
   },
   "1 check found something": "1 件のチェックで問題を検出",
   "1 member": "メンバー 1 人",
@@ -4008,5 +4008,22 @@
   "Disk space and folders": "ディスク容量とフォルダ",
   "Series status": "シリーズのステータス",
   "Reading data": "閲覧データ",
-  "Tracker sync": "トラッカーの同期"
+  "Tracker sync": "トラッカーの同期",
+  "Last nightly Fix everything {when}: {what}": "前回の夜間「すべて修正」{when}：{what}",
+  "Last Fix everything {when}: {what}": "前回の「すべて修正」{when}：{what}",
+  "Fetching again the chapter files that are empty or cut short": "空または途中で切れた章ファイルを再取得しています",
+  "Swapping chapters for a preferred group’s copy": "章を優先グループのものに差し替えています",
+  "Borrowing chapter names from other sources": "他のソースから章名を取り込んでいます",
+  "Working out reading directions": "読む方向を調べています",
+  "Took 1 broken chapter file off the disk to fetch again": "壊れた章ファイル1件をディスクから取り除き、再取得します",
+  "Took {n} broken chapter files off the disk to fetch again": "壊れた章ファイル{n}件をディスクから取り除き、再取得します",
+  "Swapped 1 chapter for a preferred group’s copy": "1章を優先グループのものに差し替えました",
+  "Swapped {n} chapters for a preferred group’s copy": "{n}章を優先グループのものに差し替えました",
+  "Named 1 chapter from another source": "別のソースから1章に名前を付けました",
+  "Named {n} chapters from another source": "別のソースから{n}章に名前を付けました",
+  "Worked out the reading direction of 1 series": "1シリーズの読む方向を判定しました",
+  "Worked out the reading direction of {n} series": "{n}シリーズの読む方向を判定しました",
+  "Took 1 broken chapter file of “{title}” off the disk to fetch again": "「{title}」の壊れた章ファイル1件をディスクから取り除き、再取得します",
+  "Took {n} broken chapter files of “{title}” off the disk to fetch again": "「{title}」の壊れた章ファイル{n}件をディスクから取り除き、再取得します",
+  "{title} needs a look": "{title} の確認が必要です"
 }
