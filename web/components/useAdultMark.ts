@@ -36,7 +36,8 @@ export function useAdultMark(title: string, seriesId?: string, seriesRating?: nu
     for (const key of [['adult-titles'], ['library'], ['home'], ['series'], ['discover-trending'], ['discover-recommendations'], ['adult-filter'], ['foryou'], ['trending'], ['featured'], ['because'], ['collection'], ['collections'], ['updates']]) {
       qc.invalidateQueries({ queryKey: key });
     }
-    toast(adult ? tr('Marked 18+ and hidden. Turn on Show 18+ content to find it again.') : tr('18+ mark cleared'), 'success');
+    // While 18+ is shown nothing leaves the screen, so "hidden" would be untrue.
+    toast(adult ? (revealed ? tr('Marked 18+') : tr('Marked 18+ and hidden. Turn on Show 18+ content to find it again.')) : tr('18+ mark cleared'), 'success');
   };
   return [{
     label: marked ? tr('Clear 18+ mark') : tr('Mark as 18+'), divider: true, disabled: status === 'offline', hook: 'mark-adult',
