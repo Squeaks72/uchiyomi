@@ -71,6 +71,7 @@ import { SOLVER_BUDGET_MS } from './sources/budget';
 import { canDownload, finishRunRecord, isFullRun, kindOf, startRunRecord, targetOf, type RunOrigin, type RunStatus, type RunTarget } from './repairRuns';
 import { scheduleHealthSummaryRefresh } from './healthSummary';
 import { assess, gapsOf, splitAtFloor } from './fill';
+import { longStrip, type PageDim } from './longStrip';
 // The Health page's own query for "which sources blame the solver", shared rather than copied: the solver
 // step clears state only when something is really failing inside the solver, and that must be the same
 // question the page answers or the button and the page disagree about whether there is anything to do.
@@ -842,6 +843,8 @@ type ShortBook = {
   id: string; series_id: string; number: number; pages: number; root: string; file: string; source_id: string | null;
   title: string; folder: string; summary: string | null; author: string | null; genres: string[] | null;
   web: string | null; status: string | null;
+  /** The reader's and Health's page-size cache, read by longStrip(): null for a chapter nobody has measured. */
+  page_dims: PageDim[] | null;
 };
 
 /** The hunt verdicts that PROVE nothing else has this chapter. `cooldown` is silence, not an answer. */
@@ -863,9 +866,9 @@ const noteShort = (bookId: string, res: { why: ShortWhy; asked: number; answered
  * `detail` so the row can say it. The candidate query's own rules, in the order a person would check them.
  */
 async function whyNotShort(bookId: string): Promise<string> {
-  const b = await one<{ file: string; root: string | null; number: number; pages: number; gone: boolean; confirmed: boolean; partial: boolean; folder: string }>(
+  const b = await one<{ file: string; root: string | null; number: number; pages: number; gone: boolean; confirmed: boolean; partial: boolean; page_dims: PageDim[] | null; folder: string }>(
     `SELECT b.file, b.root, b.number::float8 AS number, b.pages, b.pruned_at IS NOT NULL AS gone,
-            b.short_confirmed_at IS NOT NULL AS confirmed, b.missing_pages IS NOT NULL AS partial, s.folder
+            b.short_confirmed_at IS NOT NULL AS confirmed, b.missing_pages IS NOT NULL AS partial, b.page_dims, s.folder
        FROM lib_books b JOIN lib_series s ON s.id = b.series_id AND ${visibleToAll('s')}
       WHERE b.id = $1`, [bookId],
   ).catch(() => null);
@@ -875,6 +878,9 @@ async function whyNotShort(bookId: string): Promise<string> {
   if (b.partial) return 'partial';
   const n = Number(b.number);
   if (b.pages < 1 || b.pages > 2 || n !== Math.floor(n)) return 'not_short';
+  // A long strip is the chapter, not a failed download (lib/longStrip.ts): no longer short. Health measures these
+  // and caches the dims, so a chapter it has reported on is already answerable here.
+  if (longStrip(b.page_dims)) return 'not_short';
   return 'not_owned';
 }
 
@@ -911,7 +917,7 @@ async function stepShort(r: RepairResult, opts: RepairOpts, budget: { left: numb
   // safe only because `b.number = floor(b.number)` is in the same WHERE: the cast to int is exact for a
   // whole number and nothing else. A file under any other name is somebody's own copy, not ours.
   const rows0 = await q<ShortBook>(
-    `SELECT b.id, b.series_id, b.number::float8 AS number, b.pages, b.root, b.file, b.source_id,
+    `SELECT b.id, b.series_id, b.number::float8 AS number, b.pages, b.root, b.file, b.source_id, b.page_dims,
             s.title, s.folder, s.summary, s.author, s.genres, s.web, s.status
        FROM lib_books b JOIN lib_series s ON s.id = b.series_id AND ${visibleToAll('s')}
       WHERE b.pages BETWEEN 1 AND 2 AND b.number = floor(b.number)
@@ -925,7 +931,9 @@ async function stepShort(r: RepairResult, opts: RepairOpts, budget: { left: numb
   // the LIMIT mean "twenty candidates"); this is the answer. If the two ever disagree -- a rename of the
   // downloader's layout, a locale that formats a number differently -- this one wins, and it fails in the
   // safe direction: a chapter skipped, never somebody's read-library file replaced.
-  const books = rows0.filter((b) => b.file === chapterFileRel(b.folder, Number(b.number)));
+  // ...and a chapter stitched into long strips is left alone: that is what the series IS, not a failed download
+  // (lib/longStrip.ts, the rule Health reports by). An unmeasured chapter answers no and is still a candidate.
+  const books = rows0.filter((b) => b.file === chapterFileRel(b.folder, Number(b.number)) && !longStrip(b.page_dims));
   planned('short', books.length);
   if (!books.length) {
     // A person pressed Fix on this one chapter and the step will not touch it: say why, or the press reads

@@ -34,7 +34,7 @@ before(async () => {
   ({ viewCtxFor } = await import('../src/lib/visibility'));
   await clean();
   for (const id of S) {
-    await q(`INSERT INTO lib_series (id, source, title, folder, books_count) VALUES ($1,'T!ls',$2,$1,$3)`, [id, id.slice(5), CHAPTERS[id]]);
+    await q(`INSERT INTO lib_series (id, source, title, folder, books_count) VALUES ($1,'T!ls',$2,$1,$3)`, [id, id.slice(2), CHAPTERS[id]]);
     for (let n = 1; n <= CHAPTERS[id]; n++) {
       await q(`INSERT INTO lib_books (id, series_id, source, file, number, title) VALUES ($1,$2,'T!ls',$3,$4,$5)`,
         [`b_${id}_${n}`, id, `T!ls/${id}/${n}.cbz`, n, `Chapter ${n}`]);

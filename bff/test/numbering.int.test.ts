@@ -891,7 +891,7 @@ test('while a confirmed renumber applies, Health says it is being applied, not t
     numbering.renumberHooks.afterFirstPhase = undefined;
   }
   assert.doesNotMatch(during?.detail ?? '', /interrupted/, 'a renumber still applying reads as interrupted');
-  assert.match(during?.detail ?? '', /^Its confirmed renumber is being applied now\. Nothing downloads for this series until then\.$/);
+  assert.match(during?.detail ?? '', /^Its confirmed renumber is being applied now\. Nothing is fetched for this series until then\.$/);
   assert.equal(during?.info, true, 'greyed: nothing waits for anyone, and it ends by itself');
   // Its codes say its English (lib/said.ts), so the page words it in the reader's language (the integration's wiring
   // of this lane's sentence). Reintroduce the English alone: "the applying row sends its codes" fails.

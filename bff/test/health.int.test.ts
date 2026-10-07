@@ -1489,7 +1489,7 @@ test('the numbering check names every series waiting for a numbering review, wit
     // the series was added. Reintroduce by falling back to the id (`getSource(src)?.name || src` in numberingCheck):
     // "nb-web gives ...".
     assert.match(pending.detail, /^Webtoons \(health\) gives/, 'a source that is not loaded is named as the series was added, not by its id');
-    assert.match(pending.detail, /Nothing downloads for this series/);
+    assert.match(pending.detail, /Nothing is fetched for this series/);
     assert.deepEqual(item(c, NB[1]).actions, ['renumber'], 'a remap is confirmed, never declined');
     assert.match(item(c, NB[1]).detail, /extension setting changed/);
     const journal = item(c, NB[2]);
