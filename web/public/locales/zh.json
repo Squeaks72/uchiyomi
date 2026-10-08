@@ -4027,5 +4027,6 @@
   "Took {n} broken chapter files of “{title}” off the disk to fetch again": "已从磁盘移除“{title}”的 {n} 个损坏的章节文件，准备重新获取",
   "{title} needs a look": "{title} 需要查看",
   "Marked 18+": "已标记为 18+",
-  "Review matches": "查看匹配项"
+  "Review matches": "查看匹配项",
+  "Marked 18+ and hidden. Turn on Show 18+ to find it again.": "已标记为18+并隐藏。开启“显示18+内容”即可再次找到它。"
 }

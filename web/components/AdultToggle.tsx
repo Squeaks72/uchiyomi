@@ -85,7 +85,7 @@ export function AdultToggle({ className = '', alsoWhen = false }: { className?: 
       type="button"
       aria-pressed={on}
       aria-describedby={helpId}
-      // One name for the switch everywhere ("Show 18+ content"); the scope is said here, as help, so the chip
+      // One name for the switch everywhere ("Show 18+"); the scope is said here, as help, so the chip
       // itself stays as short as it was. Text only: what the button does is unchanged.
       title={help}
       onClick={() => {
@@ -94,7 +94,7 @@ export function AdultToggle({ className = '', alsoWhen = false }: { className?: 
       }}
       className={`chip whitespace-nowrap ${on ? 'chip-active' : ''} ${className}`}
     >
-      {tr('Show 18+ content')}
+      {tr('Show 18+')}
     </button>
     <span id={helpId} className="sr-only">{help}</span>
     </>

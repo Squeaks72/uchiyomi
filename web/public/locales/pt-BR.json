@@ -4027,5 +4027,6 @@
   "Took {n} broken chapter files of “{title}” off the disk to fetch again": "{n} arquivos de capítulo corrompidos de “{title}” foram removidos do disco para serem baixados de novo",
   "{title} needs a look": "{title} precisa de uma olhada",
   "Marked 18+": "Marcado como +18",
-  "Review matches": "Revisar correspondências"
+  "Review matches": "Revisar correspondências",
+  "Marked 18+ and hidden. Turn on Show 18+ to find it again.": "Marcado como 18+ e ocultado. Ative \"Mostrar conteúdo 18+\" para encontrá-lo de novo."
 }

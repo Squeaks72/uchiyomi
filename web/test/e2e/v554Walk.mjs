@@ -439,7 +439,7 @@ export async function adultSearchWalk(ctx) {
     .sort((x, y) => x.title.localeCompare(y.title)), say('Add to library'));
   const chips = () => page.evaluate(() => [...document.querySelectorAll('[data-rating-chips] button')]
     .map((b) => ({ text: b.textContent.trim(), on: b.getAttribute('aria-pressed') === 'true' })));
-  const reveal = () => page.evaluateHandle((t) => [...document.querySelectorAll('button')].find((b) => b.textContent.trim() === t) || null, say('Show 18+ content')).then((h) => h.asElement());
+  const reveal = () => page.evaluateHandle((t) => [...document.querySelectorAll('button')].find((b) => b.textContent.trim() === t) || null, say('Show 18+')).then((h) => h.asElement());
   /** Show 18+ on or off, by its chip on Discover. */
   const showAdult = async (on) => {
     const chip = await waitFor(reveal, 15_000, 300);

@@ -4027,5 +4027,6 @@
   "Took {n} broken chapter files of “{title}” off the disk to fetch again": "С диска удалено повреждённых файлов глав «{title}»: {n}, чтобы загрузить их заново",
   "{title} needs a look": "{title} требует внимания",
   "Marked 18+": "Отмечено как 18+",
-  "Review matches": "Проверить совпадения"
+  "Review matches": "Проверить совпадения",
+  "Marked 18+ and hidden. Turn on Show 18+ to find it again.": "Помечено как 18+ и скрыто. Включите «Показывать контент 18+», чтобы найти его снова."
 }

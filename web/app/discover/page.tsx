@@ -427,6 +427,16 @@ export default function DiscoverPage() {
   };
   // `term` is kept: the query is disabled by the mode, and keeping its observer keeps the answer cached, so
   // searching the same title again after browsing is instant.
+  // Arriving with `?q=` (the palette's and the phone search page's "Search your sources"): search that term as if it had
+  // been typed and submitted, once.
+  const arrivedQ = useRef(false);
+  useEffect(() => {
+    if (arrivedQ.current || !mayAdd) return;
+    arrivedQ.current = true;
+    const t = new URLSearchParams(window.location.search).get('q')?.trim();
+    if (!t) return;
+    setQ(t); setBrowsing(true); setMode('search'); setTerm(t);
+  }, [mayAdd]);
   const backToNewest = () => { setQ(''); setMode('newest'); };
   const startBrowsing = () => { if (mode === 'newest') setBrowsing(true); };
   // A card's menu: search every source for its title, as if it had been typed and submitted.
@@ -533,7 +543,7 @@ export default function DiscoverPage() {
           // `showAdultChip`: with the reveal already on nothing is hidden and this sentence would be false.
           <>
             <EmptyState art={ART.emptyLibrary} title={tr('Nothing to browse with 18+ hidden')}
-              sub={tr('Every provider set up for your account is marked 18+. Turn on Show 18+ content to browse them.')} />
+              sub={tr('Every provider set up for your account is marked 18+. Turn on Show 18+ to browse them.')} />
             <div className="-mt-10 flex justify-center pb-10"><AdultToggle alsoWhen /></div>
           </>
         ) : isAdmin ? (

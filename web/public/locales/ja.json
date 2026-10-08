@@ -4027,5 +4027,6 @@
   "Took {n} broken chapter files of “{title}” off the disk to fetch again": "「{title}」の壊れた章ファイル{n}件をディスクから取り除き、再取得します",
   "{title} needs a look": "{title} の確認が必要です",
   "Marked 18+": "18+ に設定しました",
-  "Review matches": "一致を確認"
+  "Review matches": "一致を確認",
+  "Marked 18+ and hidden. Turn on Show 18+ to find it again.": "18+に設定して非表示にしました。もう一度見つけるには「18+コンテンツを表示」をオンにしてください。"
 }

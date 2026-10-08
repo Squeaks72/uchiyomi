@@ -1379,7 +1379,7 @@
   "Added from Discover": "أُضيفت من «اكتشف»",
   "Scheduled check": "فحص مجدول",
   "The server": "الخادم",
-  "Ch. {n}": "الفصل \u2066{n}\u2069",
+  "Ch. {n}": "الفصل ⁦{n}⁩",
   "Downloading now": "قيد التنزيل الآن",
   "waiting for the source": "بانتظار المصدر",
   "Came in today ({n})": "وصلت اليوم ({n})",
@@ -4098,5 +4098,6 @@
   "Took {n} broken chapter files of “{title}” off the disk to fetch again": "تمت إزالة {n} من ملفات الفصول التالفة من «{title}» من القرص لجلبها من جديد",
   "{title} needs a look": "{title} يحتاج إلى نظرة",
   "Marked 18+": "تم وضع علامة +18",
-  "Review matches": "مراجعة المطابقات"
+  "Review matches": "مراجعة المطابقات",
+  "Marked 18+ and hidden. Turn on Show 18+ to find it again.": "تم وضع علامة 18+ وإخفاؤه. فعّل «إظهار محتوى 18+» للعثور عليه مجددًا."
 }

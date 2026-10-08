@@ -4027,5 +4027,6 @@
   "Took {n} broken chapter files of “{title}” off the disk to fetch again": "{n} fichiers de chapitre défectueux de « {title} » retirés du disque pour être retéléchargés",
   "{title} needs a look": "{title} demande un coup d’œil",
   "Marked 18+": "Marqué 18+",
-  "Review matches": "Examiner les correspondances"
+  "Review matches": "Examiner les correspondances",
+  "Marked 18+ and hidden. Turn on Show 18+ to find it again.": "Marqué 18+ et masqué. Activez « Afficher 18+ » pour le retrouver."
 }
