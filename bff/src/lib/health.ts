@@ -49,7 +49,7 @@ import { carries, EXTENSION_OFF, EXTENSION_OFF_BY, standingOf, standingRows, typ
 import { numKey } from './postingOrder';
 import type { ListingCopy } from './seriesListing';
 import { chapterFiles } from './healthFiles';
-import { diskAndFolders, orphanedData, seriesCovers, seriesDetails, seriesStatus, trackerSync } from './healthMore';
+import { diskAndFolders, orphanedData, seriesCovers, seriesDetails, trackerSync } from './healthMore';
 import { DAY_MS, hiddenPart, ignoredPart, MAX_ITEMS, truncate, verdict } from './healthKit';
 
 export type HealthStatus = 'ok' | 'warn' | 'problem';
@@ -2163,7 +2163,6 @@ export async function runHealthChecks(): Promise<HealthReport> {
     seriesCovers(ctx).catch(() => null),
     seriesDetails(ctx).catch(() => null),
     diskAndFolders(ctx).catch(() => null),
-    seriesStatus().catch(() => null),
     orphanedData().catch(() => null),
     trackerSync(ctx).catch(() => null),
   ])).filter((c): c is HealthCheck => c !== null);
@@ -2202,7 +2201,7 @@ export const RECHECKABLE_CHECKS = [
   'chapter-gaps', 'numbering', 'short-chapters', 'outliers', 'saved-twice', 'duplicates', 'sources',
   'chapter-failures', 'frozen-series', 'solver', 'update', 'library-scan', 'downloads-missing',
   'folders-twice', 'extension-cap', 'extension-engine',
-  'files', 'covers', 'details', 'disk', 'stalled', 'orphans', 'trackers',
+  'files', 'covers', 'details', 'disk', 'orphans', 'trackers',
 ] as const;
 export type RecheckableCheck = typeof RECHECKABLE_CHECKS[number];
 
@@ -2235,7 +2234,6 @@ export async function recheckCheck(id: RecheckableCheck): Promise<HealthCheck | 
     case 'covers': return seriesCovers(ctx).catch(() => null);
     case 'details': return seriesDetails(ctx).catch(() => null);
     case 'disk': return diskAndFolders(ctx).catch(() => null);
-    case 'stalled': return seriesStatus().catch(() => null);
     case 'orphans': return orphanedData().catch(() => null);
     case 'trackers': return trackerSync(ctx).catch(() => null);
   }
