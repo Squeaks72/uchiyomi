@@ -19,11 +19,21 @@ name: Fork sync
 #
 # So: a long way ahead of 09:00, and off the top of the hour, which is where the
 # queue is deepest (minute 0 of an hour is the single most contended slot there is).
-# 01:37 UTC leaves 7h23m of slack -- more than the worst delay seen plus the ~4
-# minutes sync and build take together.
 #
-# A miss costs one day, and nothing here can prevent one: GitHub skipping a
-# scheduled run is not an error this workflow can see. Re-run it by hand
+# And twice, because a dropped run is invisible -- GitHub skipping a schedule is not
+# an error this workflow can see and alert on, only an absence. Two attempts, each
+# far enough ahead that even a 6h41m delay still beats the pull:
+#
+#   22:13 UTC  worst case lands 04:54 the next day
+#   01:37 UTC  worst case lands 08:18
+#
+# 3h24m apart, so a queue deep enough to drop one has had time to drain before the
+# other. Whichever runs second is almost always a no-op: with `tim` already on top of
+# upstream the sync exits early and the build job never starts, so the cost of the
+# spare is one 30-second run a day. 22:13 UTC is also late afternoon in Chicago,
+# which is a better time to be told a rebase stopped than 01:00 is.
+#
+# If both are dropped the fork keeps yesterday's image for a day. Re-run by hand
 # (`gh workflow run fork-sync.yml --repo Squeaks72/uchiyomi --ref tim`) when the
 # fork is behind and no run explains why.
 #
@@ -43,6 +53,8 @@ name: Fork sync
 
 on:
   schedule:
+    # Two chances to beat the 04:00 Chicago pull; see the timing note above.
+    - cron: '13 22 * * *'
     - cron: '37 1 * * *'
   workflow_dispatch:
 
