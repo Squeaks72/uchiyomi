@@ -607,10 +607,11 @@ export function SourcesSheet({ id, title: seriesTitle, series, groups, admin, er
     ? { ...stored, blocked: withoutGroup(stored.blocked, name) }
     : { blocked: [...stored.blocked, name], priority: withoutGroup(stored.priority, name) });
   const move = (name: string, dir: -1 | 1) => apply({ ...stored, priority: reorder(stored.priority, rankIn(stored.priority, name), dir) });
-  const savePatience = () => {
+  // Save is the footer's "done": once it is stored the sheet closes (the controls above apply at once and stay open).
+  const savePatience = async () => {
     const n = patienceDays();
     if (n === false) return;
-    return patch({ priority: stored.priority, blocked: stored.blocked, patienceDays: n });
+    if (await patch({ priority: stored.priority, blocked: stored.blocked, patienceDays: n })) onClose();
   };
   const useDefaults = async () => { if (await patch(null)) { setLocal({ priority: [], blocked: [] }); setPatience(''); } };
 
