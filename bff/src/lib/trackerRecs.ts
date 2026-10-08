@@ -22,7 +22,7 @@ import {
   ADAPTERS, LIST_STATUSES, normTitle, anilistRecommendations, malRecommendations, anilistByMalIds,
   type Provider, type LibraryEntry, type RecItem,
 } from './trackerProviders';
-import { pickSeeds, buildRecs, exclusionsFrom, type Rec, type SeedRecs } from './trackerRecsCore';
+import { pickSeeds, buildRecs, exclusionsFrom, recency, MIN_READ, type Rec, type SeedRecs } from './trackerRecsCore';
 export { pickSeeds, buildRecs, exclusionsFrom, type Rec, type SeedRecs, type Exclusions } from './trackerRecsCore';
 
 /** The services that can seed a recommendation. Kitsu's list is still read for what to leave out. */
@@ -152,8 +152,9 @@ async function refreshList(userId: string, c: Conn, have: ListRow | null): Promi
  * title they are reading, so rating something in the app is enough to count.
  */
 async function withLocalSignals(userId: string, provider: Provider, entries: LibraryEntry[]): Promise<LibraryEntry[]> {
-  const rows = await q<{ external_id: string; title: string | null; stars: number | null; read: number; total: number }>(
+  const rows = await q<{ external_id: string; title: string | null; stars: number | null; read: number; total: number; last: string | null }>(
     `SELECT st.external_id, st.title, r.stars,
+            (SELECT max(rp.updated_at) FROM read_progress rp WHERE rp.user_id = $1 AND rp.series_id = st.series_id) AS last,
             (SELECT count(*)::int FROM read_progress rp WHERE rp.user_id = $1 AND rp.series_id = st.series_id AND rp.completed) AS read,
             (SELECT count(*)::int FROM lib_books b WHERE b.series_id = st.series_id AND b.pruned_at IS NULL) AS total
        FROM series_trackers st
@@ -167,12 +168,51 @@ async function withLocalSignals(userId: string, provider: Provider, entries: Lib
     const l = byId.get(e.externalId);
     if (!l) return e;
     byId.delete(e.externalId);
-    return { ...e, progress: Math.max(e.progress, l.read), total: l.total || undefined, ...(l.stars ? { score: l.stars * 2 } : {}) };
+    return { ...e, progress: Math.max(e.progress, l.read), total: l.total || undefined, ...(l.last ? { lastRead: new Date(l.last).getTime() } : {}), ...(l.stars ? { score: l.stars * 2 } : {}) };
   });
   for (const l of byId.values()) {
     if (!l.stars || !l.title) continue;
-    out.push({ externalId: l.external_id, title: l.title, altTitles: [], status: 'reading', progress: l.read, format: 'manga', score: l.stars * 2, total: l.total || undefined });
+    out.push({ externalId: l.external_id, title: l.title, altTitles: [], status: 'reading', progress: l.read, format: 'manga', score: l.stars * 2, total: l.total || undefined, ...(l.last ? { lastRead: new Date(l.last).getTime() } : {}) });
   }
+  return out;
+}
+
+const STAR_TASTE: Record<number, number> = { 1: -1, 2: -0.6, 3: 0.2, 4: 0.6, 5: 1 };
+/** What a read-but-unrated series says for its genres: a mild yes, fading as it ages. */
+const READ_TASTE = 0.3;
+
+/**
+ * The person's taste by genre, from the series in THIS library: stars they gave (5 and 4 lift a genre, 2 and 1
+ * pull it down) and, for series they read in earnest without rating, a mild lift that fades with time since
+ * they last read. Averaged with a little shrinkage so one rating cannot swing a genre. Keys are lower-case.
+ */
+export async function tasteFor(userId: string): Promise<Map<string, number>> {
+  const rows = await q<{ genres: string[]; stars: number | null; read: number; last: string | null }>(
+    `SELECT COALESCE(NULLIF(o.genres, '{}'::text[]), s.genres, '{}') AS genres, r.stars,
+            (SELECT count(*)::int FROM read_progress rp WHERE rp.user_id = $1 AND rp.series_id = s.id AND rp.completed) AS read,
+            (SELECT max(rp.updated_at) FROM read_progress rp WHERE rp.user_id = $1 AND rp.series_id = s.id) AS last
+       FROM lib_series s
+       LEFT JOIN series_overrides o ON o.series_id = s.id
+       LEFT JOIN ratings r ON r.user_id = $1 AND r.series_id = s.id
+      WHERE s.deleted_at IS NULL AND s.merged_into IS NULL
+        AND (r.stars IS NOT NULL OR EXISTS (SELECT 1 FROM read_progress rp WHERE rp.user_id = $1 AND rp.series_id = s.id AND rp.completed))`,
+    [userId]).catch(() => []);
+  const sum = new Map<string, number>();
+  const n = new Map<string, number>();
+  for (const r of rows) {
+    let v: number;
+    if (r.stars) v = STAR_TASTE[r.stars] ?? 0;
+    else if (r.read >= MIN_READ) v = READ_TASTE * recency({ lastRead: r.last ? new Date(r.last).getTime() : undefined } as LibraryEntry);
+    else continue;
+    for (const g of r.genres ?? []) {
+      const k = g.trim().toLowerCase();
+      if (!k) continue;
+      sum.set(k, (sum.get(k) ?? 0) + v);
+      n.set(k, (n.get(k) ?? 0) + 1);
+    }
+  }
+  const out = new Map<string, number>();
+  for (const [k, v] of sum) out.set(k, v / ((n.get(k) ?? 0) + 2));
   return out;
 }
 
@@ -219,7 +259,7 @@ async function fetchMalSeeds(token: string, missing: LibraryEntry[]): Promise<vo
         const k = known.get(malId);
         if (!k) continue;
         it.title = k.title; it.altTitles = [...new Set([...k.altTitles, ...it.altTitles])].slice(0, 3);
-        it.cover = it.cover ?? k.cover; it.score = k.score; it.adult = k.adult; it.format = k.format;
+        it.cover = it.cover ?? k.cover; it.score = k.score; it.adult = k.adult; it.format = k.format; it.genres = k.genres;
       }
     } catch (e) { spend('anilist', 1); cool('anilist', e); }
   }
@@ -312,7 +352,7 @@ export async function recommendationsFor(
   }
 
   const leave = exclusionsFrom(lists);
-  let content = buildRecs(inputs, leave, { restrictAdult: opts.restrictAdult });
+  let content = buildRecs(inputs, leave, { restrictAdult: opts.restrictAdult, taste: await tasteFor(userId) });
   if (content.length) {
     const have = await opts.inLibrary(content.flatMap((r) => [r.title, ...r.altTitles]));
     content = content.filter((r) => ![r.title, ...r.altTitles].some((t) => have.has(normTitle(t))));

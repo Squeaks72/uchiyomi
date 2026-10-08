@@ -34,6 +34,8 @@ export interface LibraryEntry {
   score?: number;
   /** Chapters in the library for this series, when Uchiyomi holds it: lets a few chapters of a long series count for little. */
   total?: number;
+  /** When the person last read a chapter of it in Uchiyomi (epoch ms); absent when never read here. */
+  lastRead?: number;
 }
 /** How many entries one intake reads at most: the review batch keeps 500, one more says "truncated". */
 export const TRACKER_LIST_MAX = 501;
@@ -633,9 +635,11 @@ export interface RecItem {
   adult: boolean | null;
   format: LibraryEntry['format'];
   votes: number;
+  /** AniList genre names; absent on answers cached before genres were asked for. */
+  genres?: string[];
 }
 
-const ANILIST_MEDIA = 'id idMal type format isAdult averageScore siteUrl title{ romaji english } synonyms coverImage{ large medium }';
+const ANILIST_MEDIA = 'id idMal type format isAdult averageScore siteUrl genres title{ romaji english } synonyms coverImage{ large medium }';
 
 function anilistItem(m: any, votes: number): RecItem | null {
   if (!m || m.id == null || (m.type && m.type !== 'MANGA')) return null;
@@ -649,6 +653,7 @@ function anilistItem(m: any, votes: number): RecItem | null {
     adult: typeof m.isAdult === 'boolean' ? m.isAdult : null,
     format: anilistFormat(m.format),
     votes,
+    genres: Array.isArray(m.genres) ? m.genres.filter((g: unknown) => typeof g === 'string') : [],
   };
 }
 

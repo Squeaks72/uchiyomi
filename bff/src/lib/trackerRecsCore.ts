@@ -9,32 +9,56 @@ const PER_SEED_CAP = 5;
 /** Where a person's taste is read from: finished, in progress or paused, never dropped or merely planned. */
 const SEEDING = new Set<string>(['reading', 'completed', 'on_hold']);
 const LIKED = 7;
-/** Fewer chapters than this of an unfinished series is a sample, not taste. */
+/** Three stars (6/10) is a good series; two or fewer (4/10 and under) is not, and never seeds. */
+export const MIN_SCORE = 5;
+/** Fewer chapters than this of an unfinished series is a sample, not taste. Twenty of a 1,200-chapter series is not. */
 export const MIN_READ = 10;
-/** In a long series (this many chapters held), reading under MIN_SHARE of it is a sample however many chapters that is. */
-const LONG_SERIES = 40;
-const MIN_SHARE = 0.15;
+const DAY = 86_400_000;
+/** Reading fades: a seed's pull halves every year since the last chapter, down to a floor. Never read here: no fade. */
+const HALF_LIFE_DAYS = 365;
+const RECENCY_FLOOR = 0.35;
 
-/** Barely started: a few chapters, or a small slice of a long series, and not finished. Says nothing about taste. */
+/** Barely started: only a few chapters of a series not finished. Says nothing about taste. */
 export function barelyRead(e: LibraryEntry): boolean {
-  if (e.status === 'completed') return false;
-  if (e.progress < MIN_READ) return true;
-  return !!e.total && e.total >= LONG_SERIES && e.progress / e.total < MIN_SHARE;
+  return e.status !== 'completed' && e.progress < MIN_READ;
+}
+
+/** 1 for something read lately or with no reading date, fading with time since the last chapter. */
+export function recency(e: LibraryEntry, now = Date.now()): number {
+  if (!e.lastRead) return 1;
+  const days = Math.max(0, (now - e.lastRead) / DAY);
+  return Math.max(RECENCY_FLOOR, Math.pow(0.5, days / HALF_LIFE_DAYS));
+}
+
+/** How much a seed stands for: its score, or for an unrated one a lean towards 'liked' that grows with how much was read. */
+export function seedStrength(e: LibraryEntry): number {
+  return (e.score ?? LIKED - 0.5 + Math.min(1, e.progress / 200)) * recency(e);
 }
 
 /**
- * The titles to build recommendations from, best first: the ones rated 7 or more by the person, then the
- * ones they read without rating. Either way it has to be read in earnest (`barelyRead`). Something they rated lower is left out on purpose -- recommending more of
- * what someone scored a 4 is the opposite of the feature. Stable: the same list gives the same seeds, which
+ * The titles to build recommendations from, best first: the ones rated 5/10 (three stars) or more, then the
+ * ones read without rating. It has to be read in earnest (`barelyRead`), and reading fades with time (`recency`). Something rated lower is left out on purpose. Stable: the same list gives the same seeds, which
  * is what lets the per-title cache do its job (a seed that changed every visit would never be cached).
  */
 export function pickSeeds(entries: LibraryEntry[], count: number): LibraryEntry[] {
   const eligible = entries.filter((e) =>
-    SEEDING.has(e.status) && e.format !== 'novel' && !barelyRead(e) && (e.score == null ? e.status !== 'on_hold' : e.score >= LIKED));
-  const rank = (e: LibraryEntry) => e.score ?? LIKED - 0.5;
+    SEEDING.has(e.status) && e.format !== 'novel' && !barelyRead(e) && (e.score == null ? e.status !== 'on_hold' : e.score >= MIN_SCORE));
+  const rank = seedStrength;
   return eligible
     .sort((a, b) => rank(b) - rank(a) || b.progress - a.progress || a.externalId.localeCompare(b.externalId, 'en', { numeric: true }))
     .slice(0, Math.max(0, count));
+}
+
+/**
+ * What the person's own ratings say about a title's genres, as a multiplier: a genre of series they rated well
+ * lifts it, one of series they rated two stars or less pulls it down. 1 when nothing is known (no taste yet,
+ * or an answer cached before genres were fetched). Bounded so taste reorders the rail and never empties it.
+ */
+export function tasteFactor(genres: string[] | undefined, taste: Map<string, number> | undefined): number {
+  if (!taste?.size || !genres?.length) return 1;
+  let sum = 0;
+  for (const g of genres) sum += taste.get(g.toLowerCase()) ?? 0;
+  return Math.min(1.6, Math.max(0.4, 1 + 0.25 * (sum / Math.sqrt(genres.length))));
 }
 
 export interface Rec {
@@ -67,18 +91,18 @@ interface Cand { rec: Rec; weight: number; best: Map<Provider, number>; lead: nu
  * its titles carry what AniList answered for them, and a title neither answered for is not shown to a viewer
  * who must not see adult work (the same fail-closed rule as the age cap).
  */
-export function buildRecs(inputs: SeedRecs[], leave: Exclusions, opts: { restrictAdult: boolean }): Rec[] {
+export function buildRecs(inputs: SeedRecs[], leave: Exclusions, opts: { restrictAdult: boolean; taste?: Map<string, number> }): Rec[] {
   const cands: Cand[] = [];
   const byName = new Map<string, Cand>();
   for (const { provider, seed, items } of inputs) {
     const held = leave.ids.get(provider);
-    const seedWeight = (seed.score ?? LIKED) / 10;
+    const seedWeight = seedStrength(seed) / 10;
     for (const it of items) {
       if (it.format === 'novel' || held?.has(it.id)) continue;
       if (opts.restrictAdult && it.adult !== false) continue;
       const names = [it.title, ...it.altTitles].map(normTitle).filter(Boolean);
       if (!names.length || names.some((n) => leave.names.has(n))) continue;
-      const gain = seedWeight * (1 + Math.log1p(Math.max(0, it.votes)));
+      const gain = seedWeight * (1 + Math.log1p(Math.max(0, it.votes))) * tasteFactor(it.genres, opts.taste);
       let c = names.map((n) => byName.get(n)).find(Boolean);
       if (!c) {
         c = {
