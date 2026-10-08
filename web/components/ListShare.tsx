@@ -27,7 +27,8 @@ export function useExportList() {
   };
 }
 
-interface ListFile { format: string; name: string; items: unknown[] }
+interface ListFile { format: string; name: string; items: Array<{ sources?: unknown[] | null }> }
+interface ToAdd { title: string; sources: Array<{ source: string; sourceId: string }> }
 
 export function ImportListModal({ onClose, onDone }: { onClose: () => void; onDone?: (id: string) => void }) {
   const toast = useToast();
@@ -39,6 +40,9 @@ export function ImportListModal({ onClose, onDone }: { onClose: () => void; onDo
   const [target, setTarget] = useState('');
   const [busy, setBusy] = useState(false);
   const [bad, setBad] = useState(false);
+  const [autoAdd, setAutoAdd] = useState(false);
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  const withSources = file?.items.filter((i) => i.sources?.length).length ?? 0;
 
   const read = async (f: File | undefined) => {
     setBad(false); setFile(null);
@@ -53,13 +57,30 @@ export function ImportListModal({ onClose, onDone }: { onClose: () => void; onDo
     if (!file) return;
     setBusy(true);
     try {
-      const r = await api<{ id: string; name: string; added: number; saved: number }>('/api/collections/import', { json: { list: file, ...(target ? { collectionId: target } : {}) } });
-      toast(tr('Imported “{name}”: {a} in your library, {s} saved for later', { name: `⁨${r.name}⁩`, a: r.added, s: r.saved }), 'success');
+      const r = await api<{ id: string; name: string; added: number; saved: number; toAdd: ToAdd[] }>('/api/collections/import', { json: { list: file, ...(target ? { collectionId: target } : {}) } });
+      let started = 0; let failed = 0;
+      if (autoAdd && r.toAdd.length) {
+        // One title at a time, each from the first of its sources this server can use. The series is in the library
+        // the moment the add is answered, so the list picks it up from there.
+        setProgress({ done: 0, total: r.toAdd.length });
+        for (let i = 0; i < r.toAdd.length; i++) {
+          let ok = false;
+          for (const s of r.toAdd[i].sources) {
+            try { await api('/api/sources/add', { json: { source: s.source, sourceId: s.sourceId } }); ok = true; break; } catch { /* next source */ }
+          }
+          if (ok) started++; else failed++;
+          setProgress({ done: i + 1, total: r.toAdd.length });
+        }
+      }
+      toast(autoAdd
+        ? tr('Imported “{name}”: {a} in your library, {s} added and downloading, {f} could not be added', { name: `⁨${r.name}⁩`, a: r.added, s: started, f: failed })
+        : tr('Imported “{name}”: {a} in your library, {s} saved for later', { name: `⁨${r.name}⁩`, a: r.added, s: r.saved }), 'success');
       qc.invalidateQueries({ queryKey: ['collections'] });
       qc.invalidateQueries({ queryKey: ['collection'] });
+      qc.invalidateQueries({ queryKey: ['library'] });
       onDone?.(r.id);
       onClose();
-    } catch { toast(tr('Could not import that file'), 'error'); setBusy(false); }
+    } catch { toast(tr('Could not import that file'), 'error'); setBusy(false); setProgress(null); }
   };
   return (
     <Modal title={tr('Import a list')} onClose={onClose}>
@@ -76,8 +97,15 @@ export function ImportListModal({ onClose, onDone }: { onClose: () => void; onDo
             <option value="">{tr('A new list named “{name}”', { name: file.name })}</option>
             {lists.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
+          {withSources > 0 && (
+            <label className="mt-3 flex items-start gap-2 text-sm text-fog-200">
+              <input type="checkbox" checked={autoAdd} onChange={(e) => setAutoAdd(e.target.checked)} className="mt-1" />
+              <span>{tr('Also add the titles I do not have to my library ({n} can be added from their sources). This downloads every chapter.', { n: withSources })}</span>
+            </label>
+          )}
         </div>
       )}
+      {progress && <p role="status" className="mt-3 text-xs text-fog-300">{tr('Adding {done} of {total}…', progress)}</p>}
       <button type="button" onClick={run} disabled={!file || busy} className="btn-accent mt-4 w-full py-2.5 text-sm disabled:opacity-50">{tr('Import')}</button>
     </Modal>
   );
