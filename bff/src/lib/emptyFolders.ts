@@ -21,6 +21,13 @@ export async function removeEmptyFolders(log?: { info: (m: string) => void; warn
     `SELECT path AS p FROM library_paths UNION SELECT path FROM libraries WHERE path <> '' UNION SELECT folder FROM lib_series`)) {
     if (r.p) keep.add(r.p.replace(/^\/+|\/+$/g, ''));
   }
+  const { removed } = await sweepEmptyFolders([...new Set([LIBRARY_ROOT, DL_ROOT])], keep);
+  if (removed.length) log?.info(`empty folders: removed ${removed.length}`);
+  return { removed };
+}
+
+/** The walk itself, given the roots and the relative folders to keep. */
+export async function sweepEmptyFolders(roots: string[], keep: Set<string>, recentMs = RECENT_MS): Promise<{ removed: string[] }> {
   const removed: string[] = [];
 
   const walk = async (root: string, dir: string): Promise<boolean> => {
@@ -37,17 +44,16 @@ export async function removeEmptyFolders(log?: { info: (m: string) => void; warn
     if (keep.has(rel)) return false;
     try {
       const st = await stat(dir);
-      if (Date.now() - st.mtimeMs < RECENT_MS) return false;
+      if (Date.now() - st.mtimeMs < recentMs) return false;
       await rmdir(dir);
       removed.push(dir);
       return true;
     } catch { return false; }
   };
 
-  for (const root of new Set([LIBRARY_ROOT, DL_ROOT])) {
+  for (const root of roots) {
     if (!(await stat(root).then((s) => s.isDirectory()).catch(() => false))) continue;
     await walk(root, root);
   }
-  if (removed.length) log?.info(`empty folders: removed ${removed.length}`);
   return { removed };
 }
