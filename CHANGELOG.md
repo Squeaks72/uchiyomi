@@ -2021,7 +2021,7 @@ touchscreen, or press Shift+F10, for a short menu: **Open in a new tab**, **Copy
 read** / **unread**, and for an admin **Check for new chapters** ([#100](https://github.com/AngeloSha/uchiyomi/issues/100),
 @Squeaks72's proposal). A chapter row's right-click opens the same menu as its ⋯ button, which now works from
 the keyboard and no longer clips at the edge of the screen. The browser's own menu is left alone on selected
-text, in text fields and with Shift held, and **Profile → Settings → Appearance → Right-click menus** turns
+text, in text fields and with Shift held, and a setting in Appearance (since removed) could turn
 them off on a device.
 
 ### The admin is told when the library needs attention

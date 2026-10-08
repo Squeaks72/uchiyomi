@@ -106,9 +106,9 @@ const SLICES: [string, string, string, string][] = [
   ['app/admin/page.tsx', 'Tasks: Run now', 'function Tasks()', 'function DesktopBackups()'],
   // Step 14 (#117): where the slow archive is turned on -- keys, never chips, beside chips that stay.
   ['components/AddSeriesDialog.tsx', 'Add dialog: Archive the rest slowly', '{archiveRest > 0 && (', '</>)}'],
-  ['app/library/page.tsx', 'Library: the Archive slowly key', 'onClick={archiveSelected}', "{(isAdmin || canDownload(user))"],
+  ['app/library/page.tsx', 'Library: the Archive slowly key', 'onClick={archiveSelected}', "onClick={() => setMore(true)}"],
   // ...and on a phone, its row in the selection's More sheet.
-  ['app/library/page.tsx', 'Library: Archive slowly in More', 'void archiveSelected(); }}', "{tr('Move to library')}"],
+  ['app/library/page.tsx', 'Library: Archive slowly in More', 'void archiveSelected(); }}', "{isAdmin && ("],
   ['app/series/page.tsx', 'Series: Archive slowly in the actions', '{mayArchive && (', '{isAdmin && ('],
   ['app/series/page.tsx', 'Series: Archive slowly on the older-chapters row', '{!archiving && mayArchive', '</span>'],
   // Step 17 (#116): the add dialog's numbering notice and its switch -- a text block with a start-edge rule, beside

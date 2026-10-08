@@ -156,7 +156,16 @@ export function SeriesEditor({ id, series, tab: opening = 'details', onClose, on
   const scope = useSaveScope();
   const [tab, setTab] = useState<EditTab>(opening);
   const [meta, setMeta] = useState<SeriesMeta>(() => seedMeta(series));
-  const [saver] = useState(() => metaSaver(seedMeta(series), (body) => api(`/api/admin/series/${id}/meta`, { method: 'PUT', json: body }), setMeta));
+  const toast = useToast();
+  const qc = useQueryClient();
+  const [saver] = useState(() => metaSaver(seedMeta(series), async (body) => {
+    const r = await api<{ folder?: { status: string; to?: string; reason?: string; fix?: string } }>(`/api/admin/series/${id}/meta`, { method: 'PUT', json: body });
+    // The title is the folder's name too; say what happened to the folder, and why when it could not follow.
+    if (r?.folder?.status === 'renamed') toast(tr('Title saved. The folder is now “{name}”.', { name: `⁨${r.folder.to}⁩` }), 'success');
+    else if (r?.folder?.status === 'refused') toast(`${tr('Title saved, but the folder was not renamed.')} ${r.folder.reason ?? ''} ${r.folder.fix ?? ''}`.trim(), 'error');
+    qc.invalidateQueries({ queryKey: ['series-alt-titles', id] });
+    return r;
+  }, setMeta));
   const saveMeta = (patch: Partial<SeriesMeta>) => saver.save(patch).then(() => { onSaved(); });
 
   const panelRef = useRef<HTMLDivElement>(null);
@@ -283,7 +292,7 @@ export function SeriesEditor({ id, series, tab: opening = 'details', onClose, on
               </section>
               <div className={`min-w-0 [&_.field]:max-w-none ${tab === 'art' ? 'hidden md:block' : ''}`}>
                 <Pane id={paneId('details')} tab={tabId('details')} shown={fields === 'details'} name="details">
-                  <DetailsPane meta={meta} save={saveMeta} />
+                  <DetailsPane id={id} shown={shownTitle} meta={meta} save={saveMeta} />
                 </Pane>
                 <Pane id={paneId('reading')} tab={tabId('reading')} shown={fields === 'reading'} name="reading">
                   <ReadingPane id={id} series={series} meta={meta} save={saveMeta} onSaved={onSaved} />
@@ -309,12 +318,56 @@ function Pane({ id, tab, shown, name, children }: { id: string; tab: string; sho
 
 /* =============================== Details =============================== */
 
-function DetailsPane({ meta, save }: { meta: SeriesMeta; save: (p: Partial<SeriesMeta>) => Promise<void> }) {
+/** The names the series also goes by: a press makes one the title (the title it replaces joins the list), and the folder follows. */
+function AltTitles({ id, shown, save }: { id: string; shown: string; save: (p: Partial<SeriesMeta>) => Promise<void> }) {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const [typed, setTyped] = useState('');
+  const { data } = useQuery({
+    queryKey: ['series-alt-titles', id],
+    queryFn: () => api<{ titles: { title: string; norm: string }[] }>(`/api/admin/series/${id}/alt-titles`),
+  });
+  const others = (data?.titles ?? []).filter((t) => t.title.trim().toLowerCase() !== shown.trim().toLowerCase());
+  const add = async () => {
+    const title = typed.trim();
+    if (!title) return;
+    try {
+      await api(`/api/admin/series/${id}/alt-titles`, { json: { title } });
+      setTyped('');
+      qc.invalidateQueries({ queryKey: ['series-alt-titles', id] });
+    } catch (e) { toast(msgOf(e, tr('Could not add that name')), 'error'); }
+  };
+  return (
+    <div className="mt-1 mb-3" data-alt-titles>
+      <p className="text-xs font-semibold uppercase tracking-wider text-fog-500">{tr('Other names')}</p>
+      <p className="mt-1 text-[11px] leading-relaxed text-fog-600">{tr('Choose one to make it the title. The series folder is renamed to match, and the current title stays here.')}</p>
+      {others.length > 0 && (
+        <ul className="mt-2 flex flex-wrap gap-1.5">
+          {others.map((t) => (
+            <li key={t.norm}>
+              <button type="button" onClick={() => void save({ title: t.title })} className="btn-key max-w-full text-xs" dir="auto" title={tr('Use as the title')}>
+                <span className="truncate">{t.title}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="mt-2 flex max-w-md gap-2">
+        <input value={typed} onChange={(e) => setTyped(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void add(); } }}
+          aria-label={tr('Add another name')} placeholder={tr('Add another name')} dir="auto" autoComplete="off" className="field min-w-0 flex-1" />
+        <button type="button" onClick={() => void add()} disabled={!typed.trim()} className="btn-key h-auto self-stretch">{tr('Add')}</button>
+      </div>
+    </div>
+  );
+}
+
+function DetailsPane({ id, shown, meta, save }: { id: string; shown: string; meta: SeriesMeta; save: (p: Partial<SeriesMeta>) => Promise<void> }) {
   // The route's own caps (bff routes/admin.ts), so a field cannot hold what the save would refuse.
   return (
     <>
       <TextRow id="edit-title" label={tr('Title')} value={meta.title} dir="auto" maxLength={300} placeholder={tr('From the files')}
         onSave={(title) => save({ title })} />
+      <AltTitles id={id} shown={shown} save={save} />
       <TextAreaRow id="edit-summary" label={tr('Description')} value={meta.summary} maxLength={8000} onSave={(summary) => save({ summary })} />
       <TextRow id="edit-author" label={tr('Author')} value={meta.author} dir="auto" maxLength={300} placeholder={tr('From the files')}
         onSave={(author) => save({ author })} />

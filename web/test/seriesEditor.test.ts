@@ -116,7 +116,7 @@ test('a field commits by saving the whole object, one save at a time, and a refu
 
   // And every field of the dialog commits through that saver, never a PUT of its own.
   const src = read(EDITOR);
-  assert.match(src, /metaSaver\(seedMeta\(series\), \(body\) => api\(`\/api\/admin\/series\/\$\{id\}\/meta`, \{ method: 'PUT', json: body \}\), setMeta\)/,
+  assert.match(src, /metaSaver\(seedMeta\(series\), async \(body\) => \{[\s\S]*?`\/api\/admin\/series\/\$\{id\}\/meta`, \{ method: 'PUT', json: body \}[\s\S]*?\}, setMeta\)/,
     'the dialog does not save through the whole-object saver');
   for (const f of ['title', 'summary', 'author', 'status', 'genres', 'readingDirection', 'ageRating', 'adultExempt', 'seriesType']) {
     assert.match(src, new RegExp(`\\(${f}\\) => save\\(\\{ ${f} \\}\\)`), `${f} does not commit through save()`);

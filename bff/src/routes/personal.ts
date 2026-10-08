@@ -815,16 +815,16 @@ export default async function personalRoutes(app: FastifyInstance) {
       title: z.string().trim().min(1).max(300), coverUrl: z.string().url().max(1000).nullish(),
       // Where the exporter's library got the title (v2): enough for an importer starting from nothing to add it.
       lang: z.string().max(35).nullish(),
-      sources: z.array(z.object({ source: z.string().min(1).max(200), sourceId: z.string().min(1).max(200), name: z.string().max(200).nullish() })).max(12).nullish(),
+      sources: z.array(z.object({ source: z.string().min(1).max(200), sourceId: z.string().min(1).max(200), name: z.string().max(200).nullish(), pkgName: z.string().max(200).nullish() })).max(12).nullish(),
     })).max(5000),
   });
-  type ListSource = { source: string; sourceId: string; name?: string | null };
+  type ListSource = { source: string; sourceId: string; name?: string | null; pkgName?: string | null };
   // The primary source first, then the followed ones; each once, named by the extension that serves it.
-  const sourcesOf = (primary: { source_id: string | null; source_series_id: string | null }, followed: ListSource[] | null): ListSource[] => {
+  const sourcesOf = (primary: { source_id: string | null; source_series_id: string | null }, followed: ListSource[] | null, pkgs: Map<string, string> = new Map()): ListSource[] => {
     const out: ListSource[] = [];
     const add = (s: string | null | undefined, id: string | null | undefined) => {
       if (!s || !id || out.some((o) => o.source === s && o.sourceId === id)) return;
-      out.push({ source: s, sourceId: id, name: getSource(s)?.name ?? null });
+      out.push({ source: s, sourceId: id, name: getSource(s)?.name ?? null, ...(pkgs.get(s) ? { pkgName: pkgs.get(s) } : {}) });
     };
     add(primary.source_id, primary.source_series_id);
     for (const f of followed ?? []) add(f.source, f.sourceId);
@@ -854,12 +854,15 @@ export default async function personalRoutes(app: FastifyInstance) {
         WHERE ci.collection_id = $1 AND ${visibleToAll('s')} ORDER BY ci.position`, [id]);
     const wants = builtin ? [] : await q<{ title: string; cover_url: string | null; sources: ListSource[] | null }>(
       'SELECT title, cover_url, sources FROM collection_wants WHERE collection_id = $1 ORDER BY position, created_at', [id]);
+    // Which extension package serves each source, so an importer without it knows what to install.
+    const pkgs = new Map((await q<{ source_id: string; pkg_name: string }>(
+      `SELECT 'sw:' || source_id AS source_id, pkg_name FROM suwayomi_sources WHERE pkg_name IS NOT NULL`).catch(() => [])).map((r) => [r.source_id, r.pkg_name]));
     const withSources = (sources: ListSource[]) => (sources.length ? { sources } : {});
     const file = {
       format: LIST_FORMAT, version: 2, name: col.name, description: col.description,
       items: [
-        ...held.map((h) => ({ title: h.title, ...(h.lang ? { lang: h.lang } : {}), ...withSources(sourcesOf(h, h.followed)) })),
-        ...wants.map((w) => ({ title: w.title, ...(w.cover_url ? { coverUrl: w.cover_url } : {}), ...withSources(sourcesOf({ source_id: null, source_series_id: null }, w.sources)) })),
+        ...held.map((h) => ({ title: h.title, ...(h.lang ? { lang: h.lang } : {}), ...withSources(sourcesOf(h, h.followed, pkgs)) })),
+        ...wants.map((w) => ({ title: w.title, ...(w.cover_url ? { coverUrl: w.cover_url } : {}), ...withSources(sourcesOf({ source_id: null, source_series_id: null }, w.sources, pkgs)) })),
       ],
     };
     const safe = col.name.replace(/[^\p{L}\p{N} _-]+/gu, '').trim().slice(0, 60) || 'list';
@@ -880,7 +883,7 @@ export default async function personalRoutes(app: FastifyInstance) {
     }
     const id = target!.id;
     const seen = new Map<string, { title: string; coverUrl: string | null; sources: ListSource[] }>();
-    for (const it of list.items) { const k = normTitle(it.title); if (k && !seen.has(k)) seen.set(k, { title: it.title, coverUrl: it.coverUrl ?? null, sources: (it.sources ?? []).map((x) => ({ source: x.source, sourceId: x.sourceId, name: x.name ?? null })) }); }
+    for (const it of list.items) { const k = normTitle(it.title); if (k && !seen.has(k)) seen.set(k, { title: it.title, coverUrl: it.coverUrl ?? null, sources: (it.sources ?? []).map((x) => ({ source: x.source, sourceId: x.sourceId, name: x.name ?? null, pkgName: x.pkgName ?? null })) }); }
     const keys = [...seen.keys()];
     const held = keys.length ? await q<{ id: string; k: string }>(
       `SELECT DISTINCT ON (k) s.id, k FROM (
@@ -904,10 +907,21 @@ export default async function personalRoutes(app: FastifyInstance) {
            ON CONFLICT (collection_id, title_key) DO UPDATE SET sources = COALESCE(collection_wants.sources, EXCLUDED.sources)
            RETURNING (xmax = 0) AS fresh`, [id, k, v.title, v.coverUrl, v.sources.length ? JSON.stringify(v.sources) : null]);
         saved += r.filter((x: any) => x.fresh).length;
-        if (v.sources.length) toAdd.push({ title: v.title, sources: v.sources.filter((x) => !!getSource(x.source)) });
+        if (v.sources.length) toAdd.push({ title: v.title, sources: v.sources });
       }
     }
-    return { ok: true, id, name: target!.name, added, saved, total: seen.size, toAdd: toAdd.filter((x) => x.sources.length) };
+    // Sources this server has no adapter for (an extension it lacks) go last, and are listed once so an admin can be
+    // offered the extensions that would supply them.
+    const missing = new Map<string, { source: string; name: string | null; pkgName: string | null; titles: number }>();
+    for (const t of toAdd) {
+      t.sources.sort((a, b) => Number(!getSource(a.source)) - Number(!getSource(b.source)));
+      for (const x of t.sources) {
+        if (getSource(x.source)) continue;
+        const m = missing.get(x.source) ?? { source: x.source, name: x.name ?? null, pkgName: x.pkgName ?? null, titles: 0 };
+        m.titles++; missing.set(x.source, m);
+      }
+    }
+    return { ok: true, id, name: target!.name, added, saved, total: seen.size, toAdd, missing: [...missing.values()] };
   });
 
   app.post('/api/collections/:id/items/bulk', async (req, reply) => {

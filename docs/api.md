@@ -2512,6 +2512,7 @@ POST   /api/admin/extensions/solver
 POST   /api/admin/extensions/update-all
 GET    /api/admin/extensions/repos       POST   /api/admin/extensions/repos
 DELETE /api/admin/extensions/repos       POST   /api/admin/extensions/refresh
+POST   /api/admin/extensions/match
 GET    /api/admin/extensions/sources     POST   /api/admin/extensions/sources/:id
 POST   /api/admin/extensions/sources/bulk
 GET    /api/admin/extensions/sources/:id/preferences

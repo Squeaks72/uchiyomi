@@ -70,7 +70,7 @@ import {
   claimDownloadJob, releaseDownloadJobClaim, startDownloadJob, clearLatestCache, FILL_MAX_CHAPTERS, REFRESH_BUDGET_MS,
 } from './sources';
 import { confirmsTitle } from '../lib/confirmTitle';
-import { chapterFileRel } from '../lib/downloader';
+import { chapterFileRel, sanitize } from '../lib/downloader';
 import { REFETCH_BAK } from '../lib/fsAtomic';
 import type { SourceChapter } from '../lib/sources/types';
 import { getPlan, followable } from '../lib/fill';
@@ -2253,6 +2253,9 @@ export default async function adminRoutes(app: FastifyInstance) {
     // save from the edit modal 500'd -- not just rating changes: retitling, the summary, the author and the
     // genres all failed the same way, under a message that only said "Could not save". `?? null` because
     // the field is nullish: absent and null both mean "inherit whatever ComicInfo said".
+    const prior = await one<{ shown: string; folder: string }>(
+      `SELECT COALESCE(NULLIF(btrim(o.title), ''), s.title) AS shown, s.folder FROM lib_series s
+         LEFT JOIN series_overrides o ON o.series_id = s.id WHERE s.id = $1`, [id]);
     const sentDirection = b.data.readingDirection !== undefined;
     const sentType = b.data.seriesType !== undefined;
     // "unknown" is the absence of a type, not one: stored as NULL, so "Automatic" and "Unknown" cannot disagree.
@@ -2286,7 +2289,31 @@ export default async function adminRoutes(app: FastifyInstance) {
       );
     });
     await logAudit('series.meta_override', { userId: userIdOf(req), detail: { id }, req });
-    return { ok: true };
+
+    // A title the admin chooses is the folder's name too. The title it replaces is kept as an alternative title (so
+    // swapping back is one press, and searches still know the old name). The folder rename is reported, not assumed:
+    // a refusal (another series there, a download running) leaves the title saved and says why.
+    const chosen = norm(b.data.title);
+    let folder: { status: 'renamed' | 'unchanged' | 'refused'; to?: string; reason?: string; fix?: string } | undefined;
+    if (prior && chosen && chosen.toLowerCase() !== prior.shown.trim().toLowerCase()) {
+      await recordAltTitles(id, [prior.shown], 'admin', { userId: userIdOf(req) }).catch(() => []);
+      const cut = prior.folder.lastIndexOf('/');
+      const dest = `${cut >= 0 ? prior.folder.slice(0, cut + 1) : ''}${sanitize(chosen)}`;
+      if (dest === prior.folder) folder = { status: 'unchanged', to: dest };
+      else {
+        const claim = claimSeriesWriter([id], [prior.folder, dest]);
+        if (!claim) folder = { status: 'refused', reason: 'Another task is using this series right now.', fix: 'Save the title again when it has finished.' };
+        else {
+          try {
+            const r = await renameSeriesFolder(id, dest);
+            folder = r.ok ? { status: 'renamed', to: dest } : { status: 'refused', reason: r.reason, fix: r.fix };
+            if (r.ok) await logAudit('series.rename_folder', { userId: userIdOf(req), detail: { id, folder: dest, via: 'title' }, req });
+          } catch (e) { folder = { status: 'refused', reason: (e as Error).message }; }
+          finally { claim.release(); }
+        }
+      }
+    }
+    return { ok: true, ...(folder ? { folder } : {}) };
   });
 
   /**
@@ -3232,19 +3259,31 @@ export default async function adminRoutes(app: FastifyInstance) {
 
     const rows = await q<{ id: string; title: string; folder: string }>(
       `SELECT s.id, s.title, s.folder FROM lib_series s WHERE s.library_id = $1 AND ${visibleToAll('s')} ORDER BY s.folder`, [id]);
-    const taken = new Map((await q<{ folder: string; id: string }>(`SELECT s.folder, s.id FROM lib_series s WHERE ${visibleToAll('s')}`)).map((r) => [r.folder, r.id]));
+    const takenRows = await q<{ folder: string; id: string; title: string }>(`SELECT s.folder, s.id, s.title FROM lib_series s WHERE ${visibleToAll('s')}`);
+    const taken = new Map(takenRows.map((r) => [r.folder, r.id]));
+    const titleOf = new Map(takenRows.map((r) => [r.folder, r.title]));
+    const claimedBy = new Map<string, string>();
     const claimedDest = new Set<string>();
-    type Move = { id: string; title: string; from: string; to: string; status: 'planned' | 'same' | 'conflict' | 'outside' | 'moved' | 'refused'; reason?: string };
+    type Move = { id: string; title: string; from: string; to: string; status: 'planned' | 'same' | 'conflict' | 'outside' | 'moved' | 'refused'; reason?: string; fix?: string };
     const moves: Move[] = rows.map((r) => {
       const leaf = r.folder.slice(r.folder.lastIndexOf('/') + 1);
       const to = target ? `${target}/${leaf}` : leaf;
       const m: Move = { id: r.id, title: r.title, from: r.folder, to, status: 'planned' };
       if (to === r.folder) m.status = 'same';
-      else if (!stays(to)) { m.status = 'outside'; m.reason = 'It would leave this library.'; }
-      else if (claimedDest.has(to.toLowerCase()) || (taken.has(to) && taken.get(to) !== r.id)) {
-        m.status = 'conflict'; m.reason = 'Another series already uses that folder name.';
+      else if (!stays(to)) {
+        m.status = 'outside';
+        m.reason = `"${to}" is not inside one of this library's folders, so a later scan would hand the series to another library.`;
+        m.fix = 'Pick a gather folder that is inside this library.';
+      } else if (claimedDest.has(to.toLowerCase())) {
+        m.status = 'conflict';
+        m.reason = `Another series in this move ("${claimedBy.get(to.toLowerCase())}") also has the folder name "${leaf}", so both would land in "${to}".`;
+        m.fix = 'Rename one of the two folders, then run the gather again.';
+      } else if (taken.has(to) && taken.get(to) !== r.id) {
+        m.status = 'conflict';
+        m.reason = `"${to}" is already the folder of "${titleOf.get(to)}".`;
+        m.fix = 'Rename one of the two folders, or merge the series, then run the gather again.';
       }
-      if (m.status === 'planned') claimedDest.add(to.toLowerCase());
+      if (m.status === 'planned') { claimedDest.add(to.toLowerCase()); claimedBy.set(to.toLowerCase(), r.title); }
       return m;
     });
 
@@ -3252,10 +3291,10 @@ export default async function adminRoutes(app: FastifyInstance) {
       for (const m of moves) {
         if (m.status !== 'planned') continue;
         const claim = claimSeriesWriter([m.id], [m.from, m.to]);
-        if (!claim) { m.status = 'refused'; m.reason = 'Another task is changing that folder.'; continue; }
+        if (!claim) { m.status = 'refused'; m.reason = 'Another task (a download, scan or rename) is using that series right now.'; m.fix = 'Try again when it has finished.'; continue; }
         try {
           const r = await renameSeriesFolder(m.id, m.to);
-          if (r.ok) m.status = 'moved'; else { m.status = 'refused'; m.reason = r.reason; }
+          if (r.ok) m.status = 'moved'; else { m.status = 'refused'; m.reason = r.reason; m.fix = (r as { fix?: string }).fix; }
         } catch (e) { m.status = 'refused'; m.reason = (e as Error).message; }
         finally { claim.release(); }
       }
@@ -3699,6 +3738,31 @@ export default async function adminRoutes(app: FastifyInstance) {
     if (!r.ok) return reply.code(r.status).send({ error: r.error, message: r.message });
     await logAudit('extension.solver', { userId: userIdOf(req), detail: r.audit, req });
     return { ok: true, enabled: r.enabled, wiring: r.wiring };
+  });
+
+  // The extensions in this server's repositories that would supply the sources a list import could not use (the list
+  // carries the exporter's package name, or only a source name for older files). Only reads the catalogue: installing
+  // is the catalogue's own install route, pressed per extension by the admin.
+  app.post('/api/admin/extensions/match', async (req, reply) => {
+    if (needExt(reply)) return;
+    const b = z.object({ sources: z.array(z.object({
+      source: z.string().min(1).max(200), name: z.string().max(200).nullish(), pkgName: z.string().max(200).nullish(),
+    })).max(200) }).safeParse(req.body);
+    if (!b.success) return reply.code(400).send({ error: 'bad_request' });
+    let all;
+    try { all = await listExtensions(); } catch (e) {
+      return reply.code(502).send({ error: 'unreachable', message: (e as Error)?.message || 'Could not reach the extension server.' });
+    }
+    const norm = (n: string) => n.replace(/^tachiyomi:\s*/i, '').replace(/\s\((?:[A-Z]{2,3}(?:-[A-Z]{2,4})?|ALL)\)$/, '').trim().toLowerCase();
+    const found = new Map<string, { pkgName: string; name: string; lang: string | null; nsfw: boolean; installed: boolean }>();
+    const unmatched: string[] = [];
+    for (const s of b.data.sources) {
+      const hit = (s.pkgName && all.find((e) => e.pkgName === s.pkgName))
+        || (s.name ? all.find((e) => !e.obsolete && norm(e.name) === norm(s.name!)) : undefined);
+      if (hit) found.set(hit.pkgName, { pkgName: hit.pkgName, name: hit.name, lang: hit.lang, nsfw: hit.nsfw, installed: hit.installed });
+      else unmatched.push(s.name || s.source);
+    }
+    return { content: [...found.values()], unmatched };
   });
 
   app.post('/api/admin/extensions/catalog/:pkgName', async (req, reply) => {

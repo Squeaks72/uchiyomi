@@ -10658,6 +10658,26 @@ paths:
           description: "Forbidden: token scope, account permission or age limit"
         "502":
           description: The extension engine did not answer
+  /api/admin/extensions/match:
+    post:
+      tags:
+        - admin
+      summary: Find the catalogue extensions that would supply sources a list import lacked.
+      operationId: postApiAdminExtensionsMatch
+      description: Requires an admin account and a token carrying the admin scope. Scopes only ever restrict.
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Not authenticated
+        "403":
+          description: "Forbidden: token scope, account permission or age limit"
+        "502":
+          description: The extension engine did not answer
   /api/admin/extensions/solver:
     post:
       tags:

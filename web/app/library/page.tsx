@@ -22,7 +22,6 @@ import { LibraryFilters, NO_SOURCE, SORTS, READ_STATES, STATUSES, useLibrarySour
 import { Sheet } from '@/components/ui';
 import { useArchiveEnqueue } from '@/components/ArchiveQueue';
 import { t as tr } from '@/lib/i18n';
-import { contextMenusOn } from '@/lib/contextMenus';
 import { applyFavorite } from '@/lib/favoriteCache';
 import { selectedText } from '@/lib/counted';
 import { archiveWhy } from '@/lib/archive';
@@ -40,6 +39,7 @@ import { LibraryStart } from '@/components/LibraryStart';
 import { ART } from '@/lib/art';
 import { BulkChapterDeleteRunDialog } from '@/components/BulkChapterDeleteRun';
 import { CollectionPickerModal } from '@/components/CollectionPicker';
+import { SelectionMenu } from '@/components/SelectionMenu';
 import { BulkGenresModal } from '@/components/BulkGenres';
 import {
   BULK_CHAPTER_DELETE_POLL_MS,
@@ -678,7 +678,6 @@ function LibraryInner() {
           ? Array.from({ length: 14 }).map((_, i) => <div key={i} className="skeleton aspect-[2/3] rounded-2xl" />)
           : items.map((s, i) => (
               <div key={s.id} className="contents" onContextMenu={(e) => {
-                if (!contextMenusOn()) return;
                 e.preventDefault();
                 if (!selecting) { setSelecting(true); setPicked(new Set([s.id])); }
                 else if (!picked.has(s.id)) setPicked((p) => new Set(p).add(s.id));
@@ -734,13 +733,12 @@ function LibraryInner() {
             <button disabled={acting} onClick={() => bulk('/api/library/bulk/read', { completed: true })} className="chip text-xs disabled:opacity-50">{tr('Mark read')}</button>
             <button disabled={acting} onClick={() => bulk('/api/library/bulk/read', { completed: false })} className="chip text-xs disabled:opacity-50">{tr('Mark unread')}</button>
             <button disabled={acting} onClick={() => bulk('/api/favorites/bulk', { favorite: true })} className="chip text-xs disabled:opacity-50">{tr('Favorite')}</button>
-            <button disabled={acting} onClick={() => setListing(true)} data-add-to-list className="chip text-xs disabled:opacity-50">{tr('Add to list')}</button>
-            <button disabled={acting} onClick={zipPicked} data-zip-picked className="chip text-xs disabled:opacity-50">{tr('Download as zip')}</button>
             {/* Server-side fetch, so it follows the same permission as the Add button and the series
                 page's Fetch: a member who may not download does not see it. */}
             {canDownload(user) && <button disabled={acting} onClick={fetchNewest} className="chip text-xs disabled:opacity-50">{tr('Fetch newest')}</button>}
             {canDownload(user) && <button disabled={acting} onClick={archiveSelected} className="btn-key hidden lg:inline-flex" title={archiveWhy()}>{tr('Archive slowly')}</button>}
-            {(isAdmin || canDownload(user)) && <button disabled={acting} onClick={() => setMore(true)} className={`chip text-xs disabled:opacity-50 ${isAdmin ? '' : 'lg:hidden'}`} aria-haspopup="dialog">{tr('More')}</button>}
+            {/* More is everyone's: Add to list and Download as zip are its first rows (a ninth chip wrapped the phone bar to a third row). */}
+            <button disabled={acting} onClick={() => setMore(true)} className="chip text-xs disabled:opacity-50" aria-haspopup="dialog">{tr('More')}</button>
             {/* Live during a Fetch newest run, unlike the other chips: a 500-series run is minutes of pacing plus
                 downloads, and a bar frozen for all of it left navigating away as the only way out. Cancel stops
                 the polling and leaves select mode; the run completes server-side. Reintroduce with a plain
@@ -756,6 +754,14 @@ function LibraryInner() {
           {/* `pb-2`: the sheet's nav clearance is 4 px short of the nav's measured height (see the series
               page), and the last row here would otherwise end 3 px under it. */}
           <div className="space-y-1 pb-2">
+            <button onClick={() => { setMore(false); setListing(true); }} data-add-to-list
+              className="block w-full rounded-lg px-2.5 py-2.5 text-start text-sm text-fog-100 hover:bg-ink-800/60">
+              {tr('Add to list')}
+            </button>
+            <button onClick={() => { setMore(false); zipPicked(); }} data-zip-picked
+              className="block w-full rounded-lg px-2.5 py-2.5 text-start text-sm text-fog-100 hover:bg-ink-800/60">
+              {tr('Download as zip')}
+            </button>
             {/* From lg up Archive slowly is a key in the bar, and More is only there for the admin rows below. */}
             {canDownload(user) && (
               <button onClick={() => { setMore(false); void archiveSelected(); }}
@@ -919,44 +925,6 @@ function LibraryInner() {
  * A switch, not a navigation: it replaces the URL (the page's one `setParam`), so Back leaves the Library
  * rather than walking back through the tabs. The underline slides only when motion is welcome.
  */
-interface MenuItem { label: string; run: () => void; danger?: boolean }
-
-/** The selection's actions as a small menu: at the pointer for a right click, under the Actions button otherwise. */
-function SelectionMenu({ at, items, title, onClose }: { at: { x: number; y: number }; items: MenuItem[]; title: string; onClose: () => void }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState(at);
-  useEffect(() => {
-    const el = ref.current;
-    if (el) {
-      const r = el.getBoundingClientRect();
-      setPos({ x: Math.max(8, Math.min(at.x, window.innerWidth - r.width - 8)), y: Math.max(8, Math.min(at.y, window.innerHeight - r.height - 8)) });
-      el.querySelector<HTMLElement>('button')?.focus();
-    }
-    const off = (e: Event) => { if (!ref.current?.contains(e.target as Node)) onClose(); };
-    const key = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    document.addEventListener('mousedown', off);
-    document.addEventListener('keydown', key);
-    window.addEventListener('resize', onClose);
-    return () => {
-      document.removeEventListener('mousedown', off);
-      document.removeEventListener('keydown', key);
-      window.removeEventListener('resize', onClose);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- placed once, when it opens
-  }, []);
-  return (
-    <div ref={ref} role="menu" aria-label={title} style={{ left: pos.x, top: pos.y }} data-lenis-prevent
-      className="glass fixed z-[70] max-h-[80vh] w-56 overflow-y-auto rounded-xl border border-ink-700 p-1 shadow-xl">
-      <p className="px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-fog-500">{title}</p>
-      {items.map((it) => (
-        <button key={it.label} role="menuitem" type="button" onClick={() => { onClose(); it.run(); }}
-          className={`block w-full rounded-lg px-2.5 py-2 text-start text-sm hover:bg-ink-800/60 ${it.danger ? 'text-rose-300' : 'text-fog-100'}`}>
-          {it.label}
-        </button>
-      ))}
-    </div>
-  );
-}
 
 function ViewSwitch({ view, onView }: { view: LibraryView; onView: (v: LibraryView) => void }) {
   const ring = useDownloadsRing();

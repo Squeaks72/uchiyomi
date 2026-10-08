@@ -10,7 +10,6 @@ import { readShownOnce } from '@/lib/shownOnce';
 import { setTypeToSearchOn, typeToSearchOn } from '@/lib/typeToSearch';
 import { showAllChaptersOn } from '@/lib/showAllChapters';
 import { useAccountPref } from '@/lib/useAccountPref';
-import { contextMenusOn, setContextMenusOn } from '@/lib/contextMenus';
 import { ReaderPrefs, loadPrefs, savePrefs, syncPrefsFromServer } from '@/lib/readerPrefs';
 import { Avatar, AVATAR_EMOJIS, AVATAR_COLORS } from '@/components/Avatar';
 import { ProgressBar } from '@/components/ui';
@@ -127,8 +126,6 @@ function AppearanceSection() {
   // Read after mount: localStorage is not there during the static export's render.
   const [typeSearch, setTypeSearch] = useState(true);
   useEffect(() => { setTypeSearch(typeToSearchOn()); }, []);
-  const [contextMenus, setContextMenus] = useState(true);
-  useEffect(() => { setContextMenus(contextMenusOn()); }, []);
   const [banners, setBanners] = useAccountPref('showBanners');
   const saveReduceEffects = async (next: boolean) => {
     const prev = reduceEffects;
@@ -217,12 +214,6 @@ function AppearanceSection() {
       <SwitchRow label={tr('Type anywhere to search')}
         help={tr('Start typing on any page to search. Also turns the / shortcut on or off. This device only.')}
         on={typeSearch} onChange={(next) => { setTypeToSearchOn(next); setTypeSearch(next); }} />
-
-      {/* This device only, like type-to-search (lib/contextMenus.ts, #100). On by default: the menus only take the
-          right-click where the browser's offers nothing worth keeping, and Shift+right-click still gets it. */}
-      <SwitchRow label={tr('Right-click menus')}
-        help={tr('Right-click, or press and hold, a series or chapter to see its actions. Shift+right-click opens the browser’s menu. This device only.')}
-        on={contextMenus} onChange={(next) => { setContextMenusOn(next); setContextMenus(next); }} />
     </Section>
   );
 }

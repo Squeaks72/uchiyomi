@@ -1344,7 +1344,7 @@ function LibraryDialog({ editing, start, libs, onClose, onSaved }: {
             className="mt-0.5 size-4 shrink-0 accent-accent" data-library-anilist-lookup />
         </label>
 
-        {editing && unchanged && <GatherSeries lib={editing} onDone={onSaved} />}
+        {editing && <GatherSeries lib={editing} onDone={onSaved} pending={!unchanged} />}
 
         {preview && (
           <p role="status" className="mt-3 text-[11px] leading-relaxed text-fog-500" data-library-preview={preview.series}>
@@ -1365,12 +1365,12 @@ function LibraryDialog({ editing, start, libs, onClose, onSaved }: {
 
 type GatherAnswer = {
   dryRun: boolean; target: string; planned: number; moved: number; same: number;
-  problems: { id: string; title: string; from: string; to: string; status: string; reason?: string }[];
+  problems: { id: string; title: string; from: string; to: string; status: string; reason?: string; fix?: string }[];
   sample: { from: string; to: string }[];
 };
 
 /** Move every series of a library under one folder, dropping the source-name level. Previewed first, then confirmed with a second press. */
-function GatherSeries({ lib, onDone }: { lib: LibraryRow; onDone: () => void }) {
+function GatherSeries({ lib, onDone, pending }: { lib: LibraryRow; onDone: () => void; pending: boolean }) {
   const toast = useToast();
   const roots = lib.id === 'lib' && !foldersOf(lib).length ? [''] : foldersOf(lib);
   const [target, setTarget] = useState(roots[0] ?? '');
@@ -1403,27 +1403,35 @@ function GatherSeries({ lib, onDone }: { lib: LibraryRow; onDone: () => void }) 
       <p className="mb-2 mt-1 text-[11px] leading-relaxed text-fog-600">
         {tr('Moves each series folder to <folder>/<series name> on disk, in every root it lives in, so source-name folders disappear. Progress is kept.')}
       </p>
+      {pending && <p role="status" className="mb-2 text-[11px] text-amber-300">{tr('Save your folder changes first. This works on the folders as saved.')}</p>}
       <div className="flex gap-2">
-        <select id="library-gather" value={target} onChange={(e) => { setTarget(e.target.value); setPlan(null); }} className="field min-w-0 flex-1 font-mono">
+        <select id="library-gather" value={target} onChange={(e) => { setTarget(e.target.value); setPlan(null); }} disabled={pending} className="field min-w-0 flex-1 font-mono">
           {options.map((o) => <option key={o} value={o}>{o || tr('(library root)')}</option>)}
         </select>
-        <button type="button" onClick={() => ask(true)} disabled={busy} className="btn-key h-auto self-stretch">{tr('Preview')}</button>
+        <button type="button" onClick={() => ask(true)} disabled={busy || pending} className="btn-key h-auto self-stretch">{tr('Preview')}</button>
       </div>
       {plan && (
         <div role="status" className="mt-2 text-[11px] leading-relaxed text-fog-400">
           {plan.dryRun
-            ? tr('{n} series would move, {same} already there.', { n: plan.planned, same: plan.same })
-            : tr('{n} series moved, {same} already there.', { n: plan.moved, same: plan.same })}
+            ? (plan.planned === 1 ? tr('1 series would move, {same} already there.', { same: plan.same }) : tr('{n} series would move, {same} already there.', { n: plan.planned, same: plan.same }))
+            : (plan.moved === 1 ? tr('1 series moved, {same} already there.', { same: plan.same }) : tr('{n} series moved, {same} already there.', { n: plan.moved, same: plan.same }))}
           {plan.sample.length > 0 && (
             <ul className="mt-1 space-y-0.5 font-mono text-fog-500">
               {plan.sample.map((m) => <li key={m.from} className="truncate" dir="ltr">{m.from} → {m.to}</li>)}
             </ul>
           )}
           {plan.problems.length > 0 && (
-            <div className="mt-1 text-amber-300">
-              {tr('{n} will be left alone:', { n: plan.problems.length })}
-              <ul className="mt-0.5 space-y-0.5">
-                {plan.problems.slice(0, 8).map((m) => <li key={m.id} className="truncate">{m.title} — {m.reason}</li>)}
+            <div className="mt-2 text-amber-300" ref={(el) => { if (el && plan.dryRun === false) el.scrollIntoView({ block: 'nearest' }); }}>
+              {plan.problems.length === 1 ? tr('1 will be left alone:') : tr('{n} will be left alone:', { n: plan.problems.length })}
+              <ul className="mt-1 max-h-64 space-y-2 overflow-y-auto pe-1" data-lenis-prevent data-gather-problems>
+                {plan.problems.map((m) => (
+                  <li key={m.id} className="rounded-md border border-amber-500/30 bg-ink-950/50 p-2 text-fog-300">
+                    <span className="block break-words font-medium text-amber-200">{m.title}</span>
+                    <span className="block break-words font-mono text-[10px] text-fog-500" dir="ltr">{m.from} → {m.to}</span>
+                    {m.reason && <span className="mt-0.5 block break-words">{m.reason}</span>}
+                    {m.fix && <span className="mt-0.5 block break-words text-fog-400">{m.fix}</span>}
+                  </li>
+                ))}
               </ul>
             </div>
           )}
@@ -1431,8 +1439,8 @@ function GatherSeries({ lib, onDone }: { lib: LibraryRow; onDone: () => void }) 
       )}
       {plan?.dryRun && plan.planned > 0 && (
         <ArmButton type="button" armed={armed} arm={arm} onConfirm={() => void ask(false)} busy={busy} disabled={busy}
-          className="btn-key btn-key-primary mt-2">
-          {tr('Move {n} series', { n: plan.planned })}
+          className="btn-key mt-2">
+          {plan.planned === 1 ? tr('Move 1 series') : tr('Move {n} series', { n: plan.planned })}
         </ArmButton>
       )}
     </div>
