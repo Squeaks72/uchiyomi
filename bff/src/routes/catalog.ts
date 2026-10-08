@@ -1,3 +1,4 @@
+import { otherTitlesFor } from '../lib/otherTitles';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { q, one } from '../lib/db';
@@ -6,7 +7,7 @@ import { komgaImage } from '../lib/komga';
 import { content as komga, NATIVE_PROGRESS, OWNED } from '../lib/backend';
 import { UnsupportedFilter, owned } from '../lib/ownedCatalog';
 import { cleanDescription } from '../lib/htmlText';
-import { viewCtxFor, SYSTEM_CTX, type ViewCtx, hideAdult, browsableIds, browsable, Params, adultFilterConfigured } from '../lib/visibility';
+import { viewCtxFor, SYSTEM_CTX, type ViewCtx, hideAdult, seriesVisible, browsableIds, browsable, Params, adultFilterConfigured } from '../lib/visibility';
 
 /** The viewer attached by the preHandler above. */
 const vc = (req: FastifyRequest): ViewCtx => (req as any).viewCtx as ViewCtx;
@@ -468,6 +469,13 @@ export default async function catalogRoutes(app: FastifyInstance) {
       if (e instanceof UnsupportedFilter) return reply.code(400).send({ error: 'unsupported_filter', predicate: e.predicate });
       throw e;
     }
+  });
+
+  // The English / romanised / Japanese titles of the series' AniList entry, for the series page.
+  app.get('/api/series/:id/other-titles', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    if (!(await seriesVisible(id, vc(req)))) return reply.code(404).send({ error: 'not_found' });
+    return { titles: await otherTitlesFor(id) };
   });
 
   app.get('/api/series/:id', async (req) => {

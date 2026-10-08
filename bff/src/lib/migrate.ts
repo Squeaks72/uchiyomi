@@ -1619,6 +1619,15 @@ ALTER TABLE series_trackers ADD COLUMN IF NOT EXISTS checked_at timestamptz;
 ALTER TABLE series_art      ADD COLUMN IF NOT EXISTS checked_at timestamptz;
 ALTER TABLE server_settings ADD COLUMN IF NOT EXISTS match_check_last_run    timestamptz;
 ALTER TABLE server_settings ADD COLUMN IF NOT EXISTS match_check_last_result jsonb;
+-- The English, romanised and Japanese titles of a series' linked AniList entry, shown on the series page
+-- (lib/otherTitles.ts). One row per series; a row with all three NULL records an answer with no names, asked again later.
+CREATE TABLE IF NOT EXISTS series_other_titles (
+  series_id  text PRIMARY KEY REFERENCES lib_series(id) ON DELETE CASCADE,
+  english    text,
+  romaji     text,
+  native     text,
+  fetched_at timestamptz NOT NULL DEFAULT now()
+);
 --
 -- (#150) The file a scan last read a series' ComicInfo from -- its first chapter archive -- as JSON [how it was
 -- read, path, mtime ms, size] (lib/library.ts infoReadOf). A scan opens that archive again only when the file is no

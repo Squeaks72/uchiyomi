@@ -13,6 +13,7 @@ import { Img, Backdrop, Rail, SectionTitle } from '@/components/ui';
 import { SeriesCard } from '@/components/cards';
 import { useToast } from '@/components/Toast';
 import { ConfirmDialog, Modal, msgOf } from '@/components/ConfirmDialog';
+import { seedMeta, metaBody } from '@/lib/seriesMeta';
 import { useAuth, canDownload } from '@/lib/auth';
 import { IcChevronLeft, IcHeart, IcStar, IcPlay, IcDownload, IcCloudDownload, IcCheck, IcTrash, IcMoments, IcHourglass, IcRefresh } from '@/components/icons';
 import { t as tr } from '@/lib/i18n';
@@ -124,7 +125,7 @@ function StarRating({ value, onSet }: { value: number | null; onSet: (n: number)
     <div role="group" aria-label={tr('Rate this')} className="flex items-center gap-1">
       {[1, 2, 3, 4, 5].map((n) => (
         <button key={n} type="button" onClick={() => onSet(n)} aria-label={n === 1 ? tr('1 star') : tr('{n} stars', { n })} aria-pressed={n === value}
-          className={`relative before:absolute before:-inset-1 ${n <= (value || 0) ? 'text-accent' : 'text-ink-600'}`}>
+          className={`relative before:absolute before:-inset-1 ${n <= (value || 0) ? 'text-accent' : 'text-fog-400'}`}>
           <IcStar width={22} height={22} fill={n <= (value || 0) ? 'currentColor' : 'none'} />
         </button>
       ))}
@@ -1113,9 +1114,36 @@ function SeriesInner() {
     } catch { setFav(!next); }
   };
 
+  const [addingGenre, setAddingGenre] = useState(false);
+  const [genreDraft, setGenreDraft] = useState('');
+  useEffect(() => { setAddingGenre(false); setGenreDraft(''); }, [id]);
+  const addGenre = async () => {
+    const t = genreDraft.trim();
+    setGenreDraft(''); setAddingGenre(false);
+    if (!t || !series) return;
+    const m = seedMeta(series);
+    if (m.genres.some((g) => g.toLowerCase() === t.toLowerCase())) return;
+    try {
+      await api(`/api/admin/series/${id}/meta`, { method: 'PUT', json: metaBody({ ...m, genres: [...m.genres, t] }) });
+      qc.invalidateQueries({ queryKey: ['series', id] });
+    } catch (e) { toast(msgOf(e, tr('Could not save that')), 'error'); }
+  };
+  const otherTitles = useQuery({
+    queryKey: ['other-titles', id], enabled: !!id, staleTime: 10 * 60_000,
+    queryFn: () => api<{ titles: { english: string | null; romaji: string | null; native: string | null } | null }>(`/api/series/${encodeURIComponent(id)}/other-titles`),
+  });
+  const [ratingPicking, setRatingPicking] = useState(false);
+  useEffect(() => { setRatingPicking(false); }, [id]);
   const setStars = async (n: number) => {
+    const before = rating;
     setRating(n);
-    try { await api(`/api/ratings/${id}`, { method: 'PUT', json: { stars: n } }); } catch {}
+    setRatingPicking(false);
+    try { await api(`/api/ratings/${id}`, { method: 'PUT', json: { stars: n } }); } catch { setRating(before); }
+  };
+  const clearStars = async () => {
+    const before = rating;
+    setRating(null);
+    try { await api(`/api/ratings/${id}`, { method: 'DELETE' }); } catch { setRating(before); }
   };
 
   const toggleDownload = async (bookId: string) => {
@@ -1784,10 +1812,18 @@ function SeriesInner() {
             ? (noteCount === 1 ? tr('1 note') : tr('{n} notes', { n: noteCount }))
             : tr('Add a note')}
       </Link>
-      <div className="mt-1 flex items-center justify-between">
-        <StarRating value={rating} onSet={setStars} />
-        <span className="text-xs text-fog-500">{rating ? `${rating}/5` : tr('Rate this')}</span>
-      </div>
+      {rating || ratingPicking ? (
+        <div className="mt-1 flex items-center justify-between">
+          <StarRating value={rating} onSet={setStars} />
+          {rating
+            ? <button type="button" onClick={clearStars} className="chip px-2.5 py-1 text-[11px]">{tr('Clear rating')}</button>
+            : <button type="button" onClick={() => setRatingPicking(false)} className="chip px-2.5 py-1 text-[11px]">{tr('Cancel')}</button>}
+        </div>
+      ) : (
+        <button type="button" onClick={() => setRatingPicking(true)}
+          className="mt-1 flex items-center justify-center gap-2 rounded-full border border-ink-700 py-2.5 text-sm text-fog-300">
+          <IcStar width={16} height={16} fill="none" />{tr('Rate this')}</button>
+      )}
       {canDownload(user) && (series?.booksCount ?? 0) >= 3 && (
         <button onClick={() => setFindingMissing(true)} className="mt-1 flex items-center justify-center gap-2 rounded-full border border-ink-700 py-2.5 text-sm text-fog-300">
           <svg aria-hidden width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /><path d="M11 8v6M8 11h6" /></svg>{tr('Find missing chapters')}</button>
@@ -1851,10 +1887,39 @@ function SeriesInner() {
     </div>
   );
 
-  const Genres = !!meta?.genres?.length && (
-    <div className="flex flex-wrap gap-2">
-      {meta.genres.slice(0, 8).map((g) => <span key={g} className="chip text-xs">{g}</span>)}
+  const Genres = (!!meta?.genres?.length || isAdmin) && (
+    <div className="flex flex-wrap items-center gap-2">
+      {(meta?.genres ?? []).slice(0, 8).map((g) => <span key={g} className="chip text-xs">{g}</span>)}
+      {isAdmin && series && (addingGenre ? (
+        <input autoFocus value={genreDraft} dir="auto" maxLength={60} placeholder={tr('Add a genre…')} aria-label={tr('Add a genre…')}
+          onChange={(e) => setGenreDraft(e.target.value)}
+          onBlur={() => { if (!genreDraft.trim()) setAddingGenre(false); else void addGenre(); }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') { e.preventDefault(); void addGenre(); }
+            else if (e.key === 'Escape') { setGenreDraft(''); setAddingGenre(false); }
+          }}
+          className="chip w-36 bg-transparent text-xs text-fog-50 outline-hidden focus-visible:outline-accent" />
+      ) : (
+        <button type="button" onClick={() => setAddingGenre(true)} aria-label={tr('Add a genre')} title={tr('Add a genre')}
+          className="chip px-2.5 text-xs text-fog-400 hover:text-fog-50">+</button>
+      ))}
     </div>
+  );
+  const otherNames = otherTitles.data?.titles;
+  const shownTitle = (meta?.title || series?.name || '').trim().toLowerCase();
+  const nameRows = otherNames ? [
+    { label: tr('English'), text: otherNames.english },
+    { label: tr('Japanese'), text: [otherNames.native, otherNames.romaji].filter(Boolean).join(' · ') || null },
+  ].filter((r) => r.text && r.text.trim().toLowerCase() !== shownTitle) : [];
+  const OtherNames = nameRows.length > 0 && (
+    <dl className="flex flex-col gap-0.5 text-xs text-fog-400">
+      {nameRows.map((r) => (
+        <div key={r.label} className="flex flex-wrap gap-x-2">
+          <dt className="text-fog-500">{r.label}</dt>
+          <dd dir="auto" className="text-fog-300">{r.text}</dd>
+        </div>
+      ))}
+    </dl>
   );
 
   const Summary = summary && (
@@ -2148,6 +2213,7 @@ function SeriesInner() {
         {/* info + chapters */}
         <div className="mt-7 flex flex-col gap-4 lg:mt-4">
           <div className="hidden lg:block"><SupplyLine parts={supplyWide} loaded={supplyLoaded} wide onOpen={() => setSourcesOpen(true)} /></div>
+          {OtherNames}
           {Genres}
           {Summary}
           {Chapters}
