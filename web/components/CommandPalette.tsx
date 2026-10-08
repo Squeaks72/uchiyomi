@@ -20,6 +20,7 @@ import { isTypingTarget, seedFor, typeToSearchKey, typeToSearchOn } from '@/lib/
 import { useLayer } from '@/lib/layers';
 import { canDownload, useAuth } from '@/lib/auth';
 import { downloadsHref } from '@/lib/libraryView';
+import { useSeriesMenu } from './SeriesMenu';
 
 interface Action { key: string; label: string; hint?: string; icon: React.ReactNode; run: () => void | Promise<void> }
 
@@ -163,6 +164,8 @@ export function CommandPalette({ open, seed = '', onClose }: { open: boolean; se
   // The highlighted row stays on screen as the arrows move it past the edge of the list.
   useEffect(() => { if (open) document.getElementById(`${listId}-o${sel}`)?.scrollIntoView({ block: 'nearest' }); }, [sel, open, listId]);
 
+  // Each series row's menu opener, so the keyboard (Shift+F10 on the highlighted row) can open it from the box.
+  const menuOpeners = useRef(new Map<string, () => void>());
   const activate = (i: number) => {
     const r = rows[i];
     if (!r) return;
@@ -177,6 +180,10 @@ export function CommandPalette({ open, seed = '', onClose }: { open: boolean; se
     else if (e.key === 'ArrowUp') { e.preventDefault(); setSel((s) => Math.max(0, s - 1)); }
     else if (e.key === 'Enter') { e.preventDefault(); activate(sel); }
     else if (e.key === 'Escape') { e.preventDefault(); onClose(); }
+    else if ((e.shiftKey && e.key === 'F10') || e.key === 'ContextMenu') {
+      const r = rows[sel];
+      if (r?.kind === 'series') { e.preventDefault(); menuOpeners.current.get(r.series.id)?.(); }
+    }
   };
 
   return (
@@ -220,16 +227,9 @@ export function CommandPalette({ open, seed = '', onClose }: { open: boolean; se
               {results.length > 0 && <p role="presentation" className="px-4 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-widest text-fog-600">{tr('Series')}</p>}
               {rows.map((r, i) =>
                 r.kind === 'series' ? (
-                  <button key={`s:${r.series.id}`} type="button" role="option" id={optId(i)} aria-selected={sel === i} tabIndex={-1} onClick={() => activate(i)} onMouseEnter={() => setSel(i)}
-                    className={`flex w-full items-center gap-3 px-4 py-2 text-start ${sel === i ? 'bg-accent-soft' : ''}`}>
-                    <div className="h-12 w-8 shrink-0 overflow-hidden rounded-md border border-ink-700">
-                      <Img src={img.seriesThumb(r.series.id)} alt="" className="h-full w-full" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="truncate text-sm text-fog-100">{r.series.metadata?.title || r.series.name}</p>
-                      <p className="text-[11px] text-fog-500">{r.series.booksCount === 1 ? tr('1 chapter') : tr('{n} chapters', { n: r.series.booksCount })}</p>
-                    </div>
-                  </button>
+                  <PaletteSeriesRow key={`s:${r.series.id}`} series={r.series} id={optId(i)} selected={sel === i}
+                    onOpen={() => activate(i)} onHover={() => setSel(i)}
+                    register={(fn) => { if (fn) menuOpeners.current.set(r.series.id, fn); else menuOpeners.current.delete(r.series.id); }} />
                 ) : r.kind === 'discover' ? (
                   <button key="discover" type="button" role="option" id={optId(i)} aria-selected={sel === i} tabIndex={-1} data-palette-discover onClick={() => activate(i)} onMouseEnter={() => setSel(i)}
                     className={`flex w-full items-center gap-3 px-4 py-2.5 text-start ${sel === i ? 'bg-accent-soft' : ''}`}>
@@ -308,4 +308,33 @@ export function usePaletteHotkeys(setOpen: (fn: (o: boolean) => boolean) => void
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [setOpen, enabled, onSeed]);
+}
+
+/** One series result, with the series' own menu (right-click, press-and-hold, Shift+F10): the same as on any card. */
+function PaletteSeriesRow({ series, id, selected, onOpen, onHover, register }: {
+  series: Series; id: string; selected: boolean; onOpen: () => void; onHover: () => void; register: (open: (() => void) | null) => void;
+}) {
+  const menu = useSeriesMenu(series);
+  const ref = useRef<HTMLButtonElement>(null);
+  const { openFrom } = menu;
+  useEffect(() => {
+    register(() => { if (ref.current) openFrom(ref.current); });
+    return () => register(null);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [series.id]);
+  return (
+    <>
+      <button ref={ref} type="button" role="option" id={id} aria-selected={selected} tabIndex={-1} onClick={onOpen} onMouseEnter={onHover} {...menu.bind}
+        className={`flex w-full items-center gap-3 px-4 py-2 text-start ${selected ? 'bg-accent-soft' : ''}`}>
+        <div className="h-12 w-8 shrink-0 overflow-hidden rounded-md border border-ink-700">
+          <Img src={img.seriesThumb(series.id)} alt="" className="h-full w-full" />
+        </div>
+        <div className="min-w-0">
+          <p className="truncate text-sm text-fog-100">{series.metadata?.title || series.name}</p>
+          <p className="text-[11px] text-fog-500">{series.booksCount === 1 ? tr('1 chapter') : tr('{n} chapters', { n: series.booksCount })}</p>
+        </div>
+      </button>
+      {menu.element}
+    </>
+  );
 }

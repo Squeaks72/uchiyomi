@@ -1417,6 +1417,8 @@ GET    /api/ratings/loved
 POST   /api/collections/:id/items/bulk
 POST   /api/collections/:id/wants
 DELETE /api/collections/:id/wants/:key
+GET    /api/collections/:id/export
+POST   /api/collections/import
 GET    /api/series/:id/other-titles
 GET    /api/tokens                POST   /api/tokens
 GET    /api/bookmarks             PUT    /api/bookmarks/:bookId/:page
@@ -1449,7 +1451,7 @@ accepted and retained for compatibility. v0.55.8 validates three public keys:
 The earlier `reader` object (including `coverEdges`) and `listSorts` map remain additive keys on the same object.
 
 **Lists** (collections; the app's *Lists*). `GET /api/collections/:id` answers `{id, name, accent, sort_order, description, items}` (`description` is the owner's free note, e.g. where the list came from; `PATCH /api/collections/:id {description}` sets it, an empty string clears it):
-`wants` lists titles saved to it before the library held them (`{key, title, coverUrl}`; `POST /api/collections/:id/wants {title, coverUrl?}` saves one, `DELETE …/wants/:key` drops it) and moves any the library has since gained into `items`; the list's series in its own order (`position`, which `PUT /api/collections/:id/items {seriesIds}` rewrites; since
+`GET /api/collections/:id/export` downloads the list as `{format: "uchiyomi-list", version, name, description, items: [{title, coverUrl?}]}` and `POST /api/collections/import {list, collectionId?}` makes a list of the same name from one (or fills `collectionId`), linking titles the library holds and saving the rest; `wants` lists titles saved to it before the library held them (`{key, title, coverUrl}`; `POST /api/collections/:id/wants {title, coverUrl?}` saves one, `DELETE …/wants/:key` drops it) and moves any the library has since gained into `items`; the list's series in its own order (`position`, which `PUT /api/collections/:id/items {seriesIds}` rewrites; since
 v0.55.7 `POST /api/collections/:id/items` adds a series at the end, as the bulk add does), each enriched like every
 listing — `yomi.unread` is the cover's unread badge, against the caller's own progress — and a series hidden by the
 18+ switch or an age cap left out. Since v0.55.7 ([#164](https://github.com/AngeloSha/uchiyomi/discussions/164)) each
@@ -1559,6 +1561,7 @@ POST   /api/admin/series/:id/sources DELETE /api/admin/series/:id/sources/:sourc
 POST   /api/admin/series/:id/main-source
 POST   /api/admin/series/:id/attach-source
 POST   /api/admin/series/:id/adult
+POST   /api/admin/series/:id/always-show
 GET    /api/admin/adult-titles   POST   /api/admin/adult-titles
 GET    /api/admin/series/:id/alt-titles POST   /api/admin/series/:id/alt-titles
 DELETE /api/admin/series/:id/alt-titles/:norm

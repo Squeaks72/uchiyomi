@@ -8,7 +8,8 @@ import { useToast } from '@/components/Toast';
 import { useAuth } from '@/lib/auth';
 import { EmptyState } from '@/components/EmptyState';
 import { ART } from '@/lib/art';
-import { IcChevronLeft, IcChevronRight, IcHome, IcPlus, IcTrash } from '@/components/icons';
+import { IcChevronLeft, IcChevronRight, IcHeart, IcHome, IcPlus, IcTrash } from '@/components/icons';
+import { ImportListModal, useExportList } from '@/components/ListShare';
 import { useRtl } from '@/components/ui';
 import { keys, t as tr } from '@/lib/i18n';
 import { Modal } from '@/components/ConfirmDialog';
@@ -31,6 +32,10 @@ export default function CollectionsPage() {
   const { user, setSettings } = useAuth();
   const [homeSaving, setHomeSaving] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const exportList = useExportList();
+  const favs = useQuery({ queryKey: ['favorite-ids'], staleTime: 60_000, queryFn: () => api<{ ids: string[] }>('/api/favorites/ids').then((r) => r.ids) });
+  const favCount = favs.data?.length ?? 0;
   // The New collection dialog below is a Modal, which sits on the notices' layer stack (lib/layers.ts) and
   // handles Escape and focus itself.
   const [name, setName] = useState('');
@@ -109,7 +114,8 @@ export default function CollectionsPage() {
           <h1 className="font-display text-2xl font-bold lg:text-3xl">{tr('Collections')}</h1>
           <p className="mt-0.5 text-xs text-fog-500">{tr('Choose up to 3 lists for Home. Empty lists stay selected and appear when they have series.')}</p>
         </div>
-        <button type="button" onClick={() => setCreating(true)} aria-haspopup="dialog" className="btn-accent ms-auto px-3.5 py-2 text-sm">
+        <button type="button" onClick={() => setImporting(true)} aria-haspopup="dialog" data-list-import className="chip ms-auto text-xs">{tr('Import')}</button>
+        <button type="button" onClick={() => setCreating(true)} aria-haspopup="dialog" className="btn-accent px-3.5 py-2 text-sm">
           <IcPlus width={16} height={16} aria-hidden />{tr('New collection')}
         </button>
       </header>
@@ -119,12 +125,22 @@ export default function CollectionsPage() {
           <span className="sr-only">{tr('Loading…')}</span>
           {Array.from({ length: 4 }).map((_, i) => <div key={i} className="skeleton h-24 rounded-2xl" />)}
         </div>
-      ) : items.length === 0 ? (
+      ) : false ? (
         <EmptyState art={ART.emptyLibrary} title={tr('No collections yet')}
           sub={tr('Group series into reading lists, like “Plan to read”. Create one, then add series from any series page.')}
           cta={undefined} />
       ) : (
         <ul className="grid grid-cols-1 gap-3 px-4 pt-3 sm:grid-cols-2 lg:grid-cols-3 lg:px-0">
+          <li data-list-favorites className="card group relative overflow-hidden p-4">
+            <span aria-hidden className="absolute inset-y-0 start-0 w-1.5 bg-rose-400" />
+            <Link href="/collection/?id=favorites" className="block ps-2">
+              <p className="flex items-center gap-2 font-display text-lg font-semibold text-fog-50"><IcHeart width={16} height={16} aria-hidden className="text-rose-400" />{tr('Favorites')}</p>
+              <p className="text-xs text-fog-500">{favCount === 1 ? tr('1 series') : tr('{n} series', { n: favCount })}</p>
+            </Link>
+            <div className="mt-3 flex items-center gap-1.5 ps-2">
+              <button type="button" onClick={() => void exportList('favorites', tr('Favorites'))} className="chip text-xs">{tr('Export')}</button>
+            </div>
+          </li>
           {items.map((c) => (
             <li key={c.id} className="card group relative overflow-hidden p-4">
               <span aria-hidden className="absolute inset-y-0 start-0 w-1.5" style={{ background: c.accent || 'rgb(var(--accent))' }} />
@@ -153,6 +169,7 @@ export default function CollectionsPage() {
                     </button>
                   </>
                 )}
+                <button type="button" onClick={() => void exportList(c.id, c.name)} className="chip ms-auto text-xs" data-list-export>{tr('Export')}</button>
               </div>
               <button type="button" onClick={() => remove(c)} aria-label={tr('Delete “{name}”', { name: iso(c.name) })}
                 className="absolute end-3 top-3 grid h-8 w-8 place-items-center rounded-full border border-ink-700 text-fog-500 opacity-0 transition group-focus-within:opacity-100 group-hover:opacity-100 pointer-coarse:opacity-100">
@@ -162,6 +179,8 @@ export default function CollectionsPage() {
           ))}
         </ul>
       )}
+
+      {importing && <ImportListModal onClose={() => setImporting(false)} onDone={(id) => router.push(`/collection/?id=${id}`)} />}
 
       {creating && (
         <Modal title={tr('New collection')} onClose={() => setCreating(false)}>

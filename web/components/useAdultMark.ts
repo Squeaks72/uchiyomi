@@ -44,3 +44,25 @@ export function useAdultMark(title: string, seriesId?: string, seriesRating?: nu
     onSelect: () => set(!marked),
   }];
 }
+
+/**
+ * "Always show" for a series' menu (admins only, like the mark: it is the shared switch from Edit details). The 18+
+ * filter then never hides this one series, however its genres read. `exempt` is known only where the card carries the
+ * admin's overrides (the series page); elsewhere the item sets it, and the series page takes it back.
+ */
+export function useAlwaysShow(seriesId: string | undefined, exempt?: boolean): MenuItem[] {
+  const { isAdmin, status } = useAuth();
+  const toast = useToast();
+  const qc = useQueryClient();
+  if (!isAdmin || !seriesId) return [];
+  const set = async (show: boolean) => {
+    try { await api(`/api/admin/series/${encodeURIComponent(seriesId)}/always-show`, { json: { show } }); }
+    catch { toast(tr('Could not do that'), 'error'); return; }
+    for (const key of [['library'], ['home'], ['series'], ['search'], ['adult-filter'], ['collection'], ['collections'], ['updates']]) qc.invalidateQueries({ queryKey: key });
+    toast(show ? tr('Always shown: the 18+ filter will not hide it') : tr('Back under the 18+ filter'), 'success');
+  };
+  return [{
+    label: exempt ? tr('Stop always showing') : tr('Always show (ignore 18+ filter)'), disabled: status === 'offline', hook: 'always-show',
+    onSelect: () => set(!exempt),
+  }];
+}

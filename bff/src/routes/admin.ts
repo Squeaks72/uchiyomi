@@ -2320,6 +2320,31 @@ export default async function adminRoutes(app: FastifyInstance) {
     return { ok: true };
   });
 
+  /**
+   * "Always show" from a card's menu: the quick version of the edit modal's switch. Writes ONLY `adult_exempt`, on the
+   * series and its other language editions, so one title the 18+ filter catches by a genre can stay listed. It lifts
+   * no age rating (the rating itself still hides it).
+   */
+  app.post('/api/admin/series/:id/always-show', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const b = z.object({ show: z.boolean() }).safeParse(req.body);
+    if (!b.success) return reply.code(400).send({ error: 'bad_request' });
+    const row = await one<{ title: string }>('SELECT title FROM lib_series WHERE id = $1', [id]);
+    if (!row) return reply.code(404).send({ error: 'not_found' });
+    await q(
+      `INSERT INTO series_overrides (series_id, adult_exempt)
+       SELECT x.id, $2::boolean
+         FROM (SELECT $1::text AS id
+               UNION SELECT o.id FROM lib_series s JOIN lib_series o ON o.work_id = s.work_id AND o.id <> s.id
+                WHERE s.id = $1 AND s.work_id IS NOT NULL) x
+       ON CONFLICT (series_id) DO UPDATE SET adult_exempt = $2::boolean, updated_at = now()`,
+      [id, b.data.show],
+    );
+    invalidateAdultFilter();
+    await logAudit('series.always_show', { userId: userIdOf(req), detail: { id, title: row.title, show: b.data.show }, req });
+    return { ok: true };
+  });
+
   /** The titles marked 18+ from Discover (lib/adultTitles.ts), for the card menu to say "Mark" or "Not 18+". */
   app.get('/api/admin/adult-titles', async () => ({ content: await listAdultTitles() }));
 

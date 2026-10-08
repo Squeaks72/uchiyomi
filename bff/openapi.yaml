@@ -5199,6 +5199,63 @@ paths:
           description: Malformed body or parameter
         "401":
           description: Not authenticated
+  /api/collections/{id}/export:
+    get:
+      tags:
+        - personal
+      summary: Download a list as a file another Uchiyomi user can import.
+      operationId: getApiCollectionsIdExport
+      description: >-
+        `{format: "uchiyomi-list", version: 1, name, description, items: [{title, coverUrl?}]}`, sent as an
+        attachment. Titles, not ids, so it works on any server: the library's own series first, then the titles saved
+        for later.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: The list file.
+        "401":
+          description: Not authenticated
+        "404":
+          description: Not found
+  /api/collections/import:
+    post:
+      tags:
+        - personal
+      summary: Import an exported list into a new list of the same name, or into one of yours.
+      operationId: postApiCollectionsImport
+      description: >-
+        Body `{list, collectionId?}`, `list` being the exported file. Without `collectionId` a new list is made with
+        the file's name and description. Titles the library holds are linked; the others are saved on the list for
+        later. Answers `{ok, id, name, added, saved, total}`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                list:
+                  type: object
+                collectionId:
+                  type: string
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Not an exported list
+        "401":
+          description: Not authenticated
+        "404":
+          description: Not found
   /api/collections/{id}/wants:
     post:
       tags:
@@ -8191,6 +8248,44 @@ paths:
           description: "Forbidden: token scope, account permission or age limit"
         "404":
           description: Not found, or not visible to this account
+  /api/admin/series/{id}/always-show:
+    post:
+      tags:
+        - admin
+      summary: Set "Always show" on a library series from its menu (exempt from the 18+ filter).
+      operationId: postApiAdminSeriesIdAlwaysShow
+      description: >-
+        Requires an admin account and a token carrying the admin scope. Scopes only ever restrict. Writes only
+        `adult_exempt` on the series and its other language editions; an age rating still hides it. Audited as
+        `series.always_show`.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [show]
+              properties:
+                show: { type: boolean }
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: Done.
+        "400":
+          description: Malformed body
+        "401":
+          description: Not authenticated
+        "403":
+          description: "Forbidden: token scope, account permission or age limit"
+        "404":
+          description: Not found
   /api/admin/adult-titles:
     get:
       tags:

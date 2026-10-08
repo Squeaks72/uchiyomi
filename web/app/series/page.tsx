@@ -1834,6 +1834,18 @@ function SeriesInner() {
                 <svg aria-hidden width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><path d="M3 7V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9L11.7 5H19a2 2 0 0 1 2 2v2" /><path d="M3 9h18l-1.5 9a2 2 0 0 1-2 1.8H6.5a2 2 0 0 1-2-1.8Z" /></svg><span className="truncate">{tr('Rename folder')}</span></button>
             )}
           </div>
+          {/* The 18+ filter's exemption for this one series, without opening the editor (also on every card's menu). */}
+          <button type="button" data-always-show aria-pressed={!!series?.overrides?.adultExempt}
+            onClick={async () => {
+              const show = !series?.overrides?.adultExempt;
+              try {
+                await api(`/api/admin/series/${encodeURIComponent(id)}/always-show`, { json: { show } });
+                qc.invalidateQueries({ queryKey: ['series', id] });
+                toast(show ? tr('Always shown: the 18+ filter will not hide it') : tr('Back under the 18+ filter'), 'success');
+              } catch { toast(tr('Could not do that'), 'error'); }
+            }}
+            className={`btn-key h-auto w-full py-2.5 text-sm font-normal disabled:opacity-50 ${series?.overrides?.adultExempt ? 'text-accent' : 'text-fog-300'}`}>
+            {series?.overrides?.adultExempt ? tr('Always shown (tap to undo)') : tr('Always show (ignore 18+ filter)')}</button>
           {/* Only while the hero is an automatic one: a real banner is changed in Edit details. */}
           {series?.autoHero && (
             <button type="button" onClick={newBanner} disabled={busyAdmin} data-new-banner

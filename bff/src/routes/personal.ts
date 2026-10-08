@@ -202,6 +202,7 @@ export default async function personalRoutes(app: FastifyInstance) {
   });
 
   // ---- collections ----
+  const FAVORITES_ID = 'favorites';
   app.get('/api/collections', async (req) => {
     const uid = userIdOf(req);
     return {
@@ -245,10 +246,17 @@ export default async function personalRoutes(app: FastifyInstance) {
   app.get('/api/collections/:id', async (req, reply) => {
     const uid = userIdOf(req);
     const { id } = req.params as { id: string };
-    const col = await one('SELECT id, name, accent, sort_order, description FROM collections WHERE id = $1 AND user_id = $2', [id, uid]);
+    // Favorites is a list that always exists and is the viewer's own favourites, newest first. It has no row of its
+    // own, so it cannot be renamed, deleted or added to here; the heart does that.
+    const builtin = id === FAVORITES_ID;
+    const col = builtin
+      ? { id: FAVORITES_ID, name: 'Favorites', accent: null, sort_order: -1, description: null, builtin: true }
+      : await one('SELECT id, name, accent, sort_order, description FROM collections WHERE id = $1 AND user_id = $2', [id, uid]);
     if (!col) return reply.code(404).send({ error: 'not_found' });
     const ids = (
-      await q<{ series_id: string }>('SELECT series_id FROM collection_items WHERE collection_id = $1 ORDER BY position', [id])
+      builtin
+        ? await q<{ series_id: string }>('SELECT series_id FROM favorites WHERE user_id = $1 ORDER BY created_at DESC', [uid])
+        : await q<{ series_id: string }>('SELECT series_id FROM collection_items WHERE collection_id = $1 ORDER BY position', [id])
     ).map((r) => r.series_id);
     // A collection is a listing like any other, so a title in an 18+ library stays out of it while hidden.
     // Nothing is removed from the collection itself -- reordering and membership are untouched.
@@ -258,7 +266,7 @@ export default async function personalRoutes(app: FastifyInstance) {
     // The list's sorts (#164) order by two dates no series payload carries; they ride on these items alone. The items
     // stay in the list's own order: the web sorts them, a list being one request and never paged.
     const dates = await listDates(uid, items.map((s: any) => s.id));
-    const wants = await promoteWants(id, req);
+    const wants = builtin ? [] : await promoteWants(id, req);
     return {
       ...col,
       wants,
@@ -792,6 +800,87 @@ export default async function personalRoutes(app: FastifyInstance) {
     }
     return wants.filter((w) => !byKey.has(w.title_key)).map((w) => ({ key: w.title_key, title: w.title, coverUrl: w.cover_url }));
   }
+
+  // ---- sharing a list: a file one person exports and another imports ----
+  //
+  // Titles, not ids: ids belong to one server, a title is the one thing both libraries share. Importing links the
+  // titles this library holds and saves the rest on the list for later ("Not in your library yet").
+  const LIST_FORMAT = 'uchiyomi-list';
+  const listFile = z.object({
+    format: z.literal(LIST_FORMAT),
+    version: z.number().int().min(1).max(1),
+    name: z.string().trim().min(1).max(120),
+    description: z.string().max(4000).nullish(),
+    items: z.array(z.object({ title: z.string().trim().min(1).max(300), coverUrl: z.string().url().max(1000).nullish() })).max(5000),
+  });
+
+  app.get('/api/collections/:id/export', async (req, reply) => {
+    const uid = userIdOf(req);
+    const { id } = req.params as { id: string };
+    const builtin = id === FAVORITES_ID;
+    const col = builtin
+      ? { name: 'Favorites', description: null }
+      : await one<{ name: string; description: string | null }>('SELECT name, description FROM collections WHERE id = $1 AND user_id = $2', [id, uid]);
+    if (!col) return reply.code(404).send({ error: 'not_found' });
+    const held = builtin ? await q<{ title: string }>(
+      `SELECT COALESCE(NULLIF(btrim(o.title), ''), s.title) AS title
+         FROM favorites f JOIN lib_series s ON s.id = f.series_id
+         LEFT JOIN series_overrides o ON o.series_id = s.id
+        WHERE f.user_id = $1 AND ${visibleToAll('s')} ORDER BY f.created_at DESC`, [uid]) : await q<{ title: string }>(
+      `SELECT COALESCE(NULLIF(btrim(o.title), ''), s.title) AS title
+         FROM collection_items ci JOIN lib_series s ON s.id = ci.series_id
+         LEFT JOIN series_overrides o ON o.series_id = s.id
+        WHERE ci.collection_id = $1 AND ${visibleToAll('s')} ORDER BY ci.position`, [id]);
+    const wants = builtin ? [] : await q<{ title: string; cover_url: string | null }>(
+      'SELECT title, cover_url FROM collection_wants WHERE collection_id = $1 ORDER BY position, created_at', [id]);
+    const file = {
+      format: LIST_FORMAT, version: 1, name: col.name, description: col.description,
+      items: [...held.map((h) => ({ title: h.title })), ...wants.map((w) => ({ title: w.title, ...(w.cover_url ? { coverUrl: w.cover_url } : {}) }))],
+    };
+    const safe = col.name.replace(/[^\p{L}\p{N} _-]+/gu, '').trim().slice(0, 60) || 'list';
+    return reply.header('content-disposition', `attachment; filename="${encodeURIComponent(safe)}.uchiyomi-list.json"`).send(file);
+  });
+
+  app.post('/api/collections/import', async (req, reply) => {
+    const uid = userIdOf(req);
+    const b = z.object({ list: listFile, collectionId: z.string().min(1).max(64).optional() }).safeParse(req.body);
+    if (!b.success) return reply.code(400).send({ error: 'bad_request', message: 'That is not an exported Uchiyomi list.' });
+    const { list } = b.data;
+    let target: { id: string; name: string } | null;
+    if (b.data.collectionId) {
+      target = await one('SELECT id, name FROM collections WHERE id = $1 AND user_id = $2', [b.data.collectionId, uid]);
+      if (!target) return reply.code(404).send({ error: 'not_found' });
+    } else {
+      target = await one('INSERT INTO collections (user_id, name, description) VALUES ($1, $2, $3) RETURNING id, name', [uid, list.name, list.description?.trim() || null]);
+    }
+    const id = target!.id;
+    const seen = new Map<string, { title: string; coverUrl: string | null }>();
+    for (const it of list.items) { const k = normTitle(it.title); if (k && !seen.has(k)) seen.set(k, { title: it.title, coverUrl: it.coverUrl ?? null }); }
+    const keys = [...seen.keys()];
+    const held = keys.length ? await q<{ id: string; k: string }>(
+      `SELECT DISTINCT ON (k) s.id, k FROM (
+         SELECT s.id, regexp_replace(lower(s.title), '[^a-z0-9]+', '', 'g') AS k FROM lib_series s WHERE ${visibleToAll('s')}
+       ) s WHERE k = ANY($1) ORDER BY k, id`, [keys]) : [];
+    const byKey = new Map(held.map((h) => [h.k, h.id]));
+    let added = 0; let saved = 0;
+    for (const [k, v] of seen) {
+      const sid = byKey.get(k);
+      if (sid) {
+        const r = await q(
+          `INSERT INTO collection_items (collection_id, series_id, position)
+           VALUES ($1, $2, COALESCE((SELECT max(position) + 1 FROM collection_items WHERE collection_id = $1), 0))
+           ON CONFLICT DO NOTHING RETURNING 1`, [id, sid]);
+        added += r.length;
+      } else {
+        const r = await q(
+          `INSERT INTO collection_wants (collection_id, title_key, title, cover_url, position)
+           VALUES ($1, $2, $3, $4, COALESCE((SELECT max(position) + 1 FROM collection_wants WHERE collection_id = $1), 0))
+           ON CONFLICT DO NOTHING RETURNING 1`, [id, k, v.title, v.coverUrl]);
+        saved += r.length;
+      }
+    }
+    return { ok: true, id, name: target!.name, added, saved, total: seen.size };
+  });
 
   app.post('/api/collections/:id/items/bulk', async (req, reply) => {
     const { id } = req.params as { id: string };
