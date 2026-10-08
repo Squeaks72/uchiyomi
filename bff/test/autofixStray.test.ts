@@ -16,7 +16,7 @@ test('an amber card nobody names is stray, a green one and a named one are not',
 });
 
 test('every check Health runs that can turn amber is either named by the summary or says so here', () => {
-  // The informational cards (version, stalled, orphans) never turn amber, so they need no line.
+  // The informational cards (version, orphans) never turn amber, so they need no line.
   for (const id of ['solver', 'files', 'covers', 'details', 'disk', 'trackers', 'chapter-gaps', 'chapter-failures', 'short-chapters']) {
     assert.equal(SUMMARISED.has(id), true, id);
   }

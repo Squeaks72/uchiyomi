@@ -728,15 +728,6 @@ const EN = {
     'Free space is flagged under 5 % on a disk of under 200 GB, and always under 2 % or 5 GB. A library or download folder that cannot be read, ' +
     'or looks empty while chapters are recorded under it, is usually a share that is not mounted: nothing is marked missing until it is back.',
 
-  // ---- Series status
-  'stalled.quiet': ({ since }: { since: string }) => `marked ongoing, but nothing new since ${day(since)}`,
-  'stalled.revived': ({ status }: { status: string }) => `marked ${status.toLowerCase()}, but new chapters arrived in the last 30 days`,
-  'stalled.some': ({ n }: { n: number }) => `Series whose status may be out of date: ${n}`,
-  'stalled.none': () => 'no series looks out of date',
-  'stalled.note': () =>
-    'For reference only; nothing is changed. A series marked ongoing with no new chapter in a year may have ended, and one marked finished that is still ' +
-    'getting chapters may be ongoing. Set the status on the series page.',
-
   // ---- Reading data
   'orphans.kind': ({ kind }: { kind: string }) => ({
     eventsSeries: 'Reading history of removed series',

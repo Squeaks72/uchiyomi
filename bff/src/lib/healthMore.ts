@@ -172,47 +172,6 @@ export async function diskAndFolders(ctx: IgnoreCtx = noIgnores()): Promise<Heal
   };
 }
 
-// ---- stalled / cancelled ------------------------------------------------------------------------------------
-
-/** For reference only: a series marked ongoing that has not moved in a year, or finished with a new chapter. */
-export async function seriesStatus(): Promise<HealthCheck> {
-  const now = Date.now();
-  const stale = now - 365 * DAY_MS;
-  const recent = now - 30 * DAY_MS;
-  const [quiet, revived] = await Promise.all([
-    q<{ id: string; title: string; latest: string }>(
-      `SELECT s.id, s.title, s.latest_mtime::text AS latest FROM lib_series s
-        WHERE ${visibleToAll('s')} AND s.status ~* '(ongoing|publishing)' AND s.books_count > 0
-          AND s.latest_mtime IS NOT NULL AND s.latest_mtime < $1
-        ORDER BY s.latest_mtime LIMIT 200`, [stale]),
-    q<{ id: string; title: string; status: string }>(
-      `SELECT s.id, s.title, s.status FROM lib_series s
-        WHERE ${visibleToAll('s')} AND s.status ~* '(complet|ended|finished|cancel|abandon)'
-          AND s.created_at < now() - interval '60 days'
-          AND EXISTS (SELECT 1 FROM lib_books b WHERE b.series_id = s.id AND b.pruned_at IS NULL AND b.mtime > $1
-                       AND b.number > COALESCE((SELECT max(b2.number) FROM lib_books b2
-                                                 WHERE b2.series_id = s.id AND b2.pruned_at IS NULL AND b2.mtime <= $1), 0))
-        ORDER BY s.title LIMIT 200`, [recent]),
-  ]);
-  const all: HealthItem[] = [
-    ...quiet.map((r) => ({
-      seriesId: r.id, title: r.title, info: true,
-      ...detailOf([say('stalled.quiet', { since: new Date(Number(r.latest)).toISOString() })]),
-    })),
-    ...revived.map((r) => ({
-      seriesId: r.id, title: r.title, info: true,
-      ...detailOf([say('stalled.revived', { status: r.status })]),
-    })),
-  ];
-  const { items, hidden } = truncate(all);
-  return {
-    id: 'stalled', title: 'Series status', status: 'ok',
-    ...summaryOf([all.length ? say('stalled.some', { n: all.length }) : say('stalled.none')]),
-    ...noteOf([say('stalled.note'), hiddenPart(hidden)]),
-    items,
-  };
-}
-
 // ---- orphaned reading data ----------------------------------------------------------------------------------
 
 type Orphan = 'eventsSeries' | 'eventsChapter' | 'trackerSeries' | 'downloads' | 'removed';

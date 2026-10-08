@@ -974,11 +974,6 @@ const WORDS: Record<string, (p: P) => string | null> = {
   'disk.bad': (p) => tr('Folders or disks needing attention: {n}', { n: num(p, 'n') }),
   'disk.ok': () => tr('enough free space, and every folder can be read'),
   'disk.note': () => tr('Free space is flagged under 5 % on a disk of under 200 GB, and always under 2 % or 5 GB. A library or download folder that cannot be read, or looks empty while chapters are recorded under it, is usually a share that is not mounted: nothing is marked missing until it is back.'),
-  'stalled.quiet': (p) => tr('marked ongoing, but nothing new since {date}', { date: dayText(p.since) }),
-  'stalled.revived': (p) => tr('marked {status}, but new chapters arrived in the last 30 days', { status: str(p, 'status').toLowerCase() }),
-  'stalled.some': (p) => tr('Series whose status may be out of date: {n}', { n: num(p, 'n') }),
-  'stalled.none': () => tr('no series looks out of date'),
-  'stalled.note': () => tr('For reference only; nothing is changed. A series marked ongoing with no new chapter in a year may have ended, and one marked finished that is still getting chapters may be ongoing. Set the status on the series page.'),
   'orphans.kind': (p) => {
     switch (str(p, 'kind')) {
       case 'eventsSeries': return tr('Reading history of removed series');
