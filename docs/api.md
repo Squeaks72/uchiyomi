@@ -1354,7 +1354,6 @@ in the series' Properties sheet.
 ### Bulk actions
 ```
 POST   /api/library/bulk/read     POST   /api/favorites/bulk
-POST   /api/collections/:id/items/bulk
 POST   /api/library/bulk/newest   GET    /api/library/bulk/newest
 ```
 The first three take `{ seriesIds: [...] }`, up to 500. An id that no longer exists is reported in `skipped`
@@ -1428,6 +1427,7 @@ POST   /api/notes
 PATCH  /api/notes/:id             DELETE /api/notes/:id
 PUT    /api/ratings/:seriesId     DELETE /api/ratings/:seriesId
 GET    /api/ratings/loved
+POST   /api/collections/:id/items/bulk
 GET    /api/series/:id/other-titles
 GET    /api/tokens                POST   /api/tokens
 GET    /api/bookmarks             PUT    /api/bookmarks/:bookId/:page
@@ -1588,6 +1588,7 @@ GET    /api/admin/libraries/preview
 GET    /api/admin/libraries/folders
 PATCH  /api/admin/libraries/:id   DELETE /api/admin/libraries/:id
 POST   /api/admin/libraries/:id/consolidate
+POST   /api/admin/series/bulk/genres
 POST   /api/admin/series/:id/library
 POST   /api/admin/series/library
 GET    /api/admin/library/writable

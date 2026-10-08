@@ -32,6 +32,7 @@ import { extensionSettingsHref } from '@/lib/sourcePrefs';
 import { baseOf, codeLabel, editionLangPreset, languageChoices, openingLanguage } from '@/lib/editions';
 import { MANGADEX_LANGUAGES_HREF } from '@/lib/mangadexLangs';
 import { useAccountPref } from '@/lib/useAccountPref';
+import { ListChoiceField, addToList, type ListChoice } from '@/components/CollectionPicker';
 
 export interface Provider {
   source: string; name: string; sourceId: string; title: string; coverUrl?: string;
@@ -240,6 +241,9 @@ export function AddSeriesDialog({ seed, sources, mayFollow, onClose, onAdded }: 
   const [previewing, setPreviewing] = useState(false);
   const [done, setDone] = useState<AddAnswer | null>(null);
   const [opening, setOpening] = useState(false);
+  // A list to put the series on as soon as its row exists (the add answers with the id, or the job card does).
+  const [listChoice, setListChoice] = useState<ListChoice>(null);
+  const listApplied = useRef(false);
   const title = seed.kind === 'result' ? seed.provider.title : seed.title;
 
   // ---- a language edition (v0.52.0, #72) ----
@@ -404,6 +408,17 @@ export function AddSeriesDialog({ seed, sources, mayFollow, onClose, onAdded }: 
     },
   });
   const job = done ? (jobs?.content ?? []).find((j) => j.folder === done.folder) : undefined;
+  const newSeriesId = done?.seriesId ?? job?.seriesId;
+  useEffect(() => {
+    if (listApplied.current || !newSeriesId || !listChoice) return;
+    listApplied.current = true;
+    addToList([newSeriesId], listChoice)
+      .then(() => {
+        toast(tr('Added to your list'), 'success');
+        qc.invalidateQueries({ queryKey: ['collections'] });
+      })
+      .catch(() => { listApplied.current = false; toast(tr('Could not do that'), 'error'); });
+  }, [newSeriesId, listChoice, qc, toast]);
 
   // Derived, not stored: the payload, the rate-limit warning and the "latest" hint all read these.
   // `none` sends no count at all -- `chapterFrom: 'none'` is the whole instruction -- and counts as zero
@@ -594,6 +609,7 @@ export function AddSeriesDialog({ seed, sources, mayFollow, onClose, onAdded }: 
           {/* Where the rest went, when "Archive the rest slowly" was on. */}
           {done.archive && <p className="text-start text-[11px] leading-relaxed text-fog-400" data-archive-outcome={done.archive}>{archiveAddLine(done.archive, !!done.nothing)}</p>}
           {followBlock}
+          <ListChoiceField value={listChoice} onChange={(v) => { if (!listApplied.current) setListChoice(v); }} />
           <div className="flex gap-2">
             <button onClick={onClose} className="btn-ghost flex-1 py-2.5 text-sm">{tr('Done')}</button>
             <button onClick={openIt} disabled={opening} className="btn-accent flex-1 py-2.5 text-sm disabled:opacity-50">
