@@ -2098,14 +2098,6 @@ function SeriesInner() {
           <IcChevronLeft width={22} height={22} />
         </button>
         <span className="truncate text-sm text-fog-300 lg:text-base">{title}</span>
-        {/* The top bar's refresh, for this series alone (admins: the check is theirs). */}
-        {isAdmin && (
-          <button type="button" onClick={checkNow} disabled={checking} data-check-new-header aria-busy={checking || undefined}
-            title={tr('Check this series for new chapters')} aria-label={tr('Check this series for new chapters')}
-            className="ms-auto grid h-10 w-10 shrink-0 place-items-center rounded-full bg-ink-800/70 text-fog-100 backdrop-blur disabled:opacity-60 lg:bg-ink-850">
-            <IcRefresh width={19} height={19} className={checking ? 'animate-spin' : ''} />
-          </button>
-        )}
       </div>
 
       {/* banner — real art pulled from the internet (AniList), else the one the server made from the series' own pages
@@ -2125,7 +2117,16 @@ function SeriesInner() {
               {anilist ? <span data-anilist-chip className="chip text-[11px] tabular-nums">{anilist}</span> : null}
             </div>
           )}
-          <h1 dir="auto" className="font-display text-4xl font-bold leading-tight text-white [text-shadow:0_2px_16px_rgba(0,0,0,0.6)]">{title}</h1>
+          <div className="flex items-center gap-3">
+            <h1 dir="auto" className="min-w-0 font-display text-4xl font-bold leading-tight text-white [text-shadow:0_2px_16px_rgba(0,0,0,0.6)]">{title}</h1>
+            {isAdmin && (
+              <button type="button" onClick={checkNow} disabled={checking} data-check-new-header aria-busy={checking || undefined}
+                title={tr('Check this series for new chapters')} aria-label={tr('Check this series for new chapters')}
+                className="pointer-events-auto grid h-9 w-9 shrink-0 place-items-center rounded-full bg-ink-800/70 text-fog-100 backdrop-blur hover:text-white disabled:opacity-60">
+                <IcRefresh width={18} height={18} className={checking ? 'animate-spin' : ''} />
+              </button>
+            )}
+          </div>
           <div className="mt-2">{Meta}</div>
           {/* The block is pointer-events-none over the banner; the chips take their taps back. */}
           {editions && <EditionChips editions={editions} onAdd={addLanguage} className="pointer-events-auto mt-3" />}
@@ -2154,7 +2155,16 @@ function SeriesInner() {
             </motion.div>
             {/* title beside cover on mobile */}
             <div className="min-w-0 pb-1 lg:hidden">
-              <h1 dir="auto" className="font-display text-2xl font-bold leading-tight text-white">{title}</h1>
+              <div className="flex items-start gap-2">
+              <h1 dir="auto" className="min-w-0 flex-1 font-display text-2xl font-bold leading-tight text-white">{title}</h1>
+              {isAdmin && (
+              <button type="button" onClick={checkNow} disabled={checking} data-check-new-header aria-busy={checking || undefined}
+                title={tr('Check this series for new chapters')} aria-label={tr('Check this series for new chapters')}
+                className="pointer-events-auto grid h-9 w-9 mt-0.5 shrink-0 place-items-center rounded-full bg-ink-800/70 text-fog-100 backdrop-blur hover:text-white disabled:opacity-60">
+                <IcRefresh width={18} height={18} className={checking ? 'animate-spin' : ''} />
+              </button>
+            )}
+            </div>
               {Meta}
             </div>
           </div>
