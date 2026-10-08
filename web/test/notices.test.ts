@@ -310,7 +310,7 @@ test('from lg up the column beside a centred dialog never reaches it', () => {
   for (const [rel, what] of Object.entries(CLEAR_OF_THE_CORNER)) {
     const src = code(read(rel));
     assert.match(src, /\saria-modal="true"/, `${rel} is no longer a dialog: drop it from CLEAR_OF_THE_CORNER`);
-    assert.match(src, /className="fixed inset-0 [^"]*\blg:pb-28\b/, `${what} reaches into the notices' corner from lg up (${rel})`);
+    assert.match(src, /className=\{?[`"]fixed inset-0 [^`"]*\blg:pb-28\b/, `${what} reaches into the notices' corner from lg up (${rel})`);
   }
 });
 

@@ -9,6 +9,7 @@ import { noteFor, sourceIcon, iconTint, type ListMode } from '@/lib/sourceGroups
 import { t as tr } from '@/lib/i18n';
 import type { Src } from '@/lib/sourceGroups';
 import type { SrcState } from '@/lib/sourceGroups';
+import { IconImg } from '@/components/IconImg';
 import { SourceListSheet } from '@/components/SourceListSheet';
 import { SourcesExplainer } from '@/components/SourcesExplainer';
 
@@ -35,20 +36,15 @@ export function SourceIcon({ id, name, ring = '', size = 20, registered = true }
    */
   registered?: boolean;
 }) {
-  const [failed, setFailed] = useState(!registered);
   const box = size === 16 ? 'h-4 w-4 rounded-[4px]' : size === 24 ? 'h-6 w-6 rounded-[7px]' : 'h-5 w-5 rounded-[6px]';
   const cls = `${box} shrink-0 overflow-hidden ${ring}`;
-  if (failed) {
-    return (
-      <span aria-hidden className={`${cls} grid place-items-center text-[10px] font-bold text-fog-200`}
-        style={{ background: iconTint(name) }}>
-        {name.trim().charAt(0).toUpperCase() || '?'}
-      </span>
-    );
-  }
-  // eslint-disable-next-line @next/next/no-img-element
-  return <img src={sourceIcon(id)} alt="" width={size} height={size} loading="lazy" decoding="async"
-    onError={() => setFailed(true)} className={`${cls} bg-ink-700 object-cover`} />;
+  const letter = (
+    <span aria-hidden className={`${cls} grid place-items-center text-[10px] font-bold text-fog-200`}
+      style={{ background: iconTint(name) }}>
+      {name.trim().charAt(0).toUpperCase() || '?'}
+    </span>
+  );
+  return <IconImg src={sourceIcon(id)} size={size} decoding="async" skip={!registered} fallback={letter} className={`${cls} bg-ink-700 object-cover`} />;
 }
 
 /**

@@ -20,7 +20,7 @@ import { withAdult } from '@/lib/adult';
 import { useAuth } from '@/lib/auth';
 import { useToast } from '@/components/Toast';
 import { ConfirmDialog, msgOf } from '@/components/ConfirmDialog';
-import { Img, ProgressBar } from '@/components/ui';
+import { Img, ProgressBar, ToggleChip } from '@/components/ui';
 import { SourceIcon } from '@/components/SourcePicker';
 import { sourceCover } from '@/components/cards';
 import { ImportMatchSheet } from '@/components/ImportMatchSheet';
@@ -385,9 +385,9 @@ function ReviewCard({
       </p>
 
       <div className="mb-2 flex flex-wrap gap-2">
-        <button onClick={() => setFilter('all')} aria-pressed={filter === 'all'} className={`chip text-xs ${filter === 'all' ? 'chip-active' : ''}`}>{tr('All')} · {allCount}</button>
-        <button onClick={() => setFilter('attention')} aria-pressed={filter === 'attention'} className={`chip text-xs ${filter === 'attention' ? 'chip-active' : ''}`}>{tr('Needs attention')} · {attentionCount}</button>
-        <button onClick={() => setFilter('skipped')} aria-pressed={filter === 'skipped'} className={`chip text-xs ${filter === 'skipped' ? 'chip-active' : ''}`}>{tr('Skipped')} · {skippedCount}</button>
+        <ToggleChip on={filter === 'all'} onClick={() => setFilter('all')} className="text-xs">{tr('All')} · {allCount}</ToggleChip>
+        <ToggleChip on={filter === 'attention'} onClick={() => setFilter('attention')} className="text-xs">{tr('Needs attention')} · {attentionCount}</ToggleChip>
+        <ToggleChip on={filter === 'skipped'} onClick={() => setFilter('skipped')} className="text-xs">{tr('Skipped')} · {skippedCount}</ToggleChip>
         {/* v0.51.0 (discussion #121): a long list imported again is mostly titles already here; a switch, on top of
             the filter, leaves the titles still to decide. */}
         {hereCount > 0 && (

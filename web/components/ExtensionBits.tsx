@@ -4,21 +4,18 @@
 import { Fragment, useState, type ReactNode } from 'react';
 import { t as tr } from '@/lib/i18n';
 import type { CatalogExt } from '@/lib/extensions';
+import { IconImg } from '@/components/IconImg';
 import { ProgressRing } from '@/components/ProgressRing';
 
 /** An extension's icon, served by Uchiyomi (the engine is not reachable from a browser), or its initial on a tile. */
 export function ExtIcon({ url, name, size = 40 }: { url: string | null; name: string; size?: number }) {
-  const [failed, setFailed] = useState(false);
   const box = { width: size, height: size };
-  if (!url || failed) {
-    return (
-      <span aria-hidden style={box} className="grid shrink-0 place-items-center rounded-xl border border-ink-600 bg-ink-800 font-display text-sm font-semibold text-fog-300">
-        {[...name.trim()][0]?.toUpperCase() ?? '?'}
-      </span>
-    );
-  }
-  // eslint-disable-next-line @next/next/no-img-element
-  return <img src={url} alt="" width={size} height={size} loading="lazy" onError={() => setFailed(true)} style={box} className="shrink-0 rounded-xl bg-ink-800 object-cover" />;
+  const letter = (
+    <span aria-hidden style={box} className="grid shrink-0 place-items-center rounded-xl border border-ink-600 bg-ink-800 font-display text-sm font-semibold text-fog-300">
+      {[...name.trim()][0]?.toUpperCase() ?? '?'}
+    </span>
+  );
+  return <IconImg src={url ?? ''} size={size} skip={!url} fallback={letter} style={box} className="shrink-0 rounded-xl bg-ink-800 object-cover" />;
 }
 
 /** The small marks after an extension's name: 18+, and no longer in any repository. Squared tags, never capsules. */

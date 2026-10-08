@@ -7,7 +7,7 @@ import { Series } from '@/lib/types';
 import { useAuth } from '@/lib/auth';
 import { LIST_SORTS, listSortOf, sortList, withListSort, type ListSort } from '@/lib/listSort';
 import { SeriesTile } from '@/components/cards';
-import { Sheet, useRtl } from '@/components/ui';
+import { Sheet, useRtl, FIELD_CLS, ToggleChip } from '@/components/ui';
 import { useToast } from '@/components/Toast';
 import { IcChevronLeft, IcChevronRight, IcTrash } from '@/components/icons';
 import { t as tr } from '@/lib/i18n';
@@ -49,7 +49,7 @@ function ListNote({ id, value }: { id: string; value: string }) {
       <div className="mt-3 max-w-2xl" data-list-note-edit>
         <textarea value={text} onChange={(e) => setText(e.target.value)} rows={4} maxLength={4000} dir="auto" autoFocus
           aria-label={tr('List description')} placeholder={tr('Where this list came from, a link, a note…')}
-          className="w-full rounded-lg border border-ink-700 bg-ink-900/60 px-3 py-2 text-sm text-fog-100 outline-hidden focus-visible:outline-accent focus-visible:outline-offset-0 transition focus:border-accent/60" />
+          className={FIELD_CLS} />
         <div className="mt-2 flex gap-2">
           <button type="button" onClick={save} disabled={busy} className="btn-accent px-3 text-xs disabled:opacity-50">{tr('Save')}</button>
           <button type="button" onClick={() => { setText(value); setOpen(false); }} className="chip text-xs">{tr('Cancel')}</button>
@@ -78,8 +78,8 @@ function SortChips({ value, onPick }: { value: ListSort; onPick: (s: ListSort) =
   return (
     <div className="flex flex-wrap gap-1.5">
       {LIST_SORTS.map((s) => (
-        <button key={s.key} type="button" onClick={() => onPick(s.key)} aria-pressed={value === s.key} data-list-sort={s.key}
-          className={`chip text-xs ${value === s.key ? 'chip-active' : ''}`}>{tr(s.label)}</button>
+        <ToggleChip key={s.key} on={value === s.key} onClick={() => onPick(s.key)} data-list-sort={s.key}
+          className="text-xs">{tr(s.label)}</ToggleChip>
       ))}
     </div>
   );

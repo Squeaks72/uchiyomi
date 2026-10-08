@@ -561,7 +561,7 @@ test('Main source offers "No source" (#149): its own condition, a sentinel no so
   // The chip: single choice in `src`, a tap on the chosen one clears it, its count beside it as a source's is.
   const section = panel.slice(panel.indexOf('function SourceSection('), panel.indexOf('function Eyebrow('));
   assert.match(section, /const noneShown = none !== undefined && \(none > 0 \|\| value === NO_SOURCE\);/, 'No source is offered with nothing in it, or not while chosen');
-  assert.match(section, /<button type="button" onClick=\{\(\) => onPick\(value === NO_SOURCE \? '' : NO_SOURCE\)\} aria-pressed=\{value === NO_SOURCE\}[\s\S]*?\{tr\('No source'\)\}<span className="ms-1 tabular-nums text-fog-600">\{none\}<\/span>/,
+  assert.match(section, /<ToggleChip on=\{value === NO_SOURCE\} onClick=\{\(\) => onPick\(value === NO_SOURCE \? '' : NO_SOURCE\)\}[\s\S]*?\{tr\('No source'\)\}<span className="ms-1 tabular-nums text-fog-600">\{none\}<\/span>/,
     'the No source chip does not write the sentinel into src, or has no count');
   // The active chip says it in words, never the sentinel; the count comes from the same query as the sources.
   assert.match(page, /const sourceName = \(id: string\) => \(id === NO_SOURCE \? tr\('No source'\) : libSources\?\.sources\.find/, 'the active chip reads the sentinel');

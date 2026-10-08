@@ -23,7 +23,7 @@ import { useContextMenu } from '@/components/ContextMenu';
 import { ProgressRing } from '@/components/ProgressRing';
 import { StatusEdge, StatusMark } from '@/components/StatusMark';
 import { IcMore } from '@/components/icons';
-import { OnBody, Sheet } from '@/components/ui';
+import { OnBody, Sheet, ToggleChip } from '@/components/ui';
 import {
   PLATFORM_CHIPS, dataPlace, dataWarning, defaultPlatform, headline, headlineText, lastTryLine, offSteps, onSteps, platformLabel,
   stillLine, type EngineReport, type Platform, type Step,
@@ -116,10 +116,10 @@ function PlatformChips({ value, onChange }: { value: Platform; onChange: (p: Pla
         requestAnimationFrame(() => group.querySelector<HTMLElement>('[aria-checked="true"]')?.focus());
       }}>
       {PLATFORM_CHIPS.map((p) => (
-        <button key={p} type="button" role="radio" aria-checked={value === p} tabIndex={value === p ? 0 : -1} onClick={() => onChange(p)}
-          className={`chip shrink-0 whitespace-nowrap px-2.5 py-1 text-xs ${value === p ? 'chip-active' : ''}`}>
+        <ToggleChip key={p} on={value === p} aria-pressed={undefined} role="radio" aria-checked={value === p} tabIndex={value === p ? 0 : -1} onClick={() => onChange(p)}
+          className="shrink-0 whitespace-nowrap px-2.5 py-1 text-xs">
           {platformLabel(p)}
-        </button>
+        </ToggleChip>
       ))}
     </div>
   );

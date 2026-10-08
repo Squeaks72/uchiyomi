@@ -1,5 +1,5 @@
 'use client';
-import { useState, ReactNode, useRef, useEffect, useCallback, type KeyboardEvent as ReactKeyboardEvent, type FocusEvent as ReactFocusEvent } from 'react';
+import { useState, ReactNode, useRef, useEffect, useCallback, type ButtonHTMLAttributes, type KeyboardEvent as ReactKeyboardEvent, type FocusEvent as ReactFocusEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { useReducedMotion } from 'framer-motion';
 import { backdropSources, genreBackdrop } from '@/lib/art';
@@ -419,4 +419,33 @@ export function Reveal({ children, delay = 0 }: { children: ReactNode; delay?: n
       {children}
     </div>
   );
+}
+
+/** The compact text-field look the small dialogs share (Add to collection, Edit chapter, list note, alt names).
+ *  Only the box differs between callers, so size (width/padding) is added by the caller; every token here is a
+ *  whole literal so Tailwind still sees it. */
+export const FIELD_BASE = 'rounded-lg border border-ink-700 bg-ink-900/60 text-sm outline-hidden focus-visible:outline-accent focus-visible:outline-offset-0 transition focus:border-accent/60';
+export const FIELD_CLS = `w-full px-3 py-2 text-fog-100 ${FIELD_BASE}`;
+
+/** The dimmed, blurred scrim behind a centred dialog (Modal, the series editor, the command palette, the group sheet). */
+export const BACKDROP_CLS = 'bg-ink-950/70 backdrop-blur-xs';
+
+/**
+ * A button that is either on or off, saying so through `aria-pressed`.
+ * `chip` (default) is the filter/sort chip; `box` is the squarer choice button (reader settings, the role picker).
+ * Any other button attribute (data-*, onClick, role) passes straight through.
+ */
+export function ToggleChip({ on, variant = 'chip', className = '', children, ...rest }: {
+  on: boolean;
+  variant?: 'chip' | 'box';
+} & Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'className'> & { className?: string }) {
+  const cls = variant === 'box'
+    ? `border ${className} ${on ? 'border-accent bg-accent-soft text-accent' : 'border-ink-700 text-fog-300'}`
+    : `chip ${className} ${on ? 'chip-active' : ''}`;
+  return <button type="button" aria-pressed={on} {...rest} className={cls}>{children}</button>;
+}
+
+/** The placeholder shown while a query loads: a skeleton block announced as "Loading…". */
+export function LoadingBlock({ className = '' }: { className?: string }) {
+  return <div role="status" aria-label={tr('Loading…')} className={`skeleton ${className}`} />;
 }

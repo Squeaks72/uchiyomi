@@ -151,7 +151,7 @@ test('a Modal keeps clear of the phone bottom nav', () => {
   // Reintroduce by dropping the `pb-[calc(5.5rem+…)]` from the backdrop or restoring a plain
   // `max-h-[88vh]` on the panel: the matching assertion fails.
   const modal = code(read('components/ConfirmDialog.tsx'));
-  assert.match(modal, /pb-\[calc\(5\.5rem\+env\(safe-area-inset-bottom\)\)\] backdrop-blur-xs lg:pb-4/, 'the backdrop leaves the bar\'s band free below lg');
+  assert.match(modal, /pb-\[calc\(5\.5rem\+env\(safe-area-inset-bottom\)\)\] lg:pb-4/, 'the backdrop leaves the bar\'s band free below lg');
   assert.match(modal, /max-h-\[calc\(100dvh-7\.5rem-env\(safe-area-inset-bottom\)\)\] w-full lg:max-h-\[88vh\]/, 'the panel is capped under that band, 88vh from lg up');
 });
 

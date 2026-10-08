@@ -12,7 +12,8 @@ import { t as tr } from '@/lib/i18n';
 import { saidText } from '@/lib/said';
 import { confirmsTitle } from '@/lib/confirmTitle';
 import { useLayer } from '@/lib/layers';
-import { trapTab } from './ui';
+import { ArmButton, useArmed } from './ArmButton';
+import { trapTab, FIELD_BASE, BACKDROP_CLS } from './ui';
 
 export function Modal({
   title,
@@ -68,7 +69,7 @@ export function Modal({
   // is capped at the viewport minus that band and the top padding (7.5 rem = 5.5 + 1 + 1); from `lg` up it
   // is the centred 88vh dialog it always was. The same 5.5 rem the Sheet's `overBottomNav` uses.
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-ink-950/70 p-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] backdrop-blur-xs lg:pb-4" onClick={onClose}>
+    <div className={`fixed inset-0 z-50 grid place-items-center ${BACKDROP_CLS} p-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] lg:pb-4`} onClick={onClose}>
       <div
         ref={ref}
         role="dialog"
@@ -114,12 +115,7 @@ export function ConfirmDialog({
   onClose: () => void;
 }) {
   const [typed, setTyped] = useState('');
-  const [armed, setArmed] = useState(false);
-  useEffect(() => {
-    if (!armed) return;
-    const h = setTimeout(() => setArmed(false), 4000);
-    return () => clearTimeout(h);
-  }, [armed]);
+  const { armed, arm } = useArmed();
   const fieldId = useId();
   // Compared the way a person can actually type it, through the fold `lib/confirmTitle.ts` explains and the
   // route (routes/admin.ts `sameTitle`) applies to the same string: curly apostrophes, en and em dashes, a
@@ -182,22 +178,22 @@ export function ConfirmDialog({
             id={fieldId}
             value={typed}
             onChange={(e) => setTyped(e.target.value)}
-            className="w-full rounded-lg border border-ink-700 bg-ink-900/60 px-3 py-2 text-sm text-fog-50 outline-hidden focus-visible:outline-accent focus-visible:outline-offset-0 focus:border-accent"
+            className={`w-full px-3 py-2 text-fog-50 ${FIELD_BASE}`}
             autoComplete="off"
           />
         </>
       )}
       <div className="mt-4 flex gap-2">
         <button onClick={onClose} className="btn-ghost flex-1 py-2 text-sm">{tr('Cancel')}</button>
-        <button
-          onClick={() => { if (twoStep && !armed) setArmed(true); else onConfirm(); }}
+        <ArmButton
+          armed={armed} arm={arm} onConfirm={onConfirm} twoStep={!!twoStep} busy={busy}
           disabled={!ready || busy}
           className={`flex-1 rounded-full py-2 text-sm font-semibold disabled:opacity-40 ${
             danger ? 'bg-rose-500/90 text-white hover:bg-rose-500' : 'btn-accent'
           }`}
         >
-          {busy ? tr('Working…') : twoStep && armed ? tr('Sure?') : (confirmLabel ?? tr('Confirm'))}
-        </button>
+          {confirmLabel ?? tr('Confirm')}
+        </ArmButton>
       </div>
     </Modal>
   );
