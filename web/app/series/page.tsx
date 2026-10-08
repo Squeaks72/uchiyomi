@@ -726,6 +726,7 @@ function SeriesInner() {
   const wantCh = chParam(useSearchParams().get('ch'));
   // Health's Open on a numbering finding (#116, lib/healthLinks.ts numberingHref): the plan, open on arrival.
   const wantPlan = useSearchParams().get('numbering') === 'review';
+  const wantAttach = useSearchParams().get('attach') === '1';
   const router = useRouter();
   const qc = useQueryClient();
   const toast = useToast();
@@ -793,6 +794,7 @@ function SeriesInner() {
   // Sheet too, so the (i) SWAPS it for the sources sheet (and back on close) rather than stacking: two
   // stacked sheets both listen for Escape, and one press closed both.
   const [sourcesOpen, setSourcesOpen] = useState(false);
+  const [attachFirst, setAttachFirst] = useState(false);
   const [explaining, setExplaining] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
   const [chapterSheet, setChapterSheet] = useState<{ number: number; book?: Book; ghost?: Ghost } | null>(null);
@@ -813,6 +815,19 @@ function SeriesInner() {
     } catch { /* the plan opens regardless */ }
     setNumberingSheet('next');
   }, [wantPlan, isAdmin, id]);
+  // ...or Health's Find a source: the Sources sheet, straight on the search that attaches one. Once per series.
+  const openedAttach = useRef<string | null>(null);
+  useEffect(() => {
+    if (!wantAttach || !isAdmin || openedAttach.current === id) return;
+    openedAttach.current = id;
+    try {
+      const u = new URL(window.location.href);
+      u.searchParams.delete('attach');
+      window.history.replaceState(window.history.state, '', `${u.pathname}${u.search}${u.hash}`);
+    } catch { /* the sheet opens regardless */ }
+    setAttachFirst(true);
+    setSourcesOpen(true);
+  }, [wantAttach, isAdmin, id]);
   // The older-chapters runs the reader unfolded, by the run's lowest number (chapterRows.ts). Hiding one
   // drops its ghosts from the picks: they leave the screen, and the same rule as `toggleGhosts` applies --
   // a row nobody can see cannot stay picked, or the bar keeps counting and Fetch acts on it.
@@ -2144,7 +2159,8 @@ function SeriesInner() {
         <SourcesSheet id={id} title={series?.metadata?.title || series?.name || ''} series={series} groups={groups} admin={adminGroups} error={groupsError} isLoading={groupsLoading} haveNumbers={liveNumbers}
           checkedAt={supplyChecked}
           onSaved={() => { for (const k of [['series', id], ['series-books', id], ['home'], ['library']]) qc.invalidateQueries({ queryKey: k }); }}
-          onClose={() => setSourcesOpen(false)}
+          startAttach={attachFirst}
+          onClose={() => { setSourcesOpen(false); setAttachFirst(false); }}
           onExplain={() => { setSourcesOpen(false); setExplaining(true); }}
           onFindMissing={() => { setSourcesOpen(false); setFindingMissing(true); }}
           // v0.52.0, the Languages section. Each closes the sheet first: a dialog opened under a Sheet cannot be tapped.

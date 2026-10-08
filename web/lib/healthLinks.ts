@@ -68,7 +68,12 @@ export function healthLinks(check: string, it: HealthItem): HealthLink[] {
       break;
     // A series with no cover: the series (where a cover is picked), and the art page where covers are fetched.
     case 'covers':
-      if (it.seriesId) return [{ href: seriesHref(it.seriesId) }, { href: '/admin/?tab=Art', label: tr('Art') }];
+      if (it.seriesId) return [{ href: seriesHref(it.seriesId) }, { href: `${seriesHref(it.seriesId)}&attach=1`, label: tr('Find a source') }, { href: '/admin/?tab=Art', label: tr('Art') }];
+      break;
+    // A series missing its description, genres or cover: the series, and the search that attaches a source to take them
+    // from (the server fills what is empty from every attached source). Open is the series itself.
+    case 'details':
+      if (it.seriesId) return [{ href: seriesHref(it.seriesId) }, { href: `${seriesHref(it.seriesId)}&attach=1`, label: tr('Find a source') }];
       break;
     // #72: the engine's row is about no series; its setup steps, Check again and Connect are on Admin → Sources.
     case 'extension-engine':

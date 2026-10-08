@@ -61,6 +61,7 @@ import { blockedNow, clearBlock, isDisabled } from './sourceHealth';
 import { automaticChapterAllowedFor, automaticCopiesFor, copyToChapter, seriesFollowsSource, type ListingCopy } from './seriesListing';
 import { groupsOf, normGroup, type ReleasePrefs } from './releases';
 import { effectivePrefsFor, readSeriesPrefs } from './scanlatorPrefs';
+import { fillMissingMeta, seriesMissingMeta } from './metaFill';
 import { borrowNamesFor, NAMES_RETRY_MS } from './borrowNames';
 import { busyFolders } from './bulkNewest';
 import { beginRun, dismissRun, endRun, stopRequested, type RunCard } from './downloadJobs';
@@ -1515,6 +1516,14 @@ async function stepNames(r: RepairResult, log?: Log): Promise<RepairResult['stop
   return undefined;
 }
 
+/** Fill what a few series lack (description, genres, cover) from their other attached sources (lib/metaFill.ts). */
+async function stepMeta(log?: Log): Promise<void> {
+  for (const id of await seriesMissingMeta(15).catch(() => [] as string[])) {
+    const res = await fillMissingMeta(id);
+    if (res.filled.length) log?.info(`repair: ${id}: filled ${res.filled.join(', ')} from ${res.from.join(', ')}`);
+  }
+}
+
 /**
  * (h) Reading directions (#102): which way series read, for the ones nothing has said about yet.
  *
@@ -1906,7 +1915,7 @@ export async function repairLibrary(log?: Log, opts: RepairOpts = {}): Promise<R
     } else if (step === 'gaps') stopped = await stepGaps(r, opts, budget, pending, notes, log);
     else if (step === 'groups') stopped = await stepGroups(r, opts, notes, log);
     else if (step === 'names') stopped = await stepNames(r, log);
-    else if (step === 'directions') await stepDirections(r, log);
+    else if (step === 'directions') { await stepDirections(r, log); await stepMeta(log); }
     r.stepMs[step] = Date.now() - t;
     if (live) live.stepMs[step] = r.stepMs[step];
     if (activeCard) {
