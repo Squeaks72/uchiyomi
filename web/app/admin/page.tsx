@@ -1390,7 +1390,7 @@ function GatherSeries({ lib, onDone, pending }: { lib: LibraryRow; onDone: () =>
       const r = await api<GatherAnswer>(`/api/admin/libraries/${lib.id}/consolidate`, { method: 'POST', json: { target, dryRun } });
       setPlan(r);
       if (!dryRun) {
-        toast(tr('{n} series moved', { n: r.moved }), r.problems.length ? 'error' : 'success');
+        toast(tr('{n} series moved', { n: r.moved }), r.moved > 0 || !r.problems.length ? 'success' : 'error');
         onDone();
       }
     } catch (e) { toast(msgOf(e, tr('Could not gather the series')), 'error'); }
