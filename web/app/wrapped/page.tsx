@@ -1,12 +1,12 @@
 'use client';
+import { BackLink, Breadcrumb } from '@/components/BackLink';
 import Link from 'next/link';
 import { Suspense, useEffect, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { ART } from '@/lib/art';
 import { Wordmark } from '@/components/Brand';
-import { IcChevronLeft } from '@/components/icons';
 import { Heatmap } from '@/components/charts/Heatmap';
 import { Bars } from '@/components/charts/Bars';
 import { keys, t as tr } from '@/lib/i18n';
@@ -63,7 +63,6 @@ export default function WrappedPage() {
 }
 
 function Wrapped() {
-  const router = useRouter();
   const sp = useSearchParams();
   const thisYear = new Date().getUTCFullYear();
   // `/api/wrapped` has always accepted ?year=, and both callers hardcoded the current one -- so every past
@@ -89,10 +88,9 @@ function Wrapped() {
 
   return (
     <div className="min-h-screen-d">
+      <div className="px-4 lg:px-0"><Breadcrumb trail={[{ label: tr('Home'), href: '/' }, { label: tr('Profile'), href: '/profile/' }]} current={tr('Wrapped {year}', { year: String(year) })} /></div>
       <header className="safe-top flex items-center gap-2 px-4 pb-2 lg:px-0">
-        <button type="button" onClick={() => router.back()} aria-label={tr('Back')} className="grid h-10 w-10 place-items-center rounded-full bg-ink-800/70 text-fog-100">
-          <IcChevronLeft width={22} height={22} />
-        </button>
+        <BackLink fallback="/profile/" phoneOnly />
         <h1 className="font-display text-2xl font-bold">{tr('Wrapped {year}', { year: String(year) })}</h1>
       </header>
 

@@ -1,6 +1,6 @@
 'use client';
+import { BackLink, Breadcrumb } from '@/components/BackLink';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, img } from '@/lib/api';
 import { Series } from '@/lib/types';
@@ -9,13 +9,12 @@ import { Img } from '@/components/ui';
 import { useToast } from '@/components/Toast';
 import { EmptyState } from '@/components/EmptyState';
 import { ART } from '@/lib/art';
-import { IcChevronLeft, IcBell, IcCheck } from '@/components/icons';
+import { IcBell, IcCheck } from '@/components/icons';
 import { t as tr } from '@/lib/i18n';
 
 interface UpdateItem { series: Series; newCount: number; latestAt?: string | null }
 
 export default function UpdatesPage() {
-  const router = useRouter();
   const qc = useQueryClient();
   const toast = useToast();
   const { data, isLoading, refetch } = useQuery({ queryKey: ['updates'], queryFn: () => api<{ content: UpdateItem[] }>('/api/updates') });
@@ -30,10 +29,9 @@ export default function UpdatesPage() {
 
   return (
     <div className="min-h-screen-d">
+      <div className="px-4 lg:px-0"><Breadcrumb trail={[{ label: tr('Home'), href: '/' }]} current={tr('Updates')} /></div>
       <header className="safe-top flex items-center gap-2 px-4 pb-2 lg:px-0">
-        <button type="button" onClick={() => router.back()} aria-label={tr('Back')} className="grid h-10 w-10 place-items-center rounded-full bg-ink-800/70 text-fog-100 lg:hidden">
-          <IcChevronLeft width={22} height={22} />
-        </button>
+        <BackLink fallback="/" phoneOnly />
         <h1 className="font-display text-2xl font-bold lg:text-3xl">{tr('Updates')}</h1>
         {items.length > 0 && (
           <button type="button" onClick={markAll} className="ms-auto chip text-xs">

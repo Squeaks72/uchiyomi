@@ -1,13 +1,13 @@
 'use client';
+import { BackLink, Breadcrumb } from '@/components/BackLink';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { api, img } from '@/lib/api';
 import { relativeTime } from '@/lib/format';
 import { Img } from '@/components/ui';
 import { EmptyState } from '@/components/EmptyState';
 import { ART } from '@/lib/art';
-import { IcChevronLeft, IcCheck, IcPlay } from '@/components/icons';
+import { IcCheck, IcPlay } from '@/components/icons';
 import { keys, t as tr } from '@/lib/i18n';
 
 interface HistoryRow {
@@ -29,7 +29,6 @@ const dayLabel = (iso: string) => {
 };
 
 export default function HistoryPage() {
-  const router = useRouter();
   const { data, isLoading } = useQuery({ queryKey: ['history'], queryFn: () => api<{ content: HistoryRow[] }>('/api/history?limit=200') });
   const rows = data?.content ?? [];
 
@@ -43,10 +42,9 @@ export default function HistoryPage() {
 
   return (
     <div className="min-h-screen-d">
-      <header className="safe-top flex items-center gap-2 px-4 pb-2 lg:px-0 lg:pt-6">
-        <button type="button" onClick={() => router.back()} aria-label={tr('Back')} className="grid h-10 w-10 place-items-center rounded-full bg-ink-800/70 text-fog-100">
-          <IcChevronLeft width={22} height={22} />
-        </button>
+      <div className="px-4 lg:px-0"><Breadcrumb trail={[{ label: tr('Home'), href: '/' }, { label: tr('Profile'), href: '/profile/' }]} current={tr('Reading history')} /></div>
+      <header className="safe-top flex items-center gap-2 px-4 pb-2 lg:px-0">
+        <BackLink fallback="/profile/" phoneOnly />
         <h1 className="font-display text-2xl font-bold lg:text-3xl">{tr('Reading history')}</h1>
       </header>
 

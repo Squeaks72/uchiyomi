@@ -1,6 +1,6 @@
 'use client';
+import { BackLink } from '@/components/BackLink';
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { useTabParam } from '@/lib/useTabParam';
 import { AdminSettings } from '@/components/AdminSettings';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -14,7 +14,7 @@ import { useToast } from '@/components/Toast';
 import { ConfirmDialog, Modal, msgOf } from '@/components/ConfirmDialog';
 import { ArmButton, useArmed } from '@/components/ArmButton';
 import { Avatar } from '@/components/Avatar';
-import { IcChevronLeft, IcChevronRight, IcTrash, IcPlus, IcRefresh, IcX } from '@/components/icons';
+import { IcChevronRight, IcTrash, IcPlus, IcRefresh, IcX } from '@/components/icons';
 import { LibraryFolders } from '@/components/LibraryFolders';
 import { addFolder, foldersOf, heldByOthers, heldByText, previewQuery, previewText, sameFolders, toggleFolder, typedFolder } from '@/lib/libraryFolders';
 import { CardProgress, HealthCardActions, HealthRow, hasCardActions, scanState, scanWorking } from '@/components/HealthActions';
@@ -94,7 +94,6 @@ export default function AdminPage() {
 
 function AdminInner() {
   const { isAdmin } = useAuth();
-  const router = useRouter();
   // In the URL rather than in state: a refresh, the back button and every deep link used to land on
   // Overview, and `/admin/?tab=Settings` is the address the docs can now give (lib/useTabParam.ts).
   const [tab, setTab] = useTabParam<Tab>(TABS, 'Overview', SOURCES_TAB_ALIASES);
@@ -125,7 +124,7 @@ function AdminInner() {
 
   return (
     <div className="min-h-screen-d px-4 lg:px-0">
-      <AdminHero onBack={() => router.back()} />
+      <AdminHero />
 
       {/* The foot of the rail says which Uchiyomi this is (v0.55.4, #150): the place people looked for it. */}
       <ConsoleNav groups={isDesktop() ? visibleGroups(GROUPS, DESKTOP_HIDDEN.adminTabs) : GROUPS} tab={tab} onTab={setTab} ariaLabel={tr('Admin')}
@@ -147,7 +146,7 @@ function AdminInner() {
  * blurred and drowned under a gradient), and the headline is the verdict rather than a row of numbers. The
  * counts are still there, just demoted to the line that supports it.
  */
-function AdminHero({ onBack }: { onBack: () => void; onScan?: undefined }) {
+function AdminHero() {
   const qc = useQueryClient();
   const { data: stats } = useQuery({ queryKey: ['admin-stats'], queryFn: () => api<any>('/api/admin/stats') });
   const { data: health } = useQuery({
@@ -214,10 +213,7 @@ function AdminHero({ onBack }: { onBack: () => void; onScan?: undefined }) {
 
       <div className="relative px-4 pb-6 pt-[max(0.9rem,calc(env(safe-area-inset-top)+0.5rem))] lg:px-8 lg:pb-8 lg:pt-8">
         <div className="mb-5 flex items-center gap-2">
-          <button onClick={onBack} aria-label={tr('Back')}
-            className="grid h-10 w-10 place-items-center rounded-full bg-black/40 text-fog-100 backdrop-blur">
-            <IcChevronLeft width={22} height={22} />
-          </button>
+          <BackLink fallback="/profile/" className="grid h-10 w-10 place-items-center rounded-full bg-black/40 text-fog-100 backdrop-blur" />
           <span className="text-xs font-semibold uppercase tracking-wider text-fog-500">{tr('Admin')}</span>
         </div>
 
