@@ -2142,9 +2142,9 @@ function SeriesInner() {
               ) : <Img src={img.seriesThumb(id, series.artVersion, 800)} alt="" className="aspect-[2/3] h-full w-full" />)}
             </motion.div>
             {/* title beside cover on mobile */}
-            <div className="min-w-0 pb-1 lg:hidden">
+            <div className="relative z-10 min-w-0 pb-1 lg:hidden">
               <div className="flex items-start gap-2">
-              <h1 dir="auto" className="min-w-0 flex-1 font-display text-2xl font-bold leading-tight text-white">{title}</h1>
+              <h1 dir="auto" className="min-w-0 flex-1 break-words font-display text-2xl font-bold leading-tight text-white [text-shadow:0_2px_12px_rgba(0,0,0,0.7)]">{title}</h1>
               {isAdmin && (
               <button type="button" onClick={checkNow} disabled={checking} data-check-new-header aria-busy={checking || undefined}
                 title={tr('Check this series for new chapters')} aria-label={tr('Check this series for new chapters')}
