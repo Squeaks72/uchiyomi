@@ -16,7 +16,7 @@ import { effectsReduced } from '@/lib/effects';
 import { t as tr } from '@/lib/i18n';
 import { useSeriesMenu } from './SeriesMenu';
 import { useDiscoverMenu } from './DiscoverMenu';
-import { useIsHiddenTitle } from '@/lib/hiddenTitles';
+import { useIsHiddenTitle, useIsMarkedTitle } from '@/lib/hiddenTitles';
 import { useGlance } from './GlanceCard';
 import { glanceOfSeries, glanceOfSource } from '@/lib/glance';
 
@@ -313,6 +313,8 @@ export interface SourceItem {
   lang?: string | null;
   /** Held, but not in every provider's language: a click opens the entry, the menu still offers another edition. */
   moreEditions?: boolean;
+  /** Every source behind a folded search hit, by name: the details card's "Sources". */
+  providerNames?: string[];
   /** What the other sources call the same title (a search folds them into this card): the at-a-glance card's other names. */
   altTitles?: string[];
   /** A search result known to be 18+ (v0.55.4, #158): the small "18+" mark on its cover. */
@@ -362,9 +364,13 @@ export function SourceCard({ item, providers, onAdd, onOpenAdded, onSearch, eage
   const libraryHref = owned && item.librarySeriesId ? `/series/?id=${encodeURIComponent(item.librarySeriesId)}` : undefined;
   // Right-click, press-and-hold or Shift+F10, as on a library card (components/DiscoverMenu.tsx).
   const glance = useGlance(
-    // Every source behind the card names itself in the glance's Sources fact: the icon stack's own list (v0.56.0),
-    // where this read the one source name the card used to be labelled with.
-    glanceOfSource({ ...item, providerNames: providers?.map((p) => p.name) ?? [], providerTitles: item.altTitles }),
+    // Every source behind the card names itself in the glance's Sources fact: the names a folded search hit carries,
+    // else the icon stack's own list (v0.56.0), where this read the one source name the card used to be labelled with.
+    glanceOfSource({
+      ...item,
+      providerNames: item.providerNames?.length ? item.providerNames : providers?.map((p) => p.name) ?? [],
+      providerTitles: item.altTitles,
+    }),
     {
       cover: sourceCover(item.source, item.coverUrl, 800), fallbackCover: item.coverUrl || undefined,
       readSeriesId: owned ? item.librarySeriesId : undefined,
@@ -375,6 +381,7 @@ export function SourceCard({ item, providers, onAdd, onOpenAdded, onSearch, eage
     });
   const menu = useDiscoverMenu({ title: item.title, libraryHref, librarySeriesId: owned ? item.librarySeriesId : undefined, onAdd: !owned || item.moreEditions ? onAdd : undefined, addLabel: owned ? tr('Add another edition') : undefined, onSearch, onDescribe: glance.show });
   const isHidden = useIsHiddenTitle();
+  const isMarked = useIsMarkedTitle();
   if (isHidden(item.title, owned ? item.librarySeriesId : undefined)) return null;
   // An owned title opens its entry in the library; adding it again would only say "already there".
   const rootCls = 'group block w-full text-start disabled:cursor-default';
@@ -407,7 +414,7 @@ export function SourceCard({ item, providers, onAdd, onOpenAdded, onSearch, eage
             says so before it is opened. Below the source icons. The text is isolated left to right, so the "+" stays
             where the translation puts it in an Arabic line -- on the text, not on the box: the box's `end` would follow
             its own direction and land at the other corner, away from the icons it sits under. */}
-        {item.rating === 'adult' && (
+        {(item.rating === 'adult' || isMarked(item.title, owned ? item.librarySeriesId : undefined)) && (
           <span data-rating-mark
             className={`absolute end-1.5 ${stack ? 'top-9' : 'top-1.5'} z-10 rounded-md bg-ink-950/80 px-1.5 py-0.5 text-[11px] font-semibold text-red-300 backdrop-blur`}>
             <bdi dir="ltr">{tr('18+')}</bdi>
