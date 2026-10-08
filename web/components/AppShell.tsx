@@ -13,6 +13,7 @@ import { DesktopReconnect } from './DesktopReconnect';
 import { CinematicFX } from './CinematicFX';
 import { PageTransition } from './PageTransition';
 import { CommandPalette, usePaletteHotkeys } from './CommandPalette';
+import { ExportTray } from './ExportTray';
 import { ShortcutsDialog, useGoShortcuts } from './Shortcuts';
 import { Mark } from './Brand';
 import { IcWifiOff } from './icons';
@@ -147,6 +148,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <PageTransition>{children}</PageTransition>
       </main>
       <BottomNav />
+      {status === 'authed' && <ExportTray />}
       {status === 'authed' && help && <ShortcutsDialog ctx={shortcutCtx} onClose={() => setHelp(false)} />}
       {status === 'authed' && <CommandPalette open={palette} seed={paletteSeed} onClose={() => setPalette(false)} />}
     </>
