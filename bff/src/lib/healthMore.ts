@@ -50,17 +50,23 @@ export async function seriesCovers(ctx: IgnoreCtx = noIgnores()): Promise<Health
 // ---- details ------------------------------------------------------------------------------------------------
 
 export async function seriesDetails(ctx: IgnoreCtx = noIgnores()): Promise<HealthCheck> {
+  // A series with no description is only a finding when its source gives descriptions to other series: a source that
+  // gives none to any of them simply has none to give, and that is not something to fix here.
   const rows = await q<{ id: string; title: string; summary: boolean; genres: boolean; author: boolean }>(
-    `SELECT s.id, s.title,
-            COALESCE(NULLIF(btrim(o.summary), ''), NULLIF(btrim(s.summary), '')) IS NULL AS summary,
-            COALESCE(cardinality(COALESCE(NULLIF(o.genres, '{}'::text[]), s.genres)), 0) = 0 AS genres,
-            COALESCE(NULLIF(btrim(o.author), ''), NULLIF(btrim(s.author), '')) IS NULL AS author
-       FROM lib_series s LEFT JOIN series_overrides o ON o.series_id = s.id
-      WHERE ${visibleToAll('s')}
-        AND (COALESCE(NULLIF(btrim(o.summary), ''), NULLIF(btrim(s.summary), '')) IS NULL
-          OR COALESCE(cardinality(COALESCE(NULLIF(o.genres, '{}'::text[]), s.genres)), 0) = 0
-          OR COALESCE(NULLIF(btrim(o.author), ''), NULLIF(btrim(s.author), '')) IS NULL)
-      ORDER BY s.title`,
+    `WITH src AS (
+       SELECT source_id FROM lib_series
+        WHERE source_id IS NOT NULL AND NULLIF(btrim(summary), '') IS NOT NULL
+        GROUP BY source_id
+     ), d AS (
+       SELECT s.id, s.title,
+              (COALESCE(NULLIF(btrim(o.summary), ''), NULLIF(btrim(s.summary), '')) IS NULL
+                 AND s.source_id IN (SELECT source_id FROM src)) AS summary,
+              COALESCE(cardinality(COALESCE(NULLIF(o.genres, '{}'::text[]), s.genres)), 0) = 0 AS genres,
+              COALESCE(NULLIF(btrim(o.author), ''), NULLIF(btrim(s.author), '')) IS NULL AS author
+         FROM lib_series s LEFT JOIN series_overrides o ON o.series_id = s.id
+        WHERE ${visibleToAll('s')}
+     )
+     SELECT id, title, summary, genres, author FROM d WHERE summary OR genres OR author ORDER BY title`,
   );
   const all: Keyed[] = rows.map((r) => ({
     seriesId: r.id, title: r.title,
