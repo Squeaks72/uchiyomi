@@ -44,6 +44,7 @@ interface AuthCtx {
   firstRunSetup: (username: string, password: string) => Promise<{ ok: boolean; error?: string }>;
   logout: () => Promise<void>;
   setSettings: (partial: Record<string, any>) => void;
+  setDisplayName: (name: string) => void;
   setAvatar: (avatar: Avatar) => void;
   /** Written the moment 2FA is enabled or disabled, see the note beside its definition. */
   setTotpEnabled: (v: boolean) => void;
@@ -310,6 +311,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if ('reduceEffects' in partial) applyReduceEffects(partial.reduceEffects === true);
   };
 
+  const setDisplayName = (displayName: string) => setUser((u) => (u ? { ...u, displayName } : u));
+
   const setAvatar = (avatar: Avatar) => setUser((u) => (u ? { ...u, avatar } : u));
 
   // ⚠️ `user` is otherwise re-read only by `revalidate` -- every 12 minutes and on visibilitychange -- and the
@@ -327,7 +330,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <Ctx.Provider value={{ status, user, isAdmin: user?.role === 'admin', login, firstRunSetup, logout, setSettings, setAvatar, setTotpEnabled, desktop: isDesktop(), reconnect }}>
+    <Ctx.Provider value={{ status, user, isAdmin: user?.role === 'admin', login, firstRunSetup, logout, setSettings, setDisplayName, setAvatar, setTotpEnabled, desktop: isDesktop(), reconnect }}>
       {children}
     </Ctx.Provider>
   );

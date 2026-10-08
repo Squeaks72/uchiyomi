@@ -45,12 +45,22 @@ function explain(e: unknown, fallback: string): never {
 /* ============================== Signed in as ============================== */
 
 function IdentitySection() {
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, setDisplayName } = useAuth();
   const qc = useQueryClient();
   const toast = useToast();
   const { status, run } = useAutosave();
   const [cur, setCur] = useState('');
   const [next, setNext] = useState('');
+  const [name, setName] = useState(user?.displayName ?? '');
+  const nameId = useId();
+  const nameChanged = name.trim() !== '' && name.trim() !== user?.displayName;
+  const saveName = async (e: FormEvent) => {
+    e.preventDefault();
+    const n = name.trim().slice(0, 40);
+    if (!n) return;
+    const ok = await run(async () => { await api('/api/settings', { method: 'PUT', json: { displayName: n } }); });
+    if (ok) { setDisplayName(n); setName(n); }
+  };
   const curId = useId();
   const nextId = useId();
   const valid = !!cur && next.length >= 8;
@@ -81,6 +91,15 @@ function IdentitySection() {
           <span className="ms-auto shrink-0 rounded bg-accent/20 px-1.5 py-0.5 text-[11px] font-semibold text-accent">{tr('Admin')}</span>
         )}
       </div>
+
+      <Row stacked label={tr('Your name')} status={status}>
+        <form onSubmit={saveName} className="flex gap-2">
+          <label htmlFor={nameId} className="sr-only">{tr('Your name')}</label>
+          <input id={nameId} value={name} maxLength={40} onChange={(e) => setName(e.target.value)} autoComplete="name"
+            placeholder={tr('What should Home call you?')} className="field flex-1" />
+          <button type="submit" disabled={!nameChanged || status.kind === 'saving'} className="btn-accent px-4 py-2 text-sm disabled:opacity-50">{tr('Save')}</button>
+        </form>
+      </Row>
 
       {/* The one explicit Save on this tab that is not an action: a password must never save as you type. */}
       <Row stacked label={tr('Change password')} status={status}>
