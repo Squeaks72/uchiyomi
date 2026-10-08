@@ -1373,23 +1373,31 @@ type GatherAnswer = {
 function GatherSeries({ lib, onDone, pending }: { lib: LibraryRow; onDone: () => void; pending: boolean }) {
   const toast = useToast();
   const roots = lib.id === 'lib' && !foldersOf(lib).length ? [''] : foldersOf(lib);
+  // A small folder browser: tap a folder to go into it (it becomes the destination), or make a new one inside it.
   const [target, setTarget] = useState(roots[0] ?? '');
-  // Only folders that exist: the library's own, and the folders on disk directly under each.
-  const subs = useQueries({ queries: roots.map((r) => ({
-    queryKey: ['admin-library-subfolders', r],
-    queryFn: () => api<{ folders: { path: string }[] }>(`/api/admin/libraries/folders?path=${encodeURIComponent(r)}`),
-    staleTime: 60_000,
-  })) });
-  // The folders on disk under whatever has been typed so far, so a suggestion reaches below the first level.
-  const typedParent = target.includes('/') ? target.slice(0, target.lastIndexOf('/')) : '';
-  const deeper = useQuery({
-    queryKey: ['admin-library-subfolders', typedParent],
-    queryFn: () => api<{ folders: { path: string }[] }>(`/api/admin/libraries/folders?path=${encodeURIComponent(typedParent)}`),
-    enabled: !!typedParent && !roots.includes(typedParent),
-    staleTime: 60_000,
+  const [top, setTop] = useState(false);
+  const [fresh, setFresh] = useState('');
+  const listed = useQuery({
+    queryKey: ['admin-library-subfolders', target],
+    queryFn: () => api<{ folders: { path: string }[] }>(`/api/admin/libraries/folders?path=${encodeURIComponent(target)}`),
+    enabled: !top,
+    staleTime: 15_000,
+    retry: false,
   });
-  const options = [...new Set([...roots, ...subs.flatMap((q) => q.data?.folders.map((f) => f.path) ?? []), ...(deeper.data?.folders.map((f) => f.path) ?? [])])];
-  const exists = options.includes(target.trim());
+  const children = top ? roots.filter((r) => r) : (listed.data?.folders.map((f) => f.path) ?? []);
+  const leaf = (p: string) => p.slice(p.lastIndexOf('/') + 1) || p;
+  const inRoots = roots.includes(target);
+  const parentOf = target.includes('/') ? target.slice(0, target.lastIndexOf('/')) : '';
+  const canUp = !top && (inRoots ? roots.length > 1 : true);
+  const goUp = () => { setPlan(null); if (inRoots) setTop(true); else setTarget(parentOf); };
+  const enter = (p: string) => { setPlan(null); setTop(false); setTarget(p); };
+  const makeNew = () => {
+    const name = fresh.trim().replace(/[\\/]+/g, ' ').trim();
+    if (!name) return;
+    enter(target ? `${target}/${name}` : name);
+    setFresh('');
+  };
+  const isNew = !top && !!target && !listed.isLoading && listed.isError;
   const [plan, setPlan] = useState<GatherAnswer | null>(null);
   const [busy, setBusy] = useState(false);
   const { armed, arm, disarm } = useArmed();
@@ -1408,21 +1416,34 @@ function GatherSeries({ lib, onDone, pending }: { lib: LibraryRow; onDone: () =>
   };
   return (
     <div className="mt-4 max-w-md rounded-lg border border-ink-700 bg-ink-900/40 p-3">
-      <label htmlFor="library-gather" className="block text-xs font-semibold uppercase tracking-wider text-fog-500">{tr('Gather every series into one folder')}</label>
+      <p id="library-gather" className="block text-xs font-semibold uppercase tracking-wider text-fog-500">{tr('Gather every series into one folder')}</p>
       <p className="mb-2 mt-1 text-[11px] leading-relaxed text-fog-600">
         {tr('Moves each series folder to <folder>/<series name> on disk, in every root it lives in, so source-name folders disappear. Progress is kept.')}
       </p>
-      {!pending && target.trim() && !exists && <p className="mb-2 text-[11px] text-fog-400">{tr('This folder does not exist yet. It will be created.')}</p>}
       {pending && <p role="status" className="mb-2 text-[11px] text-amber-300">{tr('Save your folder changes first. This works on the folders as saved.')}</p>}
-      <div className="flex gap-2">
-        <input id="library-gather" list="library-gather-folders" value={target} onChange={(e) => { setTarget(e.target.value); setPlan(null); }}
-          disabled={pending} autoComplete="off" spellCheck={false} dir="ltr" placeholder={tr('Type a folder, or pick one')}
-          className="field min-w-0 flex-1 font-mono" />
-        <datalist id="library-gather-folders">
-          {options.filter((o) => o).map((o) => <option key={o} value={o} />)}
-        </datalist>
-        <button type="button" onClick={() => ask(true)} disabled={busy || pending} className="btn-key h-auto self-stretch">{tr('Preview')}</button>
-      </div>
+      <fieldset disabled={pending} className="min-w-0 border-0 p-0">
+        <p className="text-[11px] text-fog-500">{tr('Gather into')}</p>
+        <p className="mt-0.5 break-all font-mono text-sm text-fog-50" dir="ltr" data-gather-target>
+          {top ? tr('Choose a folder below') : target || tr('(library root)')}
+          {isNew && <span className="ms-2 font-sans text-[11px] text-emerald-300">{tr('new, created when you move')}</span>}
+        </p>
+        <ul data-lenis-prevent data-gather-folders className="mt-2 max-h-44 overflow-y-auto rounded-md border border-ink-700 bg-ink-950/50 p-1">
+          {canUp && (
+            <li><button type="button" onClick={goUp} className="block w-full rounded px-2 py-1.5 text-start text-sm text-fog-300 hover:bg-ink-800/60">↑ {tr('Up one level')}</button></li>
+          )}
+          {children.map((c) => (
+            <li key={c}><button type="button" onClick={() => enter(c)} dir="ltr" title={c}
+              className="block w-full truncate rounded px-2 py-1.5 text-start font-mono text-sm text-fog-100 hover:bg-ink-800/60">{leaf(c)}</button></li>
+          ))}
+          {!top && !listed.isLoading && !children.length && <li className="px-2 py-1.5 text-xs text-fog-500">{tr('No folders inside this one.')}</li>}
+        </ul>
+        <div className="mt-2 flex gap-2">
+          <input value={fresh} onChange={(e) => setFresh(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); makeNew(); } }}
+            disabled={top} aria-label={tr('New folder name')} placeholder={tr('New folder name')} autoComplete="off" dir="auto" className="field min-w-0 flex-1" />
+          <button type="button" onClick={makeNew} disabled={top || !fresh.trim()} className="btn-key h-auto self-stretch">{tr('New folder here')}</button>
+        </div>
+        <button type="button" onClick={() => ask(true)} disabled={busy || pending || top} className="btn-key mt-2 w-full">{tr('Preview')}</button>
+      </fieldset>
       {plan && (
         <div role="status" className="mt-2 text-[11px] leading-relaxed text-fog-400">
           {plan.dryRun

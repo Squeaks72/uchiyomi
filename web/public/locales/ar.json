@@ -2,7 +2,7 @@
   "_meta": {
     "language": "ar",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 4212
+    "strings": 4217
   },
   "1 check found something": "فحص واحد وجد شيئًا",
   "1 member": "عضو واحد",
@@ -4216,6 +4216,11 @@
   "Use as the title": "استخدمه كعنوان",
   "Add another name": "إضافة اسم آخر",
   "Check this series for new chapters": "التحقق من فصول جديدة لهذه السلسلة",
-  "Type a folder, or pick one": "اكتب مجلدًا أو اخترْ واحدًا",
-  "This folder does not exist yet. It will be created.": "هذا المجلد غير موجود بعد. سيتم إنشاؤه."
+  "Gather into": "تجميع في",
+  "Choose a folder below": "اختر مجلدًا أدناه",
+  "new, created when you move": "جديد، يُنشأ عند النقل",
+  "Up one level": "مستوى أعلى",
+  "No folders inside this one.": "لا توجد مجلدات بداخله.",
+  "New folder name": "اسم المجلد الجديد",
+  "New folder here": "مجلد جديد هنا"
 }
