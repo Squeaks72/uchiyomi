@@ -4,7 +4,7 @@ import { q, one } from '../lib/db';
 // backend-agnostic content client: the owned library in owned mode, Komga otherwise. The old direct
 // `lib/komga` import silently nulled every series lookup here after the owned-library cutover.
 import { content as komga } from '../lib/backend';
-import { viewCtxFor, seriesVisible, visible, browsable, browsableIds, Params, type ViewCtx, hideAdult, sourceAllowedFor } from '../lib/visibility';
+import { viewCtxFor, seriesVisible, visible, browsable, browsableIds, Params, type ViewCtx, hideAdult, sourceAllowedFor, visibleToAll } from '../lib/visibility';
 import { getSource } from '../lib/sources';
 import { startBulkNewest, bulkNewestState } from '../lib/bulkNewest';
 // The download strip's "is a job running for this folder" lives with the strip, in routes/sources.ts, and
@@ -317,13 +317,13 @@ export default async function personalRoutes(app: FastifyInstance) {
   app.get('/api/ratings/loved', async (req) => {
     const uid = userIdOf(req);
     const vc = await viewCtxFor(uid, roleOf(req), { hideAdult: hideAdult(req) });
-    const rows = await q<{ id: string; name: string; title: string | null; stars: number }>(
-      `SELECT s.id, s.name, o.title, r.stars FROM ratings r
-         JOIN lib_series s ON s.id = r.series_id AND s.deleted_at IS NULL AND s.merged_into IS NULL
+    const rows = await q<{ id: string; title: string; custom: string | null; stars: number }>(
+      `SELECT s.id, s.title, o.title AS custom, r.stars FROM ratings r
+         JOIN lib_series s ON s.id = r.series_id AND ${visibleToAll('s')}
          LEFT JOIN series_overrides o ON o.series_id = s.id
         WHERE r.user_id = $1 AND r.stars >= 4 ORDER BY r.updated_at DESC LIMIT 10`, [uid]);
     for (const r of rows) {
-      if (await seriesVisible(r.id, vc)) return { series: { id: r.id, name: r.title || r.name, stars: r.stars } };
+      if (await seriesVisible(r.id, vc)) return { series: { id: r.id, name: r.custom || r.title, stars: r.stars } };
     }
     return { series: null };
   });

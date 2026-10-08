@@ -16,6 +16,7 @@
 //    answer keeps being served meanwhile -- stale beats empty, and beats hammering a service that said no;
 //  * concurrent visits to a refresh already running join it instead of starting another.
 import { q, one } from './db';
+import { visibleToAll } from './visibility';
 import { open as unseal } from './secretbox';
 import { withGate } from './gate';
 import {
@@ -194,7 +195,7 @@ export async function tasteFor(userId: string): Promise<Map<string, number>> {
        FROM lib_series s
        LEFT JOIN series_overrides o ON o.series_id = s.id
        LEFT JOIN ratings r ON r.user_id = $1 AND r.series_id = s.id
-      WHERE s.deleted_at IS NULL AND s.merged_into IS NULL
+      WHERE ${visibleToAll('s')}
         AND (r.stars IS NOT NULL OR EXISTS (SELECT 1 FROM read_progress rp WHERE rp.user_id = $1 AND rp.series_id = s.id AND rp.completed))`,
     [userId]).catch(() => []);
   const sum = new Map<string, number>();

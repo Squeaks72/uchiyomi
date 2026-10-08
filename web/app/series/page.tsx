@@ -1808,7 +1808,7 @@ function SeriesInner() {
             ? (noteCount === 1 ? tr('1 note') : tr('{n} notes', { n: noteCount }))
             : tr('Add a note')}
       </Link>
-      <div className="mt-1 flex items-center">
+      <div className="mt-1 flex items-center justify-center">
         <StarRating value={rating} onSet={setStars} />
       </div>
       {/* Under the reader's own stars, at its end: theirs, then AniList's. Shown whether or not they have rated it --
@@ -2261,7 +2261,7 @@ function SeriesInner() {
           danger
           busy={busyAdmin}
           confirmLabel={tr('Remove')}
-          confirmText={series.name}
+          twoStep
           body={
             <>
               {/* An edition goes on its own: the work's other languages stay, and the Library's card shows them. */}

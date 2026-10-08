@@ -6,6 +6,7 @@
 // Text goes to series_overrides, the one place a scan does not overwrite; a cover goes to series_art.cover (the
 // automatic cover, below any cover a person chose).
 import { one, q } from './db';
+import { visibleToAll } from './visibility';
 import { getSource } from './sources';
 import { bounded } from './autoFollow';
 import { isDisabled } from './sourceHealth';
@@ -26,7 +27,7 @@ async function whatIsMissing(seriesId: string): Promise<Have | null> {
        FROM lib_series s
        LEFT JOIN series_overrides o ON o.series_id = s.id
        LEFT JOIN series_art a ON a.series_id = s.id
-      WHERE s.id = $1 AND s.deleted_at IS NULL AND s.merged_into IS NULL`, [seriesId]);
+      WHERE s.id = $1 AND ${visibleToAll('s')}`, [seriesId]);
   return r ?? null;
 }
 
@@ -94,7 +95,7 @@ export async function seriesMissingMeta(limit: number): Promise<string[]> {
     `SELECT s.id FROM lib_series s
        LEFT JOIN series_overrides o ON o.series_id = s.id
        LEFT JOIN series_art a ON a.series_id = s.id
-      WHERE s.deleted_at IS NULL AND s.merged_into IS NULL AND (s.source_id IS NOT NULL OR EXISTS (SELECT 1 FROM series_sources f WHERE f.series_id = s.id))
+      WHERE ${visibleToAll('s')} AND (s.source_id IS NOT NULL OR EXISTS (SELECT 1 FROM series_sources f WHERE f.series_id = s.id))
         AND (COALESCE(NULLIF(btrim(o.summary), ''), NULLIF(btrim(s.summary), '')) IS NULL
           OR COALESCE(cardinality(COALESCE(NULLIF(o.genres, '{}'::text[]), s.genres)), 0) = 0
           OR (COALESCE(o.cover, '') = '' AND COALESCE(a.cover, '') = ''

@@ -1368,6 +1368,8 @@ function LibraryDialog({ editing, start, libs, onClose, onSaved }: {
             className="mt-0.5 size-4 shrink-0 accent-accent" data-library-anilist-lookup />
         </label>
 
+        {editing && unchanged && <GatherSeries lib={editing} onDone={onSaved} />}
+
         {preview && (
           <p role="status" className="mt-3 text-[11px] leading-relaxed text-fog-500" data-library-preview={preview.series}>
             {previewText(preview.series, preview.sample)}
@@ -1382,6 +1384,79 @@ function LibraryDialog({ editing, start, libs, onClose, onSaved }: {
         </div>
       </div>
     </Modal>
+  );
+}
+
+type GatherAnswer = {
+  dryRun: boolean; target: string; planned: number; moved: number; same: number;
+  problems: { id: string; title: string; from: string; to: string; status: string; reason?: string }[];
+  sample: { from: string; to: string }[];
+};
+
+/** Move every series of a library under one folder, dropping the source-name level. Previewed first, then confirmed with a second press. */
+function GatherSeries({ lib, onDone }: { lib: LibraryRow; onDone: () => void }) {
+  const toast = useToast();
+  const [target, setTarget] = useState(lib.id === 'lib' ? '' : foldersOf(lib)[0] ?? '');
+  const [plan, setPlan] = useState<GatherAnswer | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [armed, setArmed] = useState(false);
+  useEffect(() => {
+    if (!armed) return;
+    const h = setTimeout(() => setArmed(false), 4000);
+    return () => clearTimeout(h);
+  }, [armed]);
+  const ask = async (dryRun: boolean) => {
+    setBusy(true);
+    try {
+      const r = await api<GatherAnswer>(`/api/admin/libraries/${lib.id}/consolidate`, { method: 'POST', json: { target, dryRun } });
+      setPlan(r);
+      if (!dryRun) {
+        toast(tr('{n} series moved', { n: r.moved }), r.problems.length ? 'error' : 'success');
+        onDone();
+      }
+    } catch (e) { toast(msgOf(e, tr('Could not gather the series')), 'error'); }
+    setBusy(false);
+    setArmed(false);
+  };
+  return (
+    <div className="mt-4 max-w-md rounded-lg border border-ink-700 bg-ink-900/40 p-3">
+      <label htmlFor="library-gather" className="block text-xs font-semibold uppercase tracking-wider text-fog-500">{tr('Gather every series into one folder')}</label>
+      <p className="mb-2 mt-1 text-[11px] leading-relaxed text-fog-600">
+        {tr('Moves each series folder to <folder>/<series name> on disk, in every root it lives in, so source-name folders disappear. Progress is kept. Leave blank for the library root.')}
+      </p>
+      <div className="flex gap-2">
+        <input id="library-gather" value={target} onChange={(e) => { setTarget(e.target.value); setPlan(null); }} spellCheck={false} dir="auto" autoComplete="off"
+          placeholder={tr('e.g. Manga')} className="field min-w-0 flex-1 font-mono" />
+        <button type="button" onClick={() => ask(true)} disabled={busy} className="btn-key h-auto self-stretch">{tr('Preview')}</button>
+      </div>
+      {plan && (
+        <div role="status" className="mt-2 text-[11px] leading-relaxed text-fog-400">
+          {plan.dryRun
+            ? tr('{n} series would move, {same} already there.', { n: plan.planned, same: plan.same })
+            : tr('{n} series moved, {same} already there.', { n: plan.moved, same: plan.same })}
+          {plan.sample.length > 0 && (
+            <ul className="mt-1 space-y-0.5 font-mono text-fog-500">
+              {plan.sample.map((m) => <li key={m.from} className="truncate" dir="ltr">{m.from} → {m.to}</li>)}
+            </ul>
+          )}
+          {plan.problems.length > 0 && (
+            <div className="mt-1 text-amber-300">
+              {tr('{n} will be left alone:', { n: plan.problems.length })}
+              <ul className="mt-0.5 space-y-0.5">
+                {plan.problems.slice(0, 8).map((m) => <li key={m.id} className="truncate">{m.title} — {m.reason}</li>)}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+      {plan?.dryRun && plan.planned > 0 && (
+        <button type="button" disabled={busy}
+          onClick={() => { if (armed) void ask(false); else setArmed(true); }}
+          className="btn-key btn-key-primary mt-2">
+          {busy ? tr('Working…') : armed ? tr('Sure?') : tr('Move {n} series', { n: plan.planned })}
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -1655,7 +1730,7 @@ function LibraryPanel() {
             </>
           }
           confirmLabel={tr('Delete files')}
-          confirmText={purge.title}
+          twoStep
           danger
           busy={purging}
           onConfirm={() => deleteFiles(purge)}
@@ -1676,7 +1751,7 @@ function LibraryPanel() {
             </>
           }
           confirmLabel={tr('Forget')}
-          confirmText={forget.title}
+          twoStep
           danger
           busy={forgetting}
           onConfirm={() => forgetSeries(forget)}
