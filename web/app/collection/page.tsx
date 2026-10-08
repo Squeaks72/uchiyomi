@@ -14,6 +14,7 @@ import { t as tr } from '@/lib/i18n';
 import { AddSeriesDialog } from '@/components/AddSeriesDialog';
 import { Img } from '@/components/ui';
 import { canDownload } from '@/lib/auth';
+import { useExportList } from '@/components/ListShare';
 
 /** The note with any http(s) address made a link; everything else stays plain text. */
 function Linked({ text }: { text: string }) {
@@ -67,7 +68,7 @@ function ListNote({ id, value }: { id: string; value: string }) {
 }
 
 interface Want { key: string; title: string; coverUrl: string | null }
-interface CollectionDetail { id: string; name: string; accent: string | null; description?: string | null; items: Series[]; wants?: Want[] }
+interface CollectionDetail { id: string; name: string; accent: string | null; description?: string | null; builtin?: boolean; items: Series[]; wants?: Want[] }
 
 /**
  * A list's orders (#164) as the Library's sort chips: one definition, in a row on a wide screen and in a sheet on a
@@ -91,6 +92,7 @@ function CollectionInner() {
   const toast = useToast();
   const rtl = useRtl();
   const { user, setSettings, isAdmin } = useAuth();
+  const exportList = useExportList();
   const [bringing, setBringing] = useState<Want | null>(null);
   // Edit: remove series and move them in the list's own order. It replaced the old hover-only bin on each cover, which
   // a touchscreen could not see and which now sat on the unread badge.
@@ -158,8 +160,8 @@ function CollectionInner() {
             <h1 className="truncate font-display text-2xl font-bold lg:text-3xl">{data?.name || '…'}</h1>
           </div>
         </div>
-        {data && <ListNote key={data.description ?? ''} id={id} value={data.description ?? ''} />}
-        {(items.length > 0 || editing) && (
+        {data && !data.builtin && <ListNote key={data.description ?? ''} id={id} value={data.description ?? ''} />}
+        {(items.length > 0 || wants.length > 0 || editing) && (
           <div className="mt-3 flex flex-wrap items-center gap-2">
             {!editing && (
               <>
@@ -174,10 +176,13 @@ function CollectionInner() {
                 </div>
               </>
             )}
-            <button type="button" onClick={() => setEditing((v) => !v)} aria-pressed={editing} data-list-edit
-              className={`chip ms-auto text-xs ${editing ? 'chip-active' : ''}`}>
-              {editing ? tr('Done') : tr('Edit')}
-            </button>
+            {!editing && data && <button type="button" onClick={() => void exportList(id, data.name)} data-list-export className="chip ms-auto text-xs">{tr('Export')}</button>}
+            {!data?.builtin && (
+              <button type="button" onClick={() => setEditing((v) => !v)} aria-pressed={editing} data-list-edit
+                className={`chip text-xs ${editing ? 'chip-active ms-auto' : ''}`}>
+                {editing ? tr('Done') : tr('Edit')}
+              </button>
+            )}
           </div>
         )}
       </header>
@@ -188,7 +193,7 @@ function CollectionInner() {
           {Array.from({ length: 8 }).map((_, i) => <div key={i} className="skeleton aspect-[2/3] rounded-2xl" />)}
         </div>
       ) : items.length === 0 && !wants.length ? (
-        <p className="px-4 pt-10 text-center text-sm text-fog-500 lg:px-0">{tr('Empty so far — open any series and use “Add to collection”.')}</p>
+        <p className="px-4 pt-10 text-center text-sm text-fog-500 lg:px-0">{data?.builtin ? tr('Nothing yet — tap the heart on a series to add it here.') : tr('Empty so far — open any series and use “Add to collection”.')}</p>
       ) : (
         // The Library's own tile (#164): the same unread count, NEW mark, favourite and offline marks, from the same
         // per-reader numbers, and the same right-click menu.

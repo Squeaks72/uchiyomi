@@ -10,7 +10,7 @@ import { useToast } from './Toast';
 import { useContextMenu, type MenuItem } from './ContextMenu';
 import { useArchiveEnqueue } from './ArchiveQueue';
 import { SeriesPropertiesSheet } from './SeriesPropertiesSheet';
-import { useAdultMark } from './useAdultMark';
+import { useAdultMark, useAlwaysShow } from './useAdultMark';
 
 /**
  * A series card's menu (#100): the few things worth doing without opening the series, from wherever it is on
@@ -37,6 +37,7 @@ export function useSeriesMenu(series: Series, onDescribe?: () => void) {
   const favourite = series.yomi ? !!series.yomi.favorite : !!favIds.data?.includes(series.id);
   const [properties, setProperties] = useState(false);
   const adultItem = useAdultMark(series.metadata?.title || series.name, series.id, series.metadata?.ageRating);
+  const showItem = useAlwaysShow(series.id, series.overrides?.adultExempt);
 
   // ['collection']: a list's tiles carry the same badges since v0.55.7 (#164), and Mark all read from one of them must
   // move its count there too, not only on the Library.
@@ -85,6 +86,7 @@ export function useSeriesMenu(series: Series, onDescribe?: () => void) {
       onSelect: () => { void archive([series.id], series.metadata?.title || series.name); },
     }] : []),
     ...adultItem,
+    ...showItem,
     { label: tr('Properties…'), divider: !adultItem.length, onSelect: () => setProperties(true) },
   ];
 
