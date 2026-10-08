@@ -9,9 +9,23 @@ name: Fork sync
 # a patch that upstream has since adopted disappears on its own instead of
 # conflicting forever.
 #
-# Timing: 06:00 UTC is 01:00 in America/Chicago, three hours ahead of the 04:00
-# CA Auto Update run on the Unraid box. That gap is the point -- the image has to
-# exist before anything tries to pull it.
+# Timing: the image has to exist before CA Auto Update pulls it, 04:00 in
+# America/Chicago -- 09:00 UTC. The nominal time is not the time it runs, though:
+# GitHub queues scheduled workflows under load and drops them outright when it is
+# busy enough. At '0 6' the four runs before 2026-10-08 started 10:34, 10:53, 10:56
+# and 12:41 UTC -- 4h34m to 6h41m late, every one of them landing AFTER the pull it
+# is meant to beat, so the fork sat a release behind for a day at a time. The run
+# due 2026-10-08 never fired at all.
+#
+# So: a long way ahead of 09:00, and off the top of the hour, which is where the
+# queue is deepest (minute 0 of an hour is the single most contended slot there is).
+# 01:37 UTC leaves 7h23m of slack -- more than the worst delay seen plus the ~4
+# minutes sync and build take together.
+#
+# A miss costs one day, and nothing here can prevent one: GitHub skipping a
+# scheduled run is not an error this workflow can see. Re-run it by hand
+# (`gh workflow run fork-sync.yml --repo Squeaks72/uchiyomi --ref tim`) when the
+# fork is behind and no run explains why.
 #
 # A rebase that does not apply cleanly stops here and fails the run rather than
 # forcing anything: a silently dropped patch is worse than a stale image. (Issues
@@ -29,7 +43,7 @@ name: Fork sync
 
 on:
   schedule:
-    - cron: '0 6 * * *'
+    - cron: '37 1 * * *'
   workflow_dispatch:
 
 permissions:
