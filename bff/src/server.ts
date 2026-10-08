@@ -54,6 +54,7 @@ import imageRoutes, { authorizeImageRequest } from './routes/images';
 import personalRoutes from './routes/personal';
 import recommendationRoutes from './routes/recommendations';
 import downloadRoutes from './routes/downloads';
+import { initExports } from './lib/zipExport';
 import sourceRoutes, { jobBusy } from './routes/sources';
 import opdsRoutes from './routes/opds';
 import komgaCompatRoutes from './routes/komgaCompat';
@@ -66,6 +67,7 @@ import { initialiseBulkChapterDeleteRuns } from './lib/bulkChapterDelete';
 
 async function main() {
   await migrate();
+  await initExports();
   // The language of sources and series that do not say (lib/lang.ts), before anything compares languages. A
   // database that cannot be read here leaves English, the default, and never stops the boot.
   await loadUnstatedLang().catch((e) => console.warn(`[lang] could not read the unstated language: ${(e as Error)?.message || e}`));

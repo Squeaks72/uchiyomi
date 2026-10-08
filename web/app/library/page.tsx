@@ -12,6 +12,7 @@ import { IcSearch, IcSparkle, IcPlus, IcImport } from '@/components/icons';
 import { PullToRefresh } from '@/components/PullToRefresh';
 import { triggerRefresh } from '@/lib/refresh';
 import { useToast } from '@/components/Toast';
+import { startExport } from '@/lib/exports';
 import { Modal, ConfirmDialog, msgOf } from '@/components/ConfirmDialog';
 import { LibraryFolders } from '@/components/LibraryFolders';
 import { foldersOf } from '@/lib/libraryFolders';
@@ -304,6 +305,11 @@ function LibraryInner() {
    * unanswered) may hold a partial status that still said running, and summarising that reports a run
    * still going as done. A cancelled one says nothing at all.
    */
+  const zipPicked = () => {
+    startExport({ seriesIds: [...picked] })
+      .then(() => toast(tr('Zipping started. Follow it at the bottom of the screen.'), 'success'))
+      .catch(() => toast(tr('Nothing on the server to zip yet. Fetch some chapters first.'), 'error'));
+  };
   const fetchNewest = async () => {
     setActing(true);
     try {
@@ -729,6 +735,7 @@ function LibraryInner() {
             <button disabled={acting} onClick={() => bulk('/api/library/bulk/read', { completed: false })} className="chip text-xs disabled:opacity-50">{tr('Mark unread')}</button>
             <button disabled={acting} onClick={() => bulk('/api/favorites/bulk', { favorite: true })} className="chip text-xs disabled:opacity-50">{tr('Favorite')}</button>
             <button disabled={acting} onClick={() => setListing(true)} data-add-to-list className="chip text-xs disabled:opacity-50">{tr('Add to list')}</button>
+            <button disabled={acting} onClick={zipPicked} data-zip-picked className="chip text-xs disabled:opacity-50">{tr('Download as zip')}</button>
             {/* Server-side fetch, so it follows the same permission as the Add button and the series
                 page's Fetch: a member who may not download does not see it. */}
             {canDownload(user) && <button disabled={acting} onClick={fetchNewest} className="chip text-xs disabled:opacity-50">{tr('Fetch newest')}</button>}
@@ -800,6 +807,7 @@ function LibraryInner() {
         <SelectionMenu at={menu} onClose={() => setMenu(null)} title={selectedText(picked.size)}
           items={[
             { label: tr('Add to list'), run: () => setListing(true) },
+            { label: tr('Download as zip'), run: zipPicked },
             { label: tr('Mark read'), run: () => void bulk('/api/library/bulk/read', { completed: true }) },
             { label: tr('Mark unread'), run: () => void bulk('/api/library/bulk/read', { completed: false }) },
             { label: tr('Favorite'), run: () => void bulk('/api/favorites/bulk', { favorite: true }) },

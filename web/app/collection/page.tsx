@@ -16,6 +16,7 @@ import { AddSeriesDialog } from '@/components/AddSeriesDialog';
 import { Img } from '@/components/ui';
 import { canDownload } from '@/lib/auth';
 import { useExportList } from '@/components/ListShare';
+import { startExport } from '@/lib/exports';
 
 /** The note with any http(s) address made a link; everything else stays plain text. */
 function Linked({ text }: { text: string }) {
@@ -176,6 +177,10 @@ function CollectionInner() {
               </>
             )}
             {!editing && data && <button type="button" onClick={() => void exportList(id, data.name)} data-list-export className="chip ms-auto text-xs">{tr('Export')}</button>}
+            {!editing && data && <button type="button" data-list-zip className="chip text-xs"
+              onClick={() => startExport({ collectionId: id })
+                .then(() => toast(tr('Zipping started. Follow it at the bottom of the screen.'), 'success'))
+                .catch(() => toast(tr('Nothing on the server to zip yet. Fetch some chapters first.'), 'error'))}>{tr('Download as zip')}</button>}
             {!data?.builtin && (
               <button type="button" onClick={() => setEditing((v) => !v)} aria-pressed={editing} data-list-edit
                 className={`chip text-xs ${editing ? 'chip-active ms-auto' : ''}`}>

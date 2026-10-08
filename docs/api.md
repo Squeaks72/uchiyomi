@@ -1504,6 +1504,8 @@ Admin → Import (From your tracker) to take the tracker's current number, or as
 ```
 GET    /api/downloads             POST   /api/downloads
 DELETE /api/downloads/:bookId     GET    /api/books/:id/download-manifest
+GET    /api/exports               POST   /api/exports
+DELETE /api/exports/:id           GET    /api/exports/:id/file
 ```
 
 ### Admin

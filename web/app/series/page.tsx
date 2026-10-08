@@ -14,6 +14,7 @@ import { StarRating, RatingText } from '@/components/StarRating';
 import { CollectionPickerModal } from '@/components/CollectionPicker';
 import { SeriesCard } from '@/components/cards';
 import { useToast } from '@/components/Toast';
+import { startExport } from '@/lib/exports';
 import { ConfirmDialog, Modal, msgOf } from '@/components/ConfirmDialog';
 import { seedMeta, metaBody } from '@/lib/seriesMeta';
 import { GenreTagInput } from '@/components/GenreTagInput';
@@ -1247,6 +1248,11 @@ function SeriesInner() {
   // `b.owned &&` back: pick a /library chapter and the delete says "0 deleted" -- or nothing.
   const deletable = pickedBookList.filter((b) => !b.pruned);
   const pickedCount = pickedBookList.length + pickedGhostList.length;
+  const zipUp = (bookIds: string[]) => {
+    startExport({ seriesId: id, ...(bookIds.length ? { bookIds } : {}) })
+      .then(() => toast(tr('Zipping started. Follow it at the bottom of the screen.'), 'success'))
+      .catch(() => toast(tr('Nothing on the server to zip yet. Fetch some chapters first.'), 'error'));
+  };
   // The select bar on the notices' layer stack (lib/layers.ts), measured: it wraps to three rows at 390 px,
   // and a notice has to rise above whichever height it has.
   const toolbarRef = useRef<HTMLDivElement>(null);
@@ -1750,6 +1756,10 @@ function SeriesInner() {
         <button onClick={() => setFindingMissing(true)} className="mt-1 flex items-center justify-center gap-2 rounded-full border border-ink-700 py-2.5 text-sm text-fog-300">
           <svg aria-hidden width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /><path d="M11 8v6M8 11h6" /></svg>{tr('Find missing chapters')}</button>
       )}
+      {(series?.booksCount ?? 0) > 0 && (
+        <button type="button" onClick={() => zipUp([])} data-zip-series className="btn-key mt-1 h-auto w-full py-2.5 text-sm font-normal text-fog-300">
+          <IcDownload width={16} height={16} />{tr('Download series as zip')}</button>
+      )}
       {mayArchive && (
         <button type="button" onClick={archiveSlowly} disabled={acting} data-archive-slowly data-archive-why
           title={archiveWhy()} aria-description={archiveWhy()}
@@ -2023,6 +2033,7 @@ function SeriesInner() {
         <button disabled={acting || !pickedCount} onClick={() => bulkMark(false)} className="chip text-xs disabled:opacity-50">{tr('Mark unread')}</button>
         {/* The two icons say which side each acts on: ⬇ this device, ☁ the server. */}
         {!isDesktop() && <button disabled={acting || !saveable.length} onClick={bulkSave} title={tr('Save offline copies it to this device.')} className="chip text-xs disabled:opacity-50"><IcDownload width={14} height={14} />{tr('Save offline')}</button>}
+        <button disabled={acting || !pickedBookList.some((b) => b.owned)} onClick={() => zipUp(pickedBookList.filter((b) => b.owned).map((b) => b.id))} title={tr('Packs the chosen chapters on the server and sends them to your browser as one zip.')} className="chip text-xs disabled:opacity-50"><IcDownload width={14} height={14} />{tr('Download as zip')}</button>
         {canDownload(user) && <button disabled={acting || !fetchable.length} onClick={bulkFetch} title={tr('Fetch brings a chapter onto the server for everyone.')} className="chip text-xs disabled:opacity-50"><IcCloudDownload width={14} height={14} />{tr('Fetch')}</button>}
         {isAdmin && <button disabled={acting || !refetchable.length} onClick={() => setConfirming('refetch')} className="chip text-xs disabled:opacity-50"><IcCloudDownload width={14} height={14} />{tr('Fetch again')}</button>}
         {isAdmin && (

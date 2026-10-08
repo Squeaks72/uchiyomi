@@ -42,6 +42,7 @@
  * server_settings.repair_last_run / repair_last_result: those are the Tasks line and the nightly's schedule,
  * and a one-row Fix pressed at 23:00 used to replace the first and move the second (v0.49.0).
  */
+import { removeEmptyFolders } from './emptyFolders';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
 import { q, one } from './db';
@@ -1936,6 +1937,13 @@ export async function repairLibrary(log?: Log, opts: RepairOpts = {}): Promise<R
     }
   }
 
+  // The whole nightly pass ends by clearing empty folders left behind by series that moved or were removed
+  // (lib/emptyFolders.ts). Not for a partial run, a single-series run or Fix everything's passes.
+  let emptied = 0;
+  if (!stopped && !opts.autofix && !opts.only?.length && !opts.seriesId && !opts.bookId && !opts.sourceId) {
+    emptied = (await removeEmptyFolders(log).catch((e) => { log?.warn(`repair: empty-folder sweep failed: ${(e as Error)?.message || e}`); return { removed: [] as string[] }; })).removed.length;
+  }
+
   here(null);
   const out: RepairResult = { ...r, ms: Date.now() - t0, ...(stopped ? { stopped } : {}) };
   if (live) live.notes = notes;
@@ -1950,6 +1958,7 @@ export async function repairLibrary(log?: Log, opts: RepairOpts = {}): Promise<R
       ...(opts.sourceId ? { sourceId: opts.sourceId } : {}),
       ...(opts.now ? { now: true } : {}),
       summary: summaryOf(out),
+      ...(emptied ? { emptyFoldersRemoved: emptied } : {}),
       ...(stopped ? { stopped } : {}),
       // Capped lists, not counts: enough to answer "which chapters did it touch last night" from the audit
       // page alone, bounded so one run cannot write a megabyte of JSON into the log.
