@@ -4615,6 +4615,8 @@ paths:
               properties:
                 name:
                   type: string
+                description:
+                  type: string
       security:
         - bearer: []
       responses:
@@ -4628,7 +4630,7 @@ paths:
     patch:
       tags:
         - personal
-      summary: Rename a collection.
+      summary: Rename a collection, or change its description (an empty string clears it).
       operationId: patchApiCollectionsId
       parameters:
         - name: id
@@ -4681,7 +4683,7 @@ paths:
         - personal
       summary: One collection and its series.
       description: >-
-        `{id, name, accent, sort_order, items}`: the series in the list's own order, enriched like every listing
+        `{id, name, accent, sort_order, description, items}`: the series in the list's own order, enriched like every listing
         (`yomi.unread` is the unread badge), a series hidden by the 18+ switch or an age cap left out. Since v0.55.7 (#164)
         each item also carries `lastReadAt` (when the caller last read in it, their own progress only; null if never)
         and `latestChapterAt` (when its newest chapter arrived; null without one), for the list's sorts.

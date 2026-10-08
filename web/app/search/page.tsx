@@ -9,6 +9,7 @@ import { IcSearch, IcX } from '@/components/icons';
 import Link from 'next/link';
 import { PlaceRow } from '@/components/CommandPalette';
 import { t as tr } from '@/lib/i18n';
+import { AdultToggle, useAdultFilterConfigured, useAdultShown, useLibraries } from '@/components/AdultToggle';
 import { canDownload, useAuth } from '@/lib/auth';
 import { isDesktop } from '@/lib/desktop';
 import { findDestinations } from '@/lib/destinations';
@@ -45,6 +46,9 @@ function SearchInner() {
   // series, admins' only for admins, none of Desktop's missing ones there (lib/destinations.ts).
   const { isAdmin, user, status } = useAuth();
   const mayAdd = status === 'authed' && canDownload(user);
+  const adultConfigured = useAdultFilterConfigured();
+  const adultOn = useAdultShown();
+  const hasAdultLibrary = (useLibraries().data ?? []).some((l) => l.adult);
   const places = useMemo(() => findDestinations(debounced, { admin: isAdmin, desktop: isDesktop(), limit: 8 }), [debounced, isAdmin]);
 
   const remember = (term: string) => {
@@ -106,6 +110,14 @@ function SearchInner() {
               {tr('No series match “{query}”.', { query: `\u2068${debounced}\u2069` })}
             </p>
           ) : null}
+          {/* The 18+ filter hides a series by its library, rating or genres (an admin's list includes plain tags like
+              "Mature"), so a title that IS in the library can come back as no match. Say so, with the switch. */}
+          {!(isFetching && !data) && (data?.content.length ?? 0) === 0 && !adultOn && (adultConfigured || hasAdultLibrary) && (
+            <div className="pb-4 text-center" data-search-adult-hint>
+              <p className="mb-2 text-xs text-fog-500">{tr('Series hidden by the 18+ filter are not searched.')}</p>
+              <AdultToggle alsoWhen={adultConfigured} />
+            </div>
+          )}
           {!(isFetching && !data) && (data?.content.length ?? 0) === 0 && mayAdd && (
             <p className="pb-4 text-center">
               <Link href={`/discover?q=${encodeURIComponent(debounced)}`} data-search-discover className="chip text-xs">{tr('Search your sources for “{query}”', { query: `\u2068${debounced}\u2069` })}</Link>
