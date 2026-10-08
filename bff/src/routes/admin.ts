@@ -2854,6 +2854,33 @@ export default async function adminRoutes(app: FastifyInstance) {
     return { applied: found.length, skipped };
   });
 
+  // Add and/or remove genres on a whole selection. Written to series_overrides, the layer a scan never overwrites.
+  app.post('/api/admin/series/bulk/genres', async (req, reply) => {
+    const g = z.string().trim().min(1).max(60);
+    const b = z.object({
+      seriesIds: z.array(z.string().min(1).max(64)).min(1).max(500),
+      add: z.array(g).max(30).default([]),
+      remove: z.array(g).max(30).default([]),
+    }).safeParse(req.body);
+    if (!b.success || (!b.data.add.length && !b.data.remove.length)) return reply.code(400).send({ error: 'bad_request' });
+    const rows = await q<{ id: string; genres: string[] }>(
+      `SELECT s.id, COALESCE(NULLIF(o.genres, '{}'::text[]), s.genres, '{}') AS genres
+         FROM lib_series s LEFT JOIN series_overrides o ON o.series_id = s.id
+        WHERE s.id = ANY($1) AND ${visibleToAll('s')}`, [b.data.seriesIds]);
+    const drop = new Set(b.data.remove.map((x) => x.toLowerCase()));
+    let applied = 0;
+    for (const r of rows) {
+      const have = new Set(r.genres.map((x) => x.toLowerCase()));
+      const next = [...r.genres.filter((x) => !drop.has(x.toLowerCase())), ...b.data.add.filter((x) => !have.has(x.toLowerCase()) && !drop.has(x.toLowerCase()))];
+      if (next.length === r.genres.length && next.every((x, i) => x === r.genres[i])) continue;
+      await q(`INSERT INTO series_overrides (series_id, genres) VALUES ($1, $2::text[])
+               ON CONFLICT (series_id) DO UPDATE SET genres = $2::text[], updated_at = now()`, [r.id, next]);
+      applied++;
+    }
+    await logAudit('series.genres_bulk', { userId: userIdOf(req), detail: { n: rows.length, add: b.data.add, remove: b.data.remove }, req });
+    return { applied, skipped: b.data.seriesIds.length - rows.length };
+  });
+
   app.post('/api/admin/series/:id/rename-folder', async (req, reply) => {
     const { id } = req.params as { id: string };
     const b = z.object({ folder: z.string().min(1).max(400) }).safeParse(req.body);

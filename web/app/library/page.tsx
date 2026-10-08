@@ -37,6 +37,8 @@ import { EmptyState } from '@/components/EmptyState';
 import { LibraryStart } from '@/components/LibraryStart';
 import { ART } from '@/lib/art';
 import { BulkChapterDeleteRunDialog } from '@/components/BulkChapterDeleteRun';
+import { CollectionPickerModal } from '@/components/CollectionPicker';
+import { BulkGenresModal } from '@/components/BulkGenres';
 import {
   BULK_CHAPTER_DELETE_POLL_MS,
   bulkChapterDeleteFinished,
@@ -115,6 +117,9 @@ function LibraryInner() {
   const [deleteCancelling, setDeleteCancelling] = useState(false);
   // The phone's overflow for the two admin actions (see the bar below).
   const [more, setMore] = useState(false);
+  const [listing, setListing] = useState(false);
+  const [genreEdit, setGenreEdit] = useState(false);
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   // v0.51.0: Find other sources asks first whether to follow automatically or review first.
   const [finding, setFinding] = useState(false);
   // The Fetch newest job as last polled, while it runs: what the bar's label counts up with.
@@ -584,6 +589,13 @@ function LibraryInner() {
               {tr('Select all')}
             </button>
           )}
+          {selecting && (
+            <button type="button" disabled={!picked.size || acting} aria-haspopup="menu" data-actions-button
+              onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setMenu({ x: r.left, y: r.bottom + 4 }); }}
+              className="chip whitespace-nowrap disabled:opacity-50">
+              {tr('Actions')}{picked.size ? ` · ${picked.size}` : ''}
+            </button>
+          )}
         </div>
         {/* Active filters are always visible, so a short library is never mysterious. */}
         {activeCount > 0 && (
@@ -658,8 +670,15 @@ function LibraryInner() {
         {isLoading
           ? Array.from({ length: 14 }).map((_, i) => <div key={i} className="skeleton aspect-[2/3] rounded-2xl" />)
           : items.map((s, i) => (
-              <SeriesTile key={s.id} series={s} eager={i < 12}
-                selectable={selecting} selected={picked.has(s.id)} onToggle={() => togglePick(s.id)} />
+              <div key={s.id} className="contents" onContextMenu={(e) => {
+                e.preventDefault();
+                if (!selecting) { setSelecting(true); setPicked(new Set([s.id])); }
+                else if (!picked.has(s.id)) setPicked((p) => new Set(p).add(s.id));
+                setMenu({ x: e.clientX, y: e.clientY });
+              }}>
+                <SeriesTile series={s} eager={i < 12}
+                  selectable={selecting} selected={picked.has(s.id)} onToggle={() => togglePick(s.id)} />
+              </div>
             ))}
       </div>
 
@@ -707,6 +726,7 @@ function LibraryInner() {
             <button disabled={acting} onClick={() => bulk('/api/library/bulk/read', { completed: true })} className="chip text-xs disabled:opacity-50">{tr('Mark read')}</button>
             <button disabled={acting} onClick={() => bulk('/api/library/bulk/read', { completed: false })} className="chip text-xs disabled:opacity-50">{tr('Mark unread')}</button>
             <button disabled={acting} onClick={() => bulk('/api/favorites/bulk', { favorite: true })} className="chip text-xs disabled:opacity-50">{tr('Favourite')}</button>
+            <button disabled={acting} onClick={() => setListing(true)} data-add-to-list className="chip text-xs disabled:opacity-50">{tr('Add to list')}</button>
             {/* Server-side fetch, so it follows the same permission as the Add button and the series
                 page's Fetch: a member who may not download does not see it. */}
             {canDownload(user) && <button disabled={acting} onClick={fetchNewest} className="chip text-xs disabled:opacity-50">{tr('Fetch newest')}</button>}
@@ -737,6 +757,10 @@ function LibraryInner() {
             )}
             {isAdmin && (
               <>
+                <button onClick={() => { setMore(false); setGenreEdit(true); }} data-genres-selected
+                  className="block w-full rounded-lg px-2.5 py-2.5 text-start text-sm text-fog-100 hover:bg-ink-800/60">
+                  {tr('Edit genres')}
+                </button>
                 <button onClick={() => { setMore(false); setMoving(true); }}
                   className="block w-full rounded-lg px-2.5 py-2.5 text-start text-sm text-fog-100 hover:bg-ink-800/60">
                   {tr('Move to library')}
@@ -766,6 +790,29 @@ function LibraryInner() {
             )}
           </div>
         </Sheet>
+      )}
+      {listing && <CollectionPickerModal seriesIds={[...picked]} onClose={() => setListing(false)} onDone={settle} />}
+      {genreEdit && <BulkGenresModal n={picked.size} seriesIds={[...picked]} onClose={() => setGenreEdit(false)}
+        onDone={() => { qc.invalidateQueries({ queryKey: ['genre-names'] }); settle(); }} />}
+      {menu && picked.size > 0 && (
+        <SelectionMenu at={menu} onClose={() => setMenu(null)} title={selectedText(picked.size)}
+          items={[
+            { label: tr('Add to list'), run: () => setListing(true) },
+            { label: tr('Mark read'), run: () => void bulk('/api/library/bulk/read', { completed: true }) },
+            { label: tr('Mark unread'), run: () => void bulk('/api/library/bulk/read', { completed: false }) },
+            { label: tr('Favourite'), run: () => void bulk('/api/favorites/bulk', { favorite: true }) },
+            ...(canDownload(user) ? [{ label: tr('Fetch newest'), run: () => void fetchNewest() }] : []),
+            ...(isAdmin ? [
+              { label: tr('Edit genres'), run: () => setGenreEdit(true) },
+              { label: tr('Move to library'), run: () => setMoving(true) },
+              { label: tr('Find other sources'), run: () => setFinding(true) },
+              { label: tr('Monitor'), run: () => void monitorSelected(true) },
+              { label: tr('Unmonitor'), run: () => void monitorSelected(false) },
+              { label: tr('Delete chapters'), run: () => { setAlsoPause(true); setDeletingChapters(true); }, danger: true },
+              { label: tr('Remove from library'), run: () => setRemoving(true), danger: true },
+            ] : []),
+            { label: tr('Select all loaded'), run: () => setPicked(new Set(items.map((x) => x.id))) },
+          ]} />
       )}
       {finding && <FindStartDialog onClose={() => setFinding(false)} onStart={(review) => { setFinding(false); void findSelected(review); }} />}
       {removing && (
@@ -862,6 +909,45 @@ function LibraryInner() {
  * A switch, not a navigation: it replaces the URL (the page's one `setParam`), so Back leaves the Library
  * rather than walking back through the tabs. The underline slides only when motion is welcome.
  */
+interface MenuItem { label: string; run: () => void; danger?: boolean }
+
+/** The selection's actions as a small menu: at the pointer for a right click, under the Actions button otherwise. */
+function SelectionMenu({ at, items, title, onClose }: { at: { x: number; y: number }; items: MenuItem[]; title: string; onClose: () => void }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState(at);
+  useEffect(() => {
+    const el = ref.current;
+    if (el) {
+      const r = el.getBoundingClientRect();
+      setPos({ x: Math.max(8, Math.min(at.x, window.innerWidth - r.width - 8)), y: Math.max(8, Math.min(at.y, window.innerHeight - r.height - 8)) });
+      el.querySelector<HTMLElement>('button')?.focus();
+    }
+    const off = (e: Event) => { if (!ref.current?.contains(e.target as Node)) onClose(); };
+    const key = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('mousedown', off);
+    document.addEventListener('keydown', key);
+    window.addEventListener('resize', onClose);
+    return () => {
+      document.removeEventListener('mousedown', off);
+      document.removeEventListener('keydown', key);
+      window.removeEventListener('resize', onClose);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- placed once, when it opens
+  }, []);
+  return (
+    <div ref={ref} role="menu" aria-label={title} style={{ left: pos.x, top: pos.y }} data-lenis-prevent
+      className="glass fixed z-[70] max-h-[80vh] w-56 overflow-y-auto rounded-xl border border-ink-700 p-1 shadow-xl">
+      <p className="px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-fog-500">{title}</p>
+      {items.map((it) => (
+        <button key={it.label} role="menuitem" type="button" onClick={() => { onClose(); it.run(); }}
+          className={`block w-full rounded-lg px-2.5 py-2 text-start text-sm hover:bg-ink-800/60 ${it.danger ? 'text-rose-300' : 'text-fog-100'}`}>
+          {it.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function ViewSwitch({ view, onView }: { view: LibraryView; onView: (v: LibraryView) => void }) {
   const ring = useDownloadsRing();
   const plain = useReduceEffects();

@@ -9713,6 +9713,43 @@ paths:
           description: Not authenticated
         "403":
           description: "Forbidden: token scope, account permission or age limit"
+  /api/admin/series/bulk/genres:
+    post:
+      tags:
+        - admin
+      summary: Add and/or remove genres on a selection of series.
+      operationId: postApiAdminSeriesBulkGenres
+      description: Requires an admin account and a token carrying the admin scope. Written to the series overrides, which a scan never overwrites.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [seriesIds]
+              properties:
+                seriesIds:
+                  type: array
+                  items: { type: string }
+                  minItems: 1
+                  maxItems: 500
+                add:
+                  type: array
+                  items: { type: string }
+                remove:
+                  type: array
+                  items: { type: string }
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: "`{applied, skipped}`."
+        "400":
+          description: bad_request -- nothing to add or remove.
+        "401":
+          description: Not authenticated
+        "403":
+          description: "Forbidden: token scope, account permission or age limit"
   /api/admin/libraries/{id}/consolidate:
     post:
       tags:
