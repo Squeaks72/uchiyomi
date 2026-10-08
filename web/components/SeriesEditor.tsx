@@ -25,6 +25,7 @@ import { numLabel } from '@/lib/numbering';
 import { useLayer } from '@/lib/layers';
 import { useReduceEffects } from '@/lib/effects';
 import { keys, t as tr } from '@/lib/i18n';
+import { bustCover } from '@/lib/coverBust';
 import { metaSaver, seedMeta, type SeriesMeta } from '@/lib/seriesMeta';
 import { SERIES_TYPES, seriesTypeKey } from '@/lib/seriesTypes';
 import { useToast } from './Toast';
@@ -772,6 +773,7 @@ function ArtPanel({ id, series, onSaved, onNewBanner }: { id: string; series: Se
       await api(`/api/admin/series/${id}/art`, { method: 'PUT', json: { kind, ...body } });
       // The pictures follow the series' art version, which the refetch brings: the preview stays covered until it
       // has, rather than showing the old art as if the change had not taken.
+      if (kind === 'cover') bustCover(id);
       onSaved();
       await qc.refetchQueries({ queryKey: ['series', id] }, { cancelRefetch: false }).catch(() => {});
       toast(done, 'success');

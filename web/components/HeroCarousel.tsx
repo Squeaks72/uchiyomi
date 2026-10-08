@@ -11,6 +11,7 @@ import { applyCover } from '@/lib/theme';
 import { IcPlay, IcPause, IcHeart, IcChevronLeft, IcChevronRight } from './icons';
 import { t as tr } from '@/lib/i18n';
 import { statusText } from '@/lib/activity';
+import { useCoverBust, withCoverBust } from '@/lib/coverBust';
 import { applyFavorite } from '@/lib/favoriteCache';
 
 function FavButton({ series }: { series: Series }) {
@@ -37,6 +38,7 @@ function FavButton({ series }: { series: Series }) {
 
 export function HeroCarousel({ slides }: { slides: Series[] }) {
   const [i, setI] = useState(0);
+  useCoverBust();
   const auto = useAutoplay();
   const startX = useRef(0);
   const n = slides.length;
@@ -90,7 +92,7 @@ export function HeroCarousel({ slides }: { slides: Series[] }) {
           {/* The same destination as "Read" beside it, so keyboard and screen-reader users skip this copy. */}
           <Link href={`/series/?id=${cur.id}`} aria-hidden tabIndex={-1} className="hidden h-72 w-48 shrink-0 overflow-hidden rounded-2xl border border-white/10 shadow-lift transition hover:-translate-y-1 lg:block">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={img.seriesThumb(cur.id, undefined, 800)} alt="" className="h-full w-full object-cover" />
+            <img src={withCoverBust(img.seriesThumb(cur.id, undefined, 800))} alt="" className="h-full w-full object-cover" />
           </Link>
           <div className="max-w-xl">
             <span className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-fog-100 backdrop-blur rtl:tracking-normal"><span aria-hidden>★</span>{tr('Daily pick')}</span>

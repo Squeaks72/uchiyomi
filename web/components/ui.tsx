@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 import { useReducedMotion } from 'framer-motion';
 import { backdropSources, genreBackdrop } from '@/lib/art';
 import { useReduceEffects } from '@/lib/effects';
+import { useCoverBust, withCoverBust } from '@/lib/coverBust';
 import { useLayer } from '@/lib/layers';
 import { t as tr } from '@/lib/i18n';
 
@@ -313,8 +314,9 @@ export function Img({
   const [failed, setFailed] = useState(false);
   const [fellBack, setFellBack] = useState(false);
   const reduced = useReduceEffects();
+  useCoverBust();
   const error = failed || !src; // no src at all is the same broken tile as a src that 404s
-  const shown = fellBack && fallbackSrc ? fallbackSrc : src;
+  const shown = withCoverBust(fellBack && fallbackSrc ? fallbackSrc : src);
   const setError = () => {
     if (fallbackSrc && !fellBack && fallbackSrc !== src) { setFellBack(true); return; }
     setFailed(true);
