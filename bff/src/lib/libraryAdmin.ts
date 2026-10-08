@@ -1029,8 +1029,24 @@ export async function renameSeriesFolder(id: string, newFolder: string): Promise
   const typed = toStoredRel(newFolder).replace(/^\/+|\/+$/g, '').trim();
   if (!typed || typed === row.folder) return { ok: false, reason: 'Choose a different folder name.' };
 
-  const roots = await rootsOf(id);
-  if (!roots.length) return { ok: false, reason: 'That series has no files on disk.' };
+  // Only the roots that really hold the series' folder have anything to move. A series with no chapters yet (or whose
+  // folder is gone) is just re-pointed, so whatever is downloaded for it later lands in the new folder.
+  const roots: string[] = [];
+  for (const root of await rootsOf(id)) {
+    const from = containedPath(root, row.folder);
+    if (from && await stat(from).then(() => true, () => false)) roots.push(root);
+  }
+  if (!roots.length) {
+    await tx(async (qq) => {
+      await qq('UPDATE lib_series SET folder_prev = folder, folder = $2 WHERE id = $1', [id, typed]);
+      await qq(
+        `UPDATE lib_books SET file = $2 || substring(file from length($3) + 1), updated_at = now()
+          WHERE series_id = $1 AND file LIKE $3 || '/%'`,
+        [id, typed, row.folder],
+      );
+    });
+    return { ok: true };
+  }
   // Desktop: the folders ABOVE the new name spelled the way the disk spells them. On NTFS and APFS
   // `mangadex/Title` lands inside the existing `MangaDex`, and a folder stored with the typed case would
   // never match what the scanner reads back -- the series would split in two on the next scan. The new
