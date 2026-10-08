@@ -23,7 +23,7 @@ test('every AniList lookup goes where ANILIST_API_URL says, with its trailing sl
     await al.fetchAniListArt('Walk Nightfall', ['Walk Nightfall']);
     await al.fetchAnimeBanner('Walk Nightfall', ['Walk Nightfall']);
     await al.fetchAniListCandidates('Walk Nightfall');
-    await al.fetchTrendingManhwa(1);
+    await al.fetchTrending('manhwa', 1);
     await al.fetchAniListEntries([970002]);
     await al.fetchAniListCountries([970002]);
     assert.equal(asked.length, 6, JSON.stringify(asked));
