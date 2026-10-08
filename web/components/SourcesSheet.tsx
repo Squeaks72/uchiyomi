@@ -487,8 +487,10 @@ function GroupRow({ g, blocked, serverBlocked, haveNumbers, seriesStatus, contro
  * turn "follows the defaults" into a per-series copy of them on the first tap -- a copy that then stops
  * following when the defaults change. Blank patience means the same thing for the same reason.
  */
-export function SourcesSheet({ id, title: seriesTitle, series, groups, admin, error, isLoading, haveNumbers, checkedAt, onSaved, onClose, onExplain, onFindMissing, onShowChapter, onAddLanguage, onChangeLanguage, onUnlink, onAddEdition }: {
+export function SourcesSheet({ id, title: seriesTitle, series, groups, admin, error, isLoading, haveNumbers, checkedAt, onSaved, onClose, onExplain, onFindMissing, onShowChapter, onAddLanguage, onChangeLanguage, onUnlink, onAddEdition, startAttach }: {
   id: string;
+  /** Open straight on the search that attaches another source (Health's Find a source). */
+  startAttach?: boolean;
   /** The series' title: where the Add more sources search starts. */
   title: string;
   series: Series | undefined;
@@ -641,7 +643,7 @@ export function SourcesSheet({ id, title: seriesTitle, series, groups, admin, er
   const [unfollowing, setUnfollowing] = useState<string | null>(null);
   // Add more sources / move (MigrateSourceSheet): a hand-picked attach with no chapter-overlap gate, and the main
   // source's detach, asked first in one line under the list.
-  const [migrating, setMigrating] = useState(false);
+  const [migrating, setMigrating] = useState(!!startAttach);
   const [detachAsk, setDetachAsk] = useState(false);
   const unfollow = async (s: SeriesSource) => {
     setUnfollowing(s.sourceId);

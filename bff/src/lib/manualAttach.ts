@@ -29,6 +29,7 @@ import { editionFollowing } from './editions';
 import { scheduleHealthSummaryRefresh } from './healthSummary';
 import { standingRows } from './sourceStanding';
 import { refileFailures } from './chapterFailures';
+import { fillMissingMeta } from './metaFill';
 import { switchMainSource, type OldMain } from './mainSource';
 
 export type AttachRefusal =
@@ -105,6 +106,7 @@ export async function attachManual(seriesId: string, pick: AttachPick, as: 'foll
     });
     if (!done) return no('moved', REFUSALS.moved);
     await audit({ as: 'main', from: null });
+    void fillMissingMeta(seriesId);
     scheduleHealthSummaryRefresh();
     return { ok: true, as: 'main', from: null };
   }
@@ -115,6 +117,7 @@ export async function attachManual(seriesId: string, pick: AttachPick, as: 'foll
     if (r === 'gone') return no('not_found', REFUSALS.not_found);
     if (r === 'cap') return no('cap', REFUSALS.cap);
     await audit({ as: 'follower' });
+    void fillMissingMeta(seriesId);
     return { ok: true, as: 'follower' };
   }
 
@@ -138,6 +141,7 @@ export async function attachManual(seriesId: string, pick: AttachPick, as: 'foll
     return no(out.refused === 'not_followed' ? 'moved' : out.refused as AttachRefusal, out.said?.text ?? REFUSALS.moved, out.edition ? { edition: out.edition } : {});
   }
   await audit({ as: 'main', from: out.from, old: out.old });
+  void fillMissingMeta(seriesId);
   return { ok: true, as: 'main', from: out.from, old: out.old };
 }
 
