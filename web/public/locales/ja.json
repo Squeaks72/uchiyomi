@@ -2,7 +2,7 @@
   "_meta": {
     "language": "ja",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 4138
+    "strings": 4139
   },
   "1 check found something": "1 件のチェックで問題を検出",
   "1 member": "メンバー 1 人",
@@ -4143,5 +4143,6 @@
   "Title saved, but the folder was not renamed.": "タイトルは保存しましたが、フォルダ名は変更されませんでした。",
   "Choose one to make it the title. The series folder is renamed to match, and the current title stays here.": "タイトルにする名前を選んでください。シリーズのフォルダも合わせて名前が変わり、現在のタイトルはここに残ります。",
   "Use as the title": "タイトルとして使う",
-  "Add another name": "別の名前を追加"
+  "Add another name": "別の名前を追加",
+  "Check this series for new chapters": "このシリーズの新しい章を確認"
 }

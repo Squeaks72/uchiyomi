@@ -2,7 +2,7 @@
   "_meta": {
     "language": "ru",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 4138
+    "strings": 4139
   },
   "1 check found something": "1 проверка нашла проблему",
   "1 member": "1 участник",
@@ -4143,5 +4143,6 @@
   "Title saved, but the folder was not renamed.": "Название сохранено, но папка не была переименована.",
   "Choose one to make it the title. The series folder is renamed to match, and the current title stays here.": "Выберите одно как название. Папка серии будет переименована соответственно, а текущее название останется здесь.",
   "Use as the title": "Использовать как название",
-  "Add another name": "Добавить другое название"
+  "Add another name": "Добавить другое название",
+  "Check this series for new chapters": "Проверить новые главы этой серии"
 }

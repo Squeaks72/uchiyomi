@@ -2087,6 +2087,14 @@ function SeriesInner() {
           <IcChevronLeft width={22} height={22} />
         </button>
         <span className="truncate text-sm text-fog-300 lg:text-base">{title}</span>
+        {/* The top bar's refresh, for this series alone (admins: the check is theirs). */}
+        {isAdmin && (
+          <button type="button" onClick={checkNow} disabled={checking} data-check-new-header aria-busy={checking || undefined}
+            title={tr('Check this series for new chapters')} aria-label={tr('Check this series for new chapters')}
+            className="ms-auto grid h-10 w-10 shrink-0 place-items-center rounded-full bg-ink-800/70 text-fog-100 backdrop-blur disabled:opacity-60 lg:bg-ink-850">
+            <IcRefresh width={19} height={19} className={checking ? 'animate-spin' : ''} />
+          </button>
+        )}
       </div>
 
       {/* banner — real art pulled from the internet (AniList), else the one the server made from the series' own pages
