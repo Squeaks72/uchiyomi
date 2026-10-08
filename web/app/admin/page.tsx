@@ -1380,14 +1380,23 @@ function GatherSeries({ lib, onDone, pending }: { lib: LibraryRow; onDone: () =>
     queryFn: () => api<{ folders: { path: string }[] }>(`/api/admin/libraries/folders?path=${encodeURIComponent(r)}`),
     staleTime: 60_000,
   })) });
-  const options = [...new Set([...roots, ...subs.flatMap((q) => q.data?.folders.map((f) => f.path) ?? [])])];
+  // The folders on disk under whatever has been typed so far, so a suggestion reaches below the first level.
+  const typedParent = target.includes('/') ? target.slice(0, target.lastIndexOf('/')) : '';
+  const deeper = useQuery({
+    queryKey: ['admin-library-subfolders', typedParent],
+    queryFn: () => api<{ folders: { path: string }[] }>(`/api/admin/libraries/folders?path=${encodeURIComponent(typedParent)}`),
+    enabled: !!typedParent && !roots.includes(typedParent),
+    staleTime: 60_000,
+  });
+  const options = [...new Set([...roots, ...subs.flatMap((q) => q.data?.folders.map((f) => f.path) ?? []), ...(deeper.data?.folders.map((f) => f.path) ?? [])])];
+  const exists = options.includes(target.trim());
   const [plan, setPlan] = useState<GatherAnswer | null>(null);
   const [busy, setBusy] = useState(false);
   const { armed, arm, disarm } = useArmed();
   const ask = async (dryRun: boolean) => {
     setBusy(true);
     try {
-      const r = await api<GatherAnswer>(`/api/admin/libraries/${lib.id}/consolidate`, { method: 'POST', json: { target, dryRun } });
+      const r = await api<GatherAnswer>(`/api/admin/libraries/${lib.id}/consolidate`, { method: 'POST', json: { target: target.trim(), dryRun } });
       setPlan(r);
       if (!dryRun) {
         toast(tr('{n} series moved', { n: r.moved }), r.moved > 0 || !r.problems.length ? 'success' : 'error');
@@ -1403,11 +1412,15 @@ function GatherSeries({ lib, onDone, pending }: { lib: LibraryRow; onDone: () =>
       <p className="mb-2 mt-1 text-[11px] leading-relaxed text-fog-600">
         {tr('Moves each series folder to <folder>/<series name> on disk, in every root it lives in, so source-name folders disappear. Progress is kept.')}
       </p>
+      {!pending && target.trim() && !exists && <p className="mb-2 text-[11px] text-fog-400">{tr('This folder does not exist yet. It will be created.')}</p>}
       {pending && <p role="status" className="mb-2 text-[11px] text-amber-300">{tr('Save your folder changes first. This works on the folders as saved.')}</p>}
       <div className="flex gap-2">
-        <select id="library-gather" value={target} onChange={(e) => { setTarget(e.target.value); setPlan(null); }} disabled={pending} className="field min-w-0 flex-1 font-mono">
-          {options.map((o) => <option key={o} value={o}>{o || tr('(library root)')}</option>)}
-        </select>
+        <input id="library-gather" list="library-gather-folders" value={target} onChange={(e) => { setTarget(e.target.value); setPlan(null); }}
+          disabled={pending} autoComplete="off" spellCheck={false} dir="ltr" placeholder={tr('Type a folder, or pick one')}
+          className="field min-w-0 flex-1 font-mono" />
+        <datalist id="library-gather-folders">
+          {options.filter((o) => o).map((o) => <option key={o} value={o} />)}
+        </datalist>
         <button type="button" onClick={() => ask(true)} disabled={busy || pending} className="btn-key h-auto self-stretch">{tr('Preview')}</button>
       </div>
       {plan && (
