@@ -8,6 +8,7 @@ import { t as tr } from '@/lib/i18n';
 import { Modal } from '@/components/ConfirmDialog';
 import { useToast } from '@/components/Toast';
 import { useCollections } from '@/components/CollectionPicker';
+import { useAuth } from '@/lib/auth';
 
 export function useExportList() {
   const toast = useToast();
@@ -29,6 +30,8 @@ export function useExportList() {
 
 interface ListFile { format: string; name: string; items: Array<{ sources?: unknown[] | null }> }
 interface ToAdd { title: string; sources: Array<{ source: string; sourceId: string }> }
+interface Imported { id: string; name: string; added: number; saved: number; toAdd: ToAdd[]; missing: Array<{ source: string; name: string | null; pkgName: string | null; titles: number }> }
+interface Offer { matches: Array<{ pkgName: string; name: string; lang: string | null; nsfw: boolean; installed: boolean }>; unmatched: string[] }
 
 export function ImportListModal({ onClose, onDone }: { onClose: () => void; onDone?: (id: string) => void }) {
   const toast = useToast();
@@ -53,44 +56,101 @@ export function ImportListModal({ onClose, onDone }: { onClose: () => void; onDo
       setFile(j);
     } catch { setBad(true); }
   };
+  const { isAdmin } = useAuth();
+  const [done, setDone] = useState<Imported | null>(null);
+  const [offer, setOffer] = useState<Offer | null>(null);
+  const [skip, setSkip] = useState<Set<string>>(new Set());
+  const [installing, setInstalling] = useState<string | null>(null);
+
+  const addAll = async (r: Imported) => {
+    let started = 0; let failed = 0;
+    if (autoAdd && r.toAdd.length) {
+      // One title at a time, each from the first of its sources this server can use. The series is in the library
+      // the moment the add is answered, so the list picks it up from there.
+      setProgress({ done: 0, total: r.toAdd.length });
+      for (let i = 0; i < r.toAdd.length; i++) {
+        let ok = false;
+        for (const s of r.toAdd[i].sources) {
+          try { await api('/api/sources/add', { json: { source: s.source, sourceId: s.sourceId } }); ok = true; break; } catch { /* next source */ }
+        }
+        if (ok) started++; else failed++;
+        setProgress({ done: i + 1, total: r.toAdd.length });
+      }
+    }
+    toast(autoAdd
+      ? tr('Imported “{name}”: {a} in your library, {s} added and downloading, {f} could not be added', { name: `⁨${r.name}⁩`, a: r.added, s: started, f: failed })
+      : tr('Imported “{name}”: {a} in your library, {s} saved for later', { name: `⁨${r.name}⁩`, a: r.added, s: r.saved }), 'success');
+    qc.invalidateQueries({ queryKey: ['collections'] });
+    qc.invalidateQueries({ queryKey: ['collection'] });
+    qc.invalidateQueries({ queryKey: ['library'] });
+    onDone?.(r.id);
+    onClose();
+  };
   const run = async () => {
     if (!file) return;
     setBusy(true);
     try {
-      const r = await api<{ id: string; name: string; added: number; saved: number; toAdd: ToAdd[] }>('/api/collections/import', { json: { list: file, ...(target ? { collectionId: target } : {}) } });
-      let started = 0; let failed = 0;
-      if (autoAdd && r.toAdd.length) {
-        // One title at a time, each from the first of its sources this server can use. The series is in the library
-        // the moment the add is answered, so the list picks it up from there.
-        setProgress({ done: 0, total: r.toAdd.length });
-        for (let i = 0; i < r.toAdd.length; i++) {
-          let ok = false;
-          for (const s of r.toAdd[i].sources) {
-            try { await api('/api/sources/add', { json: { source: s.source, sourceId: s.sourceId } }); ok = true; break; } catch { /* next source */ }
-          }
-          if (ok) started++; else failed++;
-          setProgress({ done: i + 1, total: r.toAdd.length });
-        }
+      const r = await api<Imported>('/api/collections/import', { json: { list: file, ...(target ? { collectionId: target } : {}) } });
+      if (autoAdd && isAdmin && r.missing?.length) {
+        // Some titles come from extensions this server lacks. An admin may install them here, then carry on.
+        try {
+          const o = await api<Offer>('/api/admin/extensions/match', { json: { sources: r.missing.map((m) => ({ source: m.source, name: m.name, pkgName: m.pkgName })) } });
+          if (o.matches.some((m) => !m.installed)) { setDone(r); setOffer(o); setSkip(new Set()); setBusy(false); return; }
+        } catch { /* no extension server, or none reachable: carry on without */ }
       }
-      toast(autoAdd
-        ? tr('Imported “{name}”: {a} in your library, {s} added and downloading, {f} could not be added', { name: `⁨${r.name}⁩`, a: r.added, s: started, f: failed })
-        : tr('Imported “{name}”: {a} in your library, {s} saved for later', { name: `⁨${r.name}⁩`, a: r.added, s: r.saved }), 'success');
-      qc.invalidateQueries({ queryKey: ['collections'] });
-      qc.invalidateQueries({ queryKey: ['collection'] });
-      qc.invalidateQueries({ queryKey: ['library'] });
-      onDone?.(r.id);
-      onClose();
+      await addAll(r);
     } catch { toast(tr('Could not import that file'), 'error'); setBusy(false); setProgress(null); }
+  };
+  const installAndGo = async (install: boolean) => {
+    if (!done || !offer) return;
+    setBusy(true);
+    let failed = 0;
+    if (install) {
+      for (const m of offer.matches) {
+        if (m.installed || skip.has(m.pkgName)) continue;
+        setInstalling(m.name);
+        try { await api(`/api/admin/extensions/catalog/${encodeURIComponent(m.pkgName)}`, { json: { action: 'install' } }); } catch { failed++; }
+      }
+      setInstalling(null);
+      qc.invalidateQueries({ queryKey: ['sources'] });
+      if (failed) toast(failed === 1 ? tr('1 extension could not be installed') : tr('{n} extensions could not be installed', { n: failed }), 'error');
+    }
+    setOffer(null);
+    try { await addAll(done); } catch { toast(tr('Could not import that file'), 'error'); setBusy(false); setProgress(null); }
   };
   return (
     <Modal title={tr('Import a list')} onClose={onClose}>
+      {offer && done ? (
+        <div data-import-extensions>
+          <p className="text-sm text-fog-100">{tr('Some of these titles come from extensions this server does not have. Install them so the titles can be added?')}</p>
+          <ul className="mt-3 space-y-1.5">
+            {offer.matches.filter((m) => !m.installed).map((m) => (
+              <li key={m.pkgName}>
+                <label className="flex items-center gap-2 text-sm text-fog-200">
+                  <input type="checkbox" checked={!skip.has(m.pkgName)} disabled={busy}
+                    onChange={(e) => setSkip((cur) => { const n = new Set(cur); if (e.target.checked) n.delete(m.pkgName); else n.add(m.pkgName); return n; })} />
+                  <span className="min-w-0 flex-1 truncate">{m.name}{m.lang ? ` (${m.lang})` : ''}</span>
+                  {m.nsfw && <span className="rounded border border-rose-400/50 px-1 text-[10px] text-rose-300">18+</span>}
+                </label>
+              </li>
+            ))}
+          </ul>
+          {offer.unmatched.length > 0 && <p className="mt-3 text-xs text-fog-500">{tr('Not in your extension repositories, so they cannot be installed from here: {names}. Add the repository in Admin → Extensions first.', { names: offer.unmatched.join(', ') })}</p>}
+          {installing && <p role="status" className="mt-3 text-xs text-fog-300">{tr('Installing {name}…', { name: installing })}</p>}
+          {progress && <p role="status" className="mt-3 text-xs text-fog-300">{tr('Adding {done} of {total}…', progress)}</p>}
+          <div className="mt-4 flex gap-2">
+            <button type="button" onClick={() => void installAndGo(true)} disabled={busy} className="btn-accent flex-1 py-2.5 text-sm disabled:opacity-50">{tr('Install and continue')}</button>
+            <button type="button" onClick={() => void installAndGo(false)} disabled={busy} className="chip text-xs disabled:opacity-50">{tr('Skip these')}</button>
+          </div>
+        </div>
+      ) : (<>
       <p className="mb-3 text-xs text-fog-500">{tr('Choose a list file someone exported from Uchiyomi. Titles you already have are added to the list; the rest are saved on it to add later.')}</p>
       <input ref={input} type="file" accept=".json,application/json" aria-label={tr('List file')} onChange={(e) => void read(e.target.files?.[0])}
         className="block w-full text-xs text-fog-300 file:me-3 file:rounded-lg file:border file:border-ink-700 file:bg-ink-800 file:px-3 file:py-2 file:text-fog-100" />
       {bad && <p role="alert" className="mt-2 text-xs text-rose-300">{tr('That is not an exported Uchiyomi list.')}</p>}
       {file && (
         <div className="mt-3">
-          <p className="mb-2 text-sm text-fog-100">{tr('“{name}” · {n} titles', { name: `⁨${file.name}⁩`, n: file.items.length })}</p>
+          <p className="mb-2 text-sm text-fog-100">{file.items.length === 1 ? tr('“{name}” · 1 title', { name: `⁨${file.name}⁩` }) : tr('“{name}” · {n} titles', { name: `⁨${file.name}⁩`, n: file.items.length })}</p>
           <label htmlFor="import-target" className="mb-1 block text-xs font-semibold uppercase tracking-wider text-fog-500">{tr('Import into')}</label>
           <select id="import-target" value={target} onChange={(e) => setTarget(e.target.value)}
             className="w-full rounded-lg border border-ink-700 bg-ink-900/60 px-3 py-2 text-sm text-fog-100">
@@ -107,6 +167,7 @@ export function ImportListModal({ onClose, onDone }: { onClose: () => void; onDo
       )}
       {progress && <p role="status" className="mt-3 text-xs text-fog-300">{tr('Adding {done} of {total}…', progress)}</p>}
       <button type="button" onClick={run} disabled={!file || busy} className="btn-accent mt-4 w-full py-2.5 text-sm disabled:opacity-50">{tr('Import')}</button>
+      </>)}
     </Modal>
   );
 }

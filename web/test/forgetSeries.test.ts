@@ -37,7 +37,8 @@ test('the Forget dialog is typed, dangerous, and says what the Delete-files dial
   const src = code(read('app/admin/page.tsx'));
   const dlg = src.slice(src.indexOf('{forget && ('), src.indexOf('onClose={() => setForget(null)}'));
   assert.ok(dlg.length > 0, 'no Forget dialog');
-  assert.match(dlg, /confirmText=\{forget\.title\}/, 'the title must be typed to confirm');
+  // Typing the title was replaced by the two-step arm-then-confirm button (ConfirmDialog `twoStep`).
+  assert.match(dlg, /\n\s*twoStep\n/, 'Forget must be a two-step confirm');
   assert.match(dlg, /\n\s*danger\n/, 'the confirm button must be the rose one');
   assert.match(dlg, /busy=\{forgetting\}/, 'the button must disable while the request runs');
   assert.ok(dlg.includes("tr(\"This erases the series and everyone's reading history on it — progress, bookmarks, notes, ratings, favourites, tracker links.\")"), 'the first sentence changed');

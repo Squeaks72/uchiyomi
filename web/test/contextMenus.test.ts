@@ -7,14 +7,13 @@ const click = (o: Partial<{ shiftKey: boolean; editable: boolean; selection: str
   ({ shiftKey: false, editable: false, selection: '', inSelection: false, ...o });
 
 test("the browser's menu is left alone where it is worth something", () => {
-  assert.equal(wantsOwnMenu(click(), true), true, 'a plain right-click on a card opens ours');
+  assert.equal(wantsOwnMenu(click()), true, 'a plain right-click on a card opens ours');
   // Reintroduce by dropping any of these: the annoyance the proposal was careful about.
-  assert.equal(wantsOwnMenu(click({ shiftKey: true }), true), false, 'Shift+right-click is the way to the real one');
-  assert.equal(wantsOwnMenu(click({ editable: true }), true), false, 'a text field keeps paste');
-  assert.equal(wantsOwnMenu(click({ selection: 'Romance Dawn', inSelection: true }), true), false, 'selected text keeps copy');
-  assert.equal(wantsOwnMenu(click({ selection: 'elsewhere', inSelection: false }), true), true,
+  assert.equal(wantsOwnMenu(click({ shiftKey: true })), false, 'Shift+right-click is the way to the real one');
+  assert.equal(wantsOwnMenu(click({ editable: true })), false, 'a text field keeps paste');
+  assert.equal(wantsOwnMenu(click({ selection: 'Romance Dawn', inSelection: true })), false, 'selected text keeps copy');
+  assert.equal(wantsOwnMenu(click({ selection: 'elsewhere', inSelection: false })), true,
     'a selection somewhere else on the page is no reason to give up the menu on this card');
-  assert.equal(wantsOwnMenu(click(), false), false, 'switched off on this device');
 });
 
 test('the menu opens at the point, and flips at the viewport edges', () => {

@@ -167,7 +167,8 @@ test('the 18+ filter: three chips in search mode, sent and keyed, and an 18+ mar
   assert.match(src, /aria-pressed=\{rating === key\}/, 'the chips do not say which is on');
   assert.match(src, /\.\.\.\(g\.rating === 'adult' \? \{ rating: 'adult' as const \} : \{\}\)/, 'a card does not carry its rating to the wall');
   const card = code(read('components/cards.tsx'));
-  assert.match(card, /\{item\.rating === 'adult' && \(/, 'no 18+ mark on an 18+ result');
+  // The global AdultBar's marked-title set (useIsMarkedTitle) joins the result's own rating in one condition.
+  assert.match(card, /\{\(item\.rating === 'adult' \|\| isMarked\(/, 'no 18+ mark on an 18+ result');
   assert.match(card, /data-rating-mark/, 'no 18+ mark on an 18+ result');
   // The direction on the text, never on the positioned box: dir="ltr" there turned its `end-1.5` to the right in an Arabic
   // page, under the "{n} sources" box (seen in the v0.55.4 shots). Reintroduce by moving dir="ltr" onto the span: "the

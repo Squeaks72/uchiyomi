@@ -302,7 +302,9 @@ test('an unrated series says "Rate this" in the reader\'s words', () => {
   // It was a bare string literal beside the stars, English in every language (the v0.49.1 translation review, pt-BR).
   // Reintroduce the literal: "Rate this is bare English again".
   const page = code(read('app/series/page.tsx'));
-  assert.match(page, /\{rating \? `\$\{rating\}\/5` : tr\('Rate this'\)\}/, 'Rate this is bare English again');
+  // The label now lives in StarRating (the group's aria-label), which the page renders.
+  assert.match(page, /<StarRating value=\{rating\} onSet=\{setStars\} \/>/, 'Rate this is bare English again');
+  assert.match(code(read('components/StarRating.tsx')), /aria-label=\{tr\('Rate this'\)\}/, 'Rate this is bare English again');
   assert.doesNotMatch(page, /: 'Rate this'\}/, 'Rate this is bare English again');
 });
 

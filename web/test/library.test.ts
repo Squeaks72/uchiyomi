@@ -399,11 +399,11 @@ test('the select bar fits two rows on a phone and one at 1024 px: the admin acti
   const bar = /bottom-\[calc\(5\.75rem\+env\(safe-area-inset-bottom\)\)\][\s\S]*?<\/div>\s*<\/div>\s*\)\}/.exec(src)?.[0] ?? '';
   assert.ok(bar.length > 200, 'could not find the select bar');
   const chips = [...bar.matchAll(/className=\{?[`"]chip[^`"]*[`"]\}?/g)].map((m) => m[0]);
-  const phoneOnly = chips.filter((c) => /\blg:hidden\b/.test(c));
-  assert.equal(phoneOnly.length, 1, 'expected exactly one phone-only More chip');
+  // More is everyone's now (Download as zip is its first row, so no chip of the bar is phone-only).
+  assert.equal(chips.filter((c) => /\blg:hidden\b/.test(c)).length, 0, 'More must not be phone-only: Download as zip lives in it');
   assert.ok(chips.length <= 6, `${chips.length} chips reach the phone bar; more than six wraps to a third row at 390 px`);
   assert.doesNotMatch(code(bar), /setMoving\(true\)|setRemoving\(true\)|findSelected/, 'an admin action is a key in the bar');
-  assert.match(bar, /onClick=\{\(\) => setMore\(true\)\} className=\{`chip text-xs disabled:opacity-50 \$\{isAdmin \? '' : 'lg:hidden'\}`\}/,
+  assert.match(bar, /onClick=\{\(\) => setMore\(true\)\} className="chip text-xs disabled:opacity-50"/,
     'the admin actions cannot be reached from lg up');
   // From lg up, every chip and key an admin sees there: at most the seven that measured one row at 1024 px.
   const keys = [...bar.matchAll(/className=\{?[`"]((?:chip|btn-key)\b[^`"]*)[`"]\}?/g)].map((m) => m[1]);
@@ -440,11 +440,13 @@ test('Archive slowly: a key from lg up, a row of More on a phone, for anyone who
   assert.match(src, /\{canDownload\(user\) && <button disabled=\{acting\} onClick=\{archiveSelected\} className="btn-key hidden lg:inline-flex" title=\{archiveWhy\(\)\}>\{tr\('Archive slowly'\)\}<\/button>\}/,
     'the archive key reaches the phone bar');
   // More is a member's on a phone only (from lg up Archive slowly is a key), and an admin's at every width (v0.49.1).
-  assert.match(src, /\{\(isAdmin \|\| canDownload\(user\)\) && <button disabled=\{acting\} onClick=\{\(\) => setMore\(true\)\} className=\{`chip text-xs disabled:opacity-50 \$\{isAdmin \? '' : 'lg:hidden'\}`\}/,
+  assert.match(src, /<button disabled=\{acting\} onClick=\{\(\) => setMore\(true\)\} className="chip text-xs disabled:opacity-50" aria-haspopup="dialog">/,
     'a member who may download has no way to archive on a phone');
   const sheet = src.slice(src.indexOf('<Sheet title={selectedText(picked.size)}'), src.indexOf('</Sheet>', src.indexOf('<Sheet title={selectedText(picked.size)}')));
   assert.match(sheet, /\{canDownload\(user\) && \(\s*<button onClick=\{\(\) => \{ setMore\(false\); void archiveSelected\(\); \}\}/, 'More has no Archive slowly, or keeps the sheet open under the notice');
-  assert.match(sheet, /\{isAdmin && \(\s*<>\s*<button onClick=\{\(\) => \{ setMore\(false\); setMoving\(true\); \}\}/, "a member's More offers the admin's Move to library");
+  assert.match(sheet, /\{isAdmin && \(\s*<>[\s\S]*setMore\(false\); setMoving\(true\);/, "a member's More offers the admin's Move to library");
+  assert.ok(sheet.indexOf('setMore(false); setMoving(true)') > sheet.indexOf('{isAdmin && ('), "Move to library sits outside the admin block");
+  assert.ok(sheet.indexOf('zipPicked()') > -1 && sheet.indexOf('zipPicked()') < sheet.indexOf('{isAdmin && ('), 'Download as zip is not a row of More for everyone');
   // One request per 500 (the route's cap), and one notice for the whole selection: components/ArchiveQueue.tsx.
   const q = code(read('components/ArchiveQueue.tsx'));
   assert.match(q, /for \(let i = 0; i < ids\.length; i \+= ARCHIVE_MAX_SERIES\)/, 'a big selection is one request past the route cap');

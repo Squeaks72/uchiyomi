@@ -1,6 +1,6 @@
 'use client';
 import { BackLink, Breadcrumb } from '@/components/BackLink';
-import { Suspense, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
@@ -17,6 +17,9 @@ import { Img } from '@/components/ui';
 import { canDownload } from '@/lib/auth';
 import { useExportList } from '@/components/ListShare';
 import { startExport } from '@/lib/exports';
+import { SelectionMenu } from '@/components/SelectionMenu';
+import { CollectionPickerModal } from '@/components/CollectionPicker';
+import { selectedText } from '@/lib/counted';
 
 /** The note with any http(s) address made a link; everything else stays plain text. */
 function Linked({ text }: { text: string }) {
@@ -99,6 +102,11 @@ function CollectionInner() {
   // a touchscreen could not see and which now sat on the unread badge.
   const [editing, setEditing] = useState(false);
   const [sorting, setSorting] = useState(false);
+  // Select: tick series (or right-click one) to act on several at once. Apart from Edit, which is for ordering.
+  const [selecting, setSelecting] = useState(false);
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+  const [listing, setListing] = useState(false);
   const { data, isLoading } = useQuery({
     queryKey: ['collection', id],
     queryFn: () => api<CollectionDetail>(`/api/collections/${id}`),
@@ -127,6 +135,36 @@ function CollectionInner() {
     setSettings({ listSorts: map });
     try { await api('/api/settings', { method: 'PUT', json: { listSorts: map } }); }
     catch { setSettings({ listSorts: prev }); toast(tr('Could not save'), 'error'); }
+  };
+
+  useEffect(() => { setSelecting(false); setPicked(new Set()); }, [id, editing]);
+  const togglePick = (sid: string) => setPicked((p) => { const n = new Set(p); if (n.has(sid)) n.delete(sid); else n.add(sid); return n; });
+  const leaveSelect = () => { setSelecting(false); setPicked(new Set()); };
+
+  const removePicked = async () => {
+    const ids = [...picked];
+    const results = await Promise.allSettled(ids.map((sid) => api(`/api/collections/${id}/items/${sid}`, { method: 'DELETE' })));
+    const failed = results.filter((r) => r.status === 'rejected').length;
+    inval();
+    if (failed) toast(failed === 1 ? tr('1 could not be removed') : tr('{n} could not be removed', { n: failed }), 'error');
+    else toast(ids.length === 1 ? tr('Removed 1 series from this list') : tr('Removed {n} series from this list', { n: ids.length }), 'success');
+    leaveSelect();
+  };
+
+  const zipPicked = () => {
+    startExport({ seriesIds: [...picked] })
+      .then(() => toast(tr('Zipping started. Follow it at the bottom of the screen.'), 'success'))
+      .catch(() => toast(tr('Nothing on the server to zip yet. Fetch some chapters first.'), 'error'));
+  };
+
+  const bulkMark = async (path: string, extra: Record<string, unknown>) => {
+    try {
+      await api(path, { json: { seriesIds: [...picked], ...extra } });
+      qc.invalidateQueries({ queryKey: ['favorite-ids'] });
+      qc.invalidateQueries({ queryKey: ['collection', id] });
+      qc.invalidateQueries({ queryKey: ['home'] });
+      leaveSelect();
+    } catch { toast(tr('Could not do that'), 'error'); }
   };
 
   const removeItem = async (s: Series) => {
@@ -181,6 +219,15 @@ function CollectionInner() {
               onClick={() => startExport({ collectionId: id })
                 .then(() => toast(tr('Zipping started. Follow it at the bottom of the screen.'), 'success'))
                 .catch(() => toast(tr('Nothing on the server to zip yet. Fetch some chapters first.'), 'error'))}>{tr('Download as zip')}</button>}
+            {!editing && items.length > 0 && (
+              <button type="button" onClick={() => { setSelecting((v) => !v); setPicked(new Set()); }} aria-pressed={selecting} data-list-select
+                className={`chip text-xs ${selecting ? 'chip-active' : ''}`}>
+                {selecting ? tr('Done') : tr('Select')}
+              </button>
+            )}
+            {selecting && items.length > 0 && (
+              <button type="button" onClick={() => setPicked(new Set(items.map((x) => x.id)))} className="chip text-xs">{tr('Select all')}</button>
+            )}
             {!data?.builtin && (
               <button type="button" onClick={() => setEditing((v) => !v)} aria-pressed={editing} data-list-edit
                 className={`chip text-xs ${editing ? 'chip-active ms-auto' : ''}`}>
@@ -231,7 +278,14 @@ function CollectionInner() {
               </div>
             </div>
           ) : (
-            <SeriesTile key={s.id} series={s} />
+            <div key={s.id} className="contents" onContextMenu={(e) => {
+              e.preventDefault();
+              if (!selecting) { setSelecting(true); setPicked(new Set([s.id])); }
+              else if (!picked.has(s.id)) setPicked((p) => new Set(p).add(s.id));
+              setMenu({ x: e.clientX, y: e.clientY });
+            }}>
+              <SeriesTile series={s} selectable={selecting} selected={picked.has(s.id)} onToggle={() => togglePick(s.id)} />
+            </div>
           ))}
         </div>
       )}
@@ -263,6 +317,31 @@ function CollectionInner() {
       {bringing && (
         <AddSeriesDialog seed={{ kind: 'trending', title: bringing.title }} sources={[]} mayFollow={isAdmin}
           onClose={() => setBringing(null)} onAdded={inval} />
+      )}
+
+      {selecting && picked.size > 0 && (
+        <div className="fixed inset-x-0 bottom-[calc(5.75rem+env(safe-area-inset-bottom))] z-40 border-t border-ink-700 bg-ink-950/95 px-4 pb-3 pt-3 backdrop-blur-xl lg:bottom-0 lg:pb-[max(0.75rem,env(safe-area-inset-bottom))]" data-list-selection>
+          <div className="mx-auto flex max-w-3xl flex-wrap items-center gap-2 lg:max-w-5xl">
+            <span role="status" className="me-auto text-sm font-medium text-fog-100">{selectedText(picked.size)}</span>
+            {!data?.builtin && <button type="button" onClick={() => void removePicked()} data-list-remove-selected className="btn-key">{tr('Remove from this list')}</button>}
+            <button type="button" onClick={() => setListing(true)} className="chip text-xs">{tr('Add to list')}</button>
+            <button type="button" onClick={zipPicked} className="chip text-xs">{tr('Download as zip')}</button>
+            <button type="button" onClick={leaveSelect} className="chip text-xs text-fog-500">{tr('Cancel')}</button>
+          </div>
+        </div>
+      )}
+      {listing && <CollectionPickerModal seriesIds={[...picked]} onClose={() => setListing(false)} onDone={() => { setListing(false); leaveSelect(); }} />}
+      {menu && picked.size > 0 && (
+        <SelectionMenu at={menu} onClose={() => setMenu(null)} title={selectedText(picked.size)}
+          items={[
+            ...(!data?.builtin ? [{ label: tr('Remove from this list'), run: () => void removePicked(), danger: true }] : []),
+            { label: tr('Add to list'), run: () => setListing(true) },
+            { label: tr('Download as zip'), run: zipPicked },
+            { label: tr('Mark read'), run: () => void bulkMark('/api/library/bulk/read', { completed: true }) },
+            { label: tr('Mark unread'), run: () => void bulkMark('/api/library/bulk/read', { completed: false }) },
+            { label: tr('Favorite'), run: () => void bulkMark('/api/favorites/bulk', { favorite: true }) },
+            { label: tr('Select all'), run: () => setPicked(new Set(items.map((x) => x.id))) },
+          ]} />
       )}
 
       {sorting && (

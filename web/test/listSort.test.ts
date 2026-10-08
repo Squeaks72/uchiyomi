@@ -95,7 +95,7 @@ test("a list's page shows the Library's tile, sorts with the chips, and saves th
   // own cover markup (an <Img> in a bare box): "the list's items are not the Library's tile" fails.
   const page = code(read('app/collection/page.tsx'));
   assert.match(page, /import \{ SeriesTile \} from '@\/components\/cards';/, "the list's items are not the Library's tile");
-  assert.match(page, /\) : \(\s*<SeriesTile key=\{s\.id\} series=\{s\} \/>\s*\)\)\}/, "the list's items are not the Library's tile");
+  assert.match(page, /<SeriesTile series=\{s\} selectable=\{selecting\}/, "the list's items are not the Library's tile");
   assert.match(page, /const shown = useMemo\(\(\) => sortList\(items, sort\), \[items, sort\]\);/, 'the grid is not sorted');
   assert.match(page, /\{shown\.map\(/, 'the grid draws the unsorted items');
   // The sort chips are the Library's chips: `chip` / `chip-active`, no new shape.

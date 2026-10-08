@@ -47,7 +47,7 @@ export function CollectionPickerModal({ seriesIds, want, onClose, onDone }: { se
   };
   const create = () => { const n = name.trim(); if (n) void run({ newName: n }, n); };
   return (
-    <Modal title={want ? tr('Save to a list for later') : seriesIds.length === 1 ? tr('Add to collection') : tr('Add {n} series to a collection', { n: seriesIds.length })} onClose={onClose}>
+    <Modal title={want ? tr('Save to a list for later') : seriesIds.length === 1 ? tr('Add 1 series to a collection') : tr('Add {n} series to a collection', { n: seriesIds.length })} onClose={onClose}>
       {isLoading ? (
         <LoadingBlock className="h-24 rounded-xl" />
       ) : (
