@@ -1,7 +1,7 @@
 'use client';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { ART } from '@/lib/art';
@@ -94,6 +94,11 @@ const HERO_SLIDES = 10;
  * would reflow tiles under a reading thumb.
  */
 export default function DiscoverPage() {
+  return <Suspense fallback={null}><DiscoverInner /></Suspense>;
+}
+
+function DiscoverInner() {
+  const urlQ = useSearchParams().get('q')?.trim() || '';
   const qc = useQueryClient();
   const router = useRouter();
   const { user, isAdmin } = useAuth();
@@ -430,14 +435,13 @@ export default function DiscoverPage() {
   // searching the same title again after browsing is instant.
   // Arriving with `?q=` (the palette's and the phone search page's "Search your sources"): search that term as if it had
   // been typed and submitted, once.
-  const arrivedQ = useRef(false);
+  // Also when already here: the palette's "Search your sources" pushes a new `?q=` onto this same page.
+  const arrivedQ = useRef('');
   useEffect(() => {
-    if (arrivedQ.current || !mayAdd) return;
-    arrivedQ.current = true;
-    const t = new URLSearchParams(window.location.search).get('q')?.trim();
-    if (!t) return;
-    setQ(t); setBrowsing(true); setMode('search'); setTerm(t);
-  }, [mayAdd]);
+    if (!mayAdd || !urlQ || arrivedQ.current === urlQ) return;
+    arrivedQ.current = urlQ;
+    setQ(urlQ); setBrowsing(true); setMode('search'); setTerm(urlQ);
+  }, [mayAdd, urlQ]);
   const backToNewest = () => { setQ(''); setMode('newest'); };
   const startBrowsing = () => { if (mode === 'newest') setBrowsing(true); };
   // A card's menu: search every source for its title, as if it had been typed and submitted.
