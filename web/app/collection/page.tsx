@@ -11,8 +11,12 @@ import { Sheet, useRtl } from '@/components/ui';
 import { useToast } from '@/components/Toast';
 import { IcChevronLeft, IcChevronRight, IcTrash } from '@/components/icons';
 import { t as tr } from '@/lib/i18n';
+import { AddSeriesDialog } from '@/components/AddSeriesDialog';
+import { Img } from '@/components/ui';
+import { canDownload } from '@/lib/auth';
 
-interface CollectionDetail { id: string; name: string; accent: string | null; items: Series[] }
+interface Want { key: string; title: string; coverUrl: string | null }
+interface CollectionDetail { id: string; name: string; accent: string | null; items: Series[]; wants?: Want[] }
 
 /**
  * A list's orders (#164) as the Library's sort chips: one definition, in a row on a wide screen and in a sheet on a
@@ -35,7 +39,8 @@ function CollectionInner() {
   const qc = useQueryClient();
   const toast = useToast();
   const rtl = useRtl();
-  const { user, setSettings } = useAuth();
+  const { user, setSettings, isAdmin } = useAuth();
+  const [bringing, setBringing] = useState<Want | null>(null);
   // Edit: remove series and move them in the list's own order. It replaced the old hover-only bin on each cover, which
   // a touchscreen could not see and which now sat on the unread badge.
   const [editing, setEditing] = useState(false);
@@ -47,6 +52,7 @@ function CollectionInner() {
   });
   // The list's own order, as the server keeps it.
   const items = useMemo(() => data?.items ?? [], [data]);
+  const wants = useMemo(() => data?.wants ?? [], [data]);
   const chosen = listSortOf(user?.settings, id);
   // While editing, the list's own order whatever the chosen sort: it is the order the arrows move.
   const sort: ListSort = editing ? 'manual' : chosen;
@@ -71,6 +77,11 @@ function CollectionInner() {
 
   const removeItem = async (s: Series) => {
     try { await api(`/api/collections/${id}/items/${s.id}`, { method: 'DELETE' }); inval(); }
+    catch { toast(tr('Could not do that'), 'error'); }
+  };
+
+  const dropWant = async (w: Want) => {
+    try { await api(`/api/collections/${id}/wants/${encodeURIComponent(w.key)}`, { method: 'DELETE' }); inval(); }
     catch { toast(tr('Could not do that'), 'error'); }
   };
 
@@ -124,7 +135,7 @@ function CollectionInner() {
           <span className="sr-only">{tr('Loading…')}</span>
           {Array.from({ length: 8 }).map((_, i) => <div key={i} className="skeleton aspect-[2/3] rounded-2xl" />)}
         </div>
-      ) : items.length === 0 ? (
+      ) : items.length === 0 && !wants.length ? (
         <p className="px-4 pt-10 text-center text-sm text-fog-500 lg:px-0">{tr('Empty so far — open any series and use “Add to collection”.')}</p>
       ) : (
         // The Library's own tile (#164): the same unread count, NEW mark, favourite and offline marks, from the same
@@ -162,6 +173,35 @@ function CollectionInner() {
             <SeriesTile key={s.id} series={s} />
           ))}
         </div>
+      )}
+
+      {wants.length > 0 && (
+        <section className="px-4 pt-8 lg:px-0" data-list-wants>
+          <h2 className="mb-1 text-xs font-semibold uppercase tracking-wider text-fog-500">{tr('Not in your library yet')}</h2>
+          <p className="mb-3 text-xs text-fog-500">{tr('Saved here to add later. They join the list on their own once the library has them.')}</p>
+          <ul className="grid grid-cols-3 gap-x-3 gap-y-5 sm:grid-cols-4 lg:grid-cols-6 2xl:grid-cols-8">
+            {wants.map((w) => (
+              <li key={w.key} className="min-w-0">
+                <div className="relative">
+                  <Img src={w.coverUrl || ''} alt="" className="aspect-[2/3] w-full rounded-2xl border border-ink-700 opacity-80" />
+                  <button type="button" onClick={() => dropWant(w)} aria-label={tr('Remove from collection')}
+                    className="absolute end-1.5 top-1.5 grid h-8 w-8 place-items-center rounded-full bg-black/70 text-fog-100 backdrop-blur hover:text-white">
+                    <IcTrash width={14} height={14} />
+                  </button>
+                </div>
+                <p dir="auto" className="mt-1.5 line-clamp-2 text-xs font-medium text-fog-100">{w.title}</p>
+                {canDownload(user) && (
+                  <button type="button" onClick={() => setBringing(w)} data-want-add className="chip mt-1.5 w-full justify-center text-[11px]">{tr('Add to library')}</button>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {bringing && (
+        <AddSeriesDialog seed={{ kind: 'trending', title: bringing.title }} sources={[]} mayFollow={isAdmin}
+          onClose={() => setBringing(null)} onAdded={inval} />
       )}
 
       {sorting && (

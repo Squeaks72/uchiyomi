@@ -1415,6 +1415,8 @@ PATCH  /api/notes/:id             DELETE /api/notes/:id
 PUT    /api/ratings/:seriesId     DELETE /api/ratings/:seriesId
 GET    /api/ratings/loved
 POST   /api/collections/:id/items/bulk
+POST   /api/collections/:id/wants
+DELETE /api/collections/:id/wants/:key
 GET    /api/series/:id/other-titles
 GET    /api/tokens                POST   /api/tokens
 GET    /api/bookmarks             PUT    /api/bookmarks/:bookId/:page
@@ -1447,7 +1449,7 @@ accepted and retained for compatibility. v0.55.8 validates three public keys:
 The earlier `reader` object (including `coverEdges`) and `listSorts` map remain additive keys on the same object.
 
 **Lists** (collections; the app's *Lists*). `GET /api/collections/:id` answers `{id, name, accent, sort_order, items}`:
-the list's series in its own order (`position`, which `PUT /api/collections/:id/items {seriesIds}` rewrites; since
+`wants` lists titles saved to it before the library held them (`{key, title, coverUrl}`; `POST /api/collections/:id/wants {title, coverUrl?}` saves one, `DELETE …/wants/:key` drops it) and moves any the library has since gained into `items`; the list's series in its own order (`position`, which `PUT /api/collections/:id/items {seriesIds}` rewrites; since
 v0.55.7 `POST /api/collections/:id/items` adds a series at the end, as the bulk add does), each enriched like every
 listing — `yomi.unread` is the cover's unread badge, against the caller's own progress — and a series hidden by the
 18+ switch or an age cap left out. Since v0.55.7 ([#164](https://github.com/AngeloSha/uchiyomi/discussions/164)) each

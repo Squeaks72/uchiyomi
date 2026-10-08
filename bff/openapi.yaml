@@ -5197,6 +5197,66 @@ paths:
           description: Malformed body or parameter
         "401":
           description: Not authenticated
+  /api/collections/{id}/wants:
+    post:
+      tags:
+        - personal
+      summary: Save a title the library does not hold yet to a collection.
+      operationId: postApiCollectionsIdWants
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                coverUrl:
+                  type: string
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Malformed body or parameter
+        "401":
+          description: Not authenticated
+        "404":
+          description: Not found
+  /api/collections/{id}/wants/{key}:
+    delete:
+      tags:
+        - personal
+      summary: Drop a saved title from a collection.
+      operationId: deleteApiCollectionsIdWantsKey
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Not authenticated
+        "404":
+          description: Not found
   /api/collections/{id}/items/bulk:
     post:
       tags:
