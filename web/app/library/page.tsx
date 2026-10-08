@@ -21,6 +21,7 @@ import { LibraryFilters, NO_SOURCE, SORTS, READ_STATES, STATUSES, useLibrarySour
 import { Sheet } from '@/components/ui';
 import { useArchiveEnqueue } from '@/components/ArchiveQueue';
 import { t as tr } from '@/lib/i18n';
+import { contextMenusOn } from '@/lib/contextMenus';
 import { applyFavorite } from '@/lib/favoriteCache';
 import { selectedText } from '@/lib/counted';
 import { archiveWhy } from '@/lib/archive';
@@ -671,6 +672,7 @@ function LibraryInner() {
           ? Array.from({ length: 14 }).map((_, i) => <div key={i} className="skeleton aspect-[2/3] rounded-2xl" />)
           : items.map((s, i) => (
               <div key={s.id} className="contents" onContextMenu={(e) => {
+                if (!contextMenusOn()) return;
                 e.preventDefault();
                 if (!selecting) { setSelecting(true); setPicked(new Set([s.id])); }
                 else if (!picked.has(s.id)) setPicked((p) => new Set(p).add(s.id));
