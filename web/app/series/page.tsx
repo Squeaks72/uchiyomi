@@ -682,7 +682,7 @@ interface SourceJob { folder: string; status: string; reason?: string; reasonSai
 /**
  * Prev / a range picker / Next for the chapter list. The picker names each page by the first and last chapter
  * numbers it shows ("901–1000", or "1193–1094" newest first), which is what a reader hunting for a chapter
- * number actually scans for; `total` is chapters, not rows.
+ * number actually scans for; `total` is the chapters the list draws as rows: ghosts folded into a run or behind "Show all", and the .5 / chapter 0 rows the "Show .5 & extras" switch hides, are not counted.
  */
 function ChapterPager({ page, pages, rows, asc, total, onPage }: { page: number; pages: number; rows: readonly Row[]; asc: boolean; total: number; onPage: (p: number) => void }) {
   const range = (p: number) => pageLabel(rows, p, asc);
@@ -948,8 +948,13 @@ function SeriesInner() {
   }, [groups, allBooks]);
   // The filter is applied BEFORE mergeRows, so the run rows and the "Show all" fold are computed over what
   // is shown: a filter that hid 40 of 50 capped ghosts and still said "Show all 120" would be lying.
-  const filteredBooks = useMemo(() => (group === ALL_GROUPS ? rowBooks : rowBooks.filter((b) => matchesGroup(b, group))), [rowBooks, group]);
-  const filteredGhosts = useMemo(() => (group === ALL_GROUPS ? visibleGhosts : visibleGhosts.filter((g) => matchesGroup(g, group))), [visibleGhosts, group]);
+  // Whole chapters only, unless the reader flips "Show .5 & extras": chapter 0 and numbers like 12.5 or 956.99 are
+  // what sources list beyond the canonical run, and they inflate the list and its count.
+  const [fractions, setFractions] = useState(false);
+  const wholeOnly = useCallback((n: number) => fractions || (Number.isInteger(n) && n > 0), [fractions]);
+  const hasFractions = useMemo(() => allBooks.some((b) => !Number.isInteger(b.number) || b.number <= 0) || ghosts.some((g) => !Number.isInteger(g.number) || g.number <= 0), [allBooks, ghosts]);
+  const filteredBooks = useMemo(() => rowBooks.filter((b) => wholeOnly(b.number) && (group === ALL_GROUPS || matchesGroup(b, group))), [rowBooks, group, wholeOnly]);
+  const filteredGhosts = useMemo(() => visibleGhosts.filter((g) => wholeOnly(g.number) && (group === ALL_GROUPS || matchesGroup(g, group))), [visibleGhosts, group, wholeOnly]);
   // The list, in the list's direction: chapters on disk and, between them, the ghosts (see chapterRows.ts).
   const rows = useMemo(() => mergeRows(filteredBooks, filteredGhosts, asc, showAll || everything, runsOpen), [filteredBooks, filteredGhosts, asc, showAll, everything, runsOpen]);
   // A series with no chapters at all (a "Nothing yet" add) has one thing to show: the run of older chapters
@@ -1064,6 +1069,7 @@ function SeriesInner() {
   }, [litCh]);
   const shownPage = clampPage(chapterPage ?? autoPage, rows.length, pageSize);
   const pages = pageCount(rows.length, pageSize);
+  const listedChapters = useMemo(() => rows.filter((r) => r.kind === 'book' || r.kind === 'ghost').length, [rows]);
   const pageRows = useMemo(() => pageSlice(rows, shownPage, pageSize), [rows, shownPage, pageSize]);
   // A chip in Sources & translations jumps to a chapter's row, which may be on another page: turn to it
   // first. A number with no row (folded into a run, or filtered out) leaves the page as it is.
@@ -1871,6 +1877,11 @@ function SeriesInner() {
                 : tr('Hides the extra chapters (notices and strays numbered 0 or like 12.5) again.')}
               className={`chip text-xs disabled:opacity-50 ${series.hideNoticesEffective ? '' : 'chip-active'}`}>{tr('Show extras')}</button>
           )}
+          {hasFractions && (
+            <button data-show-fractions onClick={() => setFractions((v) => !v)} aria-pressed={fractions}
+              title={tr('Shows chapter 0 and numbers like 12.5, which the list leaves out by default.')}
+              className={`chip text-xs ${fractions ? 'chip-active' : ''}`}>{tr('Show .5 & extras')}</button>
+          )}
           {/* The group filter and the ghost switch live in a sheet; the count of active choices is a tiny
               badge on the chip, not ` · {n}` text, which is what pushed the row past 358 px. Rendered only
               when there is something to filter by. */}
@@ -1893,7 +1904,7 @@ function SeriesInner() {
           {tr('{n} of {m} chapters match', { n: filteredBooks.length + filteredGhosts.length, m: rowBooks.length + visibleGhosts.length })}
         </p>
       )}
-      {pages > 1 && <ChapterPager page={shownPage} pages={pages} rows={rows} asc={asc} total={filteredBooks.length + filteredGhosts.length} onPage={(p) => goPage(p, false)} />}
+      {pages > 1 && <ChapterPager page={shownPage} pages={pages} rows={rows} asc={asc} total={listedChapters} onPage={(p) => goPage(p, false)} />}
       <div className="lg:grid lg:gap-x-10 lg:[grid-template-columns:repeat(auto-fill,minmax(min(100%,420px),1fr))]">
         {pageRows.map((r) => {
           if (r.kind === 'book') {
@@ -1976,7 +1987,7 @@ function SeriesInner() {
         })}
         {!books && Array.from({ length: 8 }).map((_, i) => <div key={i} className="skeleton my-3 h-6 rounded" />)}
       </div>
-      {pages > 1 && <ChapterPager page={shownPage} pages={pages} rows={rows} asc={asc} total={filteredBooks.length + filteredGhosts.length} onPage={(p) => goPage(p, true)} />}
+      {pages > 1 && <ChapterPager page={shownPage} pages={pages} rows={rows} asc={asc} total={listedChapters} onPage={(p) => goPage(p, true)} />}
     </div>
   );
 
