@@ -3,7 +3,7 @@ import { BackLink } from '@/components/BackLink';
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useTabParam } from '@/lib/useTabParam';
 import { AdminSettings } from '@/components/AdminSettings';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError, img } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { triggerRefresh } from '@/lib/refresh';
@@ -1372,7 +1372,15 @@ type GatherAnswer = {
 /** Move every series of a library under one folder, dropping the source-name level. Previewed first, then confirmed with a second press. */
 function GatherSeries({ lib, onDone }: { lib: LibraryRow; onDone: () => void }) {
   const toast = useToast();
-  const [target, setTarget] = useState(lib.id === 'lib' ? '' : foldersOf(lib)[0] ?? '');
+  const roots = lib.id === 'lib' && !foldersOf(lib).length ? [''] : foldersOf(lib);
+  const [target, setTarget] = useState(roots[0] ?? '');
+  // Only folders that exist: the library's own, and the folders on disk directly under each.
+  const subs = useQueries({ queries: roots.map((r) => ({
+    queryKey: ['admin-library-subfolders', r],
+    queryFn: () => api<{ folders: { path: string }[] }>(`/api/admin/libraries/folders?path=${encodeURIComponent(r)}`),
+    staleTime: 60_000,
+  })) });
+  const options = [...new Set([...roots, ...subs.flatMap((q) => q.data?.folders.map((f) => f.path) ?? [])])];
   const [plan, setPlan] = useState<GatherAnswer | null>(null);
   const [busy, setBusy] = useState(false);
   const { armed, arm, disarm } = useArmed();
@@ -1393,11 +1401,12 @@ function GatherSeries({ lib, onDone }: { lib: LibraryRow; onDone: () => void }) 
     <div className="mt-4 max-w-md rounded-lg border border-ink-700 bg-ink-900/40 p-3">
       <label htmlFor="library-gather" className="block text-xs font-semibold uppercase tracking-wider text-fog-500">{tr('Gather every series into one folder')}</label>
       <p className="mb-2 mt-1 text-[11px] leading-relaxed text-fog-600">
-        {tr('Moves each series folder to <folder>/<series name> on disk, in every root it lives in, so source-name folders disappear. Progress is kept. Leave blank for the library root.')}
+        {tr('Moves each series folder to <folder>/<series name> on disk, in every root it lives in, so source-name folders disappear. Progress is kept.')}
       </p>
       <div className="flex gap-2">
-        <input id="library-gather" value={target} onChange={(e) => { setTarget(e.target.value); setPlan(null); }} spellCheck={false} dir="auto" autoComplete="off"
-          placeholder={tr('e.g. Manga')} className="field min-w-0 flex-1 font-mono" />
+        <select id="library-gather" value={target} onChange={(e) => { setTarget(e.target.value); setPlan(null); }} className="field min-w-0 flex-1 font-mono">
+          {options.map((o) => <option key={o} value={o}>{o || tr('(library root)')}</option>)}
+        </select>
         <button type="button" onClick={() => ask(true)} disabled={busy} className="btn-key h-auto self-stretch">{tr('Preview')}</button>
       </div>
       {plan && (
