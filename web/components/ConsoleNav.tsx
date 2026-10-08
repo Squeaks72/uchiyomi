@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { useReduceEffects } from '@/lib/effects';
 import { useLayer } from '@/lib/layers';
+import { BACKDROP_CLS } from '@/components/ui';
 import { t as tr } from '@/lib/i18n';
 
 export interface NavGroup<T extends string> {
@@ -173,7 +174,7 @@ function GroupSheet<T extends string>({ groups, ariaLabel, current, footer, onPi
     return () => { document.removeEventListener('keydown', onKey); opener?.focus(); };
   }, []);
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink-950/70 backdrop-blur-xs sm:items-center" onClick={onClose}>
+    <div className={`fixed inset-0 z-50 flex items-end justify-center ${BACKDROP_CLS} sm:items-center`} onClick={onClose}>
       <div ref={ref} className="glass max-h-[80vh] w-full overflow-y-auto rounded-t-2xl border border-ink-700 p-5 pb-[calc(5.5rem+env(safe-area-inset-bottom))] sm:pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:max-w-md sm:rounded-2xl"
         role="dialog" aria-modal="true" aria-label={ariaLabel} data-lenis-prevent onClick={(e) => e.stopPropagation()}>
         <div className="mb-4 flex items-start justify-between gap-3">

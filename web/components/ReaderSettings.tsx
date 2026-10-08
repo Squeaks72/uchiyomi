@@ -7,6 +7,7 @@ import { Switch } from './Switch';
 import { t as tr } from '@/lib/i18n';
 import { useLayer } from '@/lib/layers';
 import { LinkRow } from './settings';
+import { ToggleChip } from './ui';
 
 /** One setting. A group of buttons is named by its label; a slider names itself (`slider`). */
 function Row({ label, slider, children }: { label: string; slider?: boolean; children: React.ReactNode }) {
@@ -24,10 +25,9 @@ function Row({ label, slider, children }: { label: string; slider?: boolean; chi
 /** A choice between buttons: states which one is on, and shares the one look. */
 function Choice({ on, onClick, className = 'py-3', children }: { on: boolean; onClick: () => void; className?: string; children: React.ReactNode }) {
   return (
-    <button type="button" onClick={onClick} aria-pressed={on}
-      className={`rounded-2xl border text-sm ${className} ${on ? 'border-accent bg-accent-soft text-accent' : 'border-ink-700 text-fog-300'}`}>
+    <ToggleChip variant="box" on={on} onClick={onClick} className={`rounded-2xl text-sm ${className}`}>
       {children}
-    </button>
+    </ToggleChip>
   );
 }
 

@@ -10,7 +10,7 @@ import { api, img } from '@/lib/api';
 import { Page, Series } from '@/lib/types';
 import { triggerRefresh } from '@/lib/refresh';
 import { useToast } from './Toast';
-import { Img, trapTab } from './ui';
+import { Img, trapTab, BACKDROP_CLS } from './ui';
 import { IcSearch, IcSparkle, IcRefresh, IcBell, IcDownload, IcCloudDownload, IcGrid, IcMoments, IcSettings, IcUser, IcImport } from './icons';
 import { t as tr } from '@/lib/i18n';
 import { hiddenOnDesktop, isDesktop, DESKTOP_HIDDEN } from '@/lib/desktop';
@@ -190,7 +190,7 @@ export function CommandPalette({ open, seed = '', onClose }: { open: boolean; se
     <AnimatePresence>
       {open && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: still ? 0 : 0.15 }}
-          className="fixed inset-0 z-[70] bg-ink-950/70 p-4 pt-[12vh] backdrop-blur-xs" onClick={onClose}>
+          className={`fixed inset-0 z-[70] ${BACKDROP_CLS} p-4 pt-[12vh]`} onClick={onClose}>
           <motion.div ref={panelRef} initial={{ opacity: 0, y: still ? 0 : -10, scale: still ? 1 : 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: still ? 0 : -8, scale: still ? 1 : 0.98 }}
             transition={{ duration: still ? 0 : 0.18, ease: [0.22, 0.61, 0.36, 1] }}
             onKeyDown={(e: React.KeyboardEvent) => trapTab(e, panelRef.current)}

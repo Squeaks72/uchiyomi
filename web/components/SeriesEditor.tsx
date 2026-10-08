@@ -30,7 +30,7 @@ import { metaSaver, seedMeta, type SeriesMeta } from '@/lib/seriesMeta';
 import { SERIES_TYPES, seriesTypeKey } from '@/lib/seriesTypes';
 import { useToast } from './Toast';
 import { msgOf } from './ConfirmDialog';
-import { Backdrop, useRtl } from './ui';
+import { Backdrop, useRtl, BACKDROP_CLS } from './ui';
 import { ProgressRing } from './ProgressRing';
 import { useContextMenu } from './ContextMenu';
 import { useCheckNow } from './SourcesSheet';
@@ -220,7 +220,7 @@ export function SeriesEditor({ id, series, tab: opening = 'details', onClose, on
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-ink-950/70 backdrop-blur-xs md:items-center md:p-6 md:pb-[calc(5.5rem+env(safe-area-inset-bottom))] lg:pb-28 lg:pt-[5.5rem]"
+      className={`fixed inset-0 z-50 flex items-end justify-center ${BACKDROP_CLS} md:items-center md:p-6 md:pb-[calc(5.5rem+env(safe-area-inset-bottom))] lg:pb-28 lg:pt-[5.5rem]`}
       onPointerDown={(e) => { downOnBackdrop.current = e.target === e.currentTarget; }}
       onClick={(e) => { if (e.target === e.currentTarget && (downOnBackdrop.current || e.detail === 0)) onClose(); }}
     >

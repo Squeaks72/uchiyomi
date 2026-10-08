@@ -9,14 +9,16 @@ import { Book, EditionRow, Ghost, Listing, Page, Series, VersionCopy, Versions }
 import { bookCountText, chapterLabel, chapterName, isVolumeName, languageName, relativeTime, relativeTimeShort } from '@/lib/format';
 import { listDownloads, downloadChapter, deleteDownload } from '@/lib/downloads';
 import { applyCover, clearCover } from '@/lib/theme';
-import { Img, Backdrop, Rail, SectionTitle } from '@/components/ui';
+import { Img, Backdrop, Rail, SectionTitle, FIELD_CLS as fld } from '@/components/ui';
+import { StarRating, RatingText } from '@/components/StarRating';
+import { CollectionPickerModal } from '@/components/CollectionPicker';
 import { SeriesCard } from '@/components/cards';
 import { useToast } from '@/components/Toast';
 import { ConfirmDialog, Modal, msgOf } from '@/components/ConfirmDialog';
 import { seedMeta, metaBody } from '@/lib/seriesMeta';
 import { GenreTagInput } from '@/components/GenreTagInput';
 import { useAuth, canDownload } from '@/lib/auth';
-import { IcChevronLeft, IcHeart, IcStar, IcPlay, IcDownload, IcCloudDownload, IcCheck, IcTrash, IcMoments, IcHourglass, IcRefresh } from '@/components/icons';
+import { IcChevronLeft, IcHeart, IcPlay, IcDownload, IcCloudDownload, IcCheck, IcTrash, IcMoments, IcHourglass, IcRefresh } from '@/components/icons';
 import { t as tr } from '@/lib/i18n';
 import { statusText } from '@/lib/activity';
 import { applyFavorite } from '@/lib/favoriteCache';
@@ -64,75 +66,6 @@ import { SeriesEditor, copyPath, type EditTab } from '@/components/SeriesEditor'
 
 /** "Marking 3 chapters read…", counted: the busy half of Mark read's one card. */
 const markingText = (n: number) => (n === 1 ? tr('Marking 1 chapter read…') : tr('Marking {n} chapters read…', { n }));
-
-// The one field style the page's own small dialogs share (Add to collection, Edit chapter).
-const fld = 'w-full rounded-lg border border-ink-700 bg-ink-900/60 px-3 py-2 text-sm text-fog-100 outline-hidden focus-visible:outline-accent focus-visible:outline-offset-0 transition focus:border-accent/60';
-
-interface CollectionRow { id: string; name: string; accent: string | null; item_count: number }
-
-/** "Add to collection" sheet: pick an existing list or create one inline. */
-function CollectionSheet({ seriesId, onClose }: { seriesId: string; onClose: () => void }) {
-  const toast = useToast();
-  const qc = useQueryClient();
-  const [name, setName] = useState('');
-  const { data, isLoading } = useQuery({ queryKey: ['collections'], queryFn: () => api<{ content: CollectionRow[] }>('/api/collections') });
-  const add = async (c: CollectionRow) => {
-    try {
-      await api(`/api/collections/${c.id}/items`, { json: { seriesId } });
-      toast(tr('Added to “{name}”', { name: `⁨${c.name}⁩` }), 'success');
-      qc.invalidateQueries({ queryKey: ['collections'] });
-      qc.invalidateQueries({ queryKey: ['collection', c.id] });
-      onClose();
-    } catch { toast(tr('Could not do that'), 'error'); }
-  };
-  const createAndAdd = async () => {
-    const n = name.trim();
-    if (!n) return;
-    try {
-      const c = await api<CollectionRow>('/api/collections', { json: { name: n } });
-      await add(c);
-    } catch { toast(tr('Could not do that'), 'error'); }
-  };
-  return (
-    <Modal title={tr('Add to collection')} onClose={onClose}>
-      {isLoading ? (
-        <div role="status" className="skeleton h-24 rounded-xl"><span className="sr-only">{tr('Loading…')}</span></div>
-      ) : (
-        <ul data-lenis-prevent className="max-h-64 space-y-1.5 overflow-y-auto">
-          {(data?.content ?? []).map((c) => (
-            <li key={c.id}>
-              <button type="button" onClick={() => add(c)}
-                className="flex w-full items-center gap-2.5 rounded-xl border border-ink-700 px-3 py-2.5 text-start transition hover:border-accent/50">
-                <span aria-hidden className="h-4 w-1.5 shrink-0 rounded-full" style={{ background: c.accent || 'rgb(var(--accent))' }} />
-                <span className="min-w-0 truncate text-sm text-fog-100">{c.name}</span>
-                <span className="ms-auto shrink-0 text-[11px] text-fog-500">{c.item_count}</span>
-              </button>
-            </li>
-          ))}
-          {!(data?.content ?? []).length && <li className="py-2 text-center text-xs text-fog-500">{tr('No collections yet — create one below.')}</li>}
-        </ul>
-      )}
-      <div className="mt-3 flex gap-2 border-t border-ink-800 pt-3">
-        <input value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && createAndAdd()}
-          aria-label={tr('New collection…')} placeholder={tr('New collection…')} className={`${fld} flex-1`} />
-        <button type="button" onClick={createAndAdd} disabled={!name.trim()} className="btn-accent px-3 text-xs disabled:opacity-50">{tr('Create')}</button>
-      </div>
-    </Modal>
-  );
-}
-
-function StarRating({ value, onSet }: { value: number | null; onSet: (n: number) => void }) {
-  return (
-    <div role="group" aria-label={tr('Rate this')} className="flex items-center gap-1">
-      {[1, 2, 3, 4, 5].map((n) => (
-        <button key={n} type="button" onClick={() => onSet(n)} aria-label={n === 1 ? tr('1 star') : tr('{n} stars', { n })} aria-pressed={n === value}
-          className={`relative before:absolute before:-inset-1 ${n <= (value || 0) ? 'text-accent' : 'text-fog-400'}`}>
-          <IcStar width={22} height={22} fill={n <= (value || 0) ? 'currentColor' : 'none'} />
-        </button>
-      ))}
-    </div>
-  );
-}
 
 /**
  * Correct one chapter's number or title.
@@ -1876,7 +1809,7 @@ function SeriesInner() {
     // "{n} behind" used to sit here; the supply line under the title carries that count now ("4 not here
     // yet"), with the source and the groups beside it, and one line saying it is enough.
     updatedAt ? <>{tr('Updated {ago}', { ago: relativeTime(updatedAt) })}</> : null,
-    rating ? <span className="text-accent">★ {rating}/5</span> : null,
+    rating ? <RatingText rating={rating} /> : null,
   ].filter(Boolean);
   const Meta = (
     <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-fog-400 lg:text-sm">
@@ -2158,7 +2091,7 @@ function SeriesInner() {
           {(meta?.status || rating) && (
             <div className="mb-2 flex items-center gap-2">
               {meta?.status && <span className="chip text-[11px] capitalize">{statusText(meta.status)}</span>}
-              {rating ? <span className="chip text-[11px] text-accent">★ {rating}/5</span> : null}
+              {rating ? <RatingText rating={rating} chip /> : null}
             </div>
           )}
           <h1 dir="auto" className="font-display text-4xl font-bold leading-tight text-white [text-shadow:0_2px_16px_rgba(0,0,0,0.6)]">{title}</h1>
@@ -2305,7 +2238,7 @@ function SeriesInner() {
         <ChapterEditModal book={editChapter} onClose={() => setEditChapter(null)}
           onSaved={() => { for (const k of [['series-books', id], ['series', id], ['home']]) qc.invalidateQueries({ queryKey: k }); }} />
       )}
-      {collecting && <CollectionSheet seriesId={id} onClose={() => setCollecting(false)} />}
+      {collecting && <CollectionPickerModal seriesIds={[id]} onClose={() => setCollecting(false)} />}
       {addingLang && series && (
         <AddSeriesDialog seed={{ kind: 'edition', of: id, title, ...addingLang }} sources={[]} mayFollow={isAdmin}
           onClose={() => setAddingLang(null)}

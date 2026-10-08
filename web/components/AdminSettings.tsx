@@ -24,6 +24,7 @@
 // ("Thank you — counted" / "No longer counted", because opting out destroys the identifier) and the
 // read-chapter cleanup ("Read chapters will be deleted" / "Read chapters are kept", because it deletes
 // files). Every other row's outcome is its own state plus the tick.
+import { ToggleChip } from '@/components/ui';
 import { NoSourceMatch, SourceTools, useSourceTools } from '@/components/SourceTools';
 import { arrangeSources, SOURCE_TOOLS_MIN } from '@/lib/sourceList';
 import { useEffect, useState, type ReactNode } from 'react';
@@ -308,12 +309,11 @@ function ContentRatingsSection({ data, save }: { data: any; save: Save }) {
         <div className="flex flex-wrap gap-1.5">
           {allGenres.length === 0 && <span className="text-[11px] text-fog-500">{tr('No genres yet.')}</span>}
           {allGenres.map((g) => (
-            <button key={g.key} type="button"
+            <ToggleChip key={g.key} on={has(genres, g.key)}
               onClick={() => flip('adultGenres', genres, setGenres, g.key)}
-              aria-pressed={has(genres, g.key)}
-              className={`chip whitespace-nowrap ${has(genres, g.key) ? 'chip-active' : ''}`}>
+              className="whitespace-nowrap">
               {g.label || g.key}
-            </button>
+            </ToggleChip>
           ))}
         </div>
         <p className="mb-1 mt-4 max-w-prose text-[11px] leading-relaxed text-fog-500">

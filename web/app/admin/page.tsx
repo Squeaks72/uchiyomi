@@ -12,6 +12,7 @@ import { bytes, relativeTime } from '@/lib/format';
 import { shownDeviceName } from '@/lib/device';
 import { useToast } from '@/components/Toast';
 import { ConfirmDialog, Modal, msgOf } from '@/components/ConfirmDialog';
+import { ArmButton, useArmed } from '@/components/ArmButton';
 import { Avatar } from '@/components/Avatar';
 import { IcChevronLeft, IcChevronRight, IcTrash, IcPlus, IcRefresh, IcX } from '@/components/icons';
 import { LibraryFolders } from '@/components/LibraryFolders';
@@ -29,7 +30,7 @@ import { checkTitle } from '@/lib/healthCopy';
 import { checkNote, checkSummary, itemDetail, itemTitle } from '@/lib/said';
 import { keysFor } from '@/lib/healthKeys';
 import type { ActionState } from '@/lib/actionState';
-import { Backdrop, Img, OnBody } from '@/components/ui';
+import { Backdrop, Img, OnBody, ToggleChip } from '@/components/ui';
 import { SeriesCard } from '@/components/cards';
 import { ConsoleNav } from '@/components/ConsoleNav';
 import { motion, useReducedMotion } from 'framer-motion';
@@ -515,7 +516,7 @@ function Members() {
           <input value={username} onChange={(e) => setUsername(e.target.value)} placeholder={tr('username')} aria-label={tr('username')} autoComplete="off" autoCapitalize="none" autoCorrect="off" className="field" />
           <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder={tr('display name (optional)')} aria-label={tr('display name (optional)')} autoComplete="off" className="field" />
           <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" autoComplete="new-password" placeholder={tr('password (min 8)')} aria-label={tr('password (min 8)')} className="field" />
-          <div role="group" aria-label={tr('Role')} className="flex gap-2">{(['user', 'admin'] as const).map((r) => <button key={r} type="button" onClick={() => setRole(r)} aria-pressed={role === r} className={`flex-1 rounded-xl border py-2 text-sm capitalize ${role === r ? 'border-accent bg-accent-soft text-accent' : 'border-ink-700 text-fog-300'}`}>{roleText(r)}</button>)}</div>
+          <div role="group" aria-label={tr('Role')} className="flex gap-2">{(['user', 'admin'] as const).map((r) => <ToggleChip key={r} variant="box" on={role === r} onClick={() => setRole(r)} className="flex-1 rounded-xl py-2 text-sm capitalize">{roleText(r)}</ToggleChip>)}</div>
         </div>
         <button type="submit" disabled={busy || !username.trim() || password.length < 8} className="btn-accent mt-3 w-full disabled:opacity-50"><IcPlus width={18} height={18} /> {busy ? tr('Creating…') : tr('Create account')}</button>
       </form>
@@ -689,21 +690,8 @@ function ArtReview() {
 }
 
 function ArtPicker({ row, onClose, onApplied }: { row: ArtRow; onClose: () => void; onApplied: () => void }) {
-  // A dialog on the notices' layer stack (lib/layers.ts): it toasts while open ("Failed to apply").
-  useLayer('dialog');
   const toast = useToast();
   const [busy, setBusy] = useState(false);
-  // Escape closes, focus moves inside, and goes back to the opener -- the same contract as the shared Modal.
-  const dialogRef = useRef<HTMLDivElement>(null);
-  const closeRef = useRef(onClose);
-  closeRef.current = onClose;
-  useEffect(() => {
-    const opener = document.activeElement as HTMLElement | null;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeRef.current(); };
-    document.addEventListener('keydown', onKey);
-    dialogRef.current?.querySelector<HTMLElement>('button')?.focus();
-    return () => { document.removeEventListener('keydown', onKey); opener?.focus(); };
-  }, []);
   const { data, isLoading } = useQuery({
     queryKey: ['admin-art-cand', row.id],
     queryFn: () => api<{ content: ArtCandidate[] }>(`/api/admin/art/candidates/${row.id}`),
@@ -735,43 +723,35 @@ function ArtPicker({ row, onClose, onApplied }: { row: ArtRow; onClose: () => vo
     setBusy(false);
   };
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-ink-950/70 p-4 backdrop-blur-xs" onClick={onClose}>
-      {/* max-w-xl, the widest a centred panel may be: from lg up the notices' column beside it is sized to clear
-          36 rem (lib/notices.ts WIDE_BESIDE_DIALOG), and at 42 rem this one's corner sat under it. */}
-      <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={row.title} data-lenis-prevent className="glass max-h-[88vh] w-full max-w-xl overflow-y-auto rounded-2xl border border-ink-700 p-5" onClick={(e) => e.stopPropagation()}>
-        <div className="mb-3 flex items-start justify-between gap-3">
-          <h3 className="font-display text-lg font-semibold leading-tight">{row.title}</h3>
-          <button onClick={onClose} aria-label={tr('Close')} className="-m-1.5 shrink-0 p-1.5 text-fog-500 hover:text-fog-200"><span aria-hidden>✕</span></button>
-        </div>
-        <div className="mb-3 flex flex-wrap gap-2">
-          <button data-art-first-page onClick={() => firstPage()} disabled={busy || row.first_page} className="btn-key">{tr('Use the first page')}</button>
-          {row.override_cover && <button onClick={() => reset('cover')} disabled={busy} className="btn-key">{tr('Reset cover to auto')}</button>}
-          {row.override_banner && <button onClick={() => reset('banner')} disabled={busy} className="btn-key">{tr('Reset banner to auto')}</button>}
-        </div>
-        {isLoading ? (
-          <p className="py-8 text-center text-sm text-fog-500">{tr('Searching AniList + MangaDex…')}</p>
-        ) : !(data?.content?.length) ? (
-          <p className="py-8 text-center text-sm text-fog-500">{tr('No candidates found — use Edit details on the series page to paste a URL.')}</p>
-        ) : (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {data!.content.map((c, i) => (
-              <div key={i} className="card overflow-hidden p-0">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={c.banner || c.cover || ''} alt="" className="h-28 w-full object-cover" loading="lazy" />
-                <div className="p-2">
-                  <p id={`art-cand-${i}`} className="truncate text-[11px] text-fog-300">{c.title}</p>
-                  <p className="text-[11px] uppercase tracking-wide text-fog-500">{c.origin}</p>
-                  <div className="mt-1.5 flex gap-1.5">
-                    {c.banner && <button onClick={() => apply('banner', c.banner!)} aria-describedby={`art-cand-${i}`} disabled={busy} className="btn-accent flex-1 px-2 py-1 text-[11px] disabled:opacity-50">{tr('Use as banner')}</button>}
-                    {c.cover && <button onClick={() => apply('cover', c.cover!)} aria-describedby={`art-cand-${i}`} disabled={busy} className="btn-ghost flex-1 px-2 py-1 text-[11px] disabled:opacity-50">{tr('Use as cover')}</button>}
-                  </div>
+    <Modal title={row.title} onClose={onClose} xwide>
+      <div className="mb-3 flex flex-wrap gap-2">
+        <button data-art-first-page onClick={() => firstPage()} disabled={busy || row.first_page} className="btn-key">{tr('Use the first page')}</button>
+        {row.override_cover && <button onClick={() => reset('cover')} disabled={busy} className="btn-key">{tr('Reset cover to auto')}</button>}
+        {row.override_banner && <button onClick={() => reset('banner')} disabled={busy} className="btn-key">{tr('Reset banner to auto')}</button>}
+      </div>
+      {isLoading ? (
+        <p className="py-8 text-center text-sm text-fog-500">{tr('Searching AniList + MangaDex…')}</p>
+      ) : !(data?.content?.length) ? (
+        <p className="py-8 text-center text-sm text-fog-500">{tr('No candidates found — use Edit details on the series page to paste a URL.')}</p>
+      ) : (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          {data!.content.map((c, i) => (
+            <div key={i} className="card overflow-hidden p-0">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={c.banner || c.cover || ''} alt="" className="h-28 w-full object-cover" loading="lazy" />
+              <div className="p-2">
+                <p id={`art-cand-${i}`} className="truncate text-[11px] text-fog-300">{c.title}</p>
+                <p className="text-[11px] uppercase tracking-wide text-fog-500">{c.origin}</p>
+                <div className="mt-1.5 flex gap-1.5">
+                  {c.banner && <button onClick={() => apply('banner', c.banner!)} aria-describedby={`art-cand-${i}`} disabled={busy} className="btn-accent flex-1 px-2 py-1 text-[11px] disabled:opacity-50">{tr('Use as banner')}</button>}
+                  {c.cover && <button onClick={() => apply('cover', c.cover!)} aria-describedby={`art-cand-${i}`} disabled={busy} className="btn-ghost flex-1 px-2 py-1 text-[11px] disabled:opacity-50">{tr('Use as cover')}</button>}
                 </div>
               </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </Modal>
   );
 }
 
@@ -1399,12 +1379,7 @@ function GatherSeries({ lib, onDone }: { lib: LibraryRow; onDone: () => void }) 
   const [target, setTarget] = useState(lib.id === 'lib' ? '' : foldersOf(lib)[0] ?? '');
   const [plan, setPlan] = useState<GatherAnswer | null>(null);
   const [busy, setBusy] = useState(false);
-  const [armed, setArmed] = useState(false);
-  useEffect(() => {
-    if (!armed) return;
-    const h = setTimeout(() => setArmed(false), 4000);
-    return () => clearTimeout(h);
-  }, [armed]);
+  const { armed, arm, disarm } = useArmed();
   const ask = async (dryRun: boolean) => {
     setBusy(true);
     try {
@@ -1416,7 +1391,7 @@ function GatherSeries({ lib, onDone }: { lib: LibraryRow; onDone: () => void }) 
       }
     } catch (e) { toast(msgOf(e, tr('Could not gather the series')), 'error'); }
     setBusy(false);
-    setArmed(false);
+    disarm();
   };
   return (
     <div className="mt-4 max-w-md rounded-lg border border-ink-700 bg-ink-900/40 p-3">
@@ -1450,11 +1425,10 @@ function GatherSeries({ lib, onDone }: { lib: LibraryRow; onDone: () => void }) 
         </div>
       )}
       {plan?.dryRun && plan.planned > 0 && (
-        <button type="button" disabled={busy}
-          onClick={() => { if (armed) void ask(false); else setArmed(true); }}
+        <ArmButton type="button" armed={armed} arm={arm} onConfirm={() => void ask(false)} busy={busy} disabled={busy}
           className="btn-key btn-key-primary mt-2">
-          {busy ? tr('Working…') : armed ? tr('Sure?') : tr('Move {n} series', { n: plan.planned })}
-        </button>
+          {tr('Move {n} series', { n: plan.planned })}
+        </ArmButton>
       )}
     </div>
   );

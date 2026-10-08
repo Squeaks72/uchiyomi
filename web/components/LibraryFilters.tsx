@@ -6,7 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api, img } from '@/lib/api';
 import { FORMAT_KEYS, GenreFacet, sameGenre } from '@/lib/genres';
 import { LibraryRow } from '@/components/AdultToggle';
-import { Img } from '@/components/ui';
+import { Img, ToggleChip } from '@/components/ui';
 import { keys, t as tr } from '@/lib/i18n';
 
 /**
@@ -143,10 +143,9 @@ function SourceSection({ title, help, rows, none, count, value, onPick }: {
           </button>
         ))}
         {noneShown && (
-          <button type="button" onClick={() => onPick(value === NO_SOURCE ? '' : NO_SOURCE)} aria-pressed={value === NO_SOURCE}
-            className={`chip text-xs ${value === NO_SOURCE ? 'chip-active' : ''}`} data-source-none>
+          <ToggleChip on={value === NO_SOURCE} onClick={() => onPick(value === NO_SOURCE ? '' : NO_SOURCE)} className="text-xs" data-source-none>
             {tr('No source')}<span className="ms-1 tabular-nums text-fog-600">{none}</span>
-          </button>
+          </ToggleChip>
         )}
       </Chips>
       {hidden > 0 && (
@@ -271,8 +270,7 @@ export function LibraryFilters({ sort, read, status, genres, lib, libs, mainSrc,
         <Eyebrow>{tr('Sort by')}</Eyebrow>
         <Chips label={tr('Sort by')}>
           {SORTS.map((s) => (
-            <button key={s.key} type="button" onClick={() => onSet('sort', s.key)} aria-pressed={sort === s.key}
-              className={`chip text-xs ${sort === s.key ? 'chip-active' : ''}`}>{tr(s.label)}</button>
+            <ToggleChip key={s.key} on={sort === s.key} onClick={() => onSet('sort', s.key)} className="text-xs">{tr(s.label)}</ToggleChip>
           ))}
         </Chips>
       </section>
@@ -283,11 +281,9 @@ export function LibraryFilters({ sort, read, status, genres, lib, libs, mainSrc,
         <section>
           <Eyebrow>{tr('Library')}</Eyebrow>
           <Chips label={tr('Library')}>
-            <button type="button" onClick={() => onSet('lib', '')} aria-pressed={!lib}
-              className={`chip text-xs ${lib ? '' : 'chip-active'}`}>{tr('All')}</button>
+            <ToggleChip on={!lib} onClick={() => onSet('lib', '')} className="text-xs">{tr('All')}</ToggleChip>
             {libs.map((l) => (
-              <button key={l.id} type="button" onClick={() => onSet('lib', lib === l.id ? '' : l.id)} aria-pressed={lib === l.id}
-                className={`chip text-xs ${lib === l.id ? 'chip-active' : ''}`}>{l.name}</button>
+              <ToggleChip key={l.id} on={lib === l.id} onClick={() => onSet('lib', lib === l.id ? '' : l.id)} className="text-xs">{l.name}</ToggleChip>
             ))}
           </Chips>
         </section>
@@ -297,8 +293,7 @@ export function LibraryFilters({ sort, read, status, genres, lib, libs, mainSrc,
         <Eyebrow>{tr('Read state')}</Eyebrow>
         <Chips label={tr('Read state')}>
           {READ_STATES.map((r) => (
-            <button key={r.key} type="button" onClick={() => onSet('read', read === r.key ? '' : r.key)} aria-pressed={read === r.key}
-              className={`chip text-xs ${read === r.key ? 'chip-active' : ''}`}>{tr(r.label)}</button>
+            <ToggleChip key={r.key} on={read === r.key} onClick={() => onSet('read', read === r.key ? '' : r.key)} className="text-xs">{tr(r.label)}</ToggleChip>
           ))}
         </Chips>
       </section>
@@ -307,8 +302,7 @@ export function LibraryFilters({ sort, read, status, genres, lib, libs, mainSrc,
         <Eyebrow>{tr('Status')}</Eyebrow>
         <Chips label={tr('Status')}>
           {STATUSES.map((s) => (
-            <button key={s.key} type="button" onClick={() => onSet('status', status === s.key ? '' : s.key)} aria-pressed={status === s.key}
-              className={`chip text-xs ${status === s.key ? 'chip-active' : ''}`}>{tr(s.label)}</button>
+            <ToggleChip key={s.key} on={status === s.key} onClick={() => onSet('status', status === s.key ? '' : s.key)} className="text-xs">{tr(s.label)}</ToggleChip>
           ))}
         </Chips>
       </section>
@@ -331,10 +325,9 @@ export function LibraryFilters({ sort, read, status, genres, lib, libs, mainSrc,
           <Eyebrow>{tr('Format')}</Eyebrow>
           <Chips label={tr('Format')}>
             {formats.map((g) => (
-              <button key={g.key} type="button" onClick={() => toggleGenre(g.label)} aria-pressed={isOn(g.label)}
-                className={`chip text-xs ${isOn(g.label) ? 'chip-active' : ''}`}>
+              <ToggleChip key={g.key} on={isOn(g.label)} onClick={() => toggleGenre(g.label)} className="text-xs">
                 {g.label}{g.series != null && <span className="ms-1 tabular-nums text-fog-600">{g.series}</span>}
-              </button>
+              </ToggleChip>
             ))}
           </Chips>
         </section>

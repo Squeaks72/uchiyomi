@@ -4,11 +4,13 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import type { CollectionRow } from '@/lib/types';
 import { t as tr } from '@/lib/i18n';
 import { Modal } from '@/components/ConfirmDialog';
+import { FIELD_CLS as fld, LoadingBlock } from '@/components/ui';
 import { useToast } from '@/components/Toast';
 
-export interface CollectionRow { id: string; name: string; accent: string | null; item_count: number }
+export type { CollectionRow };
 
 export const useCollections = () =>
   useQuery({ queryKey: ['collections'], queryFn: () => api<{ content: CollectionRow[] }>('/api/collections') });
@@ -24,8 +26,6 @@ export async function addToList(seriesIds: string[], pick: { id: string } | { ne
 
 /** A title the library does not hold yet, kept on a list to be added later. */
 export interface SavedTitle { title: string; coverUrl?: string | null }
-
-const fld = 'w-full rounded-lg border border-ink-700 bg-ink-900/60 px-3 py-2 text-sm text-fog-100 outline-hidden focus-visible:outline-accent focus-visible:outline-offset-0 transition focus:border-accent/60';
 
 export function CollectionPickerModal({ seriesIds, want, onClose, onDone }: { seriesIds: string[]; want?: SavedTitle; onClose: () => void; onDone?: () => void }) {
   const toast = useToast();
@@ -49,7 +49,7 @@ export function CollectionPickerModal({ seriesIds, want, onClose, onDone }: { se
   return (
     <Modal title={want ? tr('Save to a list for later') : seriesIds.length === 1 ? tr('Add to collection') : tr('Add {n} series to a collection', { n: seriesIds.length })} onClose={onClose}>
       {isLoading ? (
-        <div role="status" className="skeleton h-24 rounded-xl"><span className="sr-only">{tr('Loading…')}</span></div>
+        <LoadingBlock className="h-24 rounded-xl" />
       ) : (
         <ul data-lenis-prevent className="max-h-64 space-y-1.5 overflow-y-auto">
           {lists.map((c) => (

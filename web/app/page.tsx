@@ -2,6 +2,7 @@
 import Link from 'next/link';
 import { useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import type { CollectionRow } from '@/lib/types';
 import { api, img } from '@/lib/api';
 import { HomePayload, Series } from '@/lib/types';
 import { chapterLabel, progressOf } from '@/lib/format';
@@ -21,7 +22,6 @@ import { Lockup } from '@/components/Brand';
 import { LibraryStart } from '@/components/LibraryStart';
 import { t as tr } from '@/lib/i18n';
 
-interface CollectionRow { id: string; name: string; accent: string | null; item_count: number }
 
 /** One home rail per (non-empty) collection, capped at 3 — links through to the collection page. */
 function CollectionRails() {

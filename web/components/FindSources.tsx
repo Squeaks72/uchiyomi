@@ -38,7 +38,7 @@ import { ActionKeys, ActionList, ActionStatus, type ActionSpec } from '@/compone
 import { Modal, msgOf } from '@/components/ConfirmDialog';
 import { sourceCover } from '@/components/cards';
 import { SourceIcon } from '@/components/SourcePicker';
-import { Img, OnBody, Sheet } from '@/components/ui';
+import { Img, OnBody, Sheet, LoadingBlock } from '@/components/ui';
 import { AddSeriesDialog } from '@/components/AddSeriesDialog';
 import { MigrateSourceSheet } from '@/components/MigrateSourceSheet';
 import { useToast } from '@/components/Toast';
@@ -210,7 +210,7 @@ export function FindResultsSheet({ onClose, poll = true }: { onClose: () => void
               <button type="button" className="btn-key" onClick={() => setOpenId(null)} data-find-latest>{tr('Back to the latest search')}</button>
             </div>
           )}
-          {(openId ? opened.isLoading : q.isLoading) && <div role="status" aria-label={tr('Loading…')} className="skeleton h-16 rounded-xl" />}
+          {(openId ? opened.isLoading : q.isLoading) && <LoadingBlock className="h-16 rounded-xl" />}
           {!q.isLoading && q.isError && !data && <p role="alert" className="text-xs text-rose-300">{tr('Could not load the results')}</p>}
           {!openId && !q.isLoading && data && !run && <p className="text-xs text-fog-500">{tr('No search for other sources has run yet.')}</p>}
           {openId && opened.isError && <p className="text-xs text-fog-500">{tr('That search is no longer kept.')}</p>}
@@ -582,7 +582,7 @@ export function ManualMatch({ seriesId, title, onDone, onClose }: { seriesId: st
         <Sheet title={tr('Add or move source')} onClose={onClose} overBottomNav>
           {series.isError
             ? <p role="alert" className="text-xs text-rose-300">{tr('Could not load the results')}</p>
-            : <div role="status" aria-label={tr('Loading…')} className="skeleton h-16 rounded-xl" />}
+            : <LoadingBlock className="h-16 rounded-xl" />}
         </Sheet>
       </OnBody>
     );
@@ -749,7 +749,7 @@ export function RunReviewSheet({ runId, ids, onClose }: { runId: string; ids: st
         <Sheet title={tr('Review one series at a time')} onClose={onClose} overBottomNav>
           {q.isError
             ? <p role="alert" className="text-xs text-rose-300">{tr('Could not load the results')}</p>
-            : <div role="status" aria-label={tr('Loading…')} className="skeleton h-16 rounded-xl" />}
+            : <LoadingBlock className="h-16 rounded-xl" />}
         </Sheet>
       </OnBody>
     );

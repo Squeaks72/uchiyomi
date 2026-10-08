@@ -19,7 +19,7 @@ import { editionNames } from '@/lib/editions';
 import Link from 'next/link';
 import { useToast } from '@/components/Toast';
 import { msgOf } from '@/components/ConfirmDialog';
-import { Sheet } from '@/components/ui';
+import { Sheet, FIELD_BASE } from '@/components/ui';
 import { GroupAvatar } from '@/components/GroupAvatar';
 import { ActivityDots } from '@/components/ActivityDots';
 import { SourceIcon } from '@/components/SourcePicker';
@@ -47,7 +47,7 @@ import { makeMainQuestion, mayMakeMain } from '@/lib/mainSource';
 // section began 9 px BELOW the scroller's bottom -- the only place Prefer and Block live, out of sight on
 // exactly the phone the owner complained from. The two sentences are the field's `title` and its
 // `aria-describedby` now, and the (i) explainer says the same in more words.
-const fld = 'w-14 rounded-lg border border-ink-700 bg-ink-900/60 px-2 py-1.5 text-sm text-fog-100 outline-hidden focus-visible:outline-accent focus-visible:outline-offset-0 transition focus:border-accent/60';
+const fld = `w-14 px-2 py-1.5 text-fog-100 ${FIELD_BASE}`;
 
 /** The admin scanlators route: the stored override, the server defaults, what results, and the groups with their stats. */
 export interface ScanlatorInfo {
@@ -267,7 +267,7 @@ function OtherNames({ id }: { id: string }) {
         <input dir="auto" value={draft} onChange={(e) => { setDraft(e.target.value); setRefusal(null); }} maxLength={200}
           placeholder={tr('Add another name…')} aria-label={tr('Add another name…')}
           aria-invalid={refusal ? true : undefined} aria-describedby={refusal ? `alt-refusal-${id}` : undefined}
-          className="min-w-0 flex-1 rounded-lg border border-ink-700 bg-ink-900/60 px-2.5 py-1.5 text-sm text-fog-100 outline-hidden focus-visible:outline-accent focus-visible:outline-offset-0 transition focus:border-accent/60" />
+          className={`min-w-0 flex-1 px-2.5 py-1.5 text-fog-100 ${FIELD_BASE}`} />
         <button type="submit" disabled={busy || !draft.trim()} className="btn-key">{tr('Add')}</button>
       </form>
       {refusal && <p id={`alt-refusal-${id}`} role="alert" data-alt-refusal className="mt-1 text-[11px] leading-relaxed text-rose-300">{refusal}</p>}

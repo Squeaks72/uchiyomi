@@ -5,6 +5,7 @@ import { useAuth } from '@/lib/auth';
 import { runSmartOffline } from '@/lib/offlineSync';
 import { BottomNav } from './BottomNav';
 import { TopNav } from './TopNav';
+import { AdultShownNotice } from './AdultToggle';
 import { HealthBanner } from './HealthAlert';
 import { LoginScreen } from './LoginScreen';
 import { DesktopReconnect } from './DesktopReconnect';
@@ -122,6 +123,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <CinematicFX />
       {status === 'offline' && <OfflineBanner name={user?.displayName || ''} />}
       <TopNav onSearchFocus={() => { setPaletteSeed(''); setPalette(true); }} />
+      {status === 'authed' && <AdultShownNotice />}
       {status === 'authed' && <HealthBanner />}
       <main id="main" tabIndex={-1} className="outline-none shell relative z-[1] pb-28 lg:pb-12">
         <PageTransition>{children}</PageTransition>

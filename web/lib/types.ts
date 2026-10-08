@@ -656,3 +656,6 @@ export interface DownloadManifest {
 export function isWebtoon(dir?: string): boolean {
   return dir === 'WEBTOON' || dir === 'VERTICAL';
 }
+
+/** One of the reader's lists, as `/api/collections` returns it. */
+export interface CollectionRow { id: string; name: string; accent: string | null; item_count: number; sort_order?: number }

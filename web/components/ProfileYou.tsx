@@ -2,6 +2,8 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
+import type { CollectionRow } from '@/lib/types';
+import { LoadingBlock } from '@/components/ui';
 import { api } from '@/lib/api';
 import { IcChevronRight } from '@/components/icons';
 import { Heatmap } from '@/components/charts/Heatmap';
@@ -34,7 +36,6 @@ export interface Stats {
   weekChapters: number;
   weeklyGoal: number;
 }
-interface CollectionRow { id: string; name: string; item_count: number }
 
 // Rendered as `tr(b.label)`, so the labels are declared. See lib/i18n.ts.
 const BADGE_LABELS = keys('Reader', 'Bookworm', 'On a roll', 'Centurion', 'Devoted', 'Legend');
@@ -133,7 +134,7 @@ export function StudioCard({ span = '' }: { span?: string }) {
   }
   const DOW = keys('Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat');
 
-  if (isLoading && !data) return <div role="status" aria-label={tr('Loading…')} className={`card skeleton h-64 ${span}`} />;
+  if (isLoading && !data) return <LoadingBlock className={`card h-64 ${span}`} />;
 
   return (
     <div id="reading-studio" className={`${CARD} scroll-mt-4 lg:scroll-mt-20 ${span}`}>

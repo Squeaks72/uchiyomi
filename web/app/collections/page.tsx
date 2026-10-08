@@ -4,18 +4,19 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import type { CollectionRow } from '@/lib/types';
 import { useToast } from '@/components/Toast';
 import { useAuth } from '@/lib/auth';
 import { EmptyState } from '@/components/EmptyState';
 import { ART } from '@/lib/art';
 import { IcChevronLeft, IcChevronRight, IcHeart, IcHome, IcPlus, IcTrash } from '@/components/icons';
+import { AdultToggle } from '@/components/AdultToggle';
 import { ImportListModal, useExportList } from '@/components/ListShare';
 import { useRtl } from '@/components/ui';
 import { keys, t as tr } from '@/lib/i18n';
 import { Modal } from '@/components/ConfirmDialog';
 import { useLayer } from '@/lib/layers';
 
-export interface CollectionRow { id: string; name: string; accent: string | null; sort_order: number; item_count: number }
 
 const ACCENTS = ['#7c5cff', '#ff4dd2', '#22d3ee', '#34d399', '#fbbf24', '#f87171'];
 /** A list's name inside a sentence, isolated: in Arabic a Latin name would reorder the words around it. */
@@ -114,7 +115,8 @@ export default function CollectionsPage() {
           <h1 className="font-display text-2xl font-bold lg:text-3xl">{tr('Collections')}</h1>
           <p className="mt-0.5 text-xs text-fog-500">{tr('Choose up to 3 lists for Home. Empty lists stay selected and appear when they have series.')}</p>
         </div>
-        <button type="button" onClick={() => setImporting(true)} aria-haspopup="dialog" data-list-import className="chip ms-auto text-xs">{tr('Import')}</button>
+        <AdultToggle alsoWhen className="ms-auto shrink-0 text-xs" />
+        <button type="button" onClick={() => setImporting(true)} aria-haspopup="dialog" data-list-import className="chip text-xs">{tr('Import')}</button>
         <button type="button" onClick={() => setCreating(true)} aria-haspopup="dialog" className="btn-accent px-3.5 py-2 text-sm">
           <IcPlus width={16} height={16} aria-hidden />{tr('New collection')}
         </button>
