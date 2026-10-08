@@ -1790,60 +1790,68 @@ function SeriesInner() {
           </button>
         )}
       </div>
-      <button onClick={() => setCollecting(true)} className="flex items-center justify-center gap-2 rounded-full border border-ink-700 py-2.5 text-sm text-fog-300">
-        <svg aria-hidden width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M4 6h16M4 12h16M4 18h10" /><path d="M19 15v6M16 18h6" /></svg>{tr('Add to collection')}</button>
+      <div className="flex gap-2">
+      <button onClick={() => setCollecting(true)} className="flex min-w-0 flex-1 items-center justify-center gap-2 rounded-full border border-ink-700 px-3 py-2.5 text-sm text-fog-300">
+        <svg aria-hidden width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" className="shrink-0"><path d="M4 6h16M4 12h16M4 18h10" /><path d="M19 15v6M16 18h6" /></svg><span className="truncate">{tr('Add to collection')}</span></button>
       {/* Always rendered. It is not a link to an empty page: with nothing saved yet it is the way IN to
           writing this series' first note, which is the only thing on the other side that can be created. */}
       <Link href={`/moments/?series=${encodeURIComponent(id)}`}
-        className="flex items-center justify-center gap-2 rounded-full border border-ink-700 py-2.5 text-sm text-fog-300">
-        <IcMoments width={16} height={16} />
-        {momentCount > 0
+        className="flex min-w-0 flex-1 items-center justify-center gap-2 rounded-full border border-ink-700 px-3 py-2.5 text-sm text-fog-300">
+        <IcMoments width={16} height={16} className="shrink-0" />
+        <span className="truncate">{momentCount > 0
           ? (momentCount === 1 ? tr('1 saved page') : tr('{n} saved pages', { n: momentCount }))
           : noteCount > 0
             ? (noteCount === 1 ? tr('1 note') : tr('{n} notes', { n: noteCount }))
-            : tr('Add a note')}
+            : tr('Add a note')}</span>
       </Link>
+      </div>
       <div className="mt-1 flex items-center justify-center">
         <StarRating value={rating} onSet={setStars} />
       </div>
+      {isAdmin && (
+        <button type="button" onClick={checkNow} disabled={checking} data-check-new
+            className="btn-key mt-1 h-auto w-full py-2.5 text-sm font-normal text-fog-300 disabled:opacity-60">
+            <IcRefresh width={16} height={16} className={checking ? 'animate-spin' : ''} />{checking ? tr('Checking for new chapters…') : tr('Check for new chapters')}</button>
+      )}
       {canDownload(user) && (series?.booksCount ?? 0) >= 3 && (
         <button onClick={() => setFindingMissing(true)} className="mt-1 flex items-center justify-center gap-2 rounded-full border border-ink-700 py-2.5 text-sm text-fog-300">
           <svg aria-hidden width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /><path d="M11 8v6M8 11h6" /></svg>{tr('Find missing chapters')}</button>
       )}
       {mayArchive && (
-        <button type="button" onClick={archiveSlowly} disabled={acting} data-archive-slowly
+        <button type="button" onClick={archiveSlowly} disabled={acting} data-archive-slowly data-archive-why
+          title={archiveWhy()} aria-description={archiveWhy()}
           className="btn-key mt-1 h-auto w-full py-2.5 text-sm font-normal text-fog-300">
           <IcHourglass width={16} height={16} />{tr('Archive slowly')}</button>
       )}
-      {mayArchive && <p data-archive-why className="mt-1 text-xs leading-relaxed text-fog-500">{archiveWhy()}</p>}
       {isAdmin && (
-        <>
-          <button type="button" onClick={checkNow} disabled={checking} data-check-new
-            className="btn-key mt-1 h-auto w-full py-2.5 text-sm font-normal text-fog-300 disabled:opacity-60">
-            <IcRefresh width={16} height={16} className={checking ? 'animate-spin' : ''} />{checking ? tr('Checking for new chapters…') : tr('Check for new chapters')}</button>
-          {hasForeign && (
-            <button type="button" onClick={() => setCulling(true)} data-cull-sources-open
-              className="btn-key mt-1 h-auto w-full py-2.5 text-sm font-normal text-rose-300">{tr('Remove chapters from other sources…')}</button>
-          )}
-          {removedCount > 0 && (
-            <button type="button" onClick={() => setShowRemoved(true)} data-removed-open
-              className="btn-key mt-1 h-auto w-full py-2.5 text-sm font-normal text-fog-300">{tr('Removed chapters ({n})…', { n: removedCount })}</button>
-          )}
-          <button onClick={() => setEditing('details')} className="mt-1 flex items-center justify-center gap-2 rounded-full border border-ink-700 py-2.5 text-sm text-fog-300">
-            <svg aria-hidden width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>{tr('Edit details')}</button>
+        <div className="mt-2 flex flex-col gap-2 border-t border-ink-800 pt-3" data-admin-actions>
+          {/* Changing the series: the two everyday edits side by side, the rarer ones under them. */}
+          <div className="flex gap-2">
+            <button onClick={() => setEditing('details')} className="flex min-w-0 flex-1 items-center justify-center gap-2 rounded-full border border-ink-700 px-3 py-2.5 text-sm text-fog-300">
+              <svg aria-hidden width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg><span className="truncate">{tr('Edit details')}</span></button>
+            {series?.folder && (
+              <button onClick={() => setRenaming(true)} className="flex min-w-0 flex-1 items-center justify-center gap-2 rounded-full border border-ink-700 px-3 py-2.5 text-sm text-fog-300">
+                <svg aria-hidden width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><path d="M3 7V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9L11.7 5H19a2 2 0 0 1 2 2v2" /><path d="M3 9h18l-1.5 9a2 2 0 0 1-2 1.8H6.5a2 2 0 0 1-2-1.8Z" /></svg><span className="truncate">{tr('Rename folder')}</span></button>
+            )}
+          </div>
           {/* Only while the hero is an automatic one: a real banner is changed in Edit details. */}
           {series?.autoHero && (
             <button type="button" onClick={newBanner} disabled={busyAdmin} data-new-banner
               className="btn-key h-auto w-full py-2.5 text-sm font-normal text-fog-300 disabled:opacity-50">
               <IcRefresh width={16} height={16} />{tr('New banner')}</button>
           )}
-          {series?.folder && (
-            <button onClick={() => setRenaming(true)} className="flex items-center justify-center gap-2 rounded-full border border-ink-700 py-2.5 text-sm text-fog-300">
-              <svg aria-hidden width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9L11.7 5H19a2 2 0 0 1 2 2v2" /><path d="M3 9h18l-1.5 9a2 2 0 0 1-2 1.8H6.5a2 2 0 0 1-2-1.8Z" /></svg>{tr('Rename folder')}</button>
+          {removedCount > 0 && (
+            <button type="button" onClick={() => setShowRemoved(true)} data-removed-open
+              className="btn-key h-auto w-full py-2.5 text-sm font-normal text-fog-300">{tr('Removed chapters ({n})…', { n: removedCount })}</button>
+          )}
+          {/* The destructive ones last, with Remove from library at the very bottom. */}
+          {hasForeign && (
+            <button type="button" onClick={() => setCulling(true)} data-cull-sources-open
+              className="btn-key h-auto w-full py-2.5 text-sm font-normal text-rose-300">{tr('Remove chapters from other sources…')}</button>
           )}
           <button onClick={() => setDeleting(true)} className="flex items-center justify-center gap-2 rounded-full border border-ink-700 py-2.5 text-sm text-fog-500 hover:border-rose-500/40 hover:text-rose-300">
             <svg aria-hidden width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14" /></svg>{tr('Remove from library')}</button>
-        </>
+        </div>
       )}
     </div>
   );

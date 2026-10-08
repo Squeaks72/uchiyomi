@@ -54,6 +54,8 @@ CREATE TABLE IF NOT EXISTS collection_items (
   PRIMARY KEY (collection_id, series_id)
 );
 
+ALTER TABLE collections ADD COLUMN IF NOT EXISTS description text;
+
 -- Titles on a list that the library does not hold yet ("save for later"). Keyed by the normalised title, the one
 -- thing every discover card has; they move into collection_items when the library gains the title.
 CREATE TABLE IF NOT EXISTS collection_wants (

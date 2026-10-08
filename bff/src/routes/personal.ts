@@ -206,7 +206,7 @@ export default async function personalRoutes(app: FastifyInstance) {
     const uid = userIdOf(req);
     return {
       content: await q(
-        `SELECT c.id, c.name, c.accent, c.sort_order,
+        `SELECT c.id, c.name, c.accent, c.sort_order, c.description,
                 ((SELECT count(*) FROM collection_items ci WHERE ci.collection_id = c.id) + (SELECT count(*) FROM collection_wants w WHERE w.collection_id = c.id)) AS item_count
          FROM collections c WHERE c.user_id = $1 ORDER BY c.sort_order, c.created_at`,
         [uid],
@@ -216,21 +216,22 @@ export default async function personalRoutes(app: FastifyInstance) {
 
   app.post('/api/collections', async (req) => {
     const uid = userIdOf(req);
-    const { name, accent } = z.object({ name: z.string().min(1).max(120), accent: z.string().max(32).optional() }).parse(req.body);
-    return one('INSERT INTO collections (user_id, name, accent) VALUES ($1, $2, $3) RETURNING id, name, accent, sort_order', [uid, name, accent ?? null]);
+    const { name, accent, description } = z.object({ name: z.string().min(1).max(120), accent: z.string().max(32).optional(), description: z.string().max(4000).optional() }).parse(req.body);
+    return one('INSERT INTO collections (user_id, name, accent, description) VALUES ($1, $2, $3, $4) RETURNING id, name, accent, sort_order, description', [uid, name, accent ?? null, description?.trim() || null]);
   });
 
   app.patch('/api/collections/:id', async (req) => {
     const uid = userIdOf(req);
     const { id } = req.params as { id: string };
-    const body = z.object({ name: z.string().min(1).max(120).optional(), accent: z.string().max(32).nullable().optional(), sortOrder: z.number().int().optional() }).parse(req.body);
+    const body = z.object({ name: z.string().min(1).max(120).optional(), accent: z.string().max(32).nullable().optional(), sortOrder: z.number().int().optional(), description: z.string().max(4000).optional() }).parse(req.body);
     return one(
       `UPDATE collections SET
          name = COALESCE($3, name),
          accent = COALESCE($4, accent),
-         sort_order = COALESCE($5, sort_order)
-       WHERE id = $1 AND user_id = $2 RETURNING id, name, accent, sort_order`,
-      [id, uid, body.name ?? null, body.accent ?? null, body.sortOrder ?? null],
+         sort_order = COALESCE($5, sort_order),
+         description = CASE WHEN $6::boolean THEN NULLIF(btrim($7), '') ELSE description END
+       WHERE id = $1 AND user_id = $2 RETURNING id, name, accent, sort_order, description`,
+      [id, uid, body.name ?? null, body.accent ?? null, body.sortOrder ?? null, body.description !== undefined, body.description ?? ''],
     );
   });
 
@@ -244,7 +245,7 @@ export default async function personalRoutes(app: FastifyInstance) {
   app.get('/api/collections/:id', async (req, reply) => {
     const uid = userIdOf(req);
     const { id } = req.params as { id: string };
-    const col = await one('SELECT id, name, accent, sort_order FROM collections WHERE id = $1 AND user_id = $2', [id, uid]);
+    const col = await one('SELECT id, name, accent, sort_order, description FROM collections WHERE id = $1 AND user_id = $2', [id, uid]);
     if (!col) return reply.code(404).send({ error: 'not_found' });
     const ids = (
       await q<{ series_id: string }>('SELECT series_id FROM collection_items WHERE collection_id = $1 ORDER BY position', [id])

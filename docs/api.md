@@ -1448,7 +1448,7 @@ accepted and retained for compatibility. v0.55.8 validates three public keys:
 
 The earlier `reader` object (including `coverEdges`) and `listSorts` map remain additive keys on the same object.
 
-**Lists** (collections; the app's *Lists*). `GET /api/collections/:id` answers `{id, name, accent, sort_order, items}`:
+**Lists** (collections; the app's *Lists*). `GET /api/collections/:id` answers `{id, name, accent, sort_order, description, items}` (`description` is the owner's free note, e.g. where the list came from; `PATCH /api/collections/:id {description}` sets it, an empty string clears it):
 `wants` lists titles saved to it before the library held them (`{key, title, coverUrl}`; `POST /api/collections/:id/wants {title, coverUrl?}` saves one, `DELETE …/wants/:key` drops it) and moves any the library has since gained into `items`; the list's series in its own order (`position`, which `PUT /api/collections/:id/items {seriesIds}` rewrites; since
 v0.55.7 `POST /api/collections/:id/items` adds a series at the end, as the bulk add does), each enriched like every
 listing — `yomi.unread` is the cover's unread badge, against the caller's own progress — and a series hidden by the

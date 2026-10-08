@@ -15,8 +15,59 @@ import { AddSeriesDialog } from '@/components/AddSeriesDialog';
 import { Img } from '@/components/ui';
 import { canDownload } from '@/lib/auth';
 
+/** The note with any http(s) address made a link; everything else stays plain text. */
+function Linked({ text }: { text: string }) {
+  const parts = text.split(/(https?:\/\/[^\s<>"']+)/g);
+  return (
+    <>
+      {parts.map((p, i) => i % 2 ? (
+        <a key={i} href={p} target="_blank" rel="noopener noreferrer" className="text-accent underline break-all">{p}</a>
+      ) : p)}
+    </>
+  );
+}
+
+function ListNote({ id, value }: { id: string; value: string }) {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState(value);
+  const [busy, setBusy] = useState(false);
+  const save = async () => {
+    setBusy(true);
+    try {
+      await api(`/api/collections/${id}`, { method: 'PATCH', json: { description: text } });
+      qc.invalidateQueries({ queryKey: ['collection', id] });
+      qc.invalidateQueries({ queryKey: ['collections'] });
+      setOpen(false);
+    } catch { toast(tr('Could not do that'), 'error'); }
+    setBusy(false);
+  };
+  if (open) {
+    return (
+      <div className="mt-3 max-w-2xl" data-list-note-edit>
+        <textarea value={text} onChange={(e) => setText(e.target.value)} rows={4} maxLength={4000} dir="auto" autoFocus
+          aria-label={tr('List description')} placeholder={tr('Where this list came from, a link, a note…')}
+          className="w-full rounded-lg border border-ink-700 bg-ink-900/60 px-3 py-2 text-sm text-fog-100 outline-hidden focus-visible:outline-accent focus-visible:outline-offset-0 transition focus:border-accent/60" />
+        <div className="mt-2 flex gap-2">
+          <button type="button" onClick={save} disabled={busy} className="btn-accent px-3 text-xs disabled:opacity-50">{tr('Save')}</button>
+          <button type="button" onClick={() => { setText(value); setOpen(false); }} className="chip text-xs">{tr('Cancel')}</button>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="mt-3 max-w-2xl" data-list-note>
+      {value && <p dir="auto" className="whitespace-pre-wrap break-words text-sm text-fog-300"><Linked text={value} /></p>}
+      <button type="button" onClick={() => { setText(value); setOpen(true); }} className={`${value ? 'mt-1' : ''} text-xs text-fog-500 underline-offset-2 hover:text-fog-100 hover:underline`}>
+        {value ? tr('Edit description') : tr('Add a description')}
+      </button>
+    </div>
+  );
+}
+
 interface Want { key: string; title: string; coverUrl: string | null }
-interface CollectionDetail { id: string; name: string; accent: string | null; items: Series[]; wants?: Want[] }
+interface CollectionDetail { id: string; name: string; accent: string | null; description?: string | null; items: Series[]; wants?: Want[] }
 
 /**
  * A list's orders (#164) as the Library's sort chips: one definition, in a row on a wide screen and in a sheet on a
@@ -107,6 +158,7 @@ function CollectionInner() {
             <h1 className="truncate font-display text-2xl font-bold lg:text-3xl">{data?.name || '…'}</h1>
           </div>
         </div>
+        {data && <ListNote key={data.description ?? ''} id={id} value={data.description ?? ''} />}
         {(items.length > 0 || editing) && (
           <div className="mt-3 flex flex-wrap items-center gap-2">
             {!editing && (
