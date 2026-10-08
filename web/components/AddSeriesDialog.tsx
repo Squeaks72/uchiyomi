@@ -22,6 +22,7 @@ import { normTitle } from '@/lib/normTitle';
 import { cadenceText } from '@/lib/cadence';
 import { jobNoteLines, type JobCardNotes } from '@/lib/jobNotes';
 import { downloadsHref } from '@/lib/libraryView';
+import { waitForSeries } from '@/lib/waitForSeries';
 import { PreviewReader } from '@/components/PreviewReader';
 import { ARCHIVE_PACE, archiveAddLine, archiveSwitchHelp, type EnqueueOutcome } from '@/lib/archive';
 import { useServerDownloads } from '@/lib/useServerDownloads';
@@ -482,6 +483,9 @@ export function AddSeriesDialog({ seed, sources, mayFollow, onClose, onAdded }: 
       router.push(`/series/?id=${known}`);
       return;
     }
+    // The row appears once the first chapter is scanned in, so wait for it rather than giving up on the first look.
+    const waited = await waitForSeries({ seriesId: null, title: done.title, folder: done.folder });
+    if (waited) { qc.invalidateQueries({ queryKey: ['library'] }); router.push(`/series/?id=${waited}`); return; }
     try {
       // Last resort, and only for a download whose first chapter has not been scanned yet: search by title
       // and accept an EXACT normalised match.

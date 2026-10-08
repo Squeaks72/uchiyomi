@@ -27,6 +27,7 @@ import { AddSeriesDialog, AddSeed } from '@/components/AddSeriesDialog';
 import { AdultToggle, useAdultShown } from '@/components/AdultToggle';
 import { IcSearch, IcSparkle, IcX } from '@/components/icons';
 import { downloadsHref } from '@/lib/libraryView';
+import { waitForSeries } from '@/lib/waitForSeries';
 import type { Page, Series } from '@/lib/types';
 /**
  * One search card. Since v0.52.0 (#72) `inLibrary` means held in every provider's language, `libraryLangs` the
@@ -452,13 +453,14 @@ export default function DiscoverPage() {
   };
   const openAdded = async (key: string) => {
     const a = shownAddedInfo.get(key);
-    if (!a) return;
-    try {
-      const p = await api<Page<Series>>('/api/series/search', { json: { fullTextSearch: a.title, size: 5 } });
-      const hit = p.content.find((x) => normTitle(x.metadata?.title || x.name) === normTitle(a.title));
-      router.push(hit ? `/series/?id=${hit.id}` : downloadsHref(a.folder));
-    } catch { router.push(downloadsHref(a.folder)); }
+    if (!a || opening.current) return;
+    opening.current = true;
+    // The row appears once the first chapter is scanned in, so wait for it; Downloads only if it never does.
+    const id = await waitForSeries({ seriesId: a.seriesId, title: a.title, folder: a.folder });
+    opening.current = false;
+    router.push(id ? `/series/?id=${id}` : downloadsHref(a.folder));
   };
+  const opening = useRef(false);
 
   const open = (it: SourceItem, edition = false) => {
     const key = workKey(it);
