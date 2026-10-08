@@ -1,4 +1,5 @@
 'use client';
+import { BackLink, Breadcrumb } from '@/components/BackLink';
 import Link from 'next/link';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -88,36 +89,35 @@ export default function CollectionsPage() {
     if (!n) return;
     try {
       const c = await api<CollectionRow>('/api/collections', { json: { name: n, accent } });
-      toast(tr('Collection created'), 'success');
+      toast(tr('List created'), 'success');
       setCreating(false);
       setName('');
       qc.invalidateQueries({ queryKey: ['collections'] });
       router.push(`/collection/?id=${c.id}`);
-    } catch { toast(tr('Could not create the collection'), 'error'); }
+    } catch { toast(tr('Could not create the list'), 'error'); }
   };
 
   const remove = async (c: CollectionRow) => {
     if (!window.confirm(tr('Delete “{name}”? The series stay in your library.', { name: iso(c.name) }))) return;
     try {
       await api(`/api/collections/${c.id}`, { method: 'DELETE' });
-      toast(tr('Collection deleted'), 'success');
+      toast(tr('List deleted'), 'success');
       qc.invalidateQueries({ queryKey: ['collections'] });
     } catch { toast(tr('Could not do that'), 'error'); }
   };
 
   return (
     <div className="min-h-screen-d">
-      <header className="safe-top flex items-center gap-2 px-4 pb-2 lg:px-0 lg:pt-6">
-        <button type="button" onClick={() => router.back()} aria-label={tr('Back')} className="grid h-10 w-10 place-items-center rounded-full bg-ink-800/70 text-fog-100 lg:hidden">
-          <IcChevronLeft width={22} height={22} />
-        </button>
+      <div className="px-4 lg:px-0"><Breadcrumb trail={[{ label: tr('Home'), href: '/' }]} current={tr('Lists')} /></div>
+      <header className="safe-top flex items-center gap-2 px-4 pb-2 lg:px-0">
+        <BackLink fallback="/" phoneOnly />
         <div className="min-w-0">
-          <h1 className="font-display text-2xl font-bold lg:text-3xl">{tr('Collections')}</h1>
+          <h1 className="font-display text-2xl font-bold lg:text-3xl">{tr('Lists')}</h1>
           <p className="mt-0.5 text-xs text-fog-500">{tr('Choose up to 3 lists for Home. Empty lists stay selected and appear when they have series.')}</p>
         </div>
         <button type="button" onClick={() => setImporting(true)} aria-haspopup="dialog" data-list-import className="chip text-xs">{tr('Import')}</button>
         <button type="button" onClick={() => setCreating(true)} aria-haspopup="dialog" className="btn-accent px-3.5 py-2 text-sm">
-          <IcPlus width={16} height={16} aria-hidden />{tr('New collection')}
+          <IcPlus width={16} height={16} aria-hidden />{tr('New list')}
         </button>
       </header>
 
@@ -127,7 +127,7 @@ export default function CollectionsPage() {
           {Array.from({ length: 4 }).map((_, i) => <div key={i} className="skeleton h-24 rounded-2xl" />)}
         </div>
       ) : false ? (
-        <EmptyState art={ART.emptyLibrary} title={tr('No collections yet')}
+        <EmptyState art={ART.emptyLibrary} title={tr('No lists yet')}
           sub={tr('Group series into reading lists, like “Plan to read”. Create one, then add series from any series page.')}
           cta={undefined} />
       ) : (
@@ -184,7 +184,7 @@ export default function CollectionsPage() {
       {importing && <ImportListModal onClose={() => setImporting(false)} onDone={(id) => router.push(`/collection/?id=${id}`)} />}
 
       {creating && (
-        <Modal title={tr('New collection')} onClose={() => setCreating(false)}>
+        <Modal title={tr('New list')} onClose={() => setCreating(false)}>
           <input value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && create()}
             aria-label={tr('Name')} placeholder={tr('e.g. Plan to read')} autoComplete="off"
             className="w-full rounded-xl border border-ink-700 bg-ink-900 px-3 py-2.5 text-sm text-fog-50 outline-hidden focus-visible:outline-accent focus-visible:outline-offset-0 focus:border-accent" />

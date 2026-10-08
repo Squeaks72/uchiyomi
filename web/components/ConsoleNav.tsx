@@ -66,7 +66,7 @@ export function ConsoleNav<T extends string>({
             {groups.map((g) => (
               <div key={g.id}>
                 {!flat && (
-                  <p className="mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-wider text-fog-600">{tr(g.label)}</p>
+                  <p className="mb-1.5 px-3 text-xs font-semibold uppercase tracking-wider text-fog-400">{tr(g.label)}</p>
                 )}
                 <div className="space-y-0.5">
                   {g.tabs.map((t) => (
@@ -179,12 +179,12 @@ function GroupSheet<T extends string>({ groups, ariaLabel, current, footer, onPi
         role="dialog" aria-modal="true" aria-label={ariaLabel} data-lenis-prevent onClick={(e) => e.stopPropagation()}>
         <div className="mb-4 flex items-start justify-between gap-3">
           <h3 className="font-display text-lg font-semibold leading-tight">{ariaLabel}</h3>
-          <button onClick={onClose} aria-label={tr('Close')} className="-m-1.5 shrink-0 p-1.5 text-fog-500 hover:text-fog-200"><span aria-hidden>✕</span></button>
+          <button onClick={onClose} aria-label={tr('Close')} className="-m-1.5 shrink-0 p-1.5 text-fog-300 hover:text-fog-100"><span aria-hidden>✕</span></button>
         </div>
         <div className="space-y-4">
           {groups.map((g) => (
             <div key={g.id}>
-              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-fog-600">{tr(g.label)}</p>
+              <p className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-fog-400">{tr(g.label)}</p>
               <div className="flex flex-wrap gap-1.5">
                 {g.tabs.map((t) => (
                   <button key={t} onClick={() => onPick(t)}

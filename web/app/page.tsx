@@ -228,7 +228,7 @@ export default function HomePage() {
 
       {/* New episodes */}
       <section className="pt-8">
-        <SectionTitle action={<Link href="/library?sort=updated" aria-label={tr('See all {title}', { title: tr('New episodes') })} className="text-xs text-accent">{tr('See all')}</Link>}>{tr('New episodes')}</SectionTitle>
+        <SectionTitle action={<Link href="/library/?sort=updated" aria-label={tr('See all {title}', { title: tr('New episodes') })} className="text-xs text-accent">{tr('See all')}</Link>}>{tr('New episodes')}</SectionTitle>
         {isLoading ? <RailSkeleton /> : (
           <Rail>
             {(data?.updated ?? []).map((s, i) => <SeriesCard key={s.id} series={s} eager={i < 8} />)}
@@ -239,7 +239,7 @@ export default function HomePage() {
       {/* Favorites */}
       {(data?.favorites?.length ?? 0) > 0 && (
         <section className="pt-8">
-          <SectionTitle action={<Link href="/profile" className="text-xs text-accent">{tr('Manage')}</Link>}>{tr('Your favorites')}</SectionTitle>
+          <SectionTitle action={<Link href="/collection/?id=favorites" className="text-xs text-accent">{tr('Manage')}</Link>}>{tr('Your favorites')}</SectionTitle>
           <Rail>
             {data!.favorites.map((s) => <SeriesCard key={s.id} series={s} />)}
           </Rail>
@@ -251,7 +251,7 @@ export default function HomePage() {
 
       {/* Recently added */}
       <section className="pt-8">
-        <SectionTitle action={<Link href="/library?sort=new" aria-label={tr('See all {title}', { title: tr('Recently added') })} className="text-xs text-accent">{tr('See all')}</Link>}>{tr('Recently added')}</SectionTitle>
+        <SectionTitle action={<Link href="/library/?sort=new" aria-label={tr('See all {title}', { title: tr('Recently added') })} className="text-xs text-accent">{tr('See all')}</Link>}>{tr('Recently added')}</SectionTitle>
         {isLoading ? <RailSkeleton /> : (
           <Rail>
             {(data?.new ?? []).map((s) => <SeriesCard key={s.id} series={s} />)}

@@ -1,7 +1,8 @@
 'use client';
+import { BackLink, Breadcrumb } from '@/components/BackLink';
 import { Suspense, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { relativeTime } from '@/lib/format';
@@ -10,7 +11,7 @@ import { EmptyState } from '@/components/EmptyState';
 import { useToast } from '@/components/Toast';
 import { Modal } from '@/components/ConfirmDialog';
 import { ART } from '@/lib/art';
-import { IcChevronLeft, IcX, IcTrash, IcPlus, IcPencil } from '@/components/icons';
+import { IcX, IcTrash, IcPlus, IcPencil } from '@/components/icons';
 import { t as tr } from '@/lib/i18n';
 
 interface Bookmark {
@@ -33,7 +34,6 @@ export default function MomentsPage() {
 }
 
 function Moments() {
-  const router = useRouter();
   const sp = useSearchParams();
   const seriesId = sp.get('series') || '';
   const qs = seriesId ? `?seriesId=${encodeURIComponent(seriesId)}` : '';
@@ -108,11 +108,9 @@ function Moments() {
 
   return (
     <div className="min-h-screen-d">
-      <header className="safe-top flex items-center gap-2 px-4 pb-2 lg:px-0 lg:pt-6">
-        <button type="button" onClick={() => router.back()} aria-label={tr('Back')}
-          className="grid h-10 w-10 place-items-center rounded-full bg-ink-800/70 text-fog-100">
-          <IcChevronLeft width={22} height={22} />
-        </button>
+      <div className="px-4 lg:px-0"><Breadcrumb trail={[{ label: tr('Home'), href: '/' }]} current={tr('Moments')} /></div>
+      <header className="safe-top flex items-center gap-2 px-4 pb-2 lg:px-0">
+        <BackLink fallback="/" phoneOnly />
         <h1 className="font-display text-2xl font-bold lg:text-3xl">{tr('Moments')}</h1>
         {seriesId && (
           <Link href="/moments" aria-label={tr('Showing only {title}. Show all moments.', { title: filterTitle || tr('This series') })}

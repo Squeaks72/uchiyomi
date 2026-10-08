@@ -1,11 +1,13 @@
 'use client';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { RingIcon } from './ProgressRing';
 import { IcCloudDownload, IcHourglass } from './icons';
 import { t as tr } from '@/lib/i18n';
 import { canDownload, useAuth } from '@/lib/auth';
 import { downloadsHref } from '@/lib/libraryView';
+import { navIconCls } from '@/lib/navStyle';
 import { useDownloadsRing } from '@/lib/useServerDownloads';
 import type { NavRing } from '@/lib/serverDownloads';
 
@@ -53,12 +55,15 @@ export function LibraryTabIcon({ ring, children }: { ring: NavRing; children: Re
 export function DownloadsNavIcon() {
   const { user, status } = useAuth();
   const ring = useDownloadsRing();
+  const path = usePathname();
   if (status !== 'authed' || !canDownload(user)) return null;
+  // Library -> Downloads is a view of /library, so the path alone cannot say; the address bar can.
+  const here = path.startsWith('/library') && typeof window !== 'undefined' && /[?&]view=downloads\b/.test(window.location.search);
   const name = ring.show && ring.label ? `${tr('Server fetching')} · ${ring.label}` : tr('Server fetching');
   return (
     <Link href={downloadsHref()} title={name} aria-label={name}
       data-downloads-ring={ring.show ? (ring.slow ? 'slow' : 'active') : 'idle'}
-      className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-fog-300 transition hover:text-accent">
+      aria-current={here ? 'page' : undefined} className={navIconCls(here)}>
       <RingIcon size="bar" {...ringProps(ring)}><IcCloudDownload width={19} height={19} /></RingIcon>
     </Link>
   );

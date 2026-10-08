@@ -200,10 +200,12 @@ test('the desktop header fits at 1024 px: round buttons keep their 40 px, and th
   for (const m of header.matchAll(/className=\{?[`"]([^`"]*\bh-10 w-10\b[^`"]*)[`"]/g)) {
     assert.match(m[1], /\bshrink-0\b/, `a round header button can be squeezed into an oval: ${m[1].slice(0, 80)}`);
   }
-  assert.ok([...header.matchAll(/\bh-10 w-10\b/g)].length >= 3, 'the round buttons moved -- redo this scan');
-  assert.match(code(read('components/DownloadsRing.tsx')), /className="grid h-10 w-10 shrink-0 /, 'the downloads button can be squeezed into an oval');
+  // The cluster's buttons (Moments, Updates, refresh) share one look from lib/navStyle.ts, whose base keeps the 40 px.
+  assert.ok([...header.matchAll(/\bnavIconCls\(/g)].length >= 3, 'the round buttons moved -- redo this scan');
+  assert.match(code(read('lib/navStyle.ts')), /const BASE = 'grid h-10 w-10 shrink-0 /, 'a round header button can be squeezed into an oval');
+  assert.match(code(read('components/DownloadsRing.tsx')), /className=\{navIconCls\(here\)\}/, 'the downloads button can be squeezed into an oval');
   assert.match(code(read('components/HealthAlert.tsx')), /relative grid h-10 w-10 shrink-0 /, "the Health marker can be squeezed into an oval");
-  assert.match(header, /<Link href="\/profile" className="shrink-0 /, 'the avatar can be squeezed');
+  assert.match(header, /<Link href="\/profile" className=\{?[`"]shrink-0 /, 'the avatar can be squeezed');
   // The search takes what is left: flexible, never a fixed 18 rem, its words truncating down to the icon.
   assert.match(header, /className="ms-auto flex min-w-0 max-w-72 flex-1 /, 'the search is a fixed width again');
   assert.doesNotMatch(header, /(?<![\w-])w-72\b/, 'the search is a fixed width again');
@@ -211,7 +213,7 @@ test('the desktop header fits at 1024 px: round buttons keep their 40 px, and th
   // stroke of the "П"): the button is a size container, and the label and the ⌘K hint show only when it has room
   // for them. Reintroduce the always-shown `min-w-0 flex-1 truncate` label: "shows a sliver" fails.
   assert.match(header, /className="ms-auto flex min-w-0 max-w-72 flex-1 @container /, 'the search is not a size container');
-  assert.match(header, /<span data-search-label className="hidden min-w-0 flex-1 truncate text-sm text-fog-500 @\[4\.5rem\]:block">/,
+  assert.match(header, /<span data-search-label className="hidden min-w-0 flex-1 truncate text-sm text-fog-400 @\[4\.5rem\]:block">/,
     'the search label shows a sliver when the search is squeezed');
   assert.match(header, /<kbd data-search-kbd className="hidden [^"]*\bxl:@\[12rem\]:block"(?: aria-hidden)?>/, 'the ⌘K hint shows in a squeezed search');
   assert.match(header, /aria-label=\{tr\('Search…'\)\}/, 'with its label hidden the search has no accessible name');

@@ -1,6 +1,7 @@
 'use client';
+import { BackLink, Breadcrumb } from '@/components/BackLink';
 import { Suspense, useMemo, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { Series } from '@/lib/types';
@@ -87,7 +88,6 @@ function SortChips({ value, onPick }: { value: ListSort; onPick: (s: ListSort) =
 
 function CollectionInner() {
   const id = useSearchParams().get('id') || '';
-  const router = useRouter();
   const qc = useQueryClient();
   const toast = useToast();
   const rtl = useRtl();
@@ -150,11 +150,10 @@ function CollectionInner() {
 
   return (
     <div className="min-h-screen-d">
-      <header className="safe-top px-4 pb-2 lg:px-0 lg:pt-6">
+      <div className="px-4 lg:px-0"><Breadcrumb trail={[{ label: tr('Home'), href: '/' }, { label: tr('Lists'), href: '/collections/' }]} current={data?.name || '…'} /></div>
+      <header className="safe-top px-4 pb-2 lg:px-0">
         <div className="flex items-center gap-2">
-          <button type="button" onClick={() => router.back()} aria-label={tr('Back')} className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-ink-800/70 text-fog-100">
-            <IcChevronLeft width={22} height={22} />
-          </button>
+          <BackLink fallback="/collections/" phoneOnly />
           <div className="flex min-w-0 items-center gap-2.5">
             <span aria-hidden className="h-6 w-1.5 shrink-0 rounded-full" style={{ background: data?.accent || 'rgb(var(--accent))' }} />
             <h1 className="truncate font-display text-2xl font-bold lg:text-3xl">{data?.name || '…'}</h1>

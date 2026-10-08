@@ -1035,7 +1035,7 @@ function SeriesInner() {
 
   const inProgress = books?.content.some((b) => b.readProgress && !b.readProgress.completed);
 
-  const back = () => (typeof window !== 'undefined' && window.history.length > 1 ? router.back() : router.push('/'));
+  const back = () => (typeof window !== 'undefined' && window.history.length > 1 ? router.back() : router.push('/library/'));
 
   const toggleFav = async () => {
     const next = !fav;

@@ -11,7 +11,7 @@ import { Page, Series } from '@/lib/types';
 import { triggerRefresh } from '@/lib/refresh';
 import { useToast } from './Toast';
 import { Img, trapTab, BACKDROP_CLS } from './ui';
-import { IcSearch, IcSparkle, IcRefresh, IcBell, IcDownload, IcCloudDownload, IcGrid, IcMoments, IcSettings, IcUser, IcImport } from './icons';
+import { IcSearch, IcSparkle, IcRefresh, IcBell, IcDownload, IcCloudDownload, IcGrid, IcMoments, IcSettings, IcUser, IcImport, IcBookmark, IcHeart, IcClock } from './icons';
 import { t as tr } from '@/lib/i18n';
 import { hiddenOnDesktop, isDesktop, DESKTOP_HIDDEN } from '@/lib/desktop';
 import { effectsReduced, useReduceEffects } from '@/lib/effects';
@@ -22,7 +22,47 @@ import { canDownload, useAuth } from '@/lib/auth';
 import { downloadsHref } from '@/lib/libraryView';
 import { useSeriesMenu } from './SeriesMenu';
 
-interface Action { key: string; label: string; hint?: string; icon: React.ReactNode; run: () => void | Promise<void> }
+export interface Action { key: string; label: string; hint?: string; icon: React.ReactNode; run: () => void | Promise<void> }
+
+/**
+ * The palette's actions (Surprise me, Updates, Moments, Server fetching, Saved on this device, Refresh ...), as a hook so the
+ * phone's search page lists the same ones: a phone has no palette hotkey, and these were desktop-only before.
+ * `go` navigates (and closes whatever called it); `onClose` closes it before an action that stays on the page.
+ */
+export function usePaletteActions(go: (href: string) => void, onClose: () => void): Action[] {
+  const toast = useToast();
+  const { user, status } = useAuth();
+  // What the server is fetching is Library -> Downloads, a view the route behind it opens only to a viewer
+  // who may download: nobody else is offered the way in.
+  const mayDownload = status === 'authed' && canDownload(user);
+  // Labels and hints through tr(): they are what the list shows and what a typed query is matched against, so
+  // an English-only list could neither be read nor found in the reader's language.
+  const actions: Action[] = useMemo(() => ([
+    {
+      key: 'surprise', label: tr('Surprise me'), hint: tr('random series'), icon: <IcSparkle width={16} height={16} />,
+      run: async () => {
+        try { const r = await api<{ seriesId: string | null }>('/api/random'); if (r.seriesId) go(`/series/?id=${r.seriesId}`); }
+        catch { toast(tr('Couldn’t pick one. Try again.'), 'error'); }
+      },
+    },
+    { key: 'updates', label: tr('Updates'), hint: tr('new chapters'), icon: <IcBell width={16} height={16} />, run: () => go('/updates') },
+    { key: 'lists', label: tr('Lists'), hint: tr('your reading lists'), icon: <IcBookmark width={16} height={16} />, run: () => go('/collections/') },
+    { key: 'favorites', label: tr('Favorites'), icon: <IcHeart width={16} height={16} />, run: () => go('/collection/?id=favorites') },
+    { key: 'history', label: tr('Reading history'), icon: <IcClock width={16} height={16} />, run: () => go('/history/') },
+    { key: 'moments', label: tr('Moments'), hint: tr('pages you saved'), icon: <IcMoments width={16} height={16} />, run: () => go('/moments') },
+    // What the SERVER is fetching (v0.49.0), beside this device's copies: two different promises, two entries.
+    // Kept on desktop, where it is the only "downloads" there is.
+    ...(mayDownload ? [{ key: 'server-downloads', label: tr('Server fetching'), hint: tr('what the server is fetching'), icon: <IcCloudDownload width={16} height={16} />, run: () => go(downloadsHref()) }] : []),
+    { key: 'downloads', label: tr('Saved on this device'), icon: <IcDownload width={16} height={16} />, run: () => go('/downloads') },
+    // Genres are a filter now, not a page. The palette still gets you there in one keystroke.
+    { key: 'genres', label: tr('Filter by genre'), icon: <IcGrid width={16} height={16} />, run: () => go('/library') },
+    {
+      key: 'refresh', label: tr('Refresh library'), hint: tr('scan for new chapters'), icon: <IcRefresh width={16} height={16} />,
+      run: async () => { onClose(); toast(tr('Refreshing…'), 'info', { busy: true, key: 'refresh' }); await triggerRefresh(); toast(tr('Refresh started'), 'success', { key: 'refresh' }); },
+    },
+  ] as Action[]).filter((a) => !hiddenOnDesktop(DESKTOP_HIDDEN.paletteKeys, a.key)), [go, onClose, toast, mayDownload]); // no Saved on this device on desktop (lib/desktop.ts)
+  return actions;
+}
 
 export function CommandPalette({ open, seed = '', onClose }: { open: boolean; seed?: string; onClose: () => void }) {
   const router = useRouter();
@@ -118,29 +158,7 @@ export function CommandPalette({ open, seed = '', onClose }: { open: boolean; se
     }
   }, [onClose, router]);
 
-  // Labels and hints through tr(): they are what the list shows and what a typed query is matched against, so
-  // an English-only list could neither be read nor found in the reader's language.
-  const actions: Action[] = useMemo(() => ([
-    {
-      key: 'surprise', label: tr('Surprise me'), hint: tr('random series'), icon: <IcSparkle width={16} height={16} />,
-      run: async () => {
-        try { const r = await api<{ seriesId: string | null }>('/api/random'); if (r.seriesId) go(`/series/?id=${r.seriesId}`); }
-        catch { toast(tr('Couldn’t pick one. Try again.'), 'error'); }
-      },
-    },
-    { key: 'updates', label: tr('Updates'), hint: tr('new chapters'), icon: <IcBell width={16} height={16} />, run: () => go('/updates') },
-    { key: 'moments', label: tr('Moments'), hint: tr('pages you saved'), icon: <IcMoments width={16} height={16} />, run: () => go('/moments') },
-    // What the SERVER is fetching (v0.49.0), beside this device's copies: two different promises, two entries.
-    // Kept on desktop, where it is the only "downloads" there is.
-    ...(mayDownload ? [{ key: 'server-downloads', label: tr('Server fetching'), hint: tr('what the server is fetching'), icon: <IcCloudDownload width={16} height={16} />, run: () => go(downloadsHref()) }] : []),
-    { key: 'downloads', label: tr('Saved on this device'), icon: <IcDownload width={16} height={16} />, run: () => go('/downloads') },
-    // Genres are a filter now, not a page. The palette still gets you there in one keystroke.
-    { key: 'genres', label: tr('Filter by genre'), icon: <IcGrid width={16} height={16} />, run: () => go('/library') },
-    {
-      key: 'refresh', label: tr('Refresh library'), hint: tr('scan for new chapters'), icon: <IcRefresh width={16} height={16} />,
-      run: async () => { onClose(); toast(tr('Refreshing…'), 'info', { busy: true, key: 'refresh' }); await triggerRefresh(); toast(tr('Refresh started'), 'success', { key: 'refresh' }); },
-    },
-  ] as Action[]).filter((a) => !hiddenOnDesktop(DESKTOP_HIDDEN.paletteKeys, a.key)), [go, onClose, toast, mayDownload]); // no Saved on this device on desktop (lib/desktop.ts)
+  const actions = usePaletteActions(go, onClose);
 
   const query = q.trim().toLowerCase();
   const shownActions = query.length < 2 ? actions : actions.filter((a) => a.label.toLowerCase().includes(query) || a.key.includes(query));
@@ -171,7 +189,7 @@ export function CommandPalette({ open, seed = '', onClose }: { open: boolean; se
     if (!r) return;
     if (r.kind === 'series') go(`/series/?id=${r.series.id}`);
     else if (r.kind === 'place') goTo(r.place.href);
-    else if (r.kind === 'discover') go(`/discover?q=${encodeURIComponent(r.term)}`);
+    else if (r.kind === 'discover') go(`/discover/?q=${encodeURIComponent(r.term)}`);
     else r.action.run();
   };
 
@@ -200,7 +218,7 @@ export function CommandPalette({ open, seed = '', onClose }: { open: boolean; se
             role="dialog" aria-modal="true" aria-label={tr('Search')}
             onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-2.5 border-b border-ink-800 px-4">
-              <IcSearch width={17} height={17} className="shrink-0 text-fog-500" />
+              <IcSearch width={17} height={17} className="shrink-0 text-fog-400" />
               <input
                 ref={inputRef}
                 value={q}
@@ -213,18 +231,18 @@ export function CommandPalette({ open, seed = '', onClose }: { open: boolean; se
                 autoCapitalize="none" autoCorrect="off" spellCheck={false}
                 className="w-full bg-transparent py-3.5 text-sm text-fog-50 outline-hidden focus-visible:outline-accent focus-visible:outline-offset-0 placeholder:text-fog-500"
               />
-              <kbd aria-hidden className="hidden shrink-0 rounded-md border border-ink-700 px-1.5 py-0.5 text-[11px] text-fog-500 lg:block">esc</kbd>
+              <kbd aria-hidden className="hidden shrink-0 rounded-md border border-ink-700 px-1.5 py-0.5 text-xs text-fog-400 lg:block">esc</kbd>
             </div>
             {/* Always mounted, so a change of state is announced (a region that appears with its first message is not). */}
             <div role="status" aria-live="polite" className="sr-only">
               {searching ? tr('Searching…') : query.length >= 2 && results.length === 0 ? tr('No series match “{query}”.', { query: q.trim() }) : ''}
             </div>
             <div id={listId} role="listbox" aria-label={tr('Search')} className="max-h-[52vh] overflow-y-auto py-1.5" data-lenis-prevent>
-              {searching && <p aria-hidden className="px-4 py-3 text-xs text-fog-500">{tr('Searching…')}</p>}
+              {searching && <p aria-hidden className="px-4 py-3 text-xs text-fog-400">{tr('Searching…')}</p>}
               {!searching && query.length >= 2 && results.length === 0 && (
-                <p aria-hidden className="px-4 py-3 text-xs text-fog-500">{tr('No series match “{query}”.', { query: `\u2068${q.trim()}\u2069` })}</p>
+                <p aria-hidden className="px-4 py-3 text-xs text-fog-400">{tr('No series match “{query}”.', { query: `\u2068${q.trim()}\u2069` })}</p>
               )}
-              {results.length > 0 && <p role="presentation" className="px-4 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-widest text-fog-600">{tr('Series')}</p>}
+              {results.length > 0 && <p role="presentation" className="px-4 pb-1 pt-2 text-xs font-semibold uppercase tracking-widest text-fog-400">{tr('Series')}</p>}
               {rows.map((r, i) =>
                 r.kind === 'series' ? (
                   <PaletteSeriesRow key={`s:${r.series.id}`} series={r.series} id={optId(i)} selected={sel === i}
@@ -235,21 +253,21 @@ export function CommandPalette({ open, seed = '', onClose }: { open: boolean; se
                     className={`flex w-full items-center gap-3 px-4 py-2.5 text-start ${sel === i ? 'bg-accent-soft' : ''}`}>
                     <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-ink-700 text-fog-400"><IcSearch width={16} height={16} /></span>
                     <span className="min-w-0 truncate text-sm text-fog-100">{tr('Search your sources for “{query}”', { query: `\u2068${r.term}\u2069` })}</span>
-                    <span className="ms-auto shrink-0 text-[11px] text-fog-500">{tr('Discover')}</span>
+                    <span className="ms-auto shrink-0 text-xs text-fog-400">{tr('Discover')}</span>
                   </button>
                 ) : r.kind === 'place' ? (
                   <div key={`p:${r.place.key}`}>
-                    {rows[i - 1]?.kind !== 'place' && <p role="presentation" className="px-4 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-widest text-fog-600">{tr('Pages and settings')}</p>}
+                    {rows[i - 1]?.kind !== 'place' && <p role="presentation" className="px-4 pb-1 pt-2 text-xs font-semibold uppercase tracking-widest text-fog-400">{tr('Pages and settings')}</p>}
                     <PlaceRow place={r.place} option={{ id: optId(i), selected: sel === i }} selected={sel === i} onClick={() => activate(i)} onHover={() => setSel(i)} />
                   </div>
                 ) : (
                   <div key={`a:${r.action.key}`}>
-                    {rows[i - 1]?.kind !== 'action' && <p role="presentation" className="px-4 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-widest text-fog-600">{tr('Actions')}</p>}
+                    {rows[i - 1]?.kind !== 'action' && <p role="presentation" className="px-4 pb-1 pt-2 text-xs font-semibold uppercase tracking-widest text-fog-400">{tr('Actions')}</p>}
                     <button type="button" role="option" id={optId(i)} aria-selected={sel === i} tabIndex={-1} onClick={() => activate(i)} onMouseEnter={() => setSel(i)}
                       className={`flex w-full items-center gap-3 px-4 py-2.5 text-start ${sel === i ? 'bg-accent-soft' : ''}`}>
                       <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-ink-700 text-fog-400">{r.action.icon}</span>
                       <span className="text-sm text-fog-100">{r.action.label}</span>
-                      {r.action.hint && <span className="ms-auto text-[11px] text-fog-500">{r.action.hint}</span>}
+                      {r.action.hint && <span className="ms-auto text-xs text-fog-400">{r.action.hint}</span>}
                     </button>
                   </div>
                 ),
@@ -277,7 +295,7 @@ export function PlaceRow({ place, selected, onClick, onHover, href, option }: {
     <>
       <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-ink-700 text-fog-400"><Icon width={16} height={16} /></span>
       <span className="min-w-0 truncate text-sm text-fog-100">{tr(place.label)}</span>
-      <span className="ms-auto shrink-0 text-[11px] text-fog-500">{whereText(place, rtl)}</span>
+      <span className="ms-auto shrink-0 text-xs text-fog-400">{whereText(place, rtl)}</span>
     </>
   );
   const cls = `flex w-full items-center gap-3 px-4 py-2.5 text-start ${selected ? 'bg-accent-soft' : ''}`;
@@ -331,7 +349,7 @@ function PaletteSeriesRow({ series, id, selected, onOpen, onHover, register }: {
         </div>
         <div className="min-w-0">
           <p className="truncate text-sm text-fog-100">{series.metadata?.title || series.name}</p>
-          <p className="text-[11px] text-fog-500">{series.booksCount === 1 ? tr('1 chapter') : tr('{n} chapters', { n: series.booksCount })}</p>
+          <p className="text-xs text-fog-400">{series.booksCount === 1 ? tr('1 chapter') : tr('{n} chapters', { n: series.booksCount })}</p>
         </div>
       </button>
       {menu.element}

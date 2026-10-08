@@ -613,7 +613,7 @@ export async function listsWalk(ctx) {
       const count = await page.evaluate(() => [...document.querySelectorAll('a[href^="/collection/?id="] p')].map((p) => p.textContent.trim()));
       check(`lists @${t}: the Lists page counts the list's series in words`, count.includes(say('{n} series', { n: 5 })), JSON.stringify(count));
       const newKey = await page.evaluate(() => document.querySelector('header .btn-accent')?.textContent?.trim() ?? null);
-      check(`lists @${t}: and its key says ${say('New collection')}`, newKey === say('New collection'), JSON.stringify(newKey));
+      check(`lists @${t}: and its key says ${say('New list')}`, newKey === say('New list'), JSON.stringify(newKey));
       check(`lists @${t}: the Lists page has no sideways scroll`, await noSideScroll());
       await shot(`lists-${t}-1-lists`);
 

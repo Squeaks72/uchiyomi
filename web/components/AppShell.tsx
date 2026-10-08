@@ -1,7 +1,8 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { useAuth } from '@/lib/auth';
+import { canDownload, useAuth } from '@/lib/auth';
+import { PALETTE_EVENT } from '@/lib/palette';
 import { runSmartOffline } from '@/lib/offlineSync';
 import { BottomNav } from './BottomNav';
 import { TopNav } from './TopNav';
@@ -12,6 +13,7 @@ import { DesktopReconnect } from './DesktopReconnect';
 import { CinematicFX } from './CinematicFX';
 import { PageTransition } from './PageTransition';
 import { CommandPalette, usePaletteHotkeys } from './CommandPalette';
+import { ShortcutsDialog, useGoShortcuts } from './Shortcuts';
 import { Mark } from './Brand';
 import { IcWifiOff } from './icons';
 import { t as tr } from '@/lib/i18n';
@@ -61,11 +63,12 @@ function OfflineBanner({ name }: { name: string }) {
 }
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const { status, user } = useAuth();
+  const { status, user, isAdmin } = useAuth();
   const path = usePathname();
   const router = useRouter();
   const [palette, setPalette] = useState(false);
   const [paletteSeed, setPaletteSeed] = useState('');
+  const [help, setHelp] = useState(false);
 
   /**
    * An offline launch arrives at `/` -- the manifest's `start_url` -- which is a home screen assembled
@@ -86,6 +89,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   useServerDownloads({ poll: true, enabled: !path.startsWith('/reader') });
   // Ctrl/Cmd+K, "/", or just typing, anywhere in the app (reader keeps its own keys; palette skipped there)
   usePaletteHotkeys(setPalette, status === 'authed' && !path.startsWith('/reader'), setPaletteSeed);
+  // The phone's way in: a button (search page, More sheet) asks through lib/palette.ts, since it has no hotkey.
+  useEffect(() => {
+    if (status !== 'authed') return;
+    const on = (e: Event) => { setPaletteSeed(String((e as CustomEvent<string>).detail ?? '')); setPalette(true); };
+    window.addEventListener(PALETTE_EVENT, on);
+    return () => window.removeEventListener(PALETTE_EVENT, on);
+  }, [status]);
+  // "g" then h / l / s ... goes there; "?" lists them. Same gate as the palette's hotkeys: signed in, not in the reader.
+  const shortcutCtx = useMemo(() => ({ admin: isAdmin, mayDownload: status === 'authed' && canDownload(user), desktop: isDesktop() }), [isAdmin, status, user]);
+  useGoShortcuts({
+    enabled: status === 'authed' && !path.startsWith('/reader'),
+    ctx: shortcutCtx,
+    onHelp: () => setHelp(true),
+    onSearch: (seed) => { setPaletteSeed(seed); setPalette(true); },
+  });
 
   // smart offline: keep favorites' latest unread chapters downloaded. Never on desktop, where "Save offline"
   // is hidden: it would copy chapters already on this disk into the window's storage (lib/desktop.ts).
@@ -129,6 +147,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <PageTransition>{children}</PageTransition>
       </main>
       <BottomNav />
+      {status === 'authed' && help && <ShortcutsDialog ctx={shortcutCtx} onClose={() => setHelp(false)} />}
       {status === 'authed' && <CommandPalette open={palette} seed={paletteSeed} onClose={() => setPalette(false)} />}
     </>
   );

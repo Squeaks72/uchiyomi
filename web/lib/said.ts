@@ -980,7 +980,7 @@ const WORDS: Record<string, (p: P) => string | null> = {
       case 'eventsChapter': return tr('Reading history of removed chapters');
       case 'trackerSeries': return tr('Tracker records of removed series');
       case 'downloads': return tr('Offline downloads of removed chapters');
-      case 'removed': return tr('Favourites and progress held by removed or merged series');
+      case 'removed': return tr('Favorites and progress held by removed or merged series');
       default: return str(p, 'kind');
     }
   },

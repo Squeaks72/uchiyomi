@@ -149,7 +149,7 @@ function LibraryInner() {
     // `folder` points one arrival at a tile in Downloads ("Open in library" on an add still downloading its
     // first chapter). Any change made on the page has moved on from it.
     next.delete('folder');
-    router.replace(`/library?${next.toString()}`);
+    router.replace(`/library/?${next.toString()}`);
     if (k === 'sort' && validSort(v)) {
       const previous = user?.settings?.librarySort;
       setSettings({ librarySort: v });
@@ -165,7 +165,7 @@ function LibraryInner() {
   const clearAll = () => {
     const n = new URLSearchParams();
     if (sortKey) n.set('sort', sortKey);
-    router.replace(`/library?${n.toString()}`);
+    router.replace(`/library/?${n.toString()}`);
   };
 
   const condition = useMemo(() => conditionFrom(read, status, genres, lib, src, anysrc), [read, status, genres.join(','), lib, src, anysrc]);
@@ -552,7 +552,8 @@ function LibraryInner() {
                 <IcImport width={19} height={19} />
               </Link>
             )}
-            {canDownload(user) && (
+            {/* Discover refuses an account that may not download, so the "+" is not offered to one (a dead end). */}
+            {mayDownload && (
               <Link href="/discover" className="grid h-10 w-10 place-items-center rounded-full border border-accent/40 bg-accent-soft text-accent lg:hidden" title={tr('Add new series')} aria-label={tr('Add new series')}>
                 <IcPlus width={20} height={20} />
               </Link>
@@ -724,7 +725,7 @@ function LibraryInner() {
             </span>
             <button disabled={acting} onClick={() => bulk('/api/library/bulk/read', { completed: true })} className="chip text-xs disabled:opacity-50">{tr('Mark read')}</button>
             <button disabled={acting} onClick={() => bulk('/api/library/bulk/read', { completed: false })} className="chip text-xs disabled:opacity-50">{tr('Mark unread')}</button>
-            <button disabled={acting} onClick={() => bulk('/api/favorites/bulk', { favorite: true })} className="chip text-xs disabled:opacity-50">{tr('Favourite')}</button>
+            <button disabled={acting} onClick={() => bulk('/api/favorites/bulk', { favorite: true })} className="chip text-xs disabled:opacity-50">{tr('Favorite')}</button>
             <button disabled={acting} onClick={() => setListing(true)} data-add-to-list className="chip text-xs disabled:opacity-50">{tr('Add to list')}</button>
             {/* Server-side fetch, so it follows the same permission as the Add button and the series
                 page's Fetch: a member who may not download does not see it. */}
@@ -799,7 +800,7 @@ function LibraryInner() {
             { label: tr('Add to list'), run: () => setListing(true) },
             { label: tr('Mark read'), run: () => void bulk('/api/library/bulk/read', { completed: true }) },
             { label: tr('Mark unread'), run: () => void bulk('/api/library/bulk/read', { completed: false }) },
-            { label: tr('Favourite'), run: () => void bulk('/api/favorites/bulk', { favorite: true }) },
+            { label: tr('Favorite'), run: () => void bulk('/api/favorites/bulk', { favorite: true }) },
             ...(canDownload(user) ? [{ label: tr('Fetch newest'), run: () => void fetchNewest() }] : []),
             ...(isAdmin ? [
               { label: tr('Edit genres'), run: () => setGenreEdit(true) },
