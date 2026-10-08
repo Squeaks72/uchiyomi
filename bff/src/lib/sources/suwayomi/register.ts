@@ -152,10 +152,10 @@ export const lastSuwayomiTry = (): { at: number; ok: boolean } | null => lastTry
  */
 export async function loadSuwayomiSources(
   list: () => Promise<RemoteSource[]> = listRemoteSources,
-  opts: { quiet?: boolean } = {},
+  opts: { quiet?: boolean; beforeRegister?: () => void } = {},
 ): Promise<LoadResult> {
   const at = Date.now();
-  last = await load(list, !!opts.quiet);
+  last = await load(list, !!opts.quiet, opts.beforeRegister);
   // Not configured is no attempt: nothing was asked.
   if (last.configured) noteSuwayomiTry(last.reachable, at);
   // Registered, however it came about (a retry, a reload, Check again): any retry still waiting is done.
@@ -163,10 +163,19 @@ export async function loadSuwayomiSources(
   return last;
 }
 
-async function load(list: () => Promise<RemoteSource[]>, quiet: boolean): Promise<LoadResult> {
-  // What this load leaves out replaces what the last one did, and a load that registers nothing leaves nothing out.
-  leftOut = new Set();
-  if (!suwayomiConfigured()) return { configured: false, reachable: false, available: 0, registered: 0, skipped: 0 };
+/**
+ * `beforeRegister` runs once everything that needs the engine or the database has been read, and right before the
+ * registrations, with nothing awaited in between: a reload clears the registry there, so it is empty for no longer than
+ * the registering takes. It used to clear first and ask the engine after, and the 20 s of an engine busy installing an
+ * extension plus four hundred inserts were a window in which every extension series read as "no longer installed"
+ * (Health's frozen-series check, and the updater, which skipped them).
+ */
+async function load(list: () => Promise<RemoteSource[]>, quiet: boolean, beforeRegister?: () => void): Promise<LoadResult> {
+  if (!suwayomiConfigured()) {
+    beforeRegister?.();
+    leftOut = new Set();
+    return { configured: false, reachable: false, available: 0, registered: 0, skipped: 0 };
+  }
 
   let remote: RemoteSource[];
   try {
@@ -174,6 +183,8 @@ async function load(list: () => Promise<RemoteSource[]>, quiet: boolean): Promis
   } catch (e) {
     const msg = (e as Error)?.message || 'unreachable';
     if (!quiet) console.warn(`[sources] suwayomi: could not list sources (${msg})`);
+    beforeRegister?.();
+    leftOut = new Set();
     return { configured: true, reachable: false, available: 0, registered: 0, skipped: 0, error: msg };
   }
 
@@ -190,6 +201,9 @@ async function load(list: () => Promise<RemoteSource[]>, quiet: boolean): Promis
   const on = remote.filter((s) => enabled.has(String(s.id)));
   const wanted = [...on.filter((s) => used.has(String(s.id))), ...on.filter((s) => !used.has(String(s.id)))];
 
+  // What this load leaves out replaces what the last one did, and a load that registers nothing leaves nothing out.
+  leftOut = new Set();
+  beforeRegister?.();
   let registered = 0;
   let skipped = 0;
   const out = new Set<string>();
