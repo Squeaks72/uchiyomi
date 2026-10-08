@@ -147,13 +147,17 @@ export function CommandPalette({ open, seed = '', onClose }: { open: boolean; se
   // Desktop's missing ones there (lib/destinations.ts).
   const places = useMemo(() => findDestinations(q, { admin: isAdmin, desktop: isDesktop() }), [q, isAdmin]);
   // one flat keyboard list: series first, then pages and settings, then actions
+  // Nothing in the library by this name, and the viewer may add series: offer to ask the sources instead (Discover
+  // searches them). With nothing else listed it is the only row, so a second Enter takes you there.
+  const discoverRow = mayDownload && !searching && query.length >= 2 && results.length === 0;
   const rows = useMemo(
     () => [
       ...results.map((s) => ({ kind: 'series' as const, series: s })),
       ...places.map((p) => ({ kind: 'place' as const, place: p })),
       ...shownActions.map((a) => ({ kind: 'action' as const, action: a })),
+      ...(discoverRow ? [{ kind: 'discover' as const, term: q.trim() }] : []),
     ],
-    [results, places, shownActions],
+    [results, places, shownActions, discoverRow, q],
   );
   useEffect(() => { setSel((s) => Math.min(s, Math.max(0, rows.length - 1))); }, [rows.length]);
   // The highlighted row stays on screen as the arrows move it past the edge of the list.
@@ -164,6 +168,7 @@ export function CommandPalette({ open, seed = '', onClose }: { open: boolean; se
     if (!r) return;
     if (r.kind === 'series') go(`/series/?id=${r.series.id}`);
     else if (r.kind === 'place') goTo(r.place.href);
+    else if (r.kind === 'discover') go(`/discover?q=${encodeURIComponent(r.term)}`);
     else r.action.run();
   };
 
@@ -224,6 +229,13 @@ export function CommandPalette({ open, seed = '', onClose }: { open: boolean; se
                       <p className="truncate text-sm text-fog-100">{r.series.metadata?.title || r.series.name}</p>
                       <p className="text-[11px] text-fog-500">{r.series.booksCount === 1 ? tr('1 chapter') : tr('{n} chapters', { n: r.series.booksCount })}</p>
                     </div>
+                  </button>
+                ) : r.kind === 'discover' ? (
+                  <button key="discover" type="button" role="option" id={optId(i)} aria-selected={sel === i} tabIndex={-1} data-palette-discover onClick={() => activate(i)} onMouseEnter={() => setSel(i)}
+                    className={`flex w-full items-center gap-3 px-4 py-2.5 text-start ${sel === i ? 'bg-accent-soft' : ''}`}>
+                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-ink-700 text-fog-400"><IcSearch width={16} height={16} /></span>
+                    <span className="min-w-0 truncate text-sm text-fog-100">{tr('Search your sources for “{query}”', { query: `\u2068${r.term}\u2069` })}</span>
+                    <span className="ms-auto shrink-0 text-[11px] text-fog-500">{tr('Discover')}</span>
                   </button>
                 ) : r.kind === 'place' ? (
                   <div key={`p:${r.place.key}`}>

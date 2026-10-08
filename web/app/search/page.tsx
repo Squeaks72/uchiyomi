@@ -6,9 +6,10 @@ import { api } from '@/lib/api';
 import { Page, Series } from '@/lib/types';
 import { SeriesTile } from '@/components/cards';
 import { IcSearch, IcX } from '@/components/icons';
+import Link from 'next/link';
 import { PlaceRow } from '@/components/CommandPalette';
 import { t as tr } from '@/lib/i18n';
-import { useAuth } from '@/lib/auth';
+import { canDownload, useAuth } from '@/lib/auth';
 import { isDesktop } from '@/lib/desktop';
 import { findDestinations } from '@/lib/destinations';
 
@@ -42,7 +43,8 @@ function SearchInner() {
   });
   // v0.55.4: the pages and settings the query names, as the palette lists them (a phone has no palette): under the
   // series, admins' only for admins, none of Desktop's missing ones there (lib/destinations.ts).
-  const { isAdmin } = useAuth();
+  const { isAdmin, user, status } = useAuth();
+  const mayAdd = status === 'authed' && canDownload(user);
   const places = useMemo(() => findDestinations(debounced, { admin: isAdmin, desktop: isDesktop(), limit: 8 }), [debounced, isAdmin]);
 
   const remember = (term: string) => {
@@ -103,7 +105,13 @@ function SearchInner() {
             <p role="status" className={`${places.length ? 'py-6' : 'py-20'} text-center text-sm text-fog-500`}>
               {tr('No series match “{query}”.', { query: `\u2068${debounced}\u2069` })}
             </p>
-          ) : (
+          ) : null}
+          {!(isFetching && !data) && (data?.content.length ?? 0) === 0 && mayAdd && (
+            <p className="pb-4 text-center">
+              <Link href={`/discover?q=${encodeURIComponent(debounced)}`} data-search-discover className="chip text-xs">{tr('Search your sources for “{query}”', { query: `\u2068${debounced}\u2069` })}</Link>
+            </p>
+          )}
+          {(isFetching && !data) || (data?.content.length ?? 0) === 0 ? null : (
             <>
               <p role="status" className="mb-3 text-xs text-fog-500">{data?.totalElements === 1 ? tr('1 result') : tr('{n} results', { n: data?.totalElements ?? 0 })}</p>
               <div className="grid grid-cols-3 gap-x-3 gap-y-5 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 lg:gap-x-4 xl:grid-cols-8 2xl:grid-cols-9 3xl:grid-cols-10">

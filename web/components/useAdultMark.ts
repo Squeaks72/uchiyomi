@@ -37,7 +37,7 @@ export function useAdultMark(title: string, seriesId?: string, seriesRating?: nu
       qc.invalidateQueries({ queryKey: key });
     }
     // While 18+ is shown nothing leaves the screen, so "hidden" would be untrue.
-    toast(adult ? (revealed ? tr('Marked 18+') : tr('Marked 18+ and hidden. Turn on Show 18+ content to find it again.')) : tr('18+ mark cleared'), 'success');
+    toast(adult ? (revealed ? tr('Marked 18+') : tr('Marked 18+ and hidden. Turn on Show 18+ to find it again.')) : tr('18+ mark cleared'), 'success');
   };
   return [{
     label: marked ? tr('Clear 18+ mark') : tr('Mark as 18+'), divider: true, disabled: status === 'offline', hook: 'mark-adult',
