@@ -398,8 +398,12 @@ export function SourceCard({ item, providers, onAdd, onOpenAdded, onSearch, eage
             overlap reads. One box, one row: with "+2" it is about 60 px on a 110-px phone tile. The "+2" is isolated left to
             right like the 18+ mark below, or an Arabic line reads it "2+". */}
         {stack && (
+          // Pressable, as the "{n} sources" badge it replaced was: it opens the details card, which names every source
+          // in words. Not in the tab order and not announced as a control -- it is inside the card's own button, and a
+          // keyboard or screen reader reaches the same card through the menu's "Description and details".
           <span id={stackId} role="img" aria-label={stack.names} title={stack.names} data-source-stack={stack.icons.length + stack.more}
-            className="absolute end-1.5 top-1.5 z-10 flex items-center gap-1 rounded-md bg-ink-950/80 p-1 backdrop-blur">
+            onClick={(ev) => { if (!glance.show) return; ev.preventDefault(); ev.stopPropagation(); glance.show(); }}
+            className="absolute end-1.5 top-1.5 z-10 flex items-center gap-1 rounded-md bg-ink-950/80 p-1 backdrop-blur hover:bg-ink-950 cursor-pointer">
             <span className="inline-flex items-center">
               {stack.icons.map((s, i) => (
                 <span key={s.id} className={`inline-flex ${i > 0 ? '-ms-1.5' : ''}`}>

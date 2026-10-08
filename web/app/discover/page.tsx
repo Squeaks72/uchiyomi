@@ -551,7 +551,6 @@ function DiscoverInner() {
           <>
             <EmptyState art={ART.emptyLibrary} title={tr('Nothing to browse with 18+ hidden')}
               sub={tr('Every provider set up for your account is marked 18+. Turn on Show 18+ to browse them.')} />
-            <div className="-mt-10 flex justify-center pb-10"><AdultToggle alsoWhen /></div>
           </>
         ) : isAdmin ? (
           <EmptyState art={ART.emptyLibrary} title={tr('No sources installed')}
@@ -580,7 +579,6 @@ function DiscoverInner() {
               {/* In the HEADER and not on the chip row below, deliberately: SourcePicker is mounted only
                   while `mode === 'newest'`, so a chip anchored there would disappear the moment someone
                   searched — and search is one of the surfaces the reveal now changes. */}
-              <AdultToggle alsoWhen={showAdultChip} className="shrink-0 text-xs" />
             </div>
             <p className="mt-1 max-w-prose text-[11px] text-fog-500">
               {tr('Manual AniList actions can contact AniList even when automatic lookups are off.')}

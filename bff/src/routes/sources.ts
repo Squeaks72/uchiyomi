@@ -1784,6 +1784,31 @@ export async function addSeriesFromSource(opts: {
     };
   }
 
+  /**
+   * The row is written NOW, as the nothing-yet branch does, rather than minted by persistScan from chapter one: until
+   * then Discover and every title lookup found nothing and offered the same series as new, though the Library
+   * already showed it downloading. persistScan's `ON CONFLICT (library_id, folder)` lands on this row when the
+   * first chapter arrives. A row that was there before (revived above) is left as it is. If the first chapter
+   * never lands the row is removed again below, so a refused download leaves no empty series behind.
+   */
+  let mintedId: string | undefined;
+  if (!existing) {
+    const libs = await libraryRows();
+    mintedId = (await q<{ id: string }>(
+      `INSERT INTO lib_series (id, source, title, summary, author, status, genres, web, folder, books_count, library_id, scanned_at,
+                               auto_update, source_id, source_series_id, chapter_floor, lang)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,0,$10,now(),$11,$12,$13,$14,$15)
+       ON CONFLICT (library_id, folder) DO NOTHING
+       RETURNING id`,
+      [newSeriesId(), src.name, title, meta.summary || null, meta.author ?? null, meta.status ?? null, meta.genres ?? [], meta.url ?? null,
+       folder, libraryIdFor(folder, libs), autoUpdate !== false, source, sourceId, floor, stateLang],
+    ).catch(() => []))[0]?.id;
+    if (mintedId && series?.coverUrl) {
+      await q(`INSERT INTO series_art (series_id, cover, checked_at) VALUES ($1, $2, NULL)
+        ON CONFLICT (series_id) DO UPDATE SET cover = COALESCE(series_art.cover, EXCLUDED.cover)`, [mintedId, series.coverUrl]).catch(() => {});
+    }
+  }
+
   // The cover is for the Downloads view, which draws this card before chapter one is scanned in and the series
   // has a thumbnail of its own.
   jobs.set(folder, { title, total: toFetch.length, done: 0, status: 'downloading', startedAt: Date.now(), origin: 'add', ...(opts.userId ? { by: opts.userId } : {}),
@@ -1853,6 +1878,7 @@ export async function addSeriesFromSource(opts: {
         ? say('job.refusing', { source: src.name, status: blockReason })
         : say('job.undownloadable');
       const why = whyPart.text;
+      if (mintedId) await q('DELETE FROM lib_series WHERE id = $1 AND books_count = 0 AND NOT EXISTS (SELECT 1 FROM lib_books WHERE series_id = $1)', [mintedId]).catch(() => {});
       if (opts.wait === false) {
         // Detached: the caller has already been told the download started, so this card IS the failure
         // report. It is deliberately not swept -- see sweepJobs -- and is dismissed by hand.
@@ -2029,7 +2055,7 @@ export async function addSeriesFromSource(opts: {
   // everything else reads it off the job card once chapter one is scanned (`Job.seriesId`).
   void withOrigin('add', opts.userId ?? null, run).catch(() => {});
   return {
-    ok: true, status: 200, title, folder, chapters: toFetch.length, started: true, seriesId: existing?.id,
+    ok: true, status: 200, title, folder, chapters: toFetch.length, started: true, seriesId: existing?.id ?? mintedId,
     ...(opts.archive ? { archive: archiveOpt ? 'later' as const : 'nothing' as const } : {}),
     // The link waits for the row, which persistScan mints from chapter one: the job card carries the outcome.
     ...(edition ? { edition: { lang: edition.lang } } : {}),

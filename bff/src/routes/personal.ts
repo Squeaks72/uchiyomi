@@ -808,11 +808,28 @@ export default async function personalRoutes(app: FastifyInstance) {
   const LIST_FORMAT = 'uchiyomi-list';
   const listFile = z.object({
     format: z.literal(LIST_FORMAT),
-    version: z.number().int().min(1).max(1),
+    version: z.number().int().min(1).max(2),
     name: z.string().trim().min(1).max(120),
     description: z.string().max(4000).nullish(),
-    items: z.array(z.object({ title: z.string().trim().min(1).max(300), coverUrl: z.string().url().max(1000).nullish() })).max(5000),
+    items: z.array(z.object({
+      title: z.string().trim().min(1).max(300), coverUrl: z.string().url().max(1000).nullish(),
+      // Where the exporter's library got the title (v2): enough for an importer starting from nothing to add it.
+      lang: z.string().max(35).nullish(),
+      sources: z.array(z.object({ source: z.string().min(1).max(200), sourceId: z.string().min(1).max(200), name: z.string().max(200).nullish() })).max(12).nullish(),
+    })).max(5000),
   });
+  type ListSource = { source: string; sourceId: string; name?: string | null };
+  // The primary source first, then the followed ones; each once, named by the extension that serves it.
+  const sourcesOf = (primary: { source_id: string | null; source_series_id: string | null }, followed: ListSource[] | null): ListSource[] => {
+    const out: ListSource[] = [];
+    const add = (s: string | null | undefined, id: string | null | undefined) => {
+      if (!s || !id || out.some((o) => o.source === s && o.sourceId === id)) return;
+      out.push({ source: s, sourceId: id, name: getSource(s)?.name ?? null });
+    };
+    add(primary.source_id, primary.source_series_id);
+    for (const f of followed ?? []) add(f.source, f.sourceId);
+    return out;
+  };
 
   app.get('/api/collections/:id/export', async (req, reply) => {
     const uid = userIdOf(req);
@@ -822,20 +839,28 @@ export default async function personalRoutes(app: FastifyInstance) {
       ? { name: 'Favorites', description: null }
       : await one<{ name: string; description: string | null }>('SELECT name, description FROM collections WHERE id = $1 AND user_id = $2', [id, uid]);
     if (!col) return reply.code(404).send({ error: 'not_found' });
-    const held = builtin ? await q<{ title: string }>(
-      `SELECT COALESCE(NULLIF(btrim(o.title), ''), s.title) AS title
+    type Held = { title: string; lang: string | null; source_id: string | null; source_series_id: string | null; followed: ListSource[] | null };
+    const cols = `COALESCE(NULLIF(btrim(o.title), ''), s.title) AS title, s.lang, s.source_id, s.source_series_id,
+         (SELECT json_agg(json_build_object('source', ss.source_id, 'sourceId', ss.source_series_id) ORDER BY ss.created_at)
+            FROM series_sources ss WHERE ss.series_id = s.id) AS followed`;
+    const held = builtin ? await q<Held>(
+      `SELECT ${cols}
          FROM favorites f JOIN lib_series s ON s.id = f.series_id
          LEFT JOIN series_overrides o ON o.series_id = s.id
-        WHERE f.user_id = $1 AND ${visibleToAll('s')} ORDER BY f.created_at DESC`, [uid]) : await q<{ title: string }>(
-      `SELECT COALESCE(NULLIF(btrim(o.title), ''), s.title) AS title
+        WHERE f.user_id = $1 AND ${visibleToAll('s')} ORDER BY f.created_at DESC`, [uid]) : await q<Held>(
+      `SELECT ${cols}
          FROM collection_items ci JOIN lib_series s ON s.id = ci.series_id
          LEFT JOIN series_overrides o ON o.series_id = s.id
         WHERE ci.collection_id = $1 AND ${visibleToAll('s')} ORDER BY ci.position`, [id]);
-    const wants = builtin ? [] : await q<{ title: string; cover_url: string | null }>(
-      'SELECT title, cover_url FROM collection_wants WHERE collection_id = $1 ORDER BY position, created_at', [id]);
+    const wants = builtin ? [] : await q<{ title: string; cover_url: string | null; sources: ListSource[] | null }>(
+      'SELECT title, cover_url, sources FROM collection_wants WHERE collection_id = $1 ORDER BY position, created_at', [id]);
+    const withSources = (sources: ListSource[]) => (sources.length ? { sources } : {});
     const file = {
-      format: LIST_FORMAT, version: 1, name: col.name, description: col.description,
-      items: [...held.map((h) => ({ title: h.title })), ...wants.map((w) => ({ title: w.title, ...(w.cover_url ? { coverUrl: w.cover_url } : {}) }))],
+      format: LIST_FORMAT, version: 2, name: col.name, description: col.description,
+      items: [
+        ...held.map((h) => ({ title: h.title, ...(h.lang ? { lang: h.lang } : {}), ...withSources(sourcesOf(h, h.followed)) })),
+        ...wants.map((w) => ({ title: w.title, ...(w.cover_url ? { coverUrl: w.cover_url } : {}), ...withSources(sourcesOf({ source_id: null, source_series_id: null }, w.sources)) })),
+      ],
     };
     const safe = col.name.replace(/[^\p{L}\p{N} _-]+/gu, '').trim().slice(0, 60) || 'list';
     return reply.header('content-disposition', `attachment; filename="${encodeURIComponent(safe)}.uchiyomi-list.json"`).send(file);
@@ -854,8 +879,8 @@ export default async function personalRoutes(app: FastifyInstance) {
       target = await one('INSERT INTO collections (user_id, name, description) VALUES ($1, $2, $3) RETURNING id, name', [uid, list.name, list.description?.trim() || null]);
     }
     const id = target!.id;
-    const seen = new Map<string, { title: string; coverUrl: string | null }>();
-    for (const it of list.items) { const k = normTitle(it.title); if (k && !seen.has(k)) seen.set(k, { title: it.title, coverUrl: it.coverUrl ?? null }); }
+    const seen = new Map<string, { title: string; coverUrl: string | null; sources: ListSource[] }>();
+    for (const it of list.items) { const k = normTitle(it.title); if (k && !seen.has(k)) seen.set(k, { title: it.title, coverUrl: it.coverUrl ?? null, sources: (it.sources ?? []).map((x) => ({ source: x.source, sourceId: x.sourceId, name: x.name ?? null })) }); }
     const keys = [...seen.keys()];
     const held = keys.length ? await q<{ id: string; k: string }>(
       `SELECT DISTINCT ON (k) s.id, k FROM (
@@ -863,6 +888,7 @@ export default async function personalRoutes(app: FastifyInstance) {
        ) s WHERE k = ANY($1) ORDER BY k, id`, [keys]) : [];
     const byKey = new Map(held.map((h) => [h.k, h.id]));
     let added = 0; let saved = 0;
+    const toAdd: Array<{ title: string; sources: ListSource[] }> = [];
     for (const [k, v] of seen) {
       const sid = byKey.get(k);
       if (sid) {
@@ -873,13 +899,15 @@ export default async function personalRoutes(app: FastifyInstance) {
         added += r.length;
       } else {
         const r = await q(
-          `INSERT INTO collection_wants (collection_id, title_key, title, cover_url, position)
-           VALUES ($1, $2, $3, $4, COALESCE((SELECT max(position) + 1 FROM collection_wants WHERE collection_id = $1), 0))
-           ON CONFLICT DO NOTHING RETURNING 1`, [id, k, v.title, v.coverUrl]);
-        saved += r.length;
+          `INSERT INTO collection_wants (collection_id, title_key, title, cover_url, sources, position)
+           VALUES ($1, $2, $3, $4, $5, COALESCE((SELECT max(position) + 1 FROM collection_wants WHERE collection_id = $1), 0))
+           ON CONFLICT (collection_id, title_key) DO UPDATE SET sources = COALESCE(collection_wants.sources, EXCLUDED.sources)
+           RETURNING (xmax = 0) AS fresh`, [id, k, v.title, v.coverUrl, v.sources.length ? JSON.stringify(v.sources) : null]);
+        saved += r.filter((x: any) => x.fresh).length;
+        if (v.sources.length) toAdd.push({ title: v.title, sources: v.sources.filter((x) => !!getSource(x.source)) });
       }
     }
-    return { ok: true, id, name: target!.name, added, saved, total: seen.size };
+    return { ok: true, id, name: target!.name, added, saved, total: seen.size, toAdd: toAdd.filter((x) => x.sources.length) };
   });
 
   app.post('/api/collections/:id/items/bulk', async (req, reply) => {

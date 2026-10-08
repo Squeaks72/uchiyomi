@@ -101,15 +101,16 @@ export function AdultToggle({ className = '', alsoWhen = false }: { className?: 
   );
 }
 
-/** A strip under the header while 18+ is revealed, so nobody wonders why marked or filtered titles are still showing. Gone entirely when it is off. */
-export function AdultShownNotice() {
-  const qc = useQueryClient();
+/**
+ * The one place Show 18+ lives: a slim row at the top of every page, right under the header, so it never moves with
+ * the page. While it is on the row also says so, because nothing hides when marked 18+ and 18+ titles show everywhere.
+ */
+export function AdultBar() {
   const on = useAdultShown();
-  if (!on) return null;
   return (
-    <div role="status" data-adult-notice className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 bg-amber-400/15 px-4 py-1.5 text-xs text-amber-200">
-      <span>{tr('Show 18+ is on: 18+ titles are visible everywhere, and nothing hides when marked 18+.')}</span>
-      <button type="button" onClick={() => { setAdultShown(false); qc.invalidateQueries(); }} className="font-semibold underline underline-offset-2">{tr('Turn off')}</button>
+    <div data-adult-bar className="shell flex items-center justify-end gap-3 pt-2 max-lg:pt-[max(0.5rem,env(safe-area-inset-top))]">
+      {on && <span role="status" data-adult-notice className="min-w-0 text-xs text-amber-200">{tr('18+ titles are showing everywhere, and marking one 18+ will not hide it.')}</span>}
+      <AdultToggle alsoWhen className="shrink-0 text-xs" />
     </div>
   );
 }

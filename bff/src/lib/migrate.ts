@@ -67,6 +67,7 @@ CREATE TABLE IF NOT EXISTS collection_wants (
   created_at    timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (collection_id, title_key)
 );
+ALTER TABLE collection_wants ADD COLUMN IF NOT EXISTS sources jsonb;
 
 CREATE TABLE IF NOT EXISTS ratings (
   user_id    uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,

@@ -575,7 +575,6 @@ function LibraryInner() {
             {tr('Filters')}{activeCount > 0 ? ` · ${activeCount}` : ''}
           </button>
           {/* A session reveal, not a filter: it is not in the panel because `Clear all` cannot clear it. */}
-          <AdultToggle alsoWhen />
           {/* A mode, not a filter, for the same reason. */}
           <button type="button" onClick={() => { setSelecting((v) => !v); setPicked(new Set()); }} aria-pressed={selecting}
             className={`chip whitespace-nowrap ${selecting ? 'chip-active' : ''}`}>

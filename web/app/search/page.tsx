@@ -115,7 +115,6 @@ function SearchInner() {
           {!(isFetching && !data) && (data?.content.length ?? 0) === 0 && !adultOn && (adultConfigured || hasAdultLibrary) && (
             <div className="pb-4 text-center" data-search-adult-hint>
               <p className="mb-2 text-xs text-fog-500">{tr('Series hidden by the 18+ filter are not searched.')}</p>
-              <AdultToggle alsoWhen={adultConfigured} />
             </div>
           )}
           {!(isFetching && !data) && (data?.content.length ?? 0) === 0 && mayAdd && (

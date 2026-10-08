@@ -115,7 +115,6 @@ export default function CollectionsPage() {
           <h1 className="font-display text-2xl font-bold lg:text-3xl">{tr('Collections')}</h1>
           <p className="mt-0.5 text-xs text-fog-500">{tr('Choose up to 3 lists for Home. Empty lists stay selected and appear when they have series.')}</p>
         </div>
-        <AdultToggle alsoWhen className="ms-auto shrink-0 text-xs" />
         <button type="button" onClick={() => setImporting(true)} aria-haspopup="dialog" data-list-import className="chip text-xs">{tr('Import')}</button>
         <button type="button" onClick={() => setCreating(true)} aria-haspopup="dialog" className="btn-accent px-3.5 py-2 text-sm">
           <IcPlus width={16} height={16} aria-hidden />{tr('New collection')}

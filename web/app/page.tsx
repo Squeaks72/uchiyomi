@@ -185,7 +185,6 @@ export default function HomePage() {
         <p className="min-w-0 text-sm text-fog-400 lg:text-base">
           {greeting(user?.displayName && user.displayName !== 'me' ? user.displayName : undefined)}
         </p>
-        <AdultToggle className="shrink-0" alsoWhen={adultFilter} />
       </div>
 
       {/* Keep reading */}

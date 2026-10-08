@@ -45,15 +45,13 @@ test('the chip is anchored where a search cannot unmount it', () => {
   // picker is where that filter is shown and cleared. Reintroduce the old gating by wrapping it in
   // `{mode === 'newest' && (...)}` again: "SourcePicker is gated on the mode" fails, and a narrowed search
   // loses the only thing on screen that says it is narrowed.
+  // The reveal is one control in AdultBar, rendered by AppShell above every page, so it never moves.
   const page = code(read('app/discover/page.tsx'));
-  const header = page.slice(page.indexOf('<header'), page.indexOf('</header>'));
-  assert.ok(header.includes('<AdultToggle alsoWhen={showAdultChip}'),
-    'the reveal chip is not in the Discover header any more');
   assert.ok(page.includes('<SourcePicker'), 'SourcePicker is gone from Discover');
   assert.doesNotMatch(page, /mode === '(?:newest|search)'[^\n]*&& \(\s*<SourcePicker/,
     'SourcePicker is gated on the mode, so a search hides the source filter it is narrowed to');
-  assert.ok(page.indexOf('<AdultToggle alsoWhen={showAdultChip}') < page.indexOf('<SourcePicker'),
-    'the chip is rendered inside the picker region rather than the header');
+  assert.ok(!page.includes('<AdultToggle'), 'Discover has its own reveal again, so the control bounces between pages');
+  assert.ok(code(read('components/AppShell.tsx')).includes('<AdultBar />'), 'AppShell no longer renders the AdultBar');
 });
 
 test('AdultToggle renders for a second reason, and still for its first', () => {

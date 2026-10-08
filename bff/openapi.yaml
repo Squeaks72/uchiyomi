@@ -5233,7 +5233,8 @@ paths:
       description: >-
         Body `{list, collectionId?}`, `list` being the exported file. Without `collectionId` a new list is made with
         the file's name and description. Titles the library holds are linked; the others are saved on the list for
-        later. Answers `{ok, id, name, added, saved, total}`.
+        later. Answers `{ok, id, name, added, saved, total, toAdd}`; `toAdd` lists the saved titles whose exported sources this
+        server can use (`[{title, sources:[{source, sourceId}]}]`), for a client that offers to add them.
       requestBody:
         required: true
         content:
