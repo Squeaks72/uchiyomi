@@ -6,6 +6,7 @@ import { Sheet } from '@/components/ui';
 import { msgOf } from '@/components/ConfirmDialog';
 import { useToast } from '@/components/Toast';
 import { t as tr } from '@/lib/i18n';
+import { bustCover } from '@/lib/coverBust';
 
 interface Candidate { sourceId: string; name: string; primary: boolean; coverUrl: string }
 
@@ -29,6 +30,7 @@ export function CoverPickerSheet({ seriesId, artVersion, onClose }: { seriesId: 
     setSaving(true);
     try {
       await api(`/api/admin/series/${encodeURIComponent(seriesId)}/art`, { method: 'PUT', json: { kind: 'cover', mode: 'source', source: picked } });
+      bustCover(seriesId);
       for (const k of [['series', seriesId], ['library'], ['home']]) qc.invalidateQueries({ queryKey: k });
       toast(tr('Cover updated'), 'success');
       onClose();
