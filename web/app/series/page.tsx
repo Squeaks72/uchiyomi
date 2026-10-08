@@ -1909,7 +1909,7 @@ function SeriesInner() {
   const shownTitle = (meta?.title || series?.name || '').trim().toLowerCase();
   const nameRows = otherNames ? [
     { label: tr('English'), text: otherNames.english },
-    { label: tr('Japanese'), text: [otherNames.native, otherNames.romaji].filter(Boolean).join(' · ') || null },
+    { label: tr('Japanese'), text: otherNames.romaji },
   ].filter((r) => r.text && r.text.trim().toLowerCase() !== shownTitle) : [];
   const OtherNames = nameRows.length > 0 && (
     <dl className="flex flex-col gap-0.5 text-xs text-fog-400">

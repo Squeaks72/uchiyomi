@@ -102,6 +102,20 @@ export default function HomePage() {
     staleTime: 600000,
   });
 
+  // "Because you rated X": the series last given four or five stars, when it isn't the one above.
+  const { data: loved } = useQuery({
+    queryKey: ['loved'],
+    queryFn: () => api<{ series: { id: string; name: string; stars: number } | null }>('/api/ratings/loved'),
+    staleTime: 600000,
+  });
+  const lovedSeed = loved?.series && loved.series.id !== seed?.id ? loved.series : null;
+  const { data: becauseRated } = useQuery({
+    queryKey: ['because', lovedSeed?.id ?? 'none'],
+    queryFn: () => api<{ content: Series[] }>(`/api/series/${lovedSeed!.id}/similar`),
+    enabled: !!lovedSeed?.id,
+    staleTime: 600000,
+  });
+
   // Auto-scan Komga on open so new Suwayomi chapters surface, then refetch.
   useEffect(() => {
     triggerRefresh().then(() => setTimeout(() => qc.invalidateQueries({ queryKey: ['home'] }), 1800));
@@ -200,6 +214,15 @@ export default function HomePage() {
           <SectionTitle>{tr('Because you read {title}', { title: `⁨${seed.name}⁩` })}</SectionTitle>
           <Rail>
             {because!.content.map((s) => <SeriesCard key={s.id} series={s} />)}
+          </Rail>
+        </section>
+      )}
+
+      {lovedSeed && (becauseRated?.content?.length ?? 0) > 0 && (
+        <section className="pt-8">
+          <SectionTitle>{lovedSeed.stars >= 5 ? tr('Because you rated {title} 5 stars', { title: `⁨${lovedSeed.name}⁩` }) : tr('Because you rated {title} 4 stars', { title: `⁨${lovedSeed.name}⁩` })}</SectionTitle>
+          <Rail>
+            {becauseRated!.content.map((s) => <SeriesCard key={s.id} series={s} />)}
           </Rail>
         </section>
       )}

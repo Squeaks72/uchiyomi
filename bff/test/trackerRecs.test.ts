@@ -2,7 +2,7 @@
 // combined, and what is left out. The calls to the services are in trackerRecs.int.test.ts.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { pickSeeds, buildRecs, exclusionsFrom, type SeedRecs } from '../src/lib/trackerRecsCore';
+import { pickSeeds, buildRecs, exclusionsFrom, tasteFactor, type SeedRecs } from '../src/lib/trackerRecsCore';
 import type { LibraryEntry, RecItem } from '../src/lib/trackerProviders';
 
 const entry = (id: string, title: string, status: LibraryEntry['status'], progress: number, score?: number, format: LibraryEntry['format'] = 'manga', altTitles: string[] = []): LibraryEntry =>
@@ -29,15 +29,36 @@ test('seeds: liked titles first by score, then unrated reads; low scores, droppe
   assert.deepEqual(pickSeeds(list, 0), []);
 });
 
-test('seeds: a few chapters of an unfinished series, or a sliver of a long one, never seed', () => {
-  const long = { ...entry('2', 'Sliver', 'reading', 30, 9), total: 400 };
+test('seeds: a few chapters of an unfinished series never seed; twenty of a huge one do; three stars is enough, two is not', () => {
   const list = [
     entry('1', 'Sampled', 'reading', 4, 10),
-    long,
-    { ...entry('3', 'Half way', 'reading', 200, 9), total: 400 },
-    entry('4', 'Short and done', 'completed', 2, 8),
+    { ...entry('2', 'Huge', 'reading', 20, 9), total: 1200 },
+    entry('3', 'Short and done', 'completed', 2, 8),
+    entry('4', 'Three stars', 'completed', 50, 6),
+    entry('5', 'Two stars', 'completed', 90, 4),
   ];
-  assert.deepEqual(pickSeeds(list, 10).map((e) => e.title), ['Half way', 'Short and done']);
+  assert.deepEqual(pickSeeds(list, 10).map((e) => e.title), ['Huge', 'Short and done', 'Three stars']);
+});
+
+test('seeds: what was read long ago counts for less than the same read lately', () => {
+  const now = Date.now();
+  const list = [
+    { ...entry('1', 'Old', 'reading', 100, 9), lastRead: now - 3 * 365 * 86_400_000 },
+    { ...entry('2', 'Fresh', 'reading', 100, 8), lastRead: now - 2 * 86_400_000 },
+  ];
+  assert.deepEqual(pickSeeds(list, 2).map((e) => e.title), ['Fresh', 'Old']);
+});
+
+test('taste: a genre of well-rated series lifts a suggestion, one of badly rated series sinks it, no taste changes nothing', () => {
+  const taste = new Map([['action', 0.8], ['romance', -0.8]]);
+  assert.ok(tasteFactor(['Action'], taste) > 1);
+  assert.ok(tasteFactor(['Romance'], taste) < 1);
+  assert.equal(tasteFactor(['Action'], undefined), 1);
+  assert.equal(tasteFactor(undefined, taste), 1);
+  const seed = entry('1', 'S', 'completed', 50, 9);
+  const out = buildRecs([{ provider: 'anilist', seed, items: [item('a', 'Love Story', { genres: ['Romance'] }), item('b', 'Fight Story', { genres: ['Action'] })] }],
+    exclusionsFrom(new Map()), { restrictAdult: false, taste });
+  assert.deepEqual(out.map((r) => r.title), ['Fight Story', 'Love Story']);
 });
 
 test('seeds: the same list always gives the same seeds, so the per-title cache can work', () => {
