@@ -32,6 +32,8 @@ export interface LibraryEntry {
   format: 'manga' | 'novel' | 'other';
   /** The person's own rating on a 0-10 scale; absent when they have not rated it (both services use 0 for that). */
   score?: number;
+  /** Chapters in the library for this series, when Uchiyomi holds it: lets a few chapters of a long series count for little. */
+  total?: number;
 }
 /** How many entries one intake reads at most: the review batch keeps 500, one more says "truncated". */
 export const TRACKER_LIST_MAX = 501;

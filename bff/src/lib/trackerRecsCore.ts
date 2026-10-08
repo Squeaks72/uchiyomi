@@ -9,16 +9,28 @@ const PER_SEED_CAP = 5;
 /** Where a person's taste is read from: finished, in progress or paused, never dropped or merely planned. */
 const SEEDING = new Set<string>(['reading', 'completed', 'on_hold']);
 const LIKED = 7;
+/** Fewer chapters than this of an unfinished series is a sample, not taste. */
+export const MIN_READ = 10;
+/** In a long series (this many chapters held), reading under MIN_SHARE of it is a sample however many chapters that is. */
+const LONG_SERIES = 40;
+const MIN_SHARE = 0.15;
+
+/** Barely started: a few chapters, or a small slice of a long series, and not finished. Says nothing about taste. */
+export function barelyRead(e: LibraryEntry): boolean {
+  if (e.status === 'completed') return false;
+  if (e.progress < MIN_READ) return true;
+  return !!e.total && e.total >= LONG_SERIES && e.progress / e.total < MIN_SHARE;
+}
 
 /**
  * The titles to build recommendations from, best first: the ones rated 7 or more by the person, then the
- * ones they read without rating. Something they rated lower is left out on purpose -- recommending more of
+ * ones they read without rating. Either way it has to be read in earnest (`barelyRead`). Something they rated lower is left out on purpose -- recommending more of
  * what someone scored a 4 is the opposite of the feature. Stable: the same list gives the same seeds, which
  * is what lets the per-title cache do its job (a seed that changed every visit would never be cached).
  */
 export function pickSeeds(entries: LibraryEntry[], count: number): LibraryEntry[] {
   const eligible = entries.filter((e) =>
-    SEEDING.has(e.status) && e.format !== 'novel' && (e.score == null ? e.status !== 'on_hold' : e.score >= LIKED));
+    SEEDING.has(e.status) && e.format !== 'novel' && !barelyRead(e) && (e.score == null ? e.status !== 'on_hold' : e.score >= LIKED));
   const rank = (e: LibraryEntry) => e.score ?? LIKED - 0.5;
   return eligible
     .sort((a, b) => rank(b) - rank(a) || b.progress - a.progress || a.externalId.localeCompare(b.externalId, 'en', { numeric: true }))

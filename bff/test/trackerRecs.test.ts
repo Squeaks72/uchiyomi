@@ -16,7 +16,7 @@ test('seeds: liked titles first by score, then unrated reads; low scores, droppe
     entry('2', 'Ten', 'completed', 10, 10),
     entry('3', 'Nine', 'reading', 50, 9),
     entry('4', 'Unrated long', 'completed', 300),
-    entry('5', 'Unrated short', 'reading', 3),
+    entry('5', 'Unrated short', 'completed', 3),
     entry('6', 'Dropped', 'dropped', 40, 9),
     entry('7', 'Planned', 'plan_to_read', 0, 9),
     entry('8', 'Novel', 'completed', 12, 10, 'novel'),
@@ -27,6 +27,17 @@ test('seeds: liked titles first by score, then unrated reads; low scores, droppe
   assert.deepEqual(pickSeeds(list, 10).map((e) => e.title), ['Ten', 'Nine', 'Paused liked', 'Unrated long', 'Unrated short']);
   assert.deepEqual(pickSeeds(list, 2).map((e) => e.title), ['Ten', 'Nine']);
   assert.deepEqual(pickSeeds(list, 0), []);
+});
+
+test('seeds: a few chapters of an unfinished series, or a sliver of a long one, never seed', () => {
+  const long = { ...entry('2', 'Sliver', 'reading', 30, 9), total: 400 };
+  const list = [
+    entry('1', 'Sampled', 'reading', 4, 10),
+    long,
+    { ...entry('3', 'Half way', 'reading', 200, 9), total: 400 },
+    entry('4', 'Short and done', 'completed', 2, 8),
+  ];
+  assert.deepEqual(pickSeeds(list, 10).map((e) => e.title), ['Half way', 'Short and done']);
 });
 
 test('seeds: the same list always gives the same seeds, so the per-title cache can work', () => {
