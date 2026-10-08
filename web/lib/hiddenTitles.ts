@@ -50,3 +50,12 @@ export function useIsHiddenTitle(): (title: string, seriesId?: string) => boolea
     [set, revealed],
   );
 }
+
+/** Whether a title was marked 18+ in this tab, even while 18+ is revealed (where nothing leaves the screen, so the card says so instead). */
+export function useIsMarkedTitle(): (title: string, seriesId?: string) => boolean {
+  const set = useSyncExternalStore(subscribe, snapshot, server);
+  return useCallback(
+    (title: string, seriesId?: string) => set.size > 0 && (set.has(titleKey(title)) || (!!seriesId && set.has(idKey(seriesId)))),
+    [set],
+  );
+}
