@@ -15,6 +15,7 @@ import type { FastifyRequest } from 'fastify';
 import { rm, rename, realpath, stat, readdir } from 'fs/promises';
 import { q, one, tx } from './db';
 import { artFile } from './seriesArt';
+import { caseVariantOnDisk } from './caseVariant';
 import { allWritable, containedPath, realContainedPath } from './fsGuard';
 import { tombstoneBooks } from './chapterCleanup';
 import { LIBRARY_ROOT, DL_ROOT, listChapters } from './library';
@@ -1037,6 +1038,10 @@ export async function renameSeriesFolder(id: string, newFolder: string): Promise
     if (from && await stat(from).then(() => true, () => false)) roots.push(root);
   }
   if (!roots.length) {
+    // The folder is absent under its stored spelling but present under another case (`Manga/X` stored, `manga/X` on
+    // disk): re-pointing would orphan the chapters that are really there. Refuse; the scan sees them under the disk's name.
+    const other = await caseVariantOnDisk(await rootsOf(id), row.folder);
+    if (other) return { ok: false, reason: `"${row.folder}" is not on disk, but "${other}" is. Rename the series to that folder spelling instead.` };
     await tx(async (qq) => {
       await qq('UPDATE lib_series SET folder_prev = folder, folder = $2 WHERE id = $1', [id, typed]);
       await qq(
