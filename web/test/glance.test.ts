@@ -12,11 +12,13 @@ test('other names drop the main title and repeats, whatever the case', () => {
 
 test('every wall puts the description on the thumbnail and opens the same card', () => {
   // Put a description back under a thumbnail, or lose a wall's card, and the walls stop saying the same things.
+  // A list's page is not its own wall any more: it draws the Library's tile (SeriesTile, v0.55.8 #164), so its
+  // card is the tile's card, checked here on components/cards.tsx.
   for (const [file, builder] of [
     ['components/cards.tsx', 'glanceOfSeries'], ['components/cards.tsx', 'glanceOfSource'],
-    ['components/DiscoverHero.tsx', 'glanceOfTrending'], ['app/collection/page.tsx', 'glanceOfSeries'],
+    ['components/DiscoverHero.tsx', 'glanceOfTrending'],
   ]) assert.ok(read(file).includes(`useGlance(${builder}(`) || read(file).includes(`useGlance(\n    ${builder}(`), `${file} has no ${builder} card`);
-  for (const file of ['components/cards.tsx', 'components/DiscoverHero.tsx', 'app/collection/page.tsx']) {
+  for (const file of ['components/cards.tsx', 'components/DiscoverHero.tsx']) {
     assert.ok(!/<Blurb\b/.test(read(file)), `${file} still prints the description under the thumbnail`);
     assert.ok(read(file).includes('glance.overlay'), `${file} draws no hover text on the thumbnail`);
     assert.ok(read(file).includes('glance.modal'), `${file} never renders the card`);
