@@ -32,7 +32,7 @@ import { extensionSettingsHref } from '@/lib/sourcePrefs';
 import { baseOf, codeLabel, editionLangPreset, languageChoices, openingLanguage } from '@/lib/editions';
 import { MANGADEX_LANGUAGES_HREF } from '@/lib/mangadexLangs';
 import { useAccountPref } from '@/lib/useAccountPref';
-import { ListChoiceField, addToList, type ListChoice } from '@/components/CollectionPicker';
+import { ListChoiceField, CollectionPickerModal, addToList, type ListChoice } from '@/components/CollectionPicker';
 
 export interface Provider {
   source: string; name: string; sourceId: string; title: string; coverUrl?: string;
@@ -193,6 +193,19 @@ const looksCss = (s: string) =>
  * The server returns `folder`, which is the key into `/api/sources/jobs`, so the dialog can stay open and
  * show the real download rather than dismissing itself and hoping.
  */
+/** Keeps the title on one of your lists without adding it, to bring into the library later. */
+function SaveForLater({ title, coverUrl, className = '' }: { title: string; coverUrl?: string | null; className?: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button type="button" onClick={() => setOpen(true)} aria-haspopup="dialog" data-save-for-later className={`chip text-xs ${className}`}>
+        {tr('Save to a list for later')}
+      </button>
+      {open && <CollectionPickerModal seriesIds={[]} want={{ title, coverUrl }} onClose={() => setOpen(false)} />}
+    </>
+  );
+}
+
 export function AddSeriesDialog({ seed, sources, mayFollow, onClose, onAdded }: {
   seed: AddSeed;
   /** Which sources to look in. Unscoped, one tap is an outbound request to every source on the server. */
@@ -687,6 +700,7 @@ export function AddSeriesDialog({ seed, sources, mayFollow, onClose, onAdded }: 
               className="font-semibold text-accent hover:underline">{tr('Open')}</button>
           </p>
         )}
+        {!edSeed && <div className="mb-3"><SaveForLater title={title} coverUrl={seed.kind === 'result' ? seed.provider.coverUrl : undefined} /></div>}
         {searching ? (
           <p role="status" className="py-8 text-center text-sm text-fog-500">{tr('Searching…')}</p>
         ) : edSeed && edSearch.isError ? (
@@ -942,6 +956,7 @@ export function AddSeriesDialog({ seed, sources, mayFollow, onClose, onAdded }: 
               {tr('Read a chapter first')}
             </button>
           )}
+          <SaveForLater title={detail?.title || title} coverUrl={coverUrl} className="mt-2 w-full justify-center py-2.5 text-sm" />
         </div>
       </div>
       {previewing && picked && (

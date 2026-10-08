@@ -14,16 +14,20 @@ export const useCollections = () =>
   useQuery({ queryKey: ['collections'], queryFn: () => api<{ content: CollectionRow[] }>('/api/collections') });
 
 /** Add `seriesIds` to a list, creating it first when `newName` is given. Resolves to the list's name. */
-export async function addToList(seriesIds: string[], pick: { id: string } | { newName: string }): Promise<string> {
+export async function addToList(seriesIds: string[], pick: { id: string } | { newName: string }, want?: SavedTitle): Promise<string> {
   const c = 'id' in pick ? null : await api<CollectionRow>('/api/collections', { json: { name: pick.newName.trim() } });
   const id = 'id' in pick ? pick.id : c!.id;
-  await api(`/api/collections/${id}/items/bulk`, { json: { seriesIds } });
+  if (want) await api(`/api/collections/${id}/wants`, { json: { title: want.title, coverUrl: want.coverUrl ?? null } });
+  else await api(`/api/collections/${id}/items/bulk`, { json: { seriesIds } });
   return c?.name ?? '';
 }
 
+/** A title the library does not hold yet, kept on a list to be added later. */
+export interface SavedTitle { title: string; coverUrl?: string | null }
+
 const fld = 'w-full rounded-lg border border-ink-700 bg-ink-900/60 px-3 py-2 text-sm text-fog-100 outline-hidden focus-visible:outline-accent focus-visible:outline-offset-0 transition focus:border-accent/60';
 
-export function CollectionPickerModal({ seriesIds, onClose, onDone }: { seriesIds: string[]; onClose: () => void; onDone?: () => void }) {
+export function CollectionPickerModal({ seriesIds, want, onClose, onDone }: { seriesIds: string[]; want?: SavedTitle; onClose: () => void; onDone?: () => void }) {
   const toast = useToast();
   const qc = useQueryClient();
   const [name, setName] = useState('');
@@ -33,7 +37,7 @@ export function CollectionPickerModal({ seriesIds, onClose, onDone }: { seriesId
   const run = async (pick: { id: string } | { newName: string }, label: string) => {
     setBusy(true);
     try {
-      await addToList(seriesIds, pick);
+      await addToList(seriesIds, pick, want);
       toast(tr('Added to “{name}”', { name: `⁨${label}⁩` }), 'success');
       qc.invalidateQueries({ queryKey: ['collections'] });
       qc.invalidateQueries({ queryKey: ['collection'] });
@@ -43,7 +47,7 @@ export function CollectionPickerModal({ seriesIds, onClose, onDone }: { seriesId
   };
   const create = () => { const n = name.trim(); if (n) void run({ newName: n }, n); };
   return (
-    <Modal title={seriesIds.length === 1 ? tr('Add to collection') : tr('Add {n} series to a collection', { n: seriesIds.length })} onClose={onClose}>
+    <Modal title={want ? tr('Save to a list for later') : seriesIds.length === 1 ? tr('Add to collection') : tr('Add {n} series to a collection', { n: seriesIds.length })} onClose={onClose}>
       {isLoading ? (
         <div role="status" className="skeleton h-24 rounded-xl"><span className="sr-only">{tr('Loading…')}</span></div>
       ) : (

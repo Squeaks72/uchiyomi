@@ -54,6 +54,18 @@ CREATE TABLE IF NOT EXISTS collection_items (
   PRIMARY KEY (collection_id, series_id)
 );
 
+-- Titles on a list that the library does not hold yet ("save for later"). Keyed by the normalised title, the one
+-- thing every discover card has; they move into collection_items when the library gains the title.
+CREATE TABLE IF NOT EXISTS collection_wants (
+  collection_id uuid NOT NULL REFERENCES collections(id) ON DELETE CASCADE,
+  title_key     text NOT NULL,
+  title         text NOT NULL,
+  cover_url     text,
+  position      int  NOT NULL DEFAULT 0,
+  created_at    timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (collection_id, title_key)
+);
+
 CREATE TABLE IF NOT EXISTS ratings (
   user_id    uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   series_id  text NOT NULL,

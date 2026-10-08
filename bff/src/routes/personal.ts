@@ -17,6 +17,7 @@ import { pushEnabled, vapidPublicKey, saveSubscription, removeSubscription } fro
 import { statusFor, saveConnection, disconnect, whoAmI, pushSeriesProgress, pushSeriesProgressAsync, clearTrackerFloor } from '../lib/trackers';
 import { ADAPTERS, isProvider, mangaupdatesLogin, type Provider } from '../lib/trackerProviders';
 import { exchangeMalCode, kitsuPasswordLogin, type TokenGrant } from '../lib/trackerOauth';
+import { normTitle } from '../lib/titleMatch';
 import { logAudit } from '../lib/audit';
 import { noticeBook } from '../lib/noticeChapters';
 import { settingsBody } from '../lib/accountSettings';
@@ -206,7 +207,7 @@ export default async function personalRoutes(app: FastifyInstance) {
     return {
       content: await q(
         `SELECT c.id, c.name, c.accent, c.sort_order,
-                (SELECT count(*) FROM collection_items ci WHERE ci.collection_id = c.id) AS item_count
+                ((SELECT count(*) FROM collection_items ci WHERE ci.collection_id = c.id) + (SELECT count(*) FROM collection_wants w WHERE w.collection_id = c.id)) AS item_count
          FROM collections c WHERE c.user_id = $1 ORDER BY c.sort_order, c.created_at`,
         [uid],
       ),
@@ -256,8 +257,10 @@ export default async function personalRoutes(app: FastifyInstance) {
     // The list's sorts (#164) order by two dates no series payload carries; they ride on these items alone. The items
     // stay in the list's own order: the web sorts them, a list being one request and never paged.
     const dates = await listDates(uid, items.map((s: any) => s.id));
+    const wants = await promoteWants(id, req);
     return {
       ...col,
+      wants,
       items: items.map((s: any) => ({ ...s, lastReadAt: dates.read.get(s.id) ?? null, latestChapterAt: dates.latest.get(s.id) ?? null })),
     };
   });
@@ -736,6 +739,58 @@ export default async function personalRoutes(app: FastifyInstance) {
     }
     return { ok: true, applied: live.length, skipped: skippedOf(b.data.seriesIds, live) };
   });
+
+  // ---- titles saved to a list before the library holds them ----
+  const wantBody = z.object({ title: z.string().trim().min(1).max(300), coverUrl: z.string().max(2000).nullish() });
+
+  app.post('/api/collections/:id/wants', async (req, reply) => {
+    const uid = userIdOf(req);
+    const { id } = req.params as { id: string };
+    const b = wantBody.safeParse(req.body);
+    if (!b.success) return reply.code(400).send({ error: 'bad_request' });
+    const owns = await one('SELECT id FROM collections WHERE id = $1 AND user_id = $2', [id, uid]);
+    if (!owns) return reply.code(404).send({ error: 'not_found' });
+    const key = normTitle(b.data.title);
+    if (!key) return reply.code(400).send({ error: 'bad_request' });
+    await q(
+      `INSERT INTO collection_wants (collection_id, title_key, title, cover_url, position)
+       VALUES ($1, $2, $3, $4, COALESCE((SELECT max(position) + 1 FROM collection_wants WHERE collection_id = $1), 0))
+       ON CONFLICT (collection_id, title_key) DO UPDATE SET cover_url = COALESCE(collection_wants.cover_url, EXCLUDED.cover_url)`,
+      [id, key, b.data.title, b.data.coverUrl ?? null],
+    );
+    return { ok: true };
+  });
+
+  app.delete('/api/collections/:id/wants/:key', async (req, reply) => {
+    const uid = userIdOf(req);
+    const { id, key } = req.params as { id: string; key: string };
+    const owns = await one('SELECT id FROM collections WHERE id = $1 AND user_id = $2', [id, uid]);
+    if (!owns) return reply.code(404).send({ error: 'not_found' });
+    await q('DELETE FROM collection_wants WHERE collection_id = $1 AND title_key = $2', [id, key]);
+    return { ok: true };
+  });
+
+  /** The saved titles still not in the library; any it has gained since move into the list proper. */
+  async function promoteWants(collectionId: string, req: any) {
+    const wants = await q<{ title_key: string; title: string; cover_url: string | null }>(
+      'SELECT title_key, title, cover_url FROM collection_wants WHERE collection_id = $1 ORDER BY position, created_at', [collectionId]);
+    if (!wants.length) return [];
+    const held = await q<{ id: string; k: string }>(
+      `SELECT DISTINCT ON (k) s.id, k FROM (
+         SELECT s.id, regexp_replace(lower(s.title), '[^a-z0-9]+', '', 'g') AS k FROM lib_series s WHERE ${visibleToAll('s')}
+       ) s WHERE k = ANY($1) ORDER BY k, id`, [wants.map((w) => w.title_key)]);
+    const byKey = new Map(held.map((h) => [h.k, h.id]));
+    for (const w of wants) {
+      const sid = byKey.get(w.title_key);
+      if (!sid) continue;
+      await q(
+        `INSERT INTO collection_items (collection_id, series_id, position)
+         VALUES ($1, $2, COALESCE((SELECT max(position) + 1 FROM collection_items WHERE collection_id = $1), 0))
+         ON CONFLICT DO NOTHING`, [collectionId, sid]);
+      await q('DELETE FROM collection_wants WHERE collection_id = $1 AND title_key = $2', [collectionId, w.title_key]);
+    }
+    return wants.filter((w) => !byKey.has(w.title_key)).map((w) => ({ key: w.title_key, title: w.title, coverUrl: w.cover_url }));
+  }
 
   app.post('/api/collections/:id/items/bulk', async (req, reply) => {
     const { id } = req.params as { id: string };
