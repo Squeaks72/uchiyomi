@@ -145,6 +145,37 @@ async function refreshList(userId: string, c: Conn, have: ListRow | null): Promi
   }
 }
 
+/**
+ * What the person did inside Uchiyomi, laid over their tracker list for series linked to that tracker: the stars
+ * they gave (x2 onto the 0-10 scale; it wins over the tracker's number, being the newer word), the chapters they
+ * finished here, and how many the library holds. A series rated here but absent from the list comes in as a
+ * title they are reading, so rating something in the app is enough to count.
+ */
+async function withLocalSignals(userId: string, provider: Provider, entries: LibraryEntry[]): Promise<LibraryEntry[]> {
+  const rows = await q<{ external_id: string; title: string | null; stars: number | null; read: number; total: number }>(
+    `SELECT st.external_id, st.title, r.stars,
+            (SELECT count(*)::int FROM read_progress rp WHERE rp.user_id = $1 AND rp.series_id = st.series_id AND rp.completed) AS read,
+            (SELECT count(*)::int FROM lib_books b WHERE b.series_id = st.series_id AND b.pruned_at IS NULL) AS total
+       FROM series_trackers st
+       LEFT JOIN ratings r ON r.user_id = $1 AND r.series_id = st.series_id
+      WHERE st.provider = $2
+        AND (r.stars IS NOT NULL OR EXISTS (SELECT 1 FROM read_progress rp WHERE rp.user_id = $1 AND rp.series_id = st.series_id AND rp.completed))`,
+    [userId, provider]).catch(() => []);
+  if (!rows.length) return entries;
+  const byId = new Map(rows.map((r) => [r.external_id, r]));
+  const out = entries.map((e) => {
+    const l = byId.get(e.externalId);
+    if (!l) return e;
+    byId.delete(e.externalId);
+    return { ...e, progress: Math.max(e.progress, l.read), total: l.total || undefined, ...(l.stars ? { score: l.stars * 2 } : {}) };
+  });
+  for (const l of byId.values()) {
+    if (!l.stars || !l.title) continue;
+    out.push({ externalId: l.external_id, title: l.title, altTitles: [], status: 'reading', progress: l.read, format: 'manga', score: l.stars * 2, total: l.total || undefined });
+  }
+  return out;
+}
+
 /** The seeds of a person's list that have no answer younger than `REC_TTL_MS` on file. */
 async function staleSeeds(provider: Provider, seeds: LibraryEntry[]): Promise<{ missing: LibraryEntry[]; rows: Map<string, RecRow> }> {
   const rows = await readRecs(provider, seeds.map((s) => s.externalId));
@@ -198,7 +229,7 @@ async function fetchMalSeeds(token: string, missing: LibraryEntry[]): Promise<vo
 async function refresh(userId: string, c: Conn): Promise<void> {
   const list = await refreshList(userId, c, await readList(userId, c.provider));
   if (!list || !REC_PROVIDERS.includes(c.provider)) return;
-  const seeds = pickSeeds(list.entries, SEED_COUNT[c.provider] ?? 5);
+  const seeds = pickSeeds(await withLocalSignals(userId, c.provider, list.entries), SEED_COUNT[c.provider] ?? 5);
   const { missing } = await staleSeeds(c.provider, seeds);
   if (!missing.length) return;
   if (c.provider === 'anilist') await fetchAnilistSeeds(missing);
@@ -245,7 +276,7 @@ export async function recommendationsFor(
     const list = await readList(userId, c.provider);
     let stale = !list || Date.now() - list.fetchedAt >= LIST_TTL_MS;
     if (!stale && REC_PROVIDERS.includes(c.provider)) {
-      const seeds = pickSeeds(list!.entries, SEED_COUNT[c.provider] ?? 5);
+      const seeds = pickSeeds(await withLocalSignals(userId, c.provider, list!.entries), SEED_COUNT[c.provider] ?? 5);
       stale = (await staleSeeds(c.provider, seeds)).missing.length > 0;
     }
     if (stale && !coolingDown(c.provider)) running.push(once(`${userId}:${c.provider}`, () => refresh(userId, c)));
@@ -268,7 +299,7 @@ export async function recommendationsFor(
     lists.set(c.provider, list.entries);
     let seedCount = 0;
     if (REC_PROVIDERS.includes(c.provider)) {
-      const seeds = pickSeeds(list.entries, SEED_COUNT[c.provider] ?? 5);
+      const seeds = pickSeeds(await withLocalSignals(userId, c.provider, list.entries), SEED_COUNT[c.provider] ?? 5);
       const cached = await readRecs(c.provider, seeds.map((s) => s.externalId));
       for (const seed of seeds) {
         const r = cached.get(seed.externalId);
