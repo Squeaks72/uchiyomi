@@ -1414,6 +1414,8 @@ GET    /api/notes                GET    /api/notes/:seriesId
 POST   /api/notes
 PATCH  /api/notes/:id             DELETE /api/notes/:id
 PUT    /api/ratings/:seriesId     DELETE /api/ratings/:seriesId
+GET    /api/ratings/loved
+GET    /api/series/:id/other-titles
 GET    /api/tokens                POST   /api/tokens
 GET    /api/bookmarks             PUT    /api/bookmarks/:bookId/:page
 DELETE /api/bookmarks/:bookId/:page
@@ -1562,6 +1564,7 @@ GET    /api/admin/libraries       POST   /api/admin/libraries
 GET    /api/admin/libraries/preview
 GET    /api/admin/libraries/folders
 PATCH  /api/admin/libraries/:id   DELETE /api/admin/libraries/:id
+POST   /api/admin/libraries/:id/consolidate
 POST   /api/admin/series/:id/library
 POST   /api/admin/series/library
 GET    /api/admin/library/writable

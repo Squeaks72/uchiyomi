@@ -1460,13 +1460,11 @@ export async function addSeriesFromSource(opts: {
     }
     edition = { of: of.id, lang, ...(opts.edition.ofLang ? { ofLang: opts.edition.ofLang } : {}) };
   }
-  // ⚠️ Windows: the source's name is the first folder, and a custom site's name is whatever the admin typed --
-  // `Site: EN` is not a legal Windows name at all (the colon names a data stream) and `CON` or a trailing dot
-  // is one Explorer cannot open -- so there it gets the same treatment as the title. Linux keeps the name
-  // exactly: every folder already on a server is spelled that way.
-  const srcDir = process.platform === 'win32' ? sanitize(src.name) : src.name;
+  // A series can hold chapters from several sources, so its folder is the title alone, straight under the
+  // library root: no source-name level. Two different works that share a title would share the folder -- the
+  // same trade the edition suffix below already makes for languages.
   // An edition's folder carries its language (lib/editions.ts editionFolder), so it never lands in the original's.
-  let folder = edition ? editionFolder(srcDir, title, edition.lang) : `${srcDir}/${sanitize(title)}`;
+  let folder = edition ? editionFolder('', title, edition.lang) : sanitize(title);
   // ⚠️ Desktop, case-insensitive disks (NTFS, APFS): a source that now spells the title `Solo leveling`
   // still downloads into the existing `Solo Leveling` folder, and the scanner reads that folder back with
   // its on-disk spelling -- so a row keyed on the new spelling never met its own chapters, and the series

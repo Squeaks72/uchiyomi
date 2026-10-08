@@ -95,6 +95,7 @@ export function ConfirmDialog({
   body,
   confirmLabel,
   confirmText,
+  twoStep,
   danger,
   busy,
   onConfirm,
@@ -105,12 +106,20 @@ export function ConfirmDialog({
   confirmLabel?: string;
   /** When set, the button stays disabled until the user types this exactly. */
   confirmText?: string;
+  /** The button asks "Sure?" on the first press and acts on the second, instead of asking for a typed name. */
+  twoStep?: boolean;
   danger?: boolean;
   busy?: boolean;
   onConfirm: () => void;
   onClose: () => void;
 }) {
   const [typed, setTyped] = useState('');
+  const [armed, setArmed] = useState(false);
+  useEffect(() => {
+    if (!armed) return;
+    const h = setTimeout(() => setArmed(false), 4000);
+    return () => clearTimeout(h);
+  }, [armed]);
   const fieldId = useId();
   // Compared the way a person can actually type it, through the fold `lib/confirmTitle.ts` explains and the
   // route (routes/admin.ts `sameTitle`) applies to the same string: curly apostrophes, en and em dashes, a
@@ -181,13 +190,13 @@ export function ConfirmDialog({
       <div className="mt-4 flex gap-2">
         <button onClick={onClose} className="btn-ghost flex-1 py-2 text-sm">{tr('Cancel')}</button>
         <button
-          onClick={onConfirm}
+          onClick={() => { if (twoStep && !armed) setArmed(true); else onConfirm(); }}
           disabled={!ready || busy}
           className={`flex-1 rounded-full py-2 text-sm font-semibold disabled:opacity-40 ${
             danger ? 'bg-rose-500/90 text-white hover:bg-rose-500' : 'btn-accent'
           }`}
         >
-          {busy ? tr('Working…') : (confirmLabel ?? tr('Confirm'))}
+          {busy ? tr('Working…') : twoStep && armed ? tr('Sure?') : (confirmLabel ?? tr('Confirm'))}
         </button>
       </div>
     </Modal>

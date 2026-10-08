@@ -3154,6 +3154,71 @@ export default async function adminRoutes(app: FastifyInstance) {
     return { ok: true, moved };
   });
 
+  // Gather every series of a library under one folder: <target>/<last segment of its current folder>. The source
+  // folder (`MangaDex/`) falls away, the title folder stays. dryRun answers what would happen and touches nothing.
+  app.post('/api/admin/libraries/:id/consolidate', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const b = z.object({ target: z.string().max(300), dryRun: z.boolean().optional() }).safeParse(req.body);
+    if (!b.success) return reply.code(400).send({ error: 'bad_request' });
+    if (!(await one('SELECT 1 FROM libraries WHERE id = $1', [id]))) return reply.code(404).send({ error: 'not_found' });
+    const typed = b.data.target.trim();
+    const stored = typed ? await storedFolders([typed]) : [];
+    if (!stored) return reply.code(400).send({ error: 'bad_path', message: 'Use a folder path relative to your library root.' });
+    const target = stored[0] ?? '';
+    const mine = (await q<{ path: string }>(
+      `SELECT path FROM library_paths WHERE library_id = $1 UNION SELECT path FROM libraries WHERE id = $1 AND path <> ''`, [id])).map((r) => r.path);
+    const others = (await q<{ path: string }>(
+      `SELECT path FROM library_paths WHERE library_id <> $1 UNION SELECT path FROM libraries WHERE id <> $1 AND path <> ''`, [id])).map((r) => r.path);
+    const under = (f: string, p: string) => f === p || f.startsWith(`${p}/`);
+    // A series keeps its library only if its new folder is still one of that library's: otherwise the next scan
+    // would hand it to a different library.
+    const stays = (dest: string) => id === 'lib' ? !others.some((p) => under(dest, p)) : mine.some((p) => under(dest, p));
+    if (!stays(target || 'x') && target) {
+      return reply.code(400).send({ error: 'outside_library', message: id === 'lib'
+        ? 'That folder belongs to another library.' : 'Pick a folder inside this library (one of its folders, or below one).' });
+    }
+
+    const rows = await q<{ id: string; title: string; folder: string }>(
+      `SELECT s.id, s.title, s.folder FROM lib_series s WHERE s.library_id = $1 AND ${visibleToAll('s')} ORDER BY s.folder`, [id]);
+    const taken = new Map((await q<{ folder: string; id: string }>(`SELECT s.folder, s.id FROM lib_series s WHERE ${visibleToAll('s')}`)).map((r) => [r.folder, r.id]));
+    const claimedDest = new Set<string>();
+    type Move = { id: string; title: string; from: string; to: string; status: 'planned' | 'same' | 'conflict' | 'outside' | 'moved' | 'refused'; reason?: string };
+    const moves: Move[] = rows.map((r) => {
+      const leaf = r.folder.slice(r.folder.lastIndexOf('/') + 1);
+      const to = target ? `${target}/${leaf}` : leaf;
+      const m: Move = { id: r.id, title: r.title, from: r.folder, to, status: 'planned' };
+      if (to === r.folder) m.status = 'same';
+      else if (!stays(to)) { m.status = 'outside'; m.reason = 'It would leave this library.'; }
+      else if (claimedDest.has(to.toLowerCase()) || (taken.has(to) && taken.get(to) !== r.id)) {
+        m.status = 'conflict'; m.reason = 'Another series already uses that folder name.';
+      }
+      if (m.status === 'planned') claimedDest.add(to.toLowerCase());
+      return m;
+    });
+
+    if (!b.data.dryRun) {
+      for (const m of moves) {
+        if (m.status !== 'planned') continue;
+        const claim = claimSeriesWriter([m.id], [m.from, m.to]);
+        if (!claim) { m.status = 'refused'; m.reason = 'Another task is changing that folder.'; continue; }
+        try {
+          const r = await renameSeriesFolder(m.id, m.to);
+          if (r.ok) m.status = 'moved'; else { m.status = 'refused'; m.reason = r.reason; }
+        } catch (e) { m.status = 'refused'; m.reason = (e as Error).message; }
+        finally { claim.release(); }
+      }
+      await logAudit('library.consolidate', {
+        userId: userIdOf(req), detail: { id, target, moved: moves.filter((m) => m.status === 'moved').length }, req });
+    }
+    const count = (st: Move['status']) => moves.filter((m) => m.status === st).length;
+    return {
+      dryRun: !!b.data.dryRun, target,
+      planned: count('planned'), moved: count('moved'), same: count('same'),
+      problems: moves.filter((m) => ['conflict', 'outside', 'refused'].includes(m.status)),
+      sample: moves.filter((m) => m.status === 'planned' || m.status === 'moved').slice(0, 5).map((m) => ({ from: m.from, to: m.to })),
+    };
+  });
+
   app.delete('/api/admin/libraries/:id', async (req, reply) => {
     const { id } = req.params as { id: string };
     if (id === 'lib') {

@@ -4788,6 +4788,44 @@ paths:
           description: Not authenticated
         "404":
           description: Not found, or not visible to this account
+  /api/ratings/loved:
+    get:
+      tags:
+        - personal
+      summary: The series you most recently gave four or five stars, for Home's "Because you rated" rail.
+      operationId: getApiRatingsLoved
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: "`{series: {id, name, stars} | null}`, only a series you may see."
+        "401":
+          description: Not authenticated
+        "403":
+          description: "Forbidden: token scope, account permission or age limit"
+  /api/series/{id}/other-titles:
+    get:
+      tags:
+        - library
+      summary: The English and romaji names a series goes by.
+      operationId: getApiSeriesIdOtherTitles
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: Latin-script other names of the series.
+        "401":
+          description: Not authenticated
+        "403":
+          description: "Forbidden: token scope, account permission or age limit"
+        "404":
+          description: not_found
   /api/ratings/{seriesId}:
     put:
       tags:
@@ -9675,6 +9713,50 @@ paths:
           description: Not authenticated
         "403":
           description: "Forbidden: token scope, account permission or age limit"
+  /api/admin/libraries/{id}/consolidate:
+    post:
+      tags:
+        - admin
+      summary: Gather every series of a library under one folder, dropping the source-name level.
+      operationId: postApiAdminLibrariesIdConsolidate
+      description: >-
+        Requires an admin account and a token carrying the admin scope. Each series folder becomes
+        `<target>/<last segment of its folder>`, renamed on disk in every root it occupies. `dryRun: true` answers
+        what would move and changes nothing. Series that would clash or leave the library are left alone and listed
+        under `problems`.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [target]
+              properties:
+                target:
+                  type: string
+                  maxLength: 300
+                  description: A folder under the library root; empty for the root itself.
+                dryRun:
+                  type: boolean
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: "`{dryRun, target, planned, moved, same, problems, sample}`."
+        "400":
+          description: bad_request, bad_path, or outside_library -- the target is not inside this library.
+        "401":
+          description: Not authenticated
+        "403":
+          description: "Forbidden: token scope, account permission or age limit"
+        "404":
+          description: not_found -- no such library.
   /api/admin/libraries/{id}:
     patch:
       tags:
