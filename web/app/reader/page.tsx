@@ -185,6 +185,7 @@ function ReaderInner() {
   const [seriesSourceNames, setSeriesSourceNames] = useState<Record<string, string>>({});
   // The series' PRIMARY source, which keys the per-source reader default (lib/readerPrefs.ts seriesSourceOf).
   const [seriesSource, setSeriesSource] = useState<{ id: string; name: string } | null>(null);
+  const [libraryLook, setLibraryLook] = useState<NonNullable<Series['libraryReader']> | null>(null);
   // The work's language editions (v0.52.0, #72), for the chapter sheet's chips, and each chapter's number, which a
   // switch to another edition opens there. Both from requests the page makes anyway.
   const [editions, setEditions] = useState<EditionRow[] | null>(null);
@@ -329,6 +330,7 @@ function ReaderInner() {
         const s = await api<Series>(`/api/series/${first.seriesId}`);
         if (alive) {
           setRtl(s?.metadata?.readingDirection === 'RIGHT_TO_LEFT');
+          setLibraryLook(s?.libraryReader ?? null);
           setEditions((s?.edition?.editions?.length ?? 0) > 1 ? s.edition!.editions! : null);
           // The followed sources' display names, for the caption on a page the source never served. Free:
           // this request is made anyway, and `sources` is sent to every viewer, unlike /api/sources.
@@ -887,7 +889,7 @@ function ReaderInner() {
 
   // ---- per-source, then per-series, memory (mode/theme/spread/direction/zoom) ----
   //
-  // Applied in that order so the precedence is global default < source default < this series: a source
+  // Applied in that order so the precedence is global default < library default < source default < this series: a source
   // default fixes everything from it in one go, and a title someone has adjusted by hand still wins. Keyed by
   // the SERIES' source, known before the reader is ready, so it holds for downloaded chapters and never
   // changes mid-series.
@@ -895,11 +897,11 @@ function ReaderInner() {
   useEffect(() => {
     if (!seriesId) return;
     const base = seriesSourceId ? loadSourcePrefs(seriesSourceId) : {};
-    const sp = { ...base, ...loadSeriesPrefs(seriesId) };
+    const sp = { ...(libraryLook ?? {}), ...base, ...loadSeriesPrefs(seriesId) };
     if (sp.mode || sp.theme || sp.spread !== undefined || sp.pagedDirection) setPrefs((cur) => withTitleLook(cur, sp));
     setZoom(sp.zoom && sp.zoom >= 1 ? sp.zoom : 1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [seriesId, seriesSourceId]);
+  }, [seriesId, seriesSourceId, libraryLook]);
 
   // ---- auto-hide chrome ----
   useEffect(() => {
@@ -1546,7 +1548,7 @@ function ReaderInner() {
             seriesPinned={!!seriesId0 && hasSeriesLook(seriesId0)}
             onResetSeries={() => {
               if (!seriesId0) return;
-              setPrefs(resetSeriesLook(seriesId0, prefs, seriesSource?.id));
+              setPrefs(resetSeriesLook(seriesId0, prefs, seriesSource?.id, libraryLook));
               setShowSettings(false);
             }}
           />
