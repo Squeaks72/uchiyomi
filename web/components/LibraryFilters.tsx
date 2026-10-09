@@ -26,21 +26,22 @@ import { keys, t as tr } from '@/lib/i18n';
 
 const SORT_LABELS = keys('Updated', 'Newest', 'A–Z', 'Most unread', 'Most popular', 'Top rated', 'My rating', 'Most chapters', 'Recently read', 'Z–A', 'Author');
 export const SORTS = [
+  // By activity first: what changed, what arrived, what you touched, what is waiting for you
   { key: 'updated', label: SORT_LABELS[0], sort: 'lastModified,desc' },
   { key: 'new', label: SORT_LABELS[1], sort: 'createdDate,desc' },
-  { key: 'az', label: SORT_LABELS[2], sort: 'metadata.titleSort,asc' },
+  // when you last read in it, then the never-read
+  { key: 'read', label: SORT_LABELS[8], sort: 'lastRead,desc' },
   // per-user unread is now expressible server-side, so the label can say what it does
   { key: 'unread', label: SORT_LABELS[3], sort: 'unread,desc' },
-  // v0.58.0: AniList's popularity (how many people there have it on a list) and average score, the reader's own stars,
-  // the chapter count and their last read -- each card then says the value it is sorted by (lib/sortValue.ts), and a
-  // series without one sorts after the rest. A server older than v0.58.0 sorts an order it does not know by title.
+  // then by measure: the outside numbers (v0.58.0: AniList's popularity, and its average score), your own stars
+  // (then the unrated), and size. Each card says the value its shelf is sorted by (lib/sortValue.ts), a series
+  // without one sorts after the rest, and a server older than v0.58.0 sorts an order it does not know by title.
   { key: 'popular', label: SORT_LABELS[4], sort: 'popularity,desc' },
   { key: 'score', label: SORT_LABELS[5], sort: 'score,desc' },
   { key: 'rating', label: SORT_LABELS[6], sort: 'rating,desc' },
   { key: 'chapters', label: SORT_LABELS[7], sort: 'chapters,desc' },
-  { key: 'read', label: SORT_LABELS[8], sort: 'lastRead,desc' },
-  // Ours, kept through the v0.58.0 rebase: upstream's five cover rating/chapters/last-read with the same keys and
-  // the same SQL, so only Z-A and Author are still ours to add.
+  // then by name
+  { key: 'az', label: SORT_LABELS[2], sort: 'metadata.titleSort,asc' },
   { key: 'za', label: SORT_LABELS[9], sort: 'metadata.titleSort,desc' },
   { key: 'author', label: SORT_LABELS[10], sort: 'author,asc' },
 ];
