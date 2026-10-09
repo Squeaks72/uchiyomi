@@ -104,6 +104,7 @@ function CollectionInner() {
   const [sorting, setSorting] = useState(false);
   // Select: tick series to act on several at once. Apart from Edit, which is for ordering.
   const [selecting, setSelecting] = useState(false);
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const [startAt, setStartAt] = useState<{ x: number; y: number; id: string } | null>(null);
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [listing, setListing] = useState(false);
@@ -323,14 +324,28 @@ function CollectionInner() {
           <div className="mx-auto flex max-w-3xl flex-wrap items-center gap-2 lg:max-w-5xl">
             <span role="status" className="me-auto text-sm font-medium text-fog-100">{selectedText(picked.size)}</span>
             {!data?.builtin && <button type="button" onClick={() => void removePicked()} data-list-remove-selected className="btn-key">{tr('Remove from this list')}</button>}
-            <button type="button" onClick={() => setListing(true)} className="chip text-xs">{tr('Add to list')}</button>
-            <button type="button" onClick={zipPicked} className="chip text-xs">{tr('Download as zip')}</button>
+            <button type="button" aria-haspopup="menu" data-actions-button className="chip text-xs"
+              onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setMenu({ x: r.left, y: r.top - 230 }); }}>
+              {tr('Actions')} · {picked.size}
+            </button>
             <button type="button" onClick={leaveSelect} className="chip text-xs text-fog-500">{tr('Cancel')}</button>
           </div>
         </div>
       )}
       {listing && <CollectionPickerModal seriesIds={[...picked]} onClose={() => setListing(false)} onDone={() => { setListing(false); leaveSelect(); }} />}
 
+      {menu && picked.size > 0 && (
+        <SelectionMenu at={menu} onClose={() => setMenu(null)} title={selectedText(picked.size)}
+          items={[
+            ...(!data?.builtin ? [{ label: tr('Remove from this list'), run: () => void removePicked(), danger: true }] : []),
+            { label: tr('Add to list'), run: () => setListing(true) },
+            { label: tr('Download as zip'), run: zipPicked },
+            { label: tr('Mark read'), run: () => void bulkMark('/api/library/bulk/read', { completed: true }) },
+            { label: tr('Mark unread'), run: () => void bulkMark('/api/library/bulk/read', { completed: false }) },
+            ...(!data?.builtin ? [{ label: tr('Favorite'), run: () => void bulkMark('/api/favorites/bulk', { favorite: true }) }] : []),
+            { label: tr('Select all'), run: () => setPicked(new Set(items.map((x) => x.id))) },
+          ]} />
+      )}
       {startAt && (
         <SelectionMenu at={startAt} title={tr('Select')} onClose={() => setStartAt(null)}
           items={[{ label: tr('Select'), run: () => { setSelecting(true); setPicked(new Set([startAt.id])); } }]} />
