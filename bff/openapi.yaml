@@ -306,7 +306,7 @@ components:
         error: { type: [string, "null"] }
     AdminLibrary:
       type: object
-      required: [id, name, path, paths, age_rating, anilist_lookup, n, pinned, members]
+      required: [id, name, path, paths, age_rating, anilist_lookup, default_visible, n, pinned, members]
       properties:
         id: { type: string }
         name: { type: string }
@@ -319,6 +319,7 @@ components:
             Whether automatic art, title/id matching, type/direction repair, startup match checks and scheduled
             AniList enrichment may contact AniList for series currently in this library. Manual actions remain
             available and existing metadata is preserved when false.
+        default_visible: { type: boolean, description: Whether the library view starts with this library selected. The default library is always visible. }
         n: { type: integer, minimum: 0, description: Visible series in the library. }
         pinned: { type: integer, minimum: 0, description: Series filed into this library by hand. }
         members: { type: array, items: { type: string } }
@@ -1421,7 +1422,7 @@ paths:
     get:
       tags:
         - library
-      summary: The libraries the caller may see; adult:true marks an 18+ one the client can reveal.
+      summary: The libraries the caller may see; adult:true marks an 18+ one the client can reveal, and defaultVisible:true one the library view starts with selected.
       operationId: getApiLibraries
       security:
         - bearer: []
@@ -9983,6 +9984,10 @@ paths:
                   type: boolean
                   default: true
                   description: Permit automatic AniList enrichment for series currently in this library.
+                defaultVisible:
+                  type: boolean
+                  default: true
+                  description: The library view starts with this library selected. The default library ignores it.
                 readerPrefs:
                   description: Reading defaults for the library's series (mode, theme, spread, pagedDirection); null clears them. Layered under a source's and a series' own.
                   type: [object, "null"]
@@ -10214,6 +10219,9 @@ paths:
                 anilistLookup:
                   type: boolean
                   description: Permit automatic AniList enrichment for series currently in this library.
+                defaultVisible:
+                  type: boolean
+                  description: The library view starts with this library selected. The default library ignores it.
                 readerPrefs:
                   description: Reading defaults for the library's series (mode, theme, spread, pagedDirection); null clears them. Layered under a source's and a series' own.
                   type: [object, "null"]

@@ -52,9 +52,10 @@ import {
 } from '@/lib/bulkChapterDelete';
 
 /** Build the condition tree from the URL. Empty means no condition at all, which needs no user context. */
-function conditionFrom(read: string, status: string, genres: string[], lib: string, src = '', anysrc = '') {
+function conditionFrom(read: string, status: string, genres: string[], libSel: string[], src = '', anysrc = '') {
   const all: any[] = [];
-  if (lib) all.push({ libraryId: { operator: 'is', value: lib } });
+  if (libSel.length === 1) all.push({ libraryId: { operator: 'is', value: libSel[0] } });
+  else if (libSel.length > 1) all.push({ anyOf: libSel.map((id) => ({ libraryId: { operator: 'is', value: id } })) });
   // The two source filters (bff ownedCatalog condSql): the source a series was added from, and any source
   // it reads from -- added from it, or following it as a fallback. Main source's "No source" (#149) is a condition of its
   // own, never `mainSource` with the sentinel: an older server would answer that with an empty grid, not a 400.
@@ -85,7 +86,8 @@ function LibraryInner() {
   const genres = (params.get('genres') || '').split(',').filter(Boolean);
   // Which library, or '' for all of them. This lists only what the viewer may open -- the endpoint filters
   // by their grants -- so the tab row doubles as an honest answer to "what do I actually have access to".
-  const lib = params.get('lib') || '';
+  // The `lib` param: absent = the libraries marked visible by default, `*` = all of them, else a comma list.
+  const libParam = params.get('lib');
   const src = params.get('src') || '';
   const anysrc = params.get('anysrc') || '';
   const { data: libSources } = useLibrarySources();
@@ -100,6 +102,16 @@ function LibraryInner() {
     () => (allLibs ?? []).filter((l) => adultOn || !l.adult),
     [allLibs, adultOn],
   );
+  const libsReady = allLibs !== undefined;
+  const defaultLibs = useMemo(() => libs.filter((l) => l.defaultVisible !== false).map((l) => l.id), [libs]);
+  // Hiding anything by default only matters when there is more than one library and some are switched off.
+  const defaultsNarrow = libs.length > 1 && defaultLibs.length > 0 && defaultLibs.length < libs.length;
+  const libSel = useMemo(() => {
+    if (libParam === null) return defaultsNarrow ? defaultLibs : [];
+    if (libParam === '*') return [];
+    return libParam.split(',').filter(Boolean);
+  }, [libParam, defaultsNarrow, defaultLibs]);
+  const libKey = libSel.join(',');
   const [sheet, setSheet] = useState(false);
   // Select mode. Cleared whenever the filters change, so a selection can never outlive the list it was
   // made from and act on series the user can no longer see.
@@ -137,7 +149,7 @@ function LibraryInner() {
   // the page, so a value read once would not follow it. Downloads only for a viewer who may download.
   const mayDownload = authStatus === 'authed' && canDownload(user);
   const view: LibraryView = readView(params.get('view'), mayDownload);
-  useEffect(() => { setSelecting(false); setPicked(new Set()); anchor.current = null; }, [read, status, genres.join(','), sortKey, lib, src, anysrc, view]);
+  useEffect(() => { setSelecting(false); setPicked(new Set()); anchor.current = null; }, [read, status, genres.join(','), sortKey, libKey, src, anysrc, view]);
   // The last tile clicked: Shift+click selects everything between it and the next one, as a file explorer does.
   const anchor = useRef<string | null>(null);
   const itemsRef = useRef<Array<{ id: string }>>([]);
@@ -156,7 +168,7 @@ function LibraryInner() {
   // ⚠️ `lib` counts. It used to be left out because it lived in its own tab rail rather than in the sheet,
   // so selecting a library filtered the grid while the badge said nothing was filtered and the "· filtered"
   // hint stayed dark. Now that every way to narrow the shelf is in one panel, every one of them counts.
-  const activeCount = (read ? 1 : 0) + (status ? 1 : 0) + genres.length + (lib ? 1 : 0) + (src ? 1 : 0) + (anysrc ? 1 : 0);
+  const activeCount = (read ? 1 : 0) + (status ? 1 : 0) + genres.length + libSel.length + (src ? 1 : 0) + (anysrc ? 1 : 0);
 
   const setParam = (k: string, v: string) => {
     const next = new URLSearchParams(params.toString());
@@ -175,20 +187,30 @@ function LibraryInner() {
     }
   };
 
+  // Replace the library selection. Nothing, or everything, is "all"; a selection equal to the defaults needs no param.
+  const setLibs = (next: string[]) => {
+    const everything = next.length === 0 || next.length >= libs.length;
+    const sameAsDefaults = next.length === defaultLibs.length && next.every((x) => defaultLibs.includes(x));
+    if (everything) setParam('lib', defaultsNarrow ? '*' : '');
+    else if (sameAsDefaults && defaultsNarrow) setParam('lib', '');
+    else setParam('lib', next.join(','));
+  };
+
   // Everything `activeCount` counts, cleared. Sort survives because it is not a filter -- clearing it would
   // reorder the shelf as a side effect of a button that says it removes restrictions.
   const clearAll = () => {
     const n = new URLSearchParams();
     if (sortKey) n.set('sort', sortKey);
+    if (defaultsNarrow) n.set('lib', '*');
     router.replace(`/library/?${n.toString()}`);
   };
 
-  const condition = useMemo(() => conditionFrom(read, status, genres, lib, src, anysrc), [read, status, genres.join(','), lib, src, anysrc]);
+  const condition = useMemo(() => conditionFrom(read, status, genres, libSel, src, anysrc), [read, status, genres.join(','), libKey, src, anysrc]);
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } = useInfiniteQuery({
-    queryKey: ['library', active.key, read, status, genres.join(','), lib, src, anysrc],
+    queryKey: ['library', active.key, read, status, genres.join(','), libKey, src, anysrc],
     // The Downloads view shows no grid: forty covers fetched to sit unseen behind it would be the wrong work.
-    enabled: view === 'series',
+    enabled: view === 'series' && libsReady,
     initialPageParam: 0,
     // One card per work (v0.52.0, #72): the language editions of a title are one card -- the edition this reader read
     // last, else the original -- whose caption names the work's languages (SeriesTile). Reintroduce by dropping the
@@ -533,7 +555,7 @@ function LibraryInner() {
               window. `data-lenis-prevent` because Lenis drives the page and would otherwise eat the wheel. */}
           <div className="sticky top-6 max-h-[calc(100dvh-3rem)] overflow-y-auto pb-8 pt-6" data-lenis-prevent>
             <LibraryFilters
-              sort={sortKey} read={read} status={status} genres={genres} lib={lib} libs={libs} mainSrc={src} anySrc={anysrc}
+              read={read} status={status} genres={genres} libSel={libSel} libs={libs} mainSrc={src} anySrc={anysrc} onLibs={setLibs}
               onSet={setParam}
             />
             {activeCount > 0 && (
@@ -617,15 +639,19 @@ function LibraryInner() {
               {tr('Actions')}{picked.size ? ` · ${picked.size}` : ''}
             </button>
           )}
+          <select value={sortKey} onChange={(e) => setParam('sort', e.target.value)} aria-label={tr('Sort by')}
+            className="field ms-auto w-auto py-1 text-xs" data-library-sort>
+            {SORTS.map((o) => <option key={o.key} value={o.key}>{tr(o.label)}</option>)}
+          </select>
         </div>
         {/* Active filters are always visible, so a short library is never mysterious. */}
         {activeCount > 0 && (
           <div className="mt-2 flex flex-wrap gap-1.5">
-            {lib && (
-              <button onClick={() => setParam('lib', '')} type="button" aria-label={tr('Remove filter: {name}', { name: libs.find((l) => l.id === lib)?.name || lib })} className="chip text-xs">
-                {libs.find((l) => l.id === lib)?.name || lib} ×
+            {libSel.map((id) => (
+              <button key={id} onClick={() => setLibs(libSel.filter((x) => x !== id))} type="button" aria-label={tr('Remove filter: {name}', { name: libs.find((l) => l.id === id)?.name || id })} className="chip text-xs">
+                {libs.find((l) => l.id === id)?.name || id} ×
               </button>
-            )}
+            ))}
             {src && (
               <button onClick={() => setParam('src', '')} type="button" aria-label={tr('Remove filter: {name}', { name: sourceName(src) })} className="chip text-xs">
                 {tr('Main: {name}', { name: sourceName(src) })} ×
@@ -911,7 +937,7 @@ function LibraryInner() {
       {sheet && (
         <Sheet title={tr('Filters')} onClose={() => setSheet(false)} overBottomNav>
           <LibraryFilters
-            sort={sortKey} read={read} status={status} genres={genres} lib={lib} libs={libs} mainSrc={src} anySrc={anysrc}
+            read={read} status={status} genres={genres} libSel={libSel} libs={libs} mainSrc={src} anySrc={anysrc} onLibs={setLibs}
             onSet={setParam}
           />
           <div className="mt-5 flex gap-2">

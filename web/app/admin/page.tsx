@@ -987,6 +987,8 @@ interface LibraryRow {
   age_rating: number | null;
   /** Automatic, implicit title/id lookups may contact AniList for series currently filed here. */
   anilist_lookup: boolean;
+  /** The library view starts with it selected. */
+  default_visible?: boolean;
   reader_prefs?: { mode?: string; theme?: string; spread?: boolean; pagedDirection?: string } | null;
   /** How many of its series were placed here by hand rather than by the folder rule. */
   pinned: number;
@@ -1218,6 +1220,7 @@ function LibraryDialog({ editing, start, libs, onClose, onSaved }: {
   const [typed, setTyped] = useState('');
   const [age, setAge] = useState<string>(editing?.age_rating == null ? '' : String(editing.age_rating));
   const [anilistLookup, setAniListLookup] = useState(editing?.anilist_lookup ?? true);
+  const [defaultVisible, setDefaultVisible] = useState(editing?.default_visible ?? true);
   const [look, setLook] = useState<Record<string, string>>(() => {
     const r = editing?.reader_prefs;
     return { mode: r?.mode ?? '', theme: r?.theme ?? '', spread: r?.spread === undefined ? '' : String(r.spread), pagedDirection: r?.pagedDirection ?? '' };
@@ -1274,7 +1277,7 @@ function LibraryDialog({ editing, start, libs, onClose, onSaved }: {
     try {
       const ageRating = age === '' ? null : Number(age);
       if (editing) {
-        const body: Record<string, unknown> = { name: name.trim(), ageRating, anilistLookup, readerPrefs: readerPrefs() };
+        const body: Record<string, unknown> = { name: name.trim(), ageRating, anilistLookup, defaultVisible, readerPrefs: readerPrefs() };
         if (!isLib && !unchanged) body.paths = folders;
         await api(`/api/admin/libraries/${editing.id}`, { method: 'PATCH', json: body });
         toast(tr('Saved'), 'success');
@@ -1282,7 +1285,7 @@ function LibraryDialog({ editing, start, libs, onClose, onSaved }: {
         // One request. This used to POST the library and then PATCH the rating separately, and skip the
         // PATCH entirely when the rating was null -- so a failed second call created an unrated library
         // under a "Created" toast, which is the one outcome nobody would check for.
-        await api('/api/admin/libraries', { method: 'POST', json: { name: name.trim(), paths: folders, ageRating, anilistLookup, readerPrefs: readerPrefs() } });
+        await api('/api/admin/libraries', { method: 'POST', json: { name: name.trim(), paths: folders, ageRating, anilistLookup, defaultVisible, readerPrefs: readerPrefs() } });
         toast(tr('Created'), 'success');
       }
       onSaved();
@@ -1345,6 +1348,19 @@ function LibraryDialog({ editing, start, libs, onClose, onSaved }: {
         <p id="library-age-help" className="mt-1 text-[11px] text-fog-600">
           {tr('Every series here gets this rating. You can still rate one series differently from its own page.')}
         </p>
+
+        <label className="mt-3 flex max-w-md cursor-pointer items-start justify-between gap-4 rounded-lg border border-ink-700 bg-ink-900/40 p-3">
+          <span className="min-w-0">
+            <span className="block text-xs font-medium text-fog-200">{tr('Visible by default in the library')}</span>
+            <span className="mt-1 block text-[11px] leading-relaxed text-fog-500">
+              {isLib
+                ? tr('The default library is always visible.')
+                : tr("When on, the library view starts with this library selected. When off, its series show only once someone picks it in the Library filter.")}
+            </span>
+          </span>
+          <input type="checkbox" checked={isLib || defaultVisible} disabled={isLib} onChange={(e) => setDefaultVisible(e.target.checked)}
+            className="mt-0.5 size-4 shrink-0 accent-accent" data-library-default-visible />
+        </label>
 
         <label className="mt-3 flex max-w-md cursor-pointer items-start justify-between gap-4 rounded-lg border border-ink-700 bg-ink-900/40 p-3">
           <span className="min-w-0">

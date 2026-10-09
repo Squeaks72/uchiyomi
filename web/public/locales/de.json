@@ -2,7 +2,7 @@
   "_meta": {
     "language": "de",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 4173
+    "strings": 4179
   },
   "1 check found something": "1 Prüfung hat etwas gefunden",
   "1 member": "1 Mitglied",
@@ -4178,5 +4178,11 @@
   "My notes": "My notes",
   "Where you heard of it, what you think of it…": "Where you heard of it, what you think of it…",
   "Banner refreshed": "Banner refreshed",
-  "Refresh banner": "Refresh banner"
+  "Refresh banner": "Refresh banner",
+  "Visible by default in the library": "Visible by default in the library",
+  "The default library is always visible.": "The default library is always visible.",
+  "When on, the library view starts with this library selected. When off, its series show only once someone picks it in the Library filter.": "When on, the library view starts with this library selected. When off, its series show only once someone picks it in the Library filter.",
+  "Any": "Any",
+  "(any of them)": "(any of them)",
+  "Romanized": "Romanized"
 }

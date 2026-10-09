@@ -1637,6 +1637,8 @@ A library can carry reading defaults: `readerPrefs {mode?, theme?, spread?, page
 /api/admin/libraries` (null clears them), returned as `reader_prefs` on each row of `GET /api/admin/libraries`, and
 as `libraryReader` on `GET /api/series/{id}`. The reader layers them under the source's and the series' own choices.
 
+`defaultVisible` (default true) on a library create or edit sets whether the library view starts with it selected; `GET /api/admin/libraries` returns it as `default_visible` and `GET /api/libraries` as `defaultVisible` (always true for the default library).
+
 Since v0.55.8 ([#168](https://github.com/AngeloSha/uchiyomi/discussions/168)), `anilistLookup` defaults true and
 `GET /api/admin/libraries` returns it as `anilist_lookup` on every row, including the default library. False prevents
 automatic art lookup, title/id matching, reading-direction/type repair, the startup match check and scheduled

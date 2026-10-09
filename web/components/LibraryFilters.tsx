@@ -1,6 +1,4 @@
 'use client';
-import { NoSourceMatch, SourceTools, useSourceTools } from '@/components/SourceTools';
-import { arrangeSources } from '@/lib/sourceList';
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api, img } from '@/lib/api';
@@ -97,14 +95,10 @@ export function useLibrarySources() {
   });
 }
 
-/** How many sources a source section lists before the rest go behind "Show all". */
-const SOURCE_HEAD = 10;
-
 /**
- * One source filter: every source with its count, single choice, a tap on the chosen one clears it. The
- * chosen source is always listed, even past the head, so a reload never leaves it filtering with no control.
- * Main source ends on "No source" (#149) while series have none, or while it is chosen: after the sources and never
- * behind "Show all", the one choice that is not a source.
+ * One source filter as a dropdown: every source with its count, single choice. The chosen source is always an
+ * option, so a reload never leaves it filtering with no control. Main source ends on "No source" (#149) while
+ * series have none, or while it is chosen.
  */
 function SourceSection({ title, help, rows, none, count, value, onPick }: {
   title: string; help: string; rows: LibrarySource[];
@@ -112,51 +106,41 @@ function SourceSection({ title, help, rows, none, count, value, onPick }: {
   none?: number;
   count: (s: LibrarySource) => number; value: string; onPick: (id: string) => void;
 }) {
-  const [all, setAll] = useState(false);
-  const tools = useSourceTools();
-  const counted = rows.filter((s) => count(s) > 0).sort((a, b) => count(b) - count(a) || a.name.localeCompare(b.name));
-  // The tools appear once some sources sit behind "Show all"; a filter or a name sort looks through all of them.
-  const toolsOn = counted.length > SOURCE_HEAD;
-  const narrowed = toolsOn && (tools.query.trim() !== '' || tools.sort !== 'default');
-  const listed = toolsOn ? arrangeSources(counted, tools.query, tools.sort) : counted;
-  const head = all || narrowed ? listed : listed.slice(0, SOURCE_HEAD);
-  const shown = head.some((s) => s.id === value) || !value ? head : [...head, ...listed.filter((s) => s.id === value)];
-  const hidden = listed.length - shown.length;
+  const counted = rows.filter((s) => count(s) > 0 || s.id === value).sort((a, b) => count(b) - count(a) || a.name.localeCompare(b.name));
   const noneShown = none !== undefined && (none > 0 || value === NO_SOURCE);
-  if (!listed.length && !noneShown) return null;
+  if (!counted.length && !noneShown) return null;
   return (
     <section>
       <Eyebrow>{title}</Eyebrow>
       <p className="-mt-1 mb-1.5 text-[11px] leading-snug text-fog-600">{help}</p>
-      {toolsOn && (
-        <SourceTools className="mb-2" query={tools.query} onQuery={tools.setQuery} sort={tools.sort} onSort={tools.setSort}
-          defaultLabel={tr('Most series')} shown={listed.length} total={counted.length} />
-      )}
-      {toolsOn && tools.query.trim() !== '' && listed.length === 0 && <NoSourceMatch query={tools.query} />}
-      <Chips label={title}>
-        {shown.map((s) => (
-          <button key={s.id} type="button" onClick={() => onPick(value === s.id ? '' : s.id)} aria-pressed={value === s.id}
-            title={s.installed ? undefined : tr('not installed')}
-            className={`chip text-xs ${value === s.id ? 'chip-active' : s.installed ? '' : 'text-fog-500'}`}>
-            {s.name}<span className="ms-1 tabular-nums text-fog-600">{count(s)}</span>
-            {!s.installed && <span className="sr-only">, {tr('not installed')}</span>}
-          </button>
+      <select value={value} onChange={(e) => onPick(e.target.value)} aria-label={title} className="field w-full py-1.5 text-xs">
+        <option value="">{tr('Any')}</option>
+        {counted.map((s) => (
+          <option key={s.id} value={s.id}>{s.name} ({count(s)}){s.installed ? '' : ` · ${tr('not installed')}`}</option>
         ))}
-        {noneShown && (
-          <ToggleChip on={value === NO_SOURCE} onClick={() => onPick(value === NO_SOURCE ? '' : NO_SOURCE)} className="text-xs" data-source-none>
-            {tr('No source')}<span className="ms-1 tabular-nums text-fog-600">{none}</span>
-          </ToggleChip>
-        )}
-      </Chips>
-      {hidden > 0 && (
-        <button type="button" onClick={() => setAll(true)} className="mt-2 py-1 text-xs text-accent">{tr('Show all')} ({hidden})</button>
-      )}
+        {noneShown && <option value={NO_SOURCE}>{tr('No source')} ({none})</option>}
+      </select>
+    </section>
+  );
+}
+
+/** A single-choice filter as a dropdown: the empty choice clears it. */
+function ChoiceSelect({ title, value, options, onPick }: {
+  title: string; value: string; options: Array<{ key: string; label: string }>; onPick: (v: string) => void;
+}) {
+  return (
+    <section>
+      <Eyebrow>{title}</Eyebrow>
+      <select value={value} onChange={(e) => onPick(e.target.value)} aria-label={title} className="field w-full py-1.5 text-xs">
+        <option value="">{tr('Any')}</option>
+        {options.map((o) => <option key={o.key} value={o.key}>{tr(o.label)}</option>)}
+      </select>
     </section>
   );
 }
 
 /** How many genres are listed before the rest go behind "Show all". */
-const GENRE_HEAD = 20;
+const GENRE_HEAD = 10;
 /** Below this many, the search box is noise. */
 const GENRE_SEARCHABLE = 16;
 
@@ -203,18 +187,20 @@ function GenreRow({ facet, on, onToggle }: { facet: GenreFacet; on: boolean; onT
   );
 }
 
-export function LibraryFilters({ sort, read, status, genres, lib, libs, mainSrc, anySrc, onSet }: {
-  sort: string;
+export function LibraryFilters({ read, status, genres, libSel, libs, mainSrc, anySrc, onSet, onLibs }: {
   read: string;
   status: string;
   genres: string[];
-  lib: string;
+  /** The libraries the grid is narrowed to; empty means all of them. */
+  libSel: string[];
   libs: LibraryRow[];
   /** The `src` URL param: only series ADDED from this source, or NO_SOURCE: the series with no main source. */
   mainSrc: string;
   /** The `anysrc` URL param: series that read from this source at all, main or followed. */
   anySrc: string;
   onSet: (k: string, v: string) => void;
+  /** Replace the library selection; an empty list means all libraries. */
+  onLibs: (next: string[]) => void;
 }) {
   const { data: counted } = useLibrarySources();
   const sources = counted?.sources ?? [];
@@ -266,46 +252,29 @@ export function LibraryFilters({ sort, read, status, genres, lib, libs, mainSrc,
 
   return (
     <div className="space-y-5">
-      <section>
-        <Eyebrow>{tr('Sort by')}</Eyebrow>
-        <Chips label={tr('Sort by')}>
-          {SORTS.map((s) => (
-            <ToggleChip key={s.key} on={sort === s.key} onClick={() => onSet('sort', s.key)} className="text-xs">{tr(s.label)}</ToggleChip>
-          ))}
-        </Chips>
-      </section>
-
       {/* Only when there is a choice to make. This lists what the viewer may actually open -- the endpoint
           filters by their grants -- so it doubles as an honest answer to "what do I have access to". */}
       {libs.length > 1 && (
         <section>
-          <Eyebrow>{tr('Library')}</Eyebrow>
+          <Eyebrow>
+            {tr('Library')}
+            {libSel.length > 1 && <span className="ms-1 normal-case tracking-normal">{tr('(any of them)')}</span>}
+          </Eyebrow>
           <Chips label={tr('Library')}>
-            <ToggleChip on={!lib} onClick={() => onSet('lib', '')} className="text-xs">{tr('All')}</ToggleChip>
-            {libs.map((l) => (
-              <ToggleChip key={l.id} on={lib === l.id} onClick={() => onSet('lib', lib === l.id ? '' : l.id)} className="text-xs">{l.name}</ToggleChip>
-            ))}
+            <ToggleChip on={libSel.length === 0} onClick={() => onLibs([])} className="text-xs">{tr('All')}</ToggleChip>
+            {libs.map((l) => {
+              const on = libSel.includes(l.id);
+              return (
+                <ToggleChip key={l.id} on={on} className="text-xs"
+                  onClick={() => onLibs(on ? libSel.filter((x) => x !== l.id) : [...libSel, l.id])}>{l.name}</ToggleChip>
+              );
+            })}
           </Chips>
         </section>
       )}
 
-      <section>
-        <Eyebrow>{tr('Read state')}</Eyebrow>
-        <Chips label={tr('Read state')}>
-          {READ_STATES.map((r) => (
-            <ToggleChip key={r.key} on={read === r.key} onClick={() => onSet('read', read === r.key ? '' : r.key)} className="text-xs">{tr(r.label)}</ToggleChip>
-          ))}
-        </Chips>
-      </section>
-
-      <section>
-        <Eyebrow>{tr('Status')}</Eyebrow>
-        <Chips label={tr('Status')}>
-          {STATUSES.map((s) => (
-            <ToggleChip key={s.key} on={status === s.key} onClick={() => onSet('status', status === s.key ? '' : s.key)} className="text-xs">{tr(s.label)}</ToggleChip>
-          ))}
-        </Chips>
-      </section>
+      <ChoiceSelect title={tr('Read state')} value={read} options={READ_STATES} onPick={(v) => onSet('read', v)} />
+      <ChoiceSelect title={tr('Status')} value={status} options={STATUSES} onPick={(v) => onSet('status', v)} />
 
       {formats.length > 0 && (
         <section>
