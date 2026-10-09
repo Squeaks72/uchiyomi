@@ -44,6 +44,7 @@ import { StatusEdge, StatusMark } from '@/components/StatusMark';
 import { TONE_SURFACE, healthMark } from '@/lib/status';
 import Link from 'next/link';
 import { healthLinks } from '@/lib/healthLinks';
+import { HealthBySeries } from '@/components/HealthBySeries';
 import { FindSourceLink, SeriesRowTools } from '@/components/FindSourceLink';
 import { useLayer } from '@/lib/layers';
 import { SourceHealthBody } from '@/components/SourceHealthBody';
@@ -2011,6 +2012,7 @@ function LibraryPanel() {
 
 function Health() {
   const [open, setOpen] = useState<string | null>(null);
+  const [bySeries, setBySeries] = useState(false);
   // v0.55.0: Fix everything's dialog -- the question, the run, or how the run ended.
   const [fixing, setFixing] = useState(false);
   const { data, isFetching, refetch } = useQuery({
@@ -2055,6 +2057,9 @@ function Health() {
             {/* v0.55.0: whenever any card has a finding -- where Fix all issues' row was, which only the repair's four
                 steps could summon. */}
             <FixEverythingKey checks={checks} onOpen={() => setFixing(true)} />
+            <button type="button" onClick={() => setBySeries((v) => !v)} aria-pressed={bySeries} className="btn-key" data-health-view>
+              {bySeries ? tr('By check') : tr('By series')}
+            </button>
           </div>
         </div>
 
@@ -2062,7 +2067,7 @@ function Health() {
         <SafeRepairLine checks={checks} />
         <RepairLiveStrip />
 
-        {checks.map((c) => {
+        {bySeries ? <HealthBySeries checks={checks} /> : checks.map((c) => {
           const isOpen = open === c.id;
           // Notes explain important states that are deliberately not findings. A readable partial chapter, for
           // example, is absent from the active failure ledger but this note is the only place Health says where
