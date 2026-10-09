@@ -40,14 +40,14 @@ test('the page follows the URL on every render and switches through its one setP
 test('the Downloads view fetches no grid and shows none of the series controls', () => {
   // Reintroduce by dropping `enabled: view === 'series'`: forty covers are fetched to sit unseen behind the view.
   const src = page();
-  assert.match(src, /queryKey: \['library', [^\]]*\],\s*enabled: view === 'series'(?: && remembered !== null)?,/, 'the grid is fetched in the Downloads view');
+  assert.match(src, /queryKey: \['library', [^\]]*\],\s*enabled: view === 'series'(?: && remembered !== null)?(?: && libsReady)?,/, 'the grid is fetched in the Downloads view');
   assert.match(src, /\{series && <aside /, 'the filter sidebar shows beside the Downloads view');
   assert.match(src, /\{series && selecting && picked\.size > 0 && \(/, 'the select bar can show over the Downloads view');
   assert.match(src, /\{series && <>\s*<div data-library-grid/, 'the grid renders in the Downloads view');
   assert.match(src, /\{!series && <ServerDownloadsView focusFolder=\{params\.get\('folder'\)\} \/>\}/, 'the Downloads view is not the view');
   assert.match(src, /onRefresh=\{series \? onRefresh : \(\) => kickDownloads\(qc\)\}/, 'pull to refresh in Downloads rescans the library instead of asking for the jobs');
   // The selection belongs to the grid it was made in.
-  assert.match(src, /\[read, status, genres\.join\(','\), sortKey, lib, src, anysrc, view\]\);/, 'a selection outlives a switch to Downloads');
+  assert.match(src, /\[read, status, genres\.join\(','\), sortKey, libKey, src, anysrc, view\]\);/, 'a selection outlives a switch to Downloads');
 });
 
 test('the underline slides only when motion is welcome', () => {

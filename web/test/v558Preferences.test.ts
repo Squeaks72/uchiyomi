@@ -31,7 +31,8 @@ test('only a direct sort click saves the default, without undoing the current UR
   assert.ok(start >= 0 && end > start, 'setParam is where the test expects it');
   const setParam = page.slice(start, end);
 
-  assert.match(filters, /onClick=\{\(\) => onSet\('sort', s\.key\)\}/, 'sort controls no longer identify an explicit sort click');
+  assert.doesNotMatch(filters, /onSet\('sort'/, 'the filter panel still sets the sort');
+  assert.match(page, /<select value=\{sortKey\} onChange=\{\(e\) => setParam\('sort', e\.target\.value\)\}/, 'the sort dropdown no longer identifies an explicit sort choice');
   assert.match(setParam, /router\.replace\(`\/library\/\?\$\{next\.toString\(\)\}`\);\s*if \(k === 'sort' && validSort\(v\)\)/,
     'the URL must update first and non-sort controls must not save a default');
   assert.equal((page.match(/api\('\/api\/settings'/g) ?? []).length, 1,

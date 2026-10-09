@@ -5,7 +5,7 @@ import { api } from '@/lib/api';
 import { adultShown, setAdultShown, onAdultChange } from '@/lib/adult';
 import { t as tr } from '@/lib/i18n';
 
-export interface LibraryRow { id: string; name: string; adult?: boolean }
+export interface LibraryRow { id: string; name: string; adult?: boolean; defaultVisible?: boolean }
 
 /** The library list, shared by the toggle and by whatever renders library tabs. */
 export function useLibraries() {

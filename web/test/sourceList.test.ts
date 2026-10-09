@@ -48,7 +48,7 @@ test('Discover sheet says the order is priority, and offers the filter and sort'
   assert.match(s, /SOURCE_TOOLS_MIN/);
 });
 test('every source picker uses the shared tools', () => {
-  for (const f of ['components/SourceListSheet.tsx', 'components/MigrateSourceSheet.tsx', 'components/LibraryFilters.tsx', 'components/AdminSettings.tsx']) {
+  for (const f of ['components/SourceListSheet.tsx', 'components/MigrateSourceSheet.tsx', 'components/AdminSettings.tsx']) {
     assert.match(src(f), /<SourceTools /, f);
     assert.match(src(f), /arrangeSources\(/, f);
   }

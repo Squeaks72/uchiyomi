@@ -515,9 +515,9 @@ test('src is the main source and anysrc any source, from the URL to the search, 
   assert.equal(pushed.mainSource, 'src -> src', 'src is not the main source');
   assert.equal(pushed.anySource, 'anysrc -> anysrc', 'anysrc is not any source');
   assert.match(page, /const src = params\.get\('src'\) \|\| '';\s*const anysrc = params\.get\('anysrc'\) \|\| '';/, 'the URL params are read into the wrong names');
-  assert.match(page, /useMemo\(\(\) => conditionFrom\(read, status, genres, lib, src, anysrc\), \[read, status, genres\.join\(','\), lib, src, anysrc\]\)/,
+  assert.match(page, /useMemo\(\(\) => conditionFrom\(read, status, genres, libSel, src, anysrc\), \[read, status, genres\.join\(','\), libKey, src, anysrc\]\)/,
     'the condition memo does not carry both source filters, in order');
-  assert.match(page, /queryKey: \['library', active\.key, read, status, genres\.join\(','\), lib, src, anysrc\],/, "the grid's key does not carry the source filters");
+  assert.match(page, /queryKey: \['library', active\.key, read, status, genres\.join\(','\), libKey, src, anysrc\],/, "the grid's key does not carry the source filters");
   assert.match(page, /const activeCount = [^;]*\+ \(src \? 1 : 0\) \+ \(anysrc \? 1 : 0\);/, 'the badge does not count the source filters');
   // The writing side: Main source's chips set `src` and count `main`, Any source's set `anysrc` and count `any`, and
   // both placements of the panel are handed both values; each active chip clears its own param.
@@ -563,8 +563,8 @@ test('Main source offers "No source" (#149): its own condition, a sentinel no so
   // The chip: single choice in `src`, a tap on the chosen one clears it, its count beside it as a source's is.
   const section = panel.slice(panel.indexOf('function SourceSection('), panel.indexOf('function Eyebrow('));
   assert.match(section, /const noneShown = none !== undefined && \(none > 0 \|\| value === NO_SOURCE\);/, 'No source is offered with nothing in it, or not while chosen');
-  assert.match(section, /<ToggleChip on=\{value === NO_SOURCE\} onClick=\{\(\) => onPick\(value === NO_SOURCE \? '' : NO_SOURCE\)\}[\s\S]*?\{tr\('No source'\)\}<span className="ms-1 tabular-nums text-fog-600">\{none\}<\/span>/,
-    'the No source chip does not write the sentinel into src, or has no count');
+  assert.match(section, /<option value=\{NO_SOURCE\}>\{tr\('No source'\)\} \(\{none\}\)<\/option>/,
+    'the No source choice does not write the sentinel into src, or has no count');
   // The active chip says it in words, never the sentinel; the count comes from the same query as the sources.
   assert.match(page, /const sourceName = \(id: string\) => \(id === NO_SOURCE \? tr\('No source'\) : libSources\?\.sources\.find/, 'the active chip reads the sentinel');
   assert.match(panel, /\.then\(\(r\) => \(\{ sources: r\.content \?\? \[\], none: r\.none \?\? 0 \}\)\)/, 'the count is not read, or an older server\'s missing one is not 0');
@@ -585,23 +585,13 @@ test('in Japanese and Chinese the source filters use those files\' full-width br
   assert.ok(ja['Any source'].startsWith(ja['Any: {name}'].split('：')[0]), 'ja: Any source and its active chip say any in two different words');
 });
 
-test('a chosen source chip is drawn chosen, even for a source that is not loaded', () => {
-  // `.chip-active` is in @layer components and `text-fog-500` is a utility, so where a chip carried both the
-  // utility won: the chosen chip of a source that is not loaded (its extension gone, the engine down) kept the
-  // grey of an unchosen one and lost its accent. The class list is evaluated here for all four cases. Reintroduce
-  // `${value === s.id ? 'chip-active' : ''} ${s.installed ? '' : 'text-fog-500'}`: "a chosen chip for a source
-  // that is not loaded is drawn unchosen" fails.
+test('a chosen source stays an option even when it is not loaded, so the dropdown always shows it', () => {
+  // The source filters are dropdowns now. The chosen source is kept in the list when its count is 0 or it is not
+  // installed, or a reload would leave the grid filtered with the select showing "Any".
   const panel = code(read('components/LibraryFilters.tsx'));
-  const section = panel.slice(panel.indexOf('function SourceSection('), panel.indexOf('function Eyebrow('));
-  const tpl = /<button key=\{s\.id\}[\s\S]*?className=\{`([^`]*)`\}/.exec(section)?.[1];
-  assert.ok(tpl, 'could not find the source chip');
-  const classes = (value: string, installed: boolean): string[] =>
-    (new Function('value', 's', `return \`${tpl}\`;`)(value, { id: 'x', installed }) as string).split(/\s+/).filter(Boolean);
-  assert.ok(classes('x', false).includes('chip-active') && !classes('x', false).includes('text-fog-500'),
-    'a chosen chip for a source that is not loaded is drawn unchosen');
-  assert.ok(classes('', false).includes('text-fog-500'), 'a source that is not loaded no longer looks it');
-  assert.ok(classes('x', true).includes('chip-active'));
-  assert.deepEqual(classes('', true), ['chip', 'text-xs']);
+  const section = panel.slice(panel.indexOf('function SourceSection('), panel.indexOf('function ChoiceSelect('));
+  assert.match(section, /rows\.filter\(\(s\) => count\(s\) > 0 \|\| s\.id === value\)/, 'the chosen source can drop out of its own dropdown');
+  assert.match(section, /<select value=\{value\} onChange=\{\(e\) => onPick\(e\.target\.value\)\}/, 'the source filter is not a dropdown');
 });
 
 test('the Library asks for one card per work, and the card names the work\'s languages (v0.52.0)', () => {

@@ -35,3 +35,16 @@ test('Edit details: the banner menu offers Refresh banner, and the server remake
   assert.match(images, /\$\{artVer\}/);
   assert.match(images, /const ownCover = !art\.banner && ovr\?\.cover/);
 });
+
+test('library view: libraries start from the default-visible ones and multiselect; single-choice filters and the sort are dropdowns', () => {
+  const page = read('app/library/page.tsx');
+  assert.match(page, /if \(libParam === null\) return defaultsNarrow \? defaultLibs : \[\];/);
+  assert.match(page, /anyOf: libSel\.map/);
+  assert.match(page, /data-library-sort/);
+  const filters = read('components/LibraryFilters.tsx');
+  assert.match(filters, /const GENRE_HEAD = 10;/);
+  assert.match(filters, /<ChoiceSelect title=\{tr\('Read state'\)\}/);
+  assert.match(filters, /<ChoiceSelect title=\{tr\('Status'\)\}/);
+  assert.match(filters, /onLibs\(on \? libSel\.filter/);
+  assert.match(read('app/admin/page.tsx'), /data-library-default-visible/);
+});

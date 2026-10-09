@@ -848,6 +848,8 @@ ALTER TABLE libraries ADD COLUMN IF NOT EXISTS age_rating int;
 -- Per-library privacy boundary for implicit AniList enrichment (#168). Existing and rollback-created libraries keep
 -- the historical behaviour; switching it off never clears art, tracker links, direction or type already learned.
 ALTER TABLE libraries ADD COLUMN IF NOT EXISTS anilist_lookup boolean NOT NULL DEFAULT true;
+-- Whether the library view starts with this library selected. The default library ignores it (always visible).
+ALTER TABLE libraries ADD COLUMN IF NOT EXISTS default_visible boolean NOT NULL DEFAULT true;
 
 -- Reading defaults for the whole library (mode, theme, spread, direction); null = none, the reader's own apply.
 ALTER TABLE libraries ADD COLUMN IF NOT EXISTS reader_prefs jsonb;
