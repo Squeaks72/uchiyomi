@@ -438,3 +438,10 @@ test("the phone title block paints above the banner, so a long title's first lin
   const src = readFileSync(join(__dirname, '..', 'app/series/page.tsx'), 'utf8');
   assert.match(src, /<div className="relative z-10 min-w-0 pb-1 lg:hidden">/, 'the phone title block can slide under the banner');
 });
+
+test("an admin's unreadable-chapter card offers Redownload, which refetches that one chapter onto its own row", () => {
+  // Reintroduce by deleting the button or posting another route: this fails.
+  const src = readFileSync(join(__dirname, '..', 'app/reader/page.tsx'), 'utf8');
+  assert.match(src, /\/api\/admin\/series\/\$\{c\.seriesId\}\/chapters\/refetch`, \{ method: 'POST', json: \{ bookIds: \[c\.id\] \} \}/, 'Redownload does not refetch the one chapter');
+  assert.match(src, /\{isAdmin && !activeChapter\?\.offline && <button onClick=\{redownload\}/, 'Redownload is not an admin-only button on the card');
+});
