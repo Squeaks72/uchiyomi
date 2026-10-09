@@ -1385,9 +1385,9 @@ function LibraryDialog({ editing, start, libs, onClose, onSaved }: {
 
         <label className="mt-3 flex max-w-md cursor-pointer items-start justify-between gap-4 rounded-lg border border-ink-700 bg-ink-900/40 p-3">
           <span className="min-w-0">
-            <span className="block text-xs font-medium text-fog-200">{tr('Look up art and metadata on AniList automatically')}</span>
+            <span className="block text-xs font-medium text-fog-200">{tr('Look up art and metadata on AniList, Kitsu and MangaUpdates automatically')}</span>
             <span className="mt-1 block text-[11px] leading-relaxed text-fog-500">
-              {tr("When off, automatic lookups do not send this library's titles to AniList. Existing art and matches stay, and manual AniList actions can still connect.")}
+              {tr("When off, automatic lookups do not send this library's titles to AniList, Kitsu or MangaUpdates. Existing art and matches stay, and manual actions can still connect.")}
             </span>
           </span>
           <input type="checkbox" checked={anilistLookup} onChange={(e) => setAniListLookup(e.target.checked)}

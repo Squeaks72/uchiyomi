@@ -176,8 +176,6 @@
   "Empty so far — open any series and use “Add to collection”.": "まだ空です — シリーズを開いて「コレクションに追加」を選んでください。",
   "Enter the 6-digit code from your authenticator app, or a recovery code.": "認証アプリの6桁のコード、またはリカバリーコードを入力してください。",
   "Everything in this library inherits it. A single series can still be rated differently from its own page.": "このライブラリ内のすべてが引き継ぎます。個別のシリーズは自分のページで別のレーティングにできます。",
-  "Look up art and metadata on AniList automatically": "AniList で画像とメタデータを自動検索する",
-  "When off, automatic lookups do not send this library's titles to AniList. Existing art and matches stay, and manual AniList actions can still connect.": "オフにすると、自動検索ではこのライブラリのタイトルを AniList に送信しません。既存の画像と照合結果は保持され、手動の AniList 操作では引き続き接続できます。",
   "Manual AniList actions can contact AniList even when automatic lookups are off.": "自動検索がオフでも、手動の AniList 操作は AniList に接続することがあります。",
   "Everything looks healthy": "問題は見つかりません",
   "Expired": "期限切れ",
@@ -4217,5 +4215,7 @@
   "Their folders move into the chosen library's folder on disk. Automatic moves nothing.": "Their folders move into the chosen library's folder on disk. Automatic moves nothing.",
   "1 folder could not be moved": "1 folder could not be moved",
   "{n} folders could not be moved": "{n} folders could not be moved",
-  "Filed here by hand, and its folder was moved into this library. Rescans and new libraries will leave it alone.": "Filed here by hand, and its folder was moved into this library. Rescans and new libraries will leave it alone."
+  "Filed here by hand, and its folder was moved into this library. Rescans and new libraries will leave it alone.": "Filed here by hand, and its folder was moved into this library. Rescans and new libraries will leave it alone.",
+  "Look up art and metadata on AniList, Kitsu and MangaUpdates automatically": "Look up art and metadata on AniList, Kitsu and MangaUpdates automatically",
+  "When off, automatic lookups do not send this library's titles to AniList, Kitsu or MangaUpdates. Existing art and matches stay, and manual actions can still connect.": "When off, automatic lookups do not send this library's titles to AniList, Kitsu or MangaUpdates. Existing art and matches stay, and manual actions can still connect."
 }

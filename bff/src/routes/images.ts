@@ -1,3 +1,4 @@
+import { fetchTrackerMeta } from '../lib/trackerMeta';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import sharp from 'sharp';
 import { fitPageWidth } from '../lib/pageFit';
@@ -389,7 +390,13 @@ async function backdropRecipe(id: string, style: 'hero' | 'banner' | null, ar: H
         if (title && !(await automaticAniListAllowed({ id }))) {
           throw new Error('automatic AniList lookup disabled');
         }
-        const fetched = title ? await fetchAniListArt(title, names) : { banner: null, cover: null };
+        const fetched: Awaited<ReturnType<typeof fetchAniListArt>> = title ? await fetchAniListArt(title, names) : { banner: null, cover: null };
+        // Other trackers (lib/trackerMeta.ts) fill only what AniList lacked, under the same per-library switch.
+        if (title && (!fetched.banner || !fetched.cover)) {
+          const meta = await fetchTrackerMeta(title, names);
+          fetched.banner = fetched.banner ?? meta?.banner ?? null;
+          fetched.cover = fetched.cover ?? meta?.cover ?? null;
+        }
         if (title && !(await automaticAniListAllowed({ id }))) {
           throw new Error('automatic AniList lookup disabled');
         }

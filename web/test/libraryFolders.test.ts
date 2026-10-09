@@ -132,7 +132,7 @@ test('the dialog keeps a list of folders, sends `paths`, and the browser\'s rows
   assert.match(dialog, /const body: Record<string, unknown> = \{ name: name\.trim\(\), ageRating, anilistLookup, defaultVisible, readerPrefs: readerPrefs\(\) \};/,
     'an edited library does not save the AniList preference');
   assert.match(dialog, /data-library-anilist-lookup/, 'the dialog has no AniList privacy control');
-  assert.match(dialog, /automatic lookups do not send this library's titles to AniList[\s\S]*manual AniList actions can still connect/,
+  assert.match(dialog, /automatic lookups do not send this library's titles to AniList, Kitsu or MangaUpdates[\s\S]*manual actions can still connect/,
     'the control does not explain its privacy boundary and manual exception');
   assert.match(dialog, /<FolderPicker chosen=\{paths\} held=\{held\} onToggle=\{toggle\} \/>/);
   assert.match(dialog, /setPaths\(\(cur\) => toggleFolder\(cur, p\)\)/, 'a tick does not toggle the list');

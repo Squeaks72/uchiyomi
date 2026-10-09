@@ -178,8 +178,6 @@
   "End of your downloads": "نهاية التنزيلات",
   "Enter the 6-digit code from your authenticator app, or a recovery code.": "أدخل الرمز المكوّن من 6 أرقام من تطبيق المصادقة، أو رمز استرداد.",
   "Everything in this library inherits it. A single series can still be rated differently from its own page.": "يرث كل ما في هذه المكتبة هذا التصنيف. ويمكن مع ذلك تصنيف سلسلة بعينها بشكل مختلف من صفحتها.",
-  "Look up art and metadata on AniList automatically": "البحث تلقائيًا في ⁦AniList⁩ عن الرسومات والبيانات الوصفية",
-  "When off, automatic lookups do not send this library's titles to AniList. Existing art and matches stay, and manual AniList actions can still connect.": "عند إيقافه، لن ترسل عمليات البحث التلقائية عناوين هذه المكتبة إلى ⁦AniList⁩. تبقى الرسومات والمطابقات الحالية، ويظل بإمكان إجراءات ⁦AniList⁩ اليدوية الاتصال به.",
   "Manual AniList actions can contact AniList even when automatic lookups are off.": "قد تتصل إجراءات ⁦AniList⁩ اليدوية بخدمة ⁦AniList⁩ حتى عند إيقاف عمليات البحث التلقائية.",
   "Everything looks healthy": "كل شيء على ما يُرام",
   "Expired": "منتهي الصلاحية",
@@ -4288,5 +4286,7 @@
   "Their folders move into the chosen library's folder on disk. Automatic moves nothing.": "Their folders move into the chosen library's folder on disk. Automatic moves nothing.",
   "1 folder could not be moved": "1 folder could not be moved",
   "{n} folders could not be moved": "{n} folders could not be moved",
-  "Filed here by hand, and its folder was moved into this library. Rescans and new libraries will leave it alone.": "Filed here by hand, and its folder was moved into this library. Rescans and new libraries will leave it alone."
+  "Filed here by hand, and its folder was moved into this library. Rescans and new libraries will leave it alone.": "Filed here by hand, and its folder was moved into this library. Rescans and new libraries will leave it alone.",
+  "Look up art and metadata on AniList, Kitsu and MangaUpdates automatically": "Look up art and metadata on AniList, Kitsu and MangaUpdates automatically",
+  "When off, automatic lookups do not send this library's titles to AniList, Kitsu or MangaUpdates. Existing art and matches stay, and manual actions can still connect.": "When off, automatic lookups do not send this library's titles to AniList, Kitsu or MangaUpdates. Existing art and matches stay, and manual actions can still connect."
 }

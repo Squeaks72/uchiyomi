@@ -327,7 +327,7 @@ export async function anilistPrivacyWalk(ctx) {
     await waitFor(() => page.$('[data-library-dialog="lib"]'), 8000, 150);
     return opened;
   };
-  const privacyCopy = "When off, automatic lookups do not send this library's titles to AniList. Existing art and matches stay, and manual AniList actions can still connect.";
+  const privacyCopy = "When off, automatic lookups do not send this library's titles to AniList, Kitsu or MangaUpdates. Existing art and matches stay, and manual actions can still connect.";
   const existingFolder = 'v558 Existing/Walk Nightfall';
   const privateFolder = 'v558 Privacy/Walk Nightfall';
   const movingFolder = 'v558 Move Probe/Walk Nightfall';
@@ -356,7 +356,7 @@ export async function anilistPrivacyWalk(ctx) {
   const initial = await page.$eval('[data-library-anilist-lookup]', (e) => e.checked);
   const wording = await page.$eval('[data-library-dialog="lib"]', (e) => e.textContent.replace(/\s+/g, ' ').trim());
   check('anilistprivacy: automatic lookup defaults on and the editor explains the manual exception',
-    initial && wording.includes(say('Look up art and metadata on AniList automatically')) && wording.includes(say(privacyCopy)), wording);
+    initial && wording.includes(say('Look up art and metadata on AniList, Kitsu and MangaUpdates automatically')) && wording.includes(say(privacyCopy)), wording);
   await page.click('[data-library-anilist-lookup]');
   await page.click('[data-library-save]');
   check('anilistprivacy: saving the default library turns automatic lookup off',
@@ -428,7 +428,7 @@ export async function anilistPrivacyWalk(ctx) {
     const state = await page.$eval('[data-library-anilist-lookup]', (e) => e.checked);
     const copy = await page.$eval('[data-library-dialog="lib"]', (e) => e.textContent.replace(/\s+/g, ' ').trim());
     check(`anilistprivacy @${t}: opt-out and the manual-contact explanation are visible`,
-      !state && copy.includes(say('Look up art and metadata on AniList automatically')) && copy.includes(say(privacyCopy)), copy);
+      !state && copy.includes(say('Look up art and metadata on AniList, Kitsu and MangaUpdates automatically')) && copy.includes(say(privacyCopy)), copy);
     check(`anilistprivacy @${t}: the editor has no sideways scroll`, await noSideScroll());
     await ctx.shot(`v558-anilistprivacy-${t}-2-library-policy`);
     await page.keyboard.press('Escape');

@@ -176,8 +176,6 @@
   "Empty so far — open any series and use “Add to collection”.": "Vacío por ahora — abre cualquier serie y usa «Añadir a la colección».",
   "Enter the 6-digit code from your authenticator app, or a recovery code.": "Introduce el código de 6 dígitos de tu app de autenticación, o un código de recuperación.",
   "Everything in this library inherits it. A single series can still be rated differently from its own page.": "Todo lo que hay en esta biblioteca la hereda. Una serie concreta puede tener otra clasificación desde su propia página.",
-  "Look up art and metadata on AniList automatically": "Buscar automáticamente imágenes y metadatos en AniList",
-  "When off, automatic lookups do not send this library's titles to AniList. Existing art and matches stay, and manual AniList actions can still connect.": "Al desactivarlo, las búsquedas automáticas no envían los títulos de esta biblioteca a AniList. Las imágenes y coincidencias existentes se conservan, y las acciones manuales de AniList aún pueden conectarse.",
   "Manual AniList actions can contact AniList even when automatic lookups are off.": "Las acciones manuales de AniList pueden contactar con AniList incluso cuando las búsquedas automáticas están desactivadas.",
   "Everything looks healthy": "Todo parece estar bien",
   "Expired": "Caducado",
@@ -4217,5 +4215,7 @@
   "Their folders move into the chosen library's folder on disk. Automatic moves nothing.": "Their folders move into the chosen library's folder on disk. Automatic moves nothing.",
   "1 folder could not be moved": "1 folder could not be moved",
   "{n} folders could not be moved": "{n} folders could not be moved",
-  "Filed here by hand, and its folder was moved into this library. Rescans and new libraries will leave it alone.": "Filed here by hand, and its folder was moved into this library. Rescans and new libraries will leave it alone."
+  "Filed here by hand, and its folder was moved into this library. Rescans and new libraries will leave it alone.": "Filed here by hand, and its folder was moved into this library. Rescans and new libraries will leave it alone.",
+  "Look up art and metadata on AniList, Kitsu and MangaUpdates automatically": "Look up art and metadata on AniList, Kitsu and MangaUpdates automatically",
+  "When off, automatic lookups do not send this library's titles to AniList, Kitsu or MangaUpdates. Existing art and matches stay, and manual actions can still connect.": "When off, automatic lookups do not send this library's titles to AniList, Kitsu or MangaUpdates. Existing art and matches stay, and manual actions can still connect."
 }
