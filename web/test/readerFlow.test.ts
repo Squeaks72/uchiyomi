@@ -10,7 +10,7 @@
 // or not the fix were real.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildFlow, startIndex, renderWindow, type FlowChapter } from '../lib/readerFlow';
+import { buildFlow, startIndex, renderWindow, renderWindowPx, type FlowChapter } from '../lib/readerFlow';
 
 const page = (n: number, junk = false) => ({ number: n, width: 800, height: 1200, junk: junk || undefined });
 
@@ -142,4 +142,30 @@ test('asking for the end of a chapter whose last pages were removed lands on its
   const hide = buildFlow(chapters, 'hide');
   assert.equal(hide[startIndex(hide, 0, 4)].number, 3);
   assert.equal(hide[startIndex(hide, 0, 99)].ci, 0, 'and it stays in the chapter that was asked for');
+});
+
+test('a scrolling column reaches several screens ahead of a run of short pages, within its limits', () => {
+  // 40 strips of 200px on an 800px screen: six pages ahead is 1200px, barely a screen and a half.
+  const flow = Array.from({ length: 40 }, (_, i) => ({ key: `k${i}`, collapsed: false })) as any;
+  const heights = flow.map(() => 200);
+  const tops = flow.map((_: unknown, i: number) => i * 200);
+  const o = { behindPx: 1200, aheadPx: 4000, minBehind: 2, minAhead: 6, maxBehind: 6, maxAhead: 16 };
+  const w = renderWindowPx(flow, tops, heights, 10, o);
+  assert.equal(w.has(10), true);
+  assert.equal(w.has(10 + 16), true, 'the far end of 4000px');
+  assert.equal(w.has(10 + 17), false, 'never past the maximum');
+  assert.equal(w.has(10 - 6), true);
+  assert.equal(w.has(10 - 7), false);
+  // Tall pages: the page minimums still hold, and nothing runs past the pixels asked for.
+  const tall = renderWindowPx(flow, flow.map((_: unknown, i: number) => i * 5000), flow.map(() => 5000), 10, o);
+  assert.equal(tall.has(10 + 6), true, 'the minimum is kept');
+  assert.equal(tall.has(10 + 7), false, 'one tall page is already past 4000px');
+});
+
+test('a collapsed page is skipped by the column window and spends nothing', () => {
+  const flow = Array.from({ length: 12 }, (_, i) => ({ key: `k${i}`, collapsed: i === 3 })) as any;
+  const h = flow.map(() => 100);
+  const t = flow.map((_: unknown, i: number) => i * 100);
+  const w = renderWindowPx(flow, t, h, 2, { behindPx: 0, aheadPx: 0, minBehind: 0, minAhead: 3, maxBehind: 0, maxAhead: 3 });
+  assert.deepEqual([...w].sort((a, b) => a - b), [2, 4, 5, 6]);
 });

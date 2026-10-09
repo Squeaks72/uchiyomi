@@ -37,7 +37,10 @@ test('the reader captions a missing page in both renderers, and the caption is n
   const vertical = between(src, "{prefs.mode === 'vertical' ? (", 'hide-scrollbar flex h-screen-d snap-x', 'the vertical renderer');
   // `<AnimatePresence>` is where the chrome starts; the CHROME comment itself is stripped with the rest.
   const paged = between(src, 'hide-scrollbar flex h-screen-d snap-x', '<AnimatePresence>', 'the paged renderer');
-  assert.match(vertical, /p\.missing && !collapsed && <MissingCaption number=\{p\.number\} source=\{sourceNameOf\(/, 'the vertical column draws no caption on a missing page');
+  // The column's rows are their own component (VerticalPage), handed the source name by the renderer.
+  const row = between(src, 'const VerticalPage = memo(', 'function MissingCaption(', 'the vertical row');
+  assert.match(vertical, /<VerticalPage[\s\S]*?sourceName=\{p\.missing \? sourceNameOf\(/, 'the vertical column does not name the source for a missing page');
+  assert.match(row, /p\.missing && !collapsed && <MissingCaption number=\{p\.number\} source=\{sourceName\}/, 'the vertical column draws no caption on a missing page');
   assert.match(paged, /if \(p\.missing\) \{[\s\S]*?<MissingCaption number=\{p\.number\} source=\{sourceNameOf\(/, 'the paged slide draws no caption on a missing page');
   // In the slide the caption needs a box of its own, with a definite height, or the image's max-h-full is
   // no limit at all and the page overflows the viewport. Reintroduce by dropping `h-full` from that box.
