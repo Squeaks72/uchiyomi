@@ -123,16 +123,6 @@ export function ReaderSettings({
           </div>
         </Row>
 
-        <Row label={tr('Page tone')}>
-          <div className="grid grid-cols-3 gap-2">
-            {(['amoled', 'sepia', 'gray'] as const).map((t) => (
-              <Choice key={t} on={prefs.theme === t} onClick={() => set({ theme: t })}>
-                {t === 'amoled' ? tr('AMOLED') : t === 'sepia' ? tr('Sepia') : tr('Gray')}
-              </Choice>
-            ))}
-          </div>
-        </Row>
-
         {prefs.mode === 'paged' && (
           <Row label={tr('Pages per view')}>
             <div className="grid grid-cols-2 gap-2">

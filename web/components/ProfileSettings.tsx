@@ -281,9 +281,6 @@ function ReadingSection({ weeklyGoal }: { weeklyGoal: number }) {
       <Choice label={tr('Reading mode')} value={prefs.mode}
         options={[{ value: 'vertical', label: tr('Webtoon (scroll)') }, { value: 'paged', label: tr('Paged (swipe)') }]}
         onChange={(mode) => set({ mode })} />
-      <Choice label={tr('Page tone')} value={prefs.theme}
-        options={[{ value: 'amoled', label: tr('AMOLED') }, { value: 'sepia', label: tr('Sepia') }, { value: 'gray', label: tr('Gray') }]}
-        onChange={(theme) => set({ theme })} />
       {/* #170. On by default, because it is the reader's look; this is how someone who wants the page's own edges
           gets them (a gold cover laid a yellow band over every white page). Through `set`, the one writer. */}
       <SwitchRow label={tr('Cover colour at the edges')}

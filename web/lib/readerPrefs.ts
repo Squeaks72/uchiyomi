@@ -437,8 +437,3 @@ function allSourcePrefs(): Record<string, SourcePrefs> {
   return out;
 }
 
-export const THEME_FILTER: Record<ReaderTheme, string> = {
-  amoled: 'none',
-  sepia: 'sepia(0.55) saturate(1.15) brightness(0.94)',
-  gray: 'grayscale(0.25) brightness(0.88) contrast(0.95)',
-};
