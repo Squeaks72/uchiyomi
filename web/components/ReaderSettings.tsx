@@ -8,6 +8,7 @@ import { t as tr } from '@/lib/i18n';
 import { useLayer } from '@/lib/layers';
 import { LinkRow } from './settings';
 import { ToggleChip } from './ui';
+import { useReaderWidth, WIDTH_MIN, WIDTH_MAX } from '@/lib/readerWidth';
 
 /** One setting. A group of buttons is named by its label; a slider names itself (`slider`). */
 function Row({ label, slider, children }: { label: string; slider?: boolean; children: React.ReactNode }) {
@@ -74,6 +75,7 @@ export function ReaderSettings({
   libraryName?: string;
   onLibraryDefault?: () => void;
 }) {
+  const [width, setWidth] = useReaderWidth();
   // A sheet on the notices' layer stack (lib/layers.ts). It runs to the bottom edge, so it does not leave the
   // nav band free -- the reader has no nav there anyway -- and its panel is measured, so a notice rises above
   // it rather than covering its last rows.
@@ -247,6 +249,13 @@ export function ReaderSettings({
                 aria-label={tr('Page gap')} aria-valuetext={`${prefs.gap}px`}
                 onChange={(e) => set({ gap: Number(e.target.value) })}
                 className="w-full accent-[rgb(var(--accent))]" />
+            </Row>
+            <Row slider label={`${tr('Column width on this device')} · ${width}%`}>
+              <input type="range" min={WIDTH_MIN} max={WIDTH_MAX} step={5} value={width}
+                aria-label={tr('Column width on this device')} aria-valuetext={`${width}%`}
+                onChange={(e) => setWidth(Number(e.target.value))}
+                className="w-full accent-[rgb(var(--accent))]" data-reader-width />
+              <p className="mt-1 text-xs leading-snug text-fog-500">{tr('Narrows the webtoon column. Saved on this device only, so your other screens are unaffected.')}</p>
             </Row>
             <Row slider label={`${tr('Auto-scroll')} · ${prefs.autoScroll === 0 ? tr('off') : prefs.autoScroll.toFixed(1)}`}>
               <input type="range" min={0} max={6} step={0.5} value={prefs.autoScroll}

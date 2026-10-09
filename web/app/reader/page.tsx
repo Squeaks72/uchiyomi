@@ -1,4 +1,5 @@
 'use client';
+import { useReaderWidth } from '@/lib/readerWidth';
 import { Suspense, memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { pairSlides } from '@/lib/readerSpread';
 import Link from 'next/link';
@@ -198,6 +199,8 @@ function ReaderInner() {
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const [colW, setColW] = useState(0);
+  // This device's own column width (lib/readerWidth.ts), not an account setting.
+  const [widthPct] = useReaderWidth();
   /** The width page images are asked for: the screen's, in device pixels, in a few steps so the server's cache is shared. 0 until measured. */
   const [pageW, setPageW] = useState(0);
   const didInitScroll = useRef(false);
@@ -476,14 +479,14 @@ function ReaderInner() {
   useEffect(() => {
     const measure = () => {
       const w = scrollRef.current?.clientWidth || window.innerWidth;
-      const base = prefs.fitWidth ? Math.min(w, 860) : w;
+      const base = (prefs.fitWidth ? Math.min(w, 860) : w) * (widthPct / 100);
       setColW(base * zoom);
       setPageW(pageWidthBucket(base, window.devicePixelRatio || 1));
     };
     measure();
     window.addEventListener('resize', measure);
     return () => window.removeEventListener('resize', measure);
-  }, [prefs.fitWidth, ready, zoom]);
+  }, [prefs.fitWidth, ready, zoom, widthPct]);
 
   // keep the page roughly centered/in-place when zooming
   useEffect(() => {
