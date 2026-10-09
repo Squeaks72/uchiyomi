@@ -278,7 +278,7 @@ function CollectionInner() {
               </div>
             </div>
           ) : (
-            <div key={s.id} className="contents" onContextMenu={(e) => {
+            <div key={s.id} className="contents" onContextMenu={data?.builtin ? undefined : (e) => {
               e.preventDefault();
               if (!selecting) { setSelecting(true); setPicked(new Set([s.id])); }
               else if (!picked.has(s.id)) setPicked((p) => new Set(p).add(s.id));
@@ -339,7 +339,7 @@ function CollectionInner() {
             { label: tr('Download as zip'), run: zipPicked },
             { label: tr('Mark read'), run: () => void bulkMark('/api/library/bulk/read', { completed: true }) },
             { label: tr('Mark unread'), run: () => void bulkMark('/api/library/bulk/read', { completed: false }) },
-            { label: tr('Favorite'), run: () => void bulkMark('/api/favorites/bulk', { favorite: true }) },
+            ...(!data?.builtin ? [{ label: tr('Favorite'), run: () => void bulkMark('/api/favorites/bulk', { favorite: true }) }] : []),
             { label: tr('Select all'), run: () => setPicked(new Set(items.map((x) => x.id))) },
           ]} />
       )}
