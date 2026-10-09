@@ -334,7 +334,7 @@ export function hasSeriesLook(seriesId: string): boolean {
  * Returns the reader's settings as they now stand: the stored global default with the source's look laid over.
  * Reintroduce by leaving the keys in place: readerSeriesReset.test.ts finds them still stored.
  */
-export function resetSeriesLook(seriesId: string, cur: ReaderPrefs, sourceId = ''): ReaderPrefs {
+export function resetSeriesLook(seriesId: string, cur: ReaderPrefs, sourceId = '', libraryLook: SeriesPrefs | null = null): ReaderPrefs {
   if (seriesId) {
     try {
       const sp = { ...loadSeriesPrefs(seriesId) };
@@ -345,7 +345,7 @@ export function resetSeriesLook(seriesId: string, cur: ReaderPrefs, sourceId = '
     queueSync();
   }
   const g = loadPrefs();
-  const base: ReaderPrefs = { ...cur, mode: g.mode, theme: g.theme, spread: g.spread, pagedDirection: g.pagedDirection };
+  const base: ReaderPrefs = withTitleLook({ ...cur, mode: g.mode, theme: g.theme, spread: g.spread, pagedDirection: g.pagedDirection }, libraryLook ?? {});
   return sourceId ? withTitleLook(base, loadSourcePrefs(sourceId)) : base;
 }
 

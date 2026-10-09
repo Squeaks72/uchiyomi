@@ -2,6 +2,7 @@ import { otherTitlesFor } from '../lib/otherTitles';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { q, one } from '../lib/db';
+import { cleanLibraryReader } from '../lib/libraryReader';
 import { junkPagesFor, setPageOverride } from '../lib/junkPages';
 import { komgaImage } from '../lib/komga';
 import { content as komga, NATIVE_PROGRESS, OWNED } from '../lib/backend';
@@ -520,6 +521,10 @@ export default async function catalogRoutes(app: FastifyInstance) {
     // Where the chapters come from: the primary source first, then any followed ones. Every viewer gets
     // this -- it is what the "Sources" line under the title shows, and nothing in it names the host.
     out.sources = await seriesSourcesFor(id).catch(() => []);
+    // The reading defaults of the library it sits in (lib/libraryReader.ts); null when it has none. Every viewer gets
+    // them: they are layered under the source's and the series' own in the reader.
+    out.libraryReader = cleanLibraryReader((await one<{ p: unknown }>(
+      'SELECT l.reader_prefs AS p FROM lib_series s JOIN libraries l ON l.id = s.library_id WHERE s.id = $1', [id]))?.p);
     // v0.52.0 (#72): the other language editions of this work this viewer may open, for the series page's switcher
     // and the reader's; null for a series on its own. `lang` (the DTO's) is the language it is in.
     out.edition = await editionInfo(id, vc(req), userIdOf(req)).catch(() => null);

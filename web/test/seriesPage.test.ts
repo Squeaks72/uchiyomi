@@ -454,3 +454,10 @@ test("a rating tap cancels in-flight series fetches and is written to the cache,
   assert.match(fn, /qc\.setQueryData<Series>\(\['series', id\]/, 'the cached series keeps the old rating');
   assert.match(fn, /toast\(msgOf\(e/, 'a failed save reverts silently');
 });
+
+test('library reading defaults sit between the global default and the source in the reader', () => {
+  const reader = read('app/reader/page.tsx');
+  assert.match(reader, /const sp = \{ \.\.\.\(libraryLook \?\? \{\}\), \.\.\.base, \.\.\.loadSeriesPrefs\(seriesId\) \};/, 'library look is not under source and series');
+  assert.match(reader, /setLibraryLook\(s\?\.libraryReader \?\? null\)/);
+  assert.match(read('app/admin/page.tsx'), /data-library-look=\{k\}/, 'the library modal has no reading defaults');
+});
