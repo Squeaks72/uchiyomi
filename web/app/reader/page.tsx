@@ -9,8 +9,8 @@ import { api, img } from '@/lib/api';
 import { fetchAllBooks } from '@/lib/seriesBooks';
 import { chapterOutcome } from '@/lib/readerState';
 import { openableChapters } from '@/lib/chapterRows';
-import { buildFlow, startIndex, renderWindow, renderWindowPx, type FlowItem } from '@/lib/readerFlow';
-import { CHROME_GRACE_MS, isCatch, readTap, tapMayToggleChrome, undoLeft, undoWindow, type TapZone } from '@/lib/readerGesture';
+import { buildFlow, startIndex, renderWindow, renderWindowPx, pageWidthBucket, type FlowItem } from '@/lib/readerFlow';
+import { CHROME_GRACE_MS, CHROME_HIDE_SCROLL_PX, TAP_SCROLL_FRACTION, isCatch, readTap, scrollZone, tapMayToggleChrome, undoLeft, undoWindow, type TapZone } from '@/lib/readerGesture';
 import { ARM_MS, pagesAfter, skipNeedsConfirm, stillArmed } from '@/lib/readerNav';
 import { Book, EditionRow, Page, PageInfo, Series } from '@/lib/types';
 import { useAuth, canDownload } from '@/lib/auth';
@@ -173,7 +173,7 @@ function ReaderInner() {
       else sessionStorage.setItem('reader-chrome-seen', '1');
     } catch { /* storage blocked: keep the introduction */ }
   }, []);
-  const chromeRef = useRef({ on: true, since: 0 });
+  const chromeRef = useRef({ on: true, since: 0, top: 0 });
   /** True when this press began while the track was still moving: a catch, not a tap. */
   const caught = useRef(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -198,6 +198,8 @@ function ReaderInner() {
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const [colW, setColW] = useState(0);
+  /** The width page images are asked for: the screen's, in device pixels, in a few steps so the server's cache is shared. 0 until measured. */
+  const [pageW, setPageW] = useState(0);
   const didInitScroll = useRef(false);
   /** The last `chapterId:page` a progress ping was sent for. Declared here rather than beside sendProgress
    *  because the initial-scroll effect seeds it, and that effect is defined above sendProgress. */
@@ -216,6 +218,8 @@ function ReaderInner() {
    * click of a slow double-click has already acted by the time the browser says the two were one gesture.
    */
   const acted = useRef<{ kind: 'turn'; slide: number; at: number } | { kind: 'chrome'; at: number } | null>(null);
+  /** Where the last tap-scroll is heading, so a second tap mid-glide goes on from there rather than from wherever the glide has reached. */
+  const tapScrollTo = useRef<{ top: number; at: number } | null>(null);
   /** When the pointer path handled a double-tap itself. A touch double-tap also raises `dblclick`, and
    *  zooming for both halves of the same gesture would put the zoom straight back where it started. */
   const handledDouble = useRef(0);
@@ -474,6 +478,7 @@ function ReaderInner() {
       const w = scrollRef.current?.clientWidth || window.innerWidth;
       const base = prefs.fitWidth ? Math.min(w, 860) : w;
       setColW(base * zoom);
+      setPageW(pageWidthBucket(base, window.devicePixelRatio || 1));
     };
     measure();
     window.addEventListener('resize', measure);
@@ -560,7 +565,7 @@ function ReaderInner() {
     const ch = chapters[it.ci];
     if (!ch) return null;
     if (ch.offline) return blobUrls.current.get(it.key) || null;
-    return img.page(ch.id, it.number);
+    return img.page(ch.id, it.number, pageW || undefined);
   };
 
   /**
@@ -621,7 +626,10 @@ function ReaderInner() {
     // The page is moving under the interface, so the reader is reading: put it away. The grace period lets a
     // tap's own page turn, and the first moments after it opens, pass without dismissing it.
     const c = chromeRef.current;
-    if (c.on && Date.now() - c.since > CHROME_GRACE_MS && !scrubbingRef.current && !focusInChrome()) setChrome(false);
+    // A webtoon must also have travelled a few pixels, so the tremor of a finger resting on the glass does not
+    // dismiss it (Mihon's threshold); a paged track moves a whole page at a time, so any movement counts.
+    const moved = prefs.mode === 'paged' || Math.abs(el.scrollTop - c.top) > CHROME_HIDE_SCROLL_PX;
+    if (c.on && moved && Date.now() - c.since > CHROME_GRACE_MS && !scrubbingRef.current && !focusInChrome()) setChrome(false);
     if (prefs.mode === 'paged') {
       // Math.abs: an RTL track scrolls from 0 into NEGATIVE scrollLeft (the spec'd behaviour every current
       // engine follows), so page n sits at -n × width.
@@ -934,7 +942,7 @@ function ReaderInner() {
 
   // ---- auto-hide chrome ----
   useEffect(() => {
-    chromeRef.current = { on: chrome, since: Date.now() };
+    chromeRef.current = { on: chrome, since: Date.now(), top: scrollRef.current?.scrollTop ?? 0 };
     if (!chrome || showSettings) return;
     const t = setTimeout(() => { if (!focusInChrome()) setChrome(false); }, 3800);
     return () => clearTimeout(t);
@@ -996,7 +1004,10 @@ function ReaderInner() {
   // ---- tap / double-tap / pinch (no overlay -> native scroll works) ----
   const onPointerDown = (e: React.PointerEvent) => {
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    caught.current = prefs.mode !== 'paged' && pointers.current.size === 1 && isCatch(lastMoved.current, Date.now());
+    const now = Date.now();
+    // A tap's own glide is not a fling: tapping again while it runs scrolls on, as Mihon does.
+    const tapGlide = !!tapScrollTo.current && now - tapScrollTo.current.at < 450;
+    caught.current = prefs.mode !== 'paged' && pointers.current.size === 1 && !tapGlide && isCatch(lastMoved.current, now);
     if (pointers.current.size === 2) {
       const p = [...pointers.current.values()];
       pinch.current = { dist: Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y), zoom };
@@ -1038,6 +1049,9 @@ function ReaderInner() {
       lastTapAt: lastTapAt.current,
       doubleDetect: e.pointerType !== 'mouse',
       lastDoubleAt: lastDoubleAt.current,
+      zoneOf: tapScrolls(e.pointerType)
+        ? (x, y) => { const r = scrollRef.current?.getBoundingClientRect(); return scrollZone(x - (r?.left ?? 0), y - (r?.top ?? 0), r?.width || window.innerWidth, r?.height || window.innerHeight); }
+        : undefined,
     });
     if (act.kind === 'none') return; // a scroll, or a press held long enough to be something else
     // Stopping a fling is not a tap. Nothing happens: no page turn, no interface.
@@ -1055,10 +1069,14 @@ function ReaderInner() {
     cancelPendingTap();
     lastTapAt.current = now;
     const zone = act.zone;
-    // A thumb on the edge of a webtoon is not asking for the interface.
-    if (prefs.mode !== 'paged' && !tapMayToggleChrome(e.pointerType, zone)) return;
-    tapTimer.current = setTimeout(() => { tapTimer.current = null; runTap(zone); }, act.after);
+    // A thumb on the edge of a webtoon is not asking for the interface -- unless the edges scroll.
+    if (prefs.mode !== 'paged' && !tapScrolls(e.pointerType) && !tapMayToggleChrome(e.pointerType, zone)) return;
+    const scrolls = tapScrolls(e.pointerType);
+    tapTimer.current = setTimeout(() => { tapTimer.current = null; runTap(zone, scrolls); }, act.after);
   };
+
+  /** Whether a press of this kind scrolls a webtoon from its top and bottom zones. A mouse has the wheel and the keys. */
+  const tapScrolls = (pointerType: string) => prefs.mode === 'vertical' && prefs.tapScroll && pointerType !== 'mouse';
 
   const cancelPendingTap = () => {
     if (tapTimer.current) { clearTimeout(tapTimer.current); tapTimer.current = null; }
@@ -1071,7 +1089,7 @@ function ReaderInner() {
   };
 
   /** What a tap does once the double window has closed, remembered well enough to be taken back. */
-  const runTap = (zone: TapZone) => {
+  const runTap = (zone: TapZone, scrolls = false) => {
     const el = scrollRef.current;
     if (prefs.mode === 'paged' && el && zone !== 'chrome') {
       const w = el.clientWidth || window.innerWidth;
@@ -1086,6 +1104,17 @@ function ReaderInner() {
       acted.current = { kind: 'turn', slide: from, at: Date.now() };
       lastMoved.current = Date.now();
       el.scrollTo({ left: trackSign * to * w, behavior: turnBehavior() });
+      return;
+    }
+    // With the controls up, a tap anywhere puts them away instead of scrolling.
+    if (scrolls && el && zone !== 'chrome' && !chromeRef.current.on) {
+      const now = Date.now();
+      const gliding = tapScrollTo.current && now - tapScrollTo.current.at < 450;
+      const from = gliding ? tapScrollTo.current!.top : el.scrollTop;
+      const to = Math.max(0, Math.min(el.scrollHeight - el.clientHeight, from + (zone === 'back' ? -1 : 1) * el.clientHeight * TAP_SCROLL_FRACTION));
+      tapScrollTo.current = { top: to, at: now };
+      lastMoved.current = now;
+      el.scrollTo({ top: to, behavior: turnBehavior() });
       return;
     }
     acted.current = { kind: 'chrome', at: Date.now() };

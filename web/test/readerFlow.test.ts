@@ -10,7 +10,7 @@
 // or not the fix were real.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildFlow, startIndex, renderWindow, renderWindowPx, type FlowChapter } from '../lib/readerFlow';
+import { buildFlow, startIndex, renderWindow, renderWindowPx, pageWidthBucket, type FlowChapter } from '../lib/readerFlow';
 
 const page = (n: number, junk = false) => ({ number: n, width: 800, height: 1200, junk: junk || undefined });
 
@@ -168,4 +168,15 @@ test('a collapsed page is skipped by the column window and spends nothing', () =
   const t = flow.map((_: unknown, i: number) => i * 100);
   const w = renderWindowPx(flow, t, h, 2, { behindPx: 0, aheadPx: 0, minBehind: 0, minAhead: 3, maxBehind: 0, maxAhead: 3 });
   assert.deepEqual([...w].sort((a, b) => a - b), [2, 4, 5, 6]);
+});
+
+test('pages are asked for at the screen\'s width in device pixels, rounded up to a step', () => {
+  assert.equal(pageWidthBucket(0, 3), 0);
+  assert.equal(pageWidthBucket(360, 1), 720);
+  assert.equal(pageWidthBucket(390, 3), 1440);
+  assert.equal(pageWidthBucket(360, 2), 720);
+  assert.equal(pageWidthBucket(400, 3), 1440);
+  assert.equal(pageWidthBucket(860, 2), 2000);
+  assert.equal(pageWidthBucket(1900, 1), 2000);
+  assert.equal(pageWidthBucket(300, 0), 720);
 });
