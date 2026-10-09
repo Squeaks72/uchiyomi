@@ -548,6 +548,45 @@ export default async function personalRoutes(app: FastifyInstance) {
     };
   });
 
+  // Everything read on one UTC day (the day a Reading studio heatmap cell stands for), grouped by series.
+  app.get('/api/stats/day', async (req, reply) => {
+    const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).safeParse((req.query as Record<string, string>).date);
+    if (!date.success || Number.isNaN(Date.parse(`${date.data}T00:00:00Z`))) return reply.code(400).send({ error: 'bad_date' });
+    const dp = new Params();
+    const dctx = vc(req);
+    const uid = dp.add(userIdOf(req));
+    const day = dp.add(date.data);
+    const rows = await q<{
+      series_id: string; series_title: string; book_id: string; book_title: string; number: number | null;
+      completed: boolean; pages: number; first_at: string; last_at: string;
+    }>(
+      `SELECT e.series_id, s.title AS series_title, e.book_id, COALESCE(b.title, '') AS book_title, b.number,
+              bool_or(e.completed) AS completed, max(e.page)::int AS pages,
+              min(e.created_at) AS first_at, max(e.created_at) AS last_at
+         FROM reading_events e
+         JOIN lib_books b ON b.id = e.book_id
+         JOIN lib_series s ON s.id = e.series_id AND ${browsable('s', dctx, dp)}
+        WHERE e.user_id = ${uid}
+          AND (e.created_at AT TIME ZONE 'UTC')::date = ${day}::date
+          AND NOT ${noticeBook('b.id')}
+        GROUP BY e.series_id, s.title, e.book_id, b.title, b.number
+        ORDER BY min(e.created_at)`,
+      dp.values as any[],
+    );
+    const bySeries = new Map<string, { seriesId: string; title: string; firstAt: string; chapters: any[] }>();
+    for (const r of rows) {
+      let g = bySeries.get(r.series_id);
+      if (!g) { g = { seriesId: r.series_id, title: r.series_title, firstAt: r.first_at, chapters: [] }; bySeries.set(r.series_id, g); }
+      g.chapters.push({ bookId: r.book_id, title: r.book_title, number: r.number, completed: r.completed, page: r.pages, firstAt: r.first_at, lastAt: r.last_at });
+    }
+    return {
+      date: date.data,
+      chaptersCompleted: rows.filter((r) => r.completed).length,
+      chaptersTouched: rows.length,
+      series: [...bySeries.values()],
+    };
+  });
+
   app.get('/api/stats', async (req) => {
     const uid = userIdOf(req);
     // Clamped, not trusted: `days` sizes a generate_series, so an unbounded value is a way to ask the
