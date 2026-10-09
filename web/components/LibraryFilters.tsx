@@ -26,16 +26,19 @@ import { keys, t as tr } from '@/lib/i18n';
 
 const SORT_LABELS = keys('Updated', 'Newest', 'A–Z', 'Most unread', 'Z–A', 'Highest rated', 'Recently read', 'Most chapters', 'Author');
 export const SORTS = [
+  // By activity first: what changed, what arrived, what you touched, what is waiting for you
   { key: 'updated', label: SORT_LABELS[0], sort: 'lastModified,desc' },
   { key: 'new', label: SORT_LABELS[1], sort: 'createdDate,desc' },
-  { key: 'az', label: SORT_LABELS[2], sort: 'metadata.titleSort,asc' },
+  // when you last read in it, then the never-read
+  { key: 'read', label: SORT_LABELS[6], sort: 'lastRead,desc' },
   // per-user unread is now expressible server-side, so the label can say what it does
   { key: 'unread', label: SORT_LABELS[3], sort: 'unread,desc' },
-  { key: 'za', label: SORT_LABELS[4], sort: 'metadata.titleSort,desc' },
-  // Your own stars, then the unrated; and when you last read in it, then the never-read
+  // then by measure: your own stars (then the unrated), and size
   { key: 'rating', label: SORT_LABELS[5], sort: 'rating,desc' },
-  { key: 'read', label: SORT_LABELS[6], sort: 'lastRead,desc' },
   { key: 'chapters', label: SORT_LABELS[7], sort: 'chapters,desc' },
+  // then by name
+  { key: 'az', label: SORT_LABELS[2], sort: 'metadata.titleSort,asc' },
+  { key: 'za', label: SORT_LABELS[4], sort: 'metadata.titleSort,desc' },
   { key: 'author', label: SORT_LABELS[8], sort: 'author,asc' },
 ];
 // ⚠️ NO "RANDOM" SORT, EVEN THOUGH THE SERVER HAS ONE. `sortSql()` maps it to `ORDER BY random()`
