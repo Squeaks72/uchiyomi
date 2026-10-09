@@ -1733,6 +1733,15 @@ CREATE TABLE IF NOT EXISTS adult_titles (
   marked_by  uuid REFERENCES users(id) ON DELETE SET NULL,
   marked_at  timestamptz NOT NULL DEFAULT now()
 );
+
+-- "Remove from Keep reading": the series stays in the library, it only leaves that Home row. A row hides the series
+-- until it is read again (read_progress.updated_at moves past hidden_at), so reading it brings it back by itself.
+CREATE TABLE IF NOT EXISTS keep_reading_hidden (
+  user_id    uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  series_id  text NOT NULL,
+  hidden_at  timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, series_id)
+);
 `;
 
 // Serialises migrate() across processes. CREATE TABLE IF NOT EXISTS is not safe to run concurrently:

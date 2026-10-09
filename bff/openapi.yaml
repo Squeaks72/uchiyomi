@@ -4585,6 +4585,39 @@ paths:
           description: Not authenticated
         "404":
           description: Not found, or not visible to this account
+  /api/keep-reading/{seriesId}:
+    put:
+      tags:
+        - personal
+      summary: Take a series out of the Keep reading row, or put it back.
+      description: The series stays in the library and keeps its progress. Reading it again brings it back by itself.
+      operationId: putApiKeepReadingSeriesid
+      parameters:
+        - name: seriesId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - hidden
+              properties:
+                hidden:
+                  type: boolean
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Invalid body
+        "401":
+          description: Not authenticated
   /api/collections:
     get:
       tags:

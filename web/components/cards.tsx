@@ -154,7 +154,7 @@ export function ContinueCard({ book, eager = false }: { book: Book; eager?: bool
   // The card opens the chapter; the title opens the series. Two links, so neither sits inside the other: the chapter link is
   // stretched over the card and the title link sits above it. The menu is the series' own (SeriesMenu.tsx), from the
   // little a book knows of it -- the Properties sheet and the favourite mark read the rest themselves.
-  const menu = useSeriesMenu({ id: book.seriesId, name: book.seriesTitle, metadata: { title: book.seriesTitle } } as unknown as Series);
+  const menu = useSeriesMenu({ id: book.seriesId, name: book.seriesTitle, metadata: { title: book.seriesTitle } } as unknown as Series, undefined, { keepReading: true });
   const isHidden = useIsHiddenTitle();
   if (isHidden(book.seriesTitle, book.seriesId)) return null;
   return (
