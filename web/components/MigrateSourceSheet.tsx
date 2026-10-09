@@ -82,8 +82,10 @@ export function MigrateSourceSheet({ id, title, attached, mainId, listed, onDone
   const allIds = allSources.map((s) => s.id);
   const tools = useSourceTools();
   const choices = useMemo(() => arrangeSources(allSources, tools.query, tools.sort === 'za' ? 'za' : 'default'), [allSources, tools.query, tools.sort]);
-  const pickedIds = selected ?? allIds;
-  const only = sourcesParam(selected, allIds);
+  // Sources the series already uses are left out until asked for: they are the ones it cannot gain a new entry from.
+  const fresh = allIds.filter((x) => !attached.includes(x));
+  const pickedIds = selected ?? (fresh.length ? fresh : allIds);
+  const only = sourcesParam(selected ?? pickedIds, allIds);
   const toggleSource = (sid: string) => {
     const cur = new Set(pickedIds);
     if (cur.has(sid)) cur.delete(sid); else cur.add(sid);
@@ -181,13 +183,13 @@ export function MigrateSourceSheet({ id, title, attached, mainId, listed, onDone
         <div className="mb-3" data-migrate-sources>
           <button type="button" onClick={() => setChoosing((v) => !v)} aria-expanded={choosing}
             className="flex w-full items-center justify-between rounded-xl border border-ink-700 bg-ink-900/40 px-3 py-2 text-start text-xs text-fog-300">
-            <span>{selected ? tr('Searching {n} of {total} sources', { n: pickedIds.length, total: allIds.length }) : tr('Searching all {total} sources', { total: allIds.length })}</span>
+            <span>{pickedIds.length < allIds.length ? tr('Searching {n} of {total} sources', { n: pickedIds.length, total: allIds.length }) : tr('Searching all {total} sources', { total: allIds.length })}</span>
             <span className="text-accent">{choosing ? tr('Done') : tr('Choose')}</span>
           </button>
           {choosing && (
             <div className="mt-2 rounded-xl border border-ink-700 bg-ink-900/40 p-2">
               <div className="mb-1 flex gap-3 px-1 text-[11px]">
-                <button type="button" onClick={() => setSelected(null)} className="text-accent" data-migrate-sources-all>{tr('Select all')}</button>
+                <button type="button" onClick={() => setSelected(allIds)} className="text-accent" data-migrate-sources-all>{tr('Select all')}</button>
                 <button type="button" onClick={() => setSelected([])} className="text-accent" data-migrate-sources-none>{tr('Select none')}</button>
               </div>
               {allSources.length >= SOURCE_TOOLS_MIN && (
