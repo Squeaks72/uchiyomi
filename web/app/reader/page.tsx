@@ -1,5 +1,5 @@
 'use client';
-import { Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { pairSlides } from '@/lib/readerSpread';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
@@ -9,7 +9,7 @@ import { api, img } from '@/lib/api';
 import { fetchAllBooks } from '@/lib/seriesBooks';
 import { chapterOutcome } from '@/lib/readerState';
 import { openableChapters } from '@/lib/chapterRows';
-import { buildFlow, startIndex, renderWindow } from '@/lib/readerFlow';
+import { buildFlow, startIndex, renderWindow, renderWindowPx, type FlowItem } from '@/lib/readerFlow';
 import { CHROME_GRACE_MS, isCatch, readTap, tapMayToggleChrome, undoLeft, undoWindow, type TapZone } from '@/lib/readerGesture';
 import { ARM_MS, pagesAfter, skipNeedsConfirm, stillArmed } from '@/lib/readerNav';
 import { Book, EditionRow, Page, PageInfo, Series } from '@/lib/types';
@@ -369,6 +369,8 @@ function ReaderInner() {
    * question entirely, and this one IS cleared when the book changes, below.
    */
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const expandPage = useCallback((key: string) => setExpanded((prev) => new Set(prev).add(key)), []);
+  const collapsePage = useCallback((key: string) => setExpanded((prev) => { const n = new Set(prev); n.delete(key); return n; }), []);
 
   // ---- every page of every loaded chapter, including the ones the flow skips ----
   /**
@@ -514,10 +516,14 @@ function ReaderInner() {
   // changing how many items there are, and the blob prefetch below keys off this set's identity -- on
   // `flat.length` the set never changes, so an expanded page of a DOWNLOADED chapter would sit on its number
   // placeholder forever. Invisible online, where the image URL always works.
-  const activeSet = useMemo(
-    () => renderWindow(flat, current, WINDOW_BEHIND, WINDOW_AHEAD),
-    [flat, current],
-  );
+  const activeSet = useMemo(() => {
+    if (prefs.mode !== 'vertical') return renderWindow(flat, current, WINDOW_BEHIND, WINDOW_AHEAD);
+    const vh = typeof window !== 'undefined' ? window.innerHeight : 800;
+    return renderWindowPx(flat, tops, heights, current, {
+      behindPx: vh * 1.5, aheadPx: vh * 5, minBehind: WINDOW_BEHIND, minAhead: WINDOW_AHEAD, maxBehind: 6, maxAhead: 16,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flat, current, prefs.mode, tops, heights]);
 
   // ---- offline blob URLs within window ----
   const [, force] = useState(0);
@@ -1279,77 +1285,22 @@ function ReaderInner() {
           className={`h-screen-d touch-pan-y overflow-y-auto overscroll-contain ${zoom > 1 ? 'overflow-x-auto' : 'overflow-x-hidden'}`}>
           <div className="mx-auto" style={{ width: colW || '100%', filter: THEME_FILTER[prefs.theme] }}>
             <div className="h-2" />
-            {flat.map((p, i) => {
-              // Do not duplicate buildFlow's rule here: it deliberately keeps missing+junk placeholders open.
-              const collapsed = !!p.collapsed;
-              return (
-              <div key={p.key}>
-                {p.firstOfChapter && p.ci > 0 && (
-                  <div style={{ height: DIVIDER_H }} className="flex items-center justify-center gap-3 text-xs text-fog-500">
-                    <span className="h-px w-8 bg-ink-700" />
-                    <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-fog-600">{tr('Up Next')}</span>
-                    <span className="text-fog-400">{chapters[p.ci]?.title || tr('Next chapter')}</span>
-                    <span className="h-px w-8 bg-ink-700" />
-                  </div>
-                )}
-                <div style={{ height: heights[i] || undefined, marginBottom: prefs.gap }} className="relative w-full bg-ink-900">
-                  {collapsed ? (
-                    /* A band of the real page, not a placeholder standing in for it. Seeing that it IS the
-                       credit page is the whole difference between "the reader set this aside" and "a page is
-                       missing" -- and it costs nothing extra, because the box below already crops with
-                       object-cover; only the height changed. `object-top` because the top of a credit page is
-                       the part that identifies it. The THUMBNAIL is used deliberately: a page nobody is
-                       reading must never pull a full-size scan down. */
-                    <button
-                      type="button"
-                      aria-expanded={false}
-                      onClick={() => setExpanded((prev) => new Set(prev).add(p.key))}
-                      /* ⚠️ BOTH, and neither is optional. The scroll container owns a tap gesture that
-                         toggles the chrome and a double-tap that zooms; it seeds that gesture on pointerdown
-                         and reads it on pointerup. Stop only one and a tap on a strip still expands the page
-                         AND toggles the chrome, and a double-tap expands then zooms. */
-                      onPointerDown={(e) => e.stopPropagation()}
-                      onPointerUp={(e) => e.stopPropagation()}
-                      aria-label={tr('Show repeated page {n}', { n: p.number })}
-                      className="group block h-full w-full overflow-hidden text-start"
-                    >
-                      {stripSrc(i) && (
-                        <img src={stripSrc(i)!} alt="" aria-hidden className="absolute inset-0 h-full w-full object-cover object-top opacity-50" />
-                      )}
-                      <span className="absolute inset-0 flex items-center justify-center gap-2.5 bg-ink-950/45 text-[11px] font-semibold uppercase tracking-[0.16em] text-fog-400 group-hover:text-fog-200">
-                        <span className="h-px w-6 bg-ink-600" />
-                        {tr('repeated page — tap to show')}
-                        <span className="h-px w-6 bg-ink-600" />
-                      </span>
-                    </button>
-                  ) : activeSet.has(i) && srcFor(i) ? (
-                    <ReaderImg src={srcFor(i)!} alt={tr('Page {n}', { n: p.number })} className="block h-full w-full object-cover" />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center text-xs text-ink-600">{p.number}</div>
-                  )}
-                  {/* Opened by hand, so it can be closed by hand -- otherwise expanding one to check it is a
-                      one-way door for the rest of the session. */}
-                  {collapsing && p.junk && !p.missing && expanded.has(p.key) && (
-                    <button
-                      type="button"
-                      aria-expanded
-                      onClick={() => setExpanded((prev) => { const n = new Set(prev); n.delete(p.key); return n; })}
-                      onPointerDown={(e) => e.stopPropagation()}
-                      onPointerUp={(e) => e.stopPropagation()}
-                      aria-label={tr('Collapse repeated page {n}', { n: p.number })}
-                      className="absolute end-2 top-2 rounded-full bg-ink-950/75 px-2.5 py-1.5 text-[11px] font-medium text-fog-300 backdrop-blur hover:text-white"
-                    >
-                      {tr('collapse')}
-                    </button>
-                  )}
-                  {/* The server saved this chapter short and this page is its placeholder: say so, over the
-                      flat panel, or a grey page reads as the reader failing to load it. Not on a collapsed
-                      strip (a hand-marked one): the band is too short for two lines and expanding it shows
-                      the caption. */}
-                  {p.missing && !collapsed && <MissingCaption number={p.number} source={sourceNameOf(chapters[p.ci]?.sourceId)} />}
-                </div>
-              </div>
-            );})}
+            {flat.map((p, i) => (
+              <VerticalPage
+                key={p.key}
+                p={p}
+                height={heights[i] || undefined}
+                gap={prefs.gap}
+                src={activeSet.has(i) ? srcFor(i) : null}
+                strip={p.collapsed ? stripSrc(i) : null}
+                collapsing={collapsing}
+                isExpanded={expanded.has(p.key)}
+                chapterTitle={p.firstOfChapter && p.ci > 0 ? chapters[p.ci]?.title || '' : ''}
+                sourceName={p.missing ? sourceNameOf(chapters[p.ci]?.sourceId) : null}
+                onExpand={expandPage}
+                onCollapse={collapsePage}
+              />
+            ))}
             {ended && upNextCard}
             {failed && !!flat.length && failureCard}
           </div>
@@ -1643,6 +1594,90 @@ function ReaderImg({ src, alt, className, style }: {
   // eslint-disable-next-line @next/next/no-img-element
   return <img src={shown} alt={alt} className={className} style={style} decoding="async" onError={onError} />;
 }
+
+/**
+ * One page of the scrolling column.
+ *
+ * ⚠️ Memoised on purpose, and every prop is a primitive or a stable callback. The reader re-renders on every page
+ * boundary (`current` is state), and a fling over short strips crosses one every few frames: with the rows inline,
+ * each of those re-rendered the whole chapter's worth of boxes on the thread that is also scrolling. Reintroduce by
+ * passing a fresh object or closure per row: every row re-renders on every page change again.
+ */
+const VerticalPage = memo(function VerticalPage({ p, height, gap, src, strip, collapsing, isExpanded, chapterTitle, sourceName, onExpand, onCollapse }: {
+  p: FlowItem; height: number | undefined; gap: number; src: string | null; strip: string | null; collapsing: boolean;
+  isExpanded: boolean; chapterTitle: string; sourceName: string | null; onExpand: (key: string) => void; onCollapse: (key: string) => void;
+}) {
+  // Do not duplicate buildFlow's rule here: it deliberately keeps missing+junk placeholders open.
+  const collapsed = !!p.collapsed;
+  return (
+    <div>
+      {p.firstOfChapter && p.ci > 0 && (
+        <div style={{ height: DIVIDER_H }} className="flex items-center justify-center gap-3 text-xs text-fog-500">
+          <span className="h-px w-8 bg-ink-700" />
+          <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-fog-600">{tr('Up Next')}</span>
+          <span className="text-fog-400">{chapterTitle || tr('Next chapter')}</span>
+          <span className="h-px w-8 bg-ink-700" />
+        </div>
+      )}
+      <div style={{ height, marginBottom: gap }} className="relative w-full bg-ink-900">
+        {collapsed ? (
+          /* A band of the real page, not a placeholder standing in for it. Seeing that it IS the
+             credit page is the whole difference between "the reader set this aside" and "a page is
+             missing" -- and it costs nothing extra, because the box below already crops with
+             object-cover; only the height changed. `object-top` because the top of a credit page is
+             the part that identifies it. The THUMBNAIL is used deliberately: a page nobody is
+             reading must never pull a full-size scan down. */
+          <button
+            type="button"
+            aria-expanded={false}
+            onClick={() => onExpand(p.key)}
+            /* ⚠️ BOTH, and neither is optional. The scroll container owns a tap gesture that
+               toggles the chrome and a double-tap that zooms; it seeds that gesture on pointerdown
+               and reads it on pointerup. Stop only one and a tap on a strip still expands the page
+               AND toggles the chrome, and a double-tap expands then zooms. */
+            onPointerDown={(e) => e.stopPropagation()}
+            onPointerUp={(e) => e.stopPropagation()}
+            aria-label={tr('Show repeated page {n}', { n: p.number })}
+            className="group block h-full w-full overflow-hidden text-start"
+          >
+            {strip && (
+              <img src={strip} alt="" aria-hidden className="absolute inset-0 h-full w-full object-cover object-top opacity-50" />
+            )}
+            <span className="absolute inset-0 flex items-center justify-center gap-2.5 bg-ink-950/45 text-[11px] font-semibold uppercase tracking-[0.16em] text-fog-400 group-hover:text-fog-200">
+              <span className="h-px w-6 bg-ink-600" />
+              {tr('repeated page — tap to show')}
+              <span className="h-px w-6 bg-ink-600" />
+            </span>
+          </button>
+        ) : src ? (
+          <ReaderImg src={src} alt={tr('Page {n}', { n: p.number })} className="block h-full w-full object-cover" />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-xs text-ink-600">{p.number}</div>
+        )}
+        {/* Opened by hand, so it can be closed by hand -- otherwise expanding one to check it is a
+            one-way door for the rest of the session. */}
+        {collapsing && p.junk && !p.missing && isExpanded && (
+          <button
+            type="button"
+            aria-expanded
+            onClick={() => onCollapse(p.key)}
+            onPointerDown={(e) => e.stopPropagation()}
+            onPointerUp={(e) => e.stopPropagation()}
+            aria-label={tr('Collapse repeated page {n}', { n: p.number })}
+            className="absolute end-2 top-2 rounded-full bg-ink-950/75 px-2.5 py-1.5 text-[11px] font-medium text-fog-300 backdrop-blur hover:text-white"
+          >
+            {tr('collapse')}
+          </button>
+        )}
+        {/* The server saved this chapter short and this page is its placeholder: say so, over the
+            flat panel, or a grey page reads as the reader failing to load it. Not on a collapsed
+            strip (a hand-marked one): the band is too short for two lines and expanding it shows
+            the caption. */}
+        {p.missing && !collapsed && <MissingCaption number={p.number} source={sourceName} />}
+      </div>
+    </div>
+  );
+});
 
 /**
  * The caption over a page the source never served (v0.40.0).

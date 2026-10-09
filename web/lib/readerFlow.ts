@@ -159,3 +159,37 @@ export function renderWindow(flow: FlowItem[], current: number, behind: number, 
   }
   return s;
 }
+
+/**
+ * The window for a scrolling column, measured in screens as well as pages.
+ *
+ * ⚠️ `renderWindow` counts pages, which is the wrong unit for a webtoon: a strip can be a fraction of a screen, so six
+ * pages ahead was often less than one screen, and a fling ran into pages that were still numbers. This keeps at least the
+ * page counts given and reaches on until `aheadPx` / `behindPx` of the column is covered, never past the maximums
+ * (every page in the window is a full-size image to fetch and decode). A collapsed page spends nothing, as above.
+ */
+export function renderWindowPx(
+  flow: FlowItem[], tops: number[], heights: number[], current: number,
+  o: { behindPx: number; aheadPx: number; minBehind: number; minAhead: number; maxBehind: number; maxAhead: number },
+): Set<number> {
+  const s = new Set<number>();
+  if (current < 0 || current >= flow.length) return s;
+  if (!flow[current].collapsed) s.add(current);
+  const end = (tops[current] ?? 0) + (heights[current] ?? 0);
+  let spent = 0;
+  for (let i = current + 1; i < flow.length && spent < o.maxAhead; i++) {
+    if (flow[i].collapsed) continue;
+    if (spent >= o.minAhead && (tops[i] ?? 0) - end >= o.aheadPx) break;
+    s.add(i);
+    spent++;
+  }
+  const start = tops[current] ?? 0;
+  spent = 0;
+  for (let i = current - 1; i >= 0 && spent < o.maxBehind; i--) {
+    if (flow[i].collapsed) continue;
+    if (spent >= o.minBehind && start - ((tops[i] ?? 0) + (heights[i] ?? 0)) >= o.behindPx) break;
+    s.add(i);
+    spent++;
+  }
+  return s;
+}
