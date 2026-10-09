@@ -6,6 +6,7 @@ import { applyFavorite } from '@/lib/favoriteCache';
 import { t as tr } from '@/lib/i18n';
 import { useToast } from './Toast';
 import { useContextMenu, type MenuItem } from './ContextMenu';
+import { setTitleIgnored } from '@/lib/ignoredTitles';
 import { useAdultMark } from './useAdultMark';
 
 /**
@@ -69,6 +70,16 @@ export function useDiscoverMenu({ title, libraryHref, librarySeriesId, onAdd, ad
         catch { toast(tr('Could not copy the title'), 'error'); }
       },
     },
+    // Only for a title the library does not hold: an Ignore on a series you own would hide nothing you could find again.
+    ...(!libraryHref && !librarySeriesId ? [{
+      label: tr('Ignore'), divider: true, hook: 'ignore-title',
+      onSelect: async () => {
+        try {
+          await setTitleIgnored(qc, title, true);
+          toast(tr('Ignored. You can bring it back from Profile, in Settings.'), 'success');
+        } catch { toast(tr('Could not do that'), 'error'); }
+      },
+    }] : []),
     ...adultItem,
   ];
   return useContextMenu(items, { label: title });
