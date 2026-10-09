@@ -2,7 +2,7 @@
   "_meta": {
     "language": "ar",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 4260
+    "strings": 4270
   },
   "1 check found something": "فحص واحد وجد شيئًا",
   "1 member": "عضو واحد",
@@ -4265,5 +4265,15 @@
   "Reset to default": "Reset to default",
   "Hidden": "Hidden",
   "Shown": "Shown",
-  "Your collections": "Your collections"
+  "Your collections": "Your collections",
+  "Finish 10 chapters. You have finished {n}.": "Finish 10 chapters. You have finished {n}.",
+  "Finish 50 chapters. You have finished {n}.": "Finish 50 chapters. You have finished {n}.",
+  "Finish 100 chapters. You have finished {n}.": "Finish 100 chapters. You have finished {n}.",
+  "Finish 500 chapters. You have finished {n}.": "Finish 500 chapters. You have finished {n}.",
+  "Read on 7 days in a row. Your longest run is {n}.": "Read on 7 days in a row. Your longest run is {n}.",
+  "Read on 30 days in a row. Your longest run is {n}.": "Read on 30 days in a row. Your longest run is {n}.",
+  "Tap a day to see everything you read.": "Tap a day to see everything you read.",
+  "Nothing read on this day.": "Nothing read on this day.",
+  "Could not load": "Could not load",
+  "{done} finished, {total} opened.": "{done} finished, {total} opened."
 }
