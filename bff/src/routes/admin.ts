@@ -2978,7 +2978,7 @@ export default async function adminRoutes(app: FastifyInstance) {
                   AND (NOT EXISTS (SELECT 1 FROM user_libraries ul WHERE ul.user_id = u.id)
                        OR EXISTS (SELECT 1 FROM user_libraries ul WHERE ul.user_id = u.id AND ul.library_id = l.id))
               ) AS members
-         FROM libraries l ORDER BY l.sort_order, l.name`,
+         FROM libraries l ORDER BY (COALESCE(l.age_rating, 0) >= 18), lower(l.name)`,
     );
     // Candidate subdirectories: folders that hold series but are not yet a library. Annotated where the name
     // matches a known source, because that is the case an admin should NOT usually promote.

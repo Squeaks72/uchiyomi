@@ -468,7 +468,7 @@ const total = async (ctx: ViewCtx, where = 'TRUE', p = new Params(), cte = '', f
 export const owned = {
   libraries: async (ctx: ViewCtx) => {
     const rows = await q<{ id: string; name: string; age_rating: number | null; default_visible: boolean }>(
-      'SELECT id, name, age_rating, default_visible FROM libraries ORDER BY sort_order, name',
+      'SELECT id, name, age_rating, default_visible FROM libraries ORDER BY (COALESCE(age_rating, 0) >= 18), lower(name)',
     );
     // A restricted viewer is told about the libraries they hold, not all of them: the list itself would
     // otherwise leak the existence and names of everything they cannot open.
