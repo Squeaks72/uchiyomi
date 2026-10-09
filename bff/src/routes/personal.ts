@@ -13,6 +13,7 @@ import { jobBusy } from './sources';
 import { authenticate, userIdOf, roleOf, issueOpdsToken, issueApiToken, listApiTokens, revokeApiToken, API_SCOPES, revokeOpdsToken, opdsTokenStatus, setOpdsShowAdult, OPDS_TOKEN_DAYS } from '../lib/auth';
 import { enrichSeries, seenCounts } from '../lib/enrich';
 import { env } from '../env';
+import { titleKey } from '../lib/adultTitles';
 import { pushEnabled, vapidPublicKey, saveSubscription, removeSubscription } from '../lib/push';
 import { statusFor, saveConnection, disconnect, whoAmI, pushSeriesProgress, pushSeriesProgressAsync, clearTrackerFloor } from '../lib/trackers';
 import { ADAPTERS, isProvider, mangaupdatesLogin, type Provider } from '../lib/trackerProviders';
@@ -199,6 +200,24 @@ export default async function personalRoutes(app: FastifyInstance) {
     const { seriesId } = req.params as { seriesId: string };
     await q('DELETE FROM favorites WHERE user_id = $1 AND series_id = $2', [uid, seriesId]);
     return { ok: true, favorite: false };
+  });
+
+  // ---- ignored titles (Discover: "Ignore" on a series that is not in the library) ----
+  app.get('/api/ignored-titles', async (req) => ({
+    content: await q('SELECT key, title, created_at AS "createdAt" FROM ignored_titles WHERE user_id = $1 ORDER BY created_at DESC', [userIdOf(req)]),
+  }));
+
+  app.put('/api/ignored-titles', async (req) => {
+    const uid = userIdOf(req);
+    const { title, ignored } = z.object({ title: z.string().trim().min(1).max(500), ignored: z.boolean() }).parse(req.body);
+    const key = titleKey(title);
+    if (!key) return { ok: true, ignored: false };
+    if (ignored) {
+      await q('INSERT INTO ignored_titles (user_id, key, title) VALUES ($1, $2, $3) ON CONFLICT (user_id, key) DO NOTHING', [uid, key, title]);
+    } else {
+      await q('DELETE FROM ignored_titles WHERE user_id = $1 AND key = $2', [uid, key]);
+    }
+    return { ok: true, ignored };
   });
 
   // ---- collections ----

@@ -1,6 +1,7 @@
 'use client';
 import { ReactNode, useEffect, useRef, useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { setTitleIgnored } from '@/lib/ignoredTitles';
 import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { requestPersist, storageEstimate } from '@/lib/downloads';
@@ -40,6 +41,7 @@ export function ProfileSettings({ weeklyGoal }: { weeklyGoal: number }) {
       <ReadingSection weeklyGoal={weeklyGoal} />
       {!desktop && <DownloadsSection />}
       {!desktop && <DeviceSection />}
+      <IgnoredSection />
     </div>
   );
 }
@@ -396,6 +398,33 @@ function DownloadsSection() {
         {!persisted && <button type="button" onClick={ask} className="btn-key text-xs">{tr('Protect saved chapters')}</button>}
       </Row>
       <LinkRow href="/downloads/" label={tr('Saved on this device')} />
+    </Section>
+  );
+}
+
+/* ============================== Ignored titles ============================== */
+
+/** Titles ignored from Discover's menu, each with the way back. Drawn only once there is something to take back. */
+function IgnoredSection() {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const { data } = useQuery({
+    queryKey: ['ignored-titles-list'], staleTime: 60_000,
+    queryFn: () => api<{ content: Array<{ key: string; title: string }> }>('/api/ignored-titles').then((r) => r.content),
+  });
+  if (!data?.length) return null;
+  const restore = async (title: string) => {
+    try { await setTitleIgnored(qc, title, false); }
+    catch { toast(tr('Could not do that'), 'error'); }
+  };
+  return (
+    <Section id="ignored" title={tr('Ignored titles')} icon={<IcCheck width={18} height={18} />}>
+      <p className="px-1 pb-2 text-xs text-fog-500">{tr('These never show on Discover. Show again puts one back.')}</p>
+      {data.map((m) => (
+        <Row key={m.key} label={m.title}>
+          <button type="button" onClick={() => restore(m.title)} className="btn-key text-xs">{tr('Show again')}</button>
+        </Row>
+      ))}
     </Section>
   );
 }

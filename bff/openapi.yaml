@@ -4618,6 +4618,48 @@ paths:
           description: Invalid body
         "401":
           description: Not authenticated
+  /api/ignored-titles:
+    get:
+      tags:
+        - personal
+      summary: The titles the caller has chosen never to see on Discover.
+      operationId: getApiIgnoredTitles
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Not authenticated
+    put:
+      tags:
+        - personal
+      summary: Ignore a title that is not in the library, or stop ignoring it.
+      description: Per account, matched on the folded title so every source's copy goes together.
+      operationId: putApiIgnoredTitles
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+                - ignored
+              properties:
+                title:
+                  type: string
+                ignored:
+                  type: boolean
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Invalid body
+        "401":
+          description: Not authenticated
   /api/collections:
     get:
       tags:

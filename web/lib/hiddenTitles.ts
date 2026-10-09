@@ -6,6 +6,8 @@
 // many slow source answers that nobody wants to ask again, so the page filters its own copy with this as well.
 // Nothing here is persisted: a reload asks the server, which already knows.
 import { useCallback, useSyncExternalStore } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { api } from '@/lib/api';
 import { useAdultShown } from '@/components/AdultToggle';
 
 /** A title folded for comparison. The same fold as the server's `titleKey`, so both sides agree on "same title". */
@@ -45,11 +47,25 @@ const server = (): ReadonlySet<string> => new Set();
 export function useIsHiddenTitle(): (title: string, seriesId?: string) => boolean {
   const set = useSyncExternalStore(subscribe, snapshot, server);
   const revealed = useAdultShown();
+  const ignored = useIgnoredKeys();
   return useCallback(
-    (title: string, seriesId?: string) => !revealed && set.size > 0 && (set.has(titleKey(title)) || (!!seriesId && set.has(idKey(seriesId)))),
-    [set, revealed],
+    (title: string, seriesId?: string) =>
+      (!revealed && set.size > 0 && (set.has(titleKey(title)) || (!!seriesId && set.has(idKey(seriesId)))))
+      // Ignore is for titles that are not in the library: a card given a series id is one that is, and stays.
+      || (!seriesId && ignored.has(titleKey(title))),
+    [set, revealed, ignored],
   );
 }
+
+/** The folded keys of the titles this person ignored (Discover's "Ignore"); the profile lists them to take back. */
+export function useIgnoredKeys(): ReadonlySet<string> {
+  const { data } = useQuery({
+    queryKey: ['ignored-titles'], staleTime: 300_000,
+    queryFn: () => api<{ content: Array<{ key: string }> }>('/api/ignored-titles').then((r) => new Set(r.content.map((m) => m.key))),
+  });
+  return data ?? EMPTY;
+}
+const EMPTY: ReadonlySet<string> = new Set();
 
 /** Whether a title was marked 18+ in this tab, even while 18+ is revealed (where nothing leaves the screen, so the card says so instead). */
 export function useIsMarkedTitle(): (title: string, seriesId?: string) => boolean {

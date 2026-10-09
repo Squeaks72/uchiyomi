@@ -1742,6 +1742,16 @@ CREATE TABLE IF NOT EXISTS keep_reading_hidden (
   hidden_at  timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (user_id, series_id)
 );
+
+-- "Ignore" on a title that is not in the library: this person never sees it on Discover again. Per person (adult_titles
+-- is the admin's shared mark); keyed on the folded title (lib/adultTitles.ts titleKey) so every source's copy goes.
+CREATE TABLE IF NOT EXISTS ignored_titles (
+  user_id     uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  key         text NOT NULL,
+  title       text NOT NULL,
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, key)
+);
 `;
 
 // Serialises migrate() across processes. CREATE TABLE IF NOT EXISTS is not safe to run concurrently:
