@@ -13,3 +13,10 @@ test('an ignored title leaves every card that is not a library series', () => {
   const hidden = read('lib/hiddenTitles.ts');
   assert.match(hidden, /\(!seriesId && ignored\.has\(titleKey\(title\)\)\)/);
 });
+
+test('the series page has a notes section and calls its bookmarks link Series Bookmarks', () => {
+  const page = read('app/series/page.tsx');
+  assert.match(page, /<SeriesNotes seriesId=\{id\} \/>/);
+  assert.doesNotMatch(page, /tr\('Add a note'\)/);
+  assert.match(read('components/SeriesNotes.tsx'), /api\('\/api\/notes'|\/api\/notes\/\$\{encodeURIComponent\(d\.id\)\}/);
+});
