@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { useEffect } from 'react';
+import { Fragment, useEffect, useState, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { CollectionRow } from '@/lib/types';
 import { api, img } from '@/lib/api';
@@ -15,11 +15,13 @@ import { Img, ProgressBar, Rail, RailSkeleton, SectionTitle, Reveal } from '@/co
 import { SeriesCard, ContinueCard } from '@/components/cards';
 import { HeroCarousel } from '@/components/HeroCarousel';
 import { AdultToggle, useAdultFilterConfigured } from '@/components/AdultToggle';
-import { IcPlay, IcSparkle, IcRefresh, IcBell } from '@/components/icons';
+import { IcPlay, IcSparkle, IcRefresh, IcBell, IcSliders } from '@/components/icons';
 import { PullToRefresh } from '@/components/PullToRefresh';
 import { Avatar } from '@/components/Avatar';
 import { Lockup } from '@/components/Brand';
 import { LibraryStart } from '@/components/LibraryStart';
+import { HomeRowsSheet } from '@/components/HomeRowsSheet';
+import { homeRowOrder, homeRowsHidden, type HomeRowId, type HomeRowsSetting } from '@/lib/homeRows';
 import { t as tr } from '@/lib/i18n';
 
 
@@ -85,7 +87,6 @@ export default function HomePage() {
   // A second reason for the 18+ reveal to render: a genre or source on the admin's 18+ filter.
   const adultFilter = useAdultFilterConfigured();
   const { data, isLoading } = useQuery({ queryKey: ['home'], queryFn: () => api<HomePayload>('/api/home') });
-  const { data: foryou } = useQuery({ queryKey: ['foryou'], queryFn: () => api<{ genres: string[]; content: Series[] }>('/api/foryou'), staleTime: 600000 });
   const { data: trending } = useQuery({ queryKey: ['trending'], queryFn: () => api<{ content: Series[] }>('/api/trending'), staleTime: 300000 });
   const { data: featured, isPending: featuredPending } = useQuery({ queryKey: ['featured'], queryFn: () => api<{ content: Series[] }>('/api/featured'), staleTime: 600000 });
 
@@ -129,6 +130,93 @@ export default function HomePage() {
 
   // the hero carousel drives ambient --cover; clear it when leaving home
   useEffect(() => () => clearCover(), []);
+
+  const [arranging, setArranging] = useState(false);
+  const order = homeRowOrder(user?.settings?.homeRows as HomeRowsSetting | undefined);
+  const hidden = homeRowsHidden(user?.settings?.homeRows as HomeRowsSetting | undefined);
+
+  const rows: Record<HomeRowId, ReactNode> = {
+    continue: (
+      (data?.onDeck?.length ?? 0) > 0 ? (
+        <section className="pt-4">
+          <SectionTitle>{tr('Keep reading')}</SectionTitle>
+          <Rail>
+            {data!.onDeck.map((b, i) => <ContinueCard key={b.id} book={b} eager={i < 4} />)}
+          </Rail>
+        </section>
+      ) : null
+    ),
+    updates: (
+      <section className="pt-8">
+        <SectionTitle action={<Link href="/library/?sort=updated" aria-label={tr('See all {title}', { title: tr('New episodes') })} className="text-xs text-accent">{tr('See all')}</Link>}>{tr('New episodes')}</SectionTitle>
+        {isLoading ? <RailSkeleton /> : (
+          <Rail>
+            {(data?.updated ?? []).map((s, i) => <SeriesCard key={s.id} series={s} eager={i < 8} />)}
+          </Rail>
+        )}
+      </section>
+
+    ),
+    favorites: (
+      (data?.favorites?.length ?? 0) > 0 ? (
+        <section className="pt-8">
+          <SectionTitle action={<Link href="/collection/?id=favorites" className="text-xs text-accent">{tr('Manage')}</Link>}>{tr('Your favorites')}</SectionTitle>
+          <Rail>
+            {data!.favorites.map((s) => <SeriesCard key={s.id} series={s} />)}
+          </Rail>
+        </section>
+      ) : null
+    ),
+    because: (
+      seed && (because?.content?.length ?? 0) > 0 ? (
+        <section className="pt-8">
+          <SectionTitle>{tr('Because you read {title}', { title: `⁨${seed.name}⁩` })}</SectionTitle>
+          <Rail>
+            {because!.content.map((s) => <SeriesCard key={s.id} series={s} />)}
+          </Rail>
+        </section>
+      ) : null
+    ),
+    rated: (
+      lovedSeed && (becauseRated?.content?.length ?? 0) > 0 ? (
+        <section className="pt-8">
+          <SectionTitle>{lovedSeed.stars >= 5 ? tr('Because you rated {title} 5 stars', { title: `⁨${lovedSeed.name}⁩` }) : tr('Because you rated {title} 4 stars', { title: `⁨${lovedSeed.name}⁩` })}</SectionTitle>
+          <Rail>
+            {becauseRated!.content.map((s) => <SeriesCard key={s.id} series={s} />)}
+          </Rail>
+        </section>
+      ) : null
+    ),
+    collections: <CollectionRails />,
+    added: (
+      <section className="pt-8">
+        <SectionTitle action={<Link href="/library/?sort=new" aria-label={tr('See all {title}', { title: tr('Recently added') })} className="text-xs text-accent">{tr('See all')}</Link>}>{tr('Recently added')}</SectionTitle>
+        {isLoading ? <RailSkeleton /> : (
+          <Rail>
+            {(data?.new ?? []).map((s) => <SeriesCard key={s.id} series={s} />)}
+          </Rail>
+        )}
+      </section>
+
+    ),
+    top: (
+      (trending?.content?.length ?? 0) > 0 ? (
+        <section className="pt-8">
+          <SectionTitle>{tr('Top 10 in your library')}</SectionTitle>
+          <Rail>
+            {trending!.content.slice(0, 10).map((s, i) => (
+              <div key={s.id} className="flex shrink-0 items-end [scroll-snap-align:start]">
+                <span aria-hidden className="rank-numeral -me-5 mb-6 select-none font-display text-[88px] font-black leading-[0.78]">
+                  {i + 1}
+                </span>
+                <SeriesCard series={s} />
+              </div>
+            ))}
+          </Rail>
+        </section>
+      ) : null
+    ),
+  };
 
   return (
     <PullToRefresh onRefresh={onRefresh}>
@@ -187,94 +275,15 @@ export default function HomePage() {
         </p>
       </div>
 
-      {/* Keep reading */}
-      {(data?.onDeck?.length ?? 0) > 0 && (
-        <section className="pt-4">
-          <SectionTitle>{tr('Keep reading')}</SectionTitle>
-          <Rail>
-            {data!.onDeck.map((b, i) => <ContinueCard key={b.id} book={b} eager={i < 4} />)}
-          </Rail>
-        </section>
-      )}
+      <div className="flex justify-end px-5 pt-2 lg:px-0">
+        <button type="button" onClick={() => setArranging(true)} className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs text-fog-400 transition hover:text-fog-100">
+          <IcSliders width={14} height={14} />{tr('Customize Home')}
+        </button>
+      </div>
 
-      {/* For you */}
-      {(foryou?.content?.length ?? 0) > 0 && (
-        <section className="pt-8">
-          <SectionTitle action={<Link href="/library" className="text-xs text-accent">{tr('Library')}</Link>}>{tr('For you')}</SectionTitle>
-          <Rail>
-            {foryou!.content.map((s) => <SeriesCard key={s.id} series={s} />)}
-          </Rail>
-        </section>
-      )}
+      {order.filter((id) => !hidden.has(id)).map((id) => <Fragment key={id}>{rows[id]}</Fragment>)}
 
-      {/* Because you read X */}
-      {seed && (because?.content?.length ?? 0) > 0 && (
-        <section className="pt-8">
-          <SectionTitle>{tr('Because you read {title}', { title: `⁨${seed.name}⁩` })}</SectionTitle>
-          <Rail>
-            {because!.content.map((s) => <SeriesCard key={s.id} series={s} />)}
-          </Rail>
-        </section>
-      )}
-
-      {lovedSeed && (becauseRated?.content?.length ?? 0) > 0 && (
-        <section className="pt-8">
-          <SectionTitle>{lovedSeed.stars >= 5 ? tr('Because you rated {title} 5 stars', { title: `⁨${lovedSeed.name}⁩` }) : tr('Because you rated {title} 4 stars', { title: `⁨${lovedSeed.name}⁩` })}</SectionTitle>
-          <Rail>
-            {becauseRated!.content.map((s) => <SeriesCard key={s.id} series={s} />)}
-          </Rail>
-        </section>
-      )}
-
-      {/* New episodes */}
-      <section className="pt-8">
-        <SectionTitle action={<Link href="/library/?sort=updated" aria-label={tr('See all {title}', { title: tr('New episodes') })} className="text-xs text-accent">{tr('See all')}</Link>}>{tr('New episodes')}</SectionTitle>
-        {isLoading ? <RailSkeleton /> : (
-          <Rail>
-            {(data?.updated ?? []).map((s, i) => <SeriesCard key={s.id} series={s} eager={i < 8} />)}
-          </Rail>
-        )}
-      </section>
-
-      {/* Favorites */}
-      {(data?.favorites?.length ?? 0) > 0 && (
-        <section className="pt-8">
-          <SectionTitle action={<Link href="/collection/?id=favorites" className="text-xs text-accent">{tr('Manage')}</Link>}>{tr('Your favorites')}</SectionTitle>
-          <Rail>
-            {data!.favorites.map((s) => <SeriesCard key={s.id} series={s} />)}
-          </Rail>
-        </section>
-      )}
-
-      {/* Your collections */}
-      <CollectionRails />
-
-      {/* Recently added */}
-      <section className="pt-8">
-        <SectionTitle action={<Link href="/library/?sort=new" aria-label={tr('See all {title}', { title: tr('Recently added') })} className="text-xs text-accent">{tr('See all')}</Link>}>{tr('Recently added')}</SectionTitle>
-        {isLoading ? <RailSkeleton /> : (
-          <Rail>
-            {(data?.new ?? []).map((s) => <SeriesCard key={s.id} series={s} />)}
-          </Rail>
-        )}
-      </section>
-
-      {/* Trending across accounts — Netflix-style Top 10 with big rank numerals */}
-      {(trending?.content?.length ?? 0) > 0 && (
-        <section className="pt-8">
-          <SectionTitle>{tr('Top 10 in your library')}</SectionTitle>
-          <Rail>
-            {trending!.content.slice(0, 10).map((s, i) => (
-              <div key={s.id} className="flex shrink-0 items-end [scroll-snap-align:start]">
-                <span aria-hidden className="rank-numeral -me-5 mb-6 select-none font-display text-[88px] font-black leading-[0.78]">
-                  {i + 1}
-                </span>
-                <SeriesCard series={s} />
-              </div>
-            ))}
-          </Rail>
-        </section>
-      )}
+      {arranging && <HomeRowsSheet onClose={() => setArranging(false)} />}
     </div>
     </PullToRefresh>
   );

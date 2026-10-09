@@ -214,6 +214,18 @@ components:
             nonempty Home rails; an explicit empty array means no List rails. Empty selected Lists retain their
             slot. Already-stored stale or unowned ids are ignored by Home and omitted on the next edit;
             a request that tries to add one is refused.
+        homeRows:
+          type: object
+          description: >-
+            Fork change. How this account arranged Home. `order` lists row ids front to back and `hidden` the rows
+            switched off. A row left out of `order` follows the listed ones in the default order.
+          properties:
+            order:
+              type: array
+              items: { type: string, enum: [continue, updates, favorites, because, rated, collections, added, top] }
+            hidden:
+              type: array
+              items: { type: string, enum: [continue, updates, favorites, because, rated, collections, added, top] }
         showAllChapters:
           type: boolean
           description: Show one unpaged chapter list, including all grey rows and unfolded older runs.

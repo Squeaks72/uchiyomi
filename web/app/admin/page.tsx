@@ -1560,7 +1560,7 @@ function LibrariesSection() {
   const anyMembers = (people?.content ?? []).some((u) => u.role !== 'admin');
   // Uchiyomi Desktop keeps libraries and their age rating but not who may open them (lib/desktop.ts).
   const desktopLibs = isDesktop();
-  const refresh = () => { for (const k of [['admin-libraries'], ['admin-users'], ['library'], ['home']]) qc.invalidateQueries({ queryKey: k }); };
+  const refresh = () => { for (const k of [['admin-libraries'], ['libraries'], ['admin-users'], ['library'], ['home']]) qc.invalidateQueries({ queryKey: k }); };
 
   const openNew = (from = { name: '', paths: [] as string[] }) => { setStart(from); setAdding(true); setEditing(null); };
   const openEdit = (l: LibraryRow) => { setEditing(l); setAdding(false); };

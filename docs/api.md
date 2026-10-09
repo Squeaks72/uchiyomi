@@ -1447,6 +1447,7 @@ accepted and retained for compatibility. v0.55.8 validates three public keys:
   the legacy first three nonempty Lists; `[]` explicitly means no Home List rails. A selected empty List keeps its
   slot. Home ignores an already-stored stale/unowned id and the web app omits it on the next edit; the API refuses a
   request that tries to add one.
+- `homeRows: { order: string[], hidden: string[] }`, how this account arranged Home. Row ids are `continue`, `updates`, `favorites`, `because`, `rated`, `collections`, `added` and `top`; a row left out of `order` follows the listed ones in the default order, and the API refuses an unknown id.
 - `showAllChapters: boolean`, the account-wide unpaged chapter-list switch.
 
 The earlier `reader` object (including `coverEdges`) and `listSorts` map remain additive keys on the same object.

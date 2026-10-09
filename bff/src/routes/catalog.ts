@@ -387,6 +387,9 @@ export default async function catalogRoutes(app: FastifyInstance) {
                          WHERE p.user_id = ${uidP} AND p.series_id = r.series_id AND p.completed = false
                            -- not a notice chapter the admin hides (lib/noticeChapters.ts): it is no chapter to resume
                            AND NOT ${noticeBook('p.book_id')}
+                           -- nor one whose pages were deleted: a pruned half-read chapter used to win here and
+                           -- then be dropped below, taking the whole series out of the row with it
+                           AND EXISTS (SELECT 1 FROM lib_books pb WHERE pb.id = p.book_id AND pb.pruned_at IS NULL)
                          ORDER BY p.updated_at DESC LIMIT 1),
                       -- otherwise the lowest-numbered chapter you have not finished
                       (SELECT b.id FROM lib_books b

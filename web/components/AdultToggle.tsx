@@ -13,6 +13,7 @@ export function useLibraries() {
     queryKey: ['libraries'],
     queryFn: () => api<LibraryRow[]>('/api/libraries'),
     staleTime: 5 * 60 * 1000,
+    refetchOnMount: 'always',
   });
 }
 

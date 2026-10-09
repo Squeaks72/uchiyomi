@@ -1169,6 +1169,12 @@ export default async function personalRoutes(app: FastifyInstance) {
       }
       data.homeCollections = ids;
     }
+    if ('homeRows' in data) {
+      const rows = z.enum(['continue', 'updates', 'favorites', 'because', 'rated', 'collections', 'added', 'top']);
+      const parsed = z.object({ order: z.array(rows).max(16), hidden: z.array(rows).max(16) }).safeParse(data.homeRows);
+      if (!parsed.success) return reply.code(400).send({ error: 'bad_settings', message: 'Choose valid Home rows.' });
+      data.homeRows = { order: [...new Set(parsed.data.order)], hidden: [...new Set(parsed.data.hidden)] };
+    }
     await q(
       `INSERT INTO app_settings (user_id, data) VALUES ($1, $2::jsonb)
        ON CONFLICT (user_id) DO UPDATE SET data = app_settings.data || EXCLUDED.data`,
