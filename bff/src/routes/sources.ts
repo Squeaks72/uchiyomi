@@ -1406,6 +1406,8 @@ export async function addSeriesFromSource(opts: {
    * checked that `of` is a series its viewer may open.
    */
   edition?: { of: string; lang?: string; ofLang?: string };
+  /** File the series under this library's first folder, so the folder rule puts it there. Absent: the root, as ever. */
+  libraryId?: string;
 }): Promise<AddResult> {
   const { source, sourceId, force, chapterCount, chapterFrom, autoUpdate } = opts;
   const src = source ? getSource(source) : null;
@@ -1464,6 +1466,13 @@ export async function addSeriesFromSource(opts: {
   // library root: no source-name level. Two different works that share a title would share the folder -- the
   // same trade the edition suffix below already makes for languages.
   // An edition's folder carries its language (lib/editions.ts editionFolder), so it never lands in the original's.
+  // A chosen library files the title under that library's own first folder, so the folder rule (libraryIdFor) keeps
+  // it there and the files land in that library's root. The default library has no folder to name.
+  const libFolder = opts.libraryId
+    ? (await one<{ path: string }>(
+        `SELECT lp.path FROM library_paths lp JOIN libraries l ON l.id = lp.library_id
+          WHERE l.id = $1 ORDER BY lp.path <> l.path, lp.path LIMIT 1`, [opts.libraryId]))?.path ?? ''
+    : '';
   let folder = edition ? editionFolder('', title, edition.lang) : sanitize(title);
   // ⚠️ Desktop, case-insensitive disks (NTFS, APFS): a source that now spells the title `Solo leveling`
   // still downloads into the existing `Solo Leveling` folder, and the scanner reads that folder back with
@@ -1475,6 +1484,7 @@ export async function addSeriesFromSource(opts: {
       'SELECT folder FROM lib_series WHERE lower(folder) = lower($1) ORDER BY (deleted_at IS NOT NULL), created_at LIMIT 1', [folder]);
     folder = stored?.folder ?? await diskSpelling([DL_ROOT, LIBRARY_ROOT], folder);
   }
+  if (libFolder) folder = `${libFolder}/${folder}`;
 
   // A deleted series does not count as present: re-adding it is how you undo a delete from the app side.
   const existing = await one<{ id: string; deleted_at: string | null }>(
@@ -3689,6 +3699,8 @@ export default async function sourceRoutes(app: FastifyInstance) {
       source: z.string(), sourceId: z.string(), force: z.boolean().optional(),
       chapterCount: z.number().int().positive().optional(), chapterFrom: z.enum(['oldest', 'newest', 'none']).optional(),
       autoUpdate: z.boolean().optional(),
+      // The library to file it in (absent: the root, which the default library holds).
+      libraryId: z.string().min(1).max(64).optional(),
       alsoFollow: z.array(z.object({ source: z.string().min(1).max(200), sourceId: z.string().min(1).max(200) })).max(MAX_AUTO_CANDIDATES).optional(),
       // "Archive the rest slowly" (#117): what the selection leaves is queued for the slow archive.
       archive: z.boolean().optional(),
@@ -3715,6 +3727,11 @@ export default async function sourceRoutes(app: FastifyInstance) {
     // through exactly as if the switch had been off (no judgement, no carrier card). The dialog hides the
     // switch from members; this is the server's half of that.
     const alsoFollow = roleOf(req) === 'admin' ? b.data.alsoFollow : undefined;
+    if (b.data.libraryId) {
+      if (!(await one('SELECT 1 FROM libraries WHERE id = $1', [b.data.libraryId]))) return reply.code(404).send({ error: 'no_such_library' });
+      const allowed = vc(req).libraryIds;
+      if (allowed && !allowed.includes(b.data.libraryId)) return reply.code(403).send({ error: 'forbidden' });
+    }
     // canDownload is now checked for the whole plugin in the preHandler above, including this route.
     if (!sourceAllowedFor(getSource(source), vc(req).maxAgeRating)) return denySource(reply);
     // `wait: false` -- answer once the decision is made and download afterwards. Everything that decides
@@ -3729,7 +3746,7 @@ export default async function sourceRoutes(app: FastifyInstance) {
     const r = await addSeriesFromSource({
       source, sourceId, force, chapterCount, chapterFrom, autoUpdate, wait: false,
       alsoFollow, userId: userIdOf(req), req, sourceAllowed: (s) => sourceAllowedFor(getSource(s), maxAge),
-      numbering: b.data.numbering,
+      numbering: b.data.numbering, libraryId: b.data.libraryId,
       ...(b.data.archive ? { archive: { by: userIdOf(req), ctx: vc(req) } } : {}),
       ...(b.data.edition ? { edition: b.data.edition } : {}),
     });

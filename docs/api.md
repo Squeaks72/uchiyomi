@@ -284,6 +284,7 @@ Everything that decides the answer still happens inline and still gets its own s
 server-wide), **409** `duplicate` (with the "add anyway" message), and **200** with `chapters: 0`
 for a title already in the library. A successful reply now carries `started: true`, which is what
 distinguishes "downloading now" from "already had it" — previously only `chapters === 0` said so.
+It also takes an optional `libraryId`: the series is filed under that library's first folder (so its files are in that library's root); **404** `no_such_library`, **403** for a library the account may not open.
 
 A successful reply also carries **`seriesId`**: the library id of the series the add landed on — the row it
 found already there, the one it minted, the one it revived, or the one it stamped with nothing left to

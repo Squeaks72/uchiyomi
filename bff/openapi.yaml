@@ -3960,6 +3960,12 @@ paths:
                   type: boolean
                 force:
                   type: boolean
+                libraryId:
+                  type: string
+                  description: >-
+                    File the series in this library, under its first folder, so its files land in that library's
+                    root. Absent (or the default library) keeps the root. 404 no_such_library when unknown, 403 when
+                    the account may not open that library.
                 numbering:
                   type: string
                   enum: [auto, source, posting_order]
