@@ -51,6 +51,9 @@ export function ReaderSettings({
   onSourceDefault,
   seriesPinned,
   onResetSeries,
+  modeNote,
+  libraryName,
+  onLibraryDefault,
 }: {
   prefs: ReaderPrefs;
   set: (p: Partial<ReaderPrefs>) => void;
@@ -65,6 +68,11 @@ export function ReaderSettings({
   seriesPinned?: boolean;
   /** Forget this series' own look so it follows its source and the profile again. */
   onResetSeries?: () => void;
+  /** Where the reading mode in force came from, in words, so a guess is never mistaken for a choice. */
+  modeNote?: string;
+  /** Admins: the library this series is in, and the key that saves the current look as its defaults. */
+  libraryName?: string;
+  onLibraryDefault?: () => void;
 }) {
   // A sheet on the notices' layer stack (lib/layers.ts). It runs to the bottom edge, so it does not leave the
   // nav band free -- the reader has no nav there anyway -- and its panel is measured, so a notice rises above
@@ -121,6 +129,7 @@ export function ReaderSettings({
               </Choice>
             ))}
           </div>
+          {modeNote && <p className="mt-1.5 text-[11px] leading-snug text-fog-500" data-mode-note>{modeNote}</p>}
         </Row>
 
         {prefs.mode === 'paged' && (
@@ -157,6 +166,13 @@ export function ReaderSettings({
           from it at once, instead of the global default being wrong for half the library or each series
           having to be corrected by hand. A series you have already adjusted still wins over this.
         */}
+        {libraryName && onLibraryDefault && (
+          <Row label={tr('This library')}>
+            <button onClick={onLibraryDefault} className="w-full rounded-2xl border border-ink-700 py-3 text-sm text-fog-300" data-library-default>
+              {tr('Use these settings for every series in {library}', { library: libraryName })}
+            </button>
+          </Row>
+        )}
         {sourceName && onSourceDefault && (
           <Row label={tr('This source')}>
             <div className="grid gap-2">
