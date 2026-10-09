@@ -187,9 +187,9 @@ function LibraryInner() {
     }
   };
 
-  // Replace the library selection. Nothing, or everything, is "all"; a selection equal to the defaults needs no param.
+  // Replace the library selection. Nothing selected is "all"; picking every library stays a list, so the last chip you tap is never swallowed; a selection equal to the defaults needs no param.
   const setLibs = (next: string[]) => {
-    const everything = next.length === 0 || next.length >= libs.length;
+    const everything = next.length === 0;
     const sameAsDefaults = next.length === defaultLibs.length && next.every((x) => defaultLibs.includes(x));
     if (everything) setParam('lib', defaultsNarrow ? '*' : '');
     else if (sameAsDefaults && defaultsNarrow) setParam('lib', '');
