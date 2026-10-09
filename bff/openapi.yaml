@@ -229,7 +229,7 @@ components:
         reader:
           type: object
           additionalProperties: true
-          description: Reader defaults, including `coverEdges` since v0.55.7 and `autoMode` (default true: pick the reading mode from page shape and kind of comic).
+          description: Reader defaults, including `coverEdges` since v0.55.7 and `autoMode` (default true, which picks the reading mode from page shape and kind of comic).
         listSorts:
           type: object
           additionalProperties:
