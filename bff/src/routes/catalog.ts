@@ -324,13 +324,37 @@ export default async function catalogRoutes(app: FastifyInstance) {
     };
   });
 
+  // "Remove from Keep reading": the series stays in the library and only leaves that row, until it is read again.
+  app.put('/api/keep-reading/:seriesId', async (req) => {
+    const uid = userIdOf(req);
+    const { seriesId } = req.params as { seriesId: string };
+    const { hidden } = z.object({ hidden: z.boolean() }).parse(req.body);
+    if (hidden) {
+      await q(`INSERT INTO keep_reading_hidden (user_id, series_id) VALUES ($1, $2)
+               ON CONFLICT (user_id, series_id) DO UPDATE SET hidden_at = now()`, [uid, seriesId]);
+    } else {
+      await q('DELETE FROM keep_reading_hidden WHERE user_id = $1 AND series_id = $2', [uid, seriesId]);
+    }
+    return { ok: true, hidden };
+  });
+
   app.get('/api/home', async (req) => {
     const uid = userIdOf(req);
     const admin = NATIVE_PROGRESS && roleOf(req) === 'admin';
 
     let onDeckP: Promise<any[]>;
     if (admin) {
-      onDeckP = komga.booksOnDeck(vc(req), 0, 20).then((r: any) => r.content).catch(() => []);
+      onDeckP = komga.booksOnDeck(vc(req), 0, 20).then((r: any) => r.content).catch(() => [])
+        .then(async (books: any[]) => {
+          if (!books.length) return books;
+          const gone = await q<{ series_id: string }>(
+            `SELECT h.series_id FROM keep_reading_hidden h
+              WHERE h.user_id = $1 AND h.hidden_at >= COALESCE((SELECT max(updated_at) FROM read_progress rp WHERE rp.user_id = h.user_id AND rp.series_id = h.series_id), '-infinity')`,
+            [uid],
+          ).catch(() => []);
+          const hide = new Set(gone.map((r) => r.series_id));
+          return hide.size ? books.filter((b) => !hide.has(b.seriesId)) : books;
+        });
     } else {
       onDeckP = (async () => {
         // One row per series you have been reading lately: the chapter you are part-way through, or -- if you
@@ -381,6 +405,9 @@ export default async function catalogRoutes(app: FastifyInstance) {
            )
            SELECT book_id FROM pick
             WHERE book_id IS NOT NULL      -- a series you have finished entirely drops out, correctly
+              -- "Remove from Keep reading": hidden until it is read again
+              AND NOT EXISTS (SELECT 1 FROM keep_reading_hidden h
+                               WHERE h.user_id = ${uidP} AND h.series_id = pick.series_id AND h.hidden_at >= pick.last_read)
             ORDER BY last_read DESC
             LIMIT ${p.add(ON_DECK_LIMIT)}`,
           p.values as any[],
