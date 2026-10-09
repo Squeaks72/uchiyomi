@@ -204,7 +204,7 @@ export function ContinueCard({ book, eager = false }: { book: Book; eager?: bool
 export function SeriesTile({ series, eager = false, selectable, selected, onToggle, note }: {
   series: Series; eager?: boolean;
   /** select mode: the tile stops navigating and toggles instead */
-  selectable?: boolean; selected?: boolean; onToggle?: () => void;
+  selectable?: boolean; selected?: boolean; onToggle?: (e: { shiftKey: boolean }) => void;
   /**
    * One quiet line under the title (v0.58.0): in the Library, the value the shelf is sorted by -- "312K on AniList",
    * "★ 4/5", "Read 3d ago" (lib/sortValue.ts). Nothing when empty.
