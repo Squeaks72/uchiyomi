@@ -1064,11 +1064,21 @@ function SeriesInner() {
   const setStars = async (n: number) => {
     const before = rating;
     const clearing = n === before;
-    setRating(clearing ? null : n);
+    const next = clearing ? null : n;
+    // A refetch already in flight carries the old rating and would land after this tap, resetting the stars
+    // to what the page had: cancel it and write the tap into the cached series so later refetches agree.
+    await qc.cancelQueries({ queryKey: ['series', id] });
+    const patch = (r: number | null) => qc.setQueryData<Series>(['series', id], (old) => (old?.yomi ? { ...old, yomi: { ...old.yomi, rating: r } } : old));
+    setRating(next);
+    patch(next);
     try {
       if (clearing) await api(`/api/ratings/${id}`, { method: 'DELETE' });
       else await api(`/api/ratings/${id}`, { method: 'PUT', json: { stars: n } });
-    } catch { setRating(before); }
+    } catch (e) {
+      setRating(before);
+      patch(before);
+      toast(msgOf(e, tr('Could not save')), 'error');
+    }
   };
 
   const toggleDownload = async (bookId: string) => {

@@ -445,3 +445,12 @@ test("an admin's unreadable-chapter card offers Redownload, which refetches that
   assert.match(src, /\/api\/admin\/series\/\$\{c\.seriesId\}\/chapters\/refetch`, \{ method: 'POST', json: \{ bookIds: \[c\.id\] \} \}/, 'Redownload does not refetch the one chapter');
   assert.match(src, /\{isAdmin && !activeChapter\?\.offline && <button onClick=\{redownload\}/, 'Redownload is not an admin-only button on the card');
 });
+
+test("a rating tap cancels in-flight series fetches and is written to the cache, so a refetch cannot reset the stars", () => {
+  // Reintroduce by dropping the cancelQueries/setQueryData: a stale refetch landing after the tap puts the stars back to 0.
+  const src = readFileSync(join(__dirname, '..', 'app/series/page.tsx'), 'utf8');
+  const fn = src.slice(src.indexOf('const setStars = async'), src.indexOf('const toggleDownload'));
+  assert.match(fn, /await qc\.cancelQueries\(\{ queryKey: \['series', id\] \}\)/, 'an in-flight refetch can overwrite the tap');
+  assert.match(fn, /qc\.setQueryData<Series>\(\['series', id\]/, 'the cached series keeps the old rating');
+  assert.match(fn, /toast\(msgOf\(e/, 'a failed save reverts silently');
+});
