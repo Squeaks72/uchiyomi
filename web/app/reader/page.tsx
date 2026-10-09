@@ -31,6 +31,7 @@ import { ChapterSheet } from '@/components/ChapterSheet';
 import { SeriesCard } from '@/components/cards';
 import { IcChevronLeft, IcChevronRight, IcSliders, IcRefresh, IcGrid } from '@/components/icons';
 import { t as tr } from '@/lib/i18n';
+import { guessMode } from '@/lib/lookGuess';
 import { serverReachableHint } from '@/lib/desktop';
 
 interface PageDim { number: number; width: number | null; height: number | null; junk?: boolean; missing?: boolean }
@@ -185,6 +186,7 @@ function ReaderInner() {
   const [seriesSourceNames, setSeriesSourceNames] = useState<Record<string, string>>({});
   // The series' PRIMARY source, which keys the per-source reader default (lib/readerPrefs.ts seriesSourceOf).
   const [seriesSource, setSeriesSource] = useState<{ id: string; name: string } | null>(null);
+  const [seriesKind, setSeriesKind] = useState<string | null>(null);
   const [libraryLook, setLibraryLook] = useState<NonNullable<Series['libraryReader']> | null>(null);
   // The work's language editions (v0.52.0, #72), for the chapter sheet's chips, and each chapter's number, which a
   // switch to another edition opens there. Both from requests the page makes anyway.
@@ -331,6 +333,7 @@ function ReaderInner() {
         if (alive) {
           setRtl(s?.metadata?.readingDirection === 'RIGHT_TO_LEFT');
           setLibraryLook(s?.libraryReader ?? null);
+          setSeriesKind(s?.looksLike ?? null);
           setEditions((s?.edition?.editions?.length ?? 0) > 1 ? s.edition!.editions! : null);
           // The followed sources' display names, for the caption on a page the source never served. Free:
           // this request is made anyway, and `sources` is sent to every viewer, unlike /api/sources.
@@ -902,6 +905,22 @@ function ReaderInner() {
     setZoom(sp.zoom && sp.zoom >= 1 ? sp.zoom : 1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [seriesId, seriesSourceId, libraryLook]);
+
+  // ---- a guess at the reading mode, below everything anyone chose ----
+  //
+  // With no mode from the library, the source or this series' own memory, the shape of the pages (a strip scrolls, a
+  // book page pages) and then the kind of comic decide it, once per series. Never stored: the next chapter guesses
+  // again, and the first change made here pins like any other. Switched off by "Choose the reading mode for me".
+  const guessedFor = useRef('');
+  const firstPages = chapters[0]?.pages;
+  useEffect(() => {
+    if (!seriesId || guessedFor.current === seriesId || !prefs.autoMode || !firstPages?.length) return;
+    if (libraryLook?.mode || loadSeriesPrefs(seriesId).mode || (seriesSourceId && loadSourcePrefs(seriesSourceId).mode)) return;
+    const g = guessMode(firstPages, seriesKind, rtl);
+    if (!g) return;
+    guessedFor.current = seriesId;
+    setPrefs((cur) => (cur.mode === g ? cur : { ...cur, mode: g }));
+  }, [seriesId, firstPages, seriesKind, rtl, libraryLook, seriesSourceId, prefs.autoMode]);
 
   // ---- auto-hide chrome ----
   useEffect(() => {

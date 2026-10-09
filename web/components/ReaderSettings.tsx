@@ -198,6 +198,10 @@ export function ReaderSettings({
           <span className="text-sm font-medium text-fog-200">{tr('Cover colour at the edges')}</span>
           <Switch on={prefs.coverEdges} onChange={(coverEdges) => set({ coverEdges })} label={tr('Cover colour at the edges')} />
         </div>
+        <div className="flex items-center justify-between gap-3 py-3">
+          <span className="text-sm font-medium text-fog-200">{tr('Choose the reading mode for me')}</span>
+          <Switch on={prefs.autoMode} onChange={(autoMode) => set({ autoMode })} label={tr('Choose the reading mode for me')} />
+        </div>
 
         {/* Set in both modes. ⚠️ It cannot LOOK the same in both: a page-by-page view has no thin slide --
             every slide is exactly one viewport wide -- so under Collapse a repeated page is shown there like
