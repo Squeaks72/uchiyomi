@@ -17,8 +17,8 @@ import { Img } from '@/components/ui';
 import { canDownload } from '@/lib/auth';
 import { useExportList } from '@/components/ListShare';
 import { startExport } from '@/lib/exports';
-import { SelectionMenu } from '@/components/SelectionMenu';
 import { CollectionPickerModal } from '@/components/CollectionPicker';
+import { SelectionMenu } from '@/components/SelectionMenu';
 import { selectedText } from '@/lib/counted';
 
 /** The note with any http(s) address made a link; everything else stays plain text. */
@@ -102,10 +102,10 @@ function CollectionInner() {
   // a touchscreen could not see and which now sat on the unread badge.
   const [editing, setEditing] = useState(false);
   const [sorting, setSorting] = useState(false);
-  // Select: tick series (or right-click one) to act on several at once. Apart from Edit, which is for ordering.
+  // Select: tick series to act on several at once. Apart from Edit, which is for ordering.
   const [selecting, setSelecting] = useState(false);
+  const [startAt, setStartAt] = useState<{ x: number; y: number; id: string } | null>(null);
   const [picked, setPicked] = useState<Set<string>>(new Set());
-  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const [listing, setListing] = useState(false);
   const { data, isLoading } = useQuery({
     queryKey: ['collection', id],
@@ -278,11 +278,10 @@ function CollectionInner() {
               </div>
             </div>
           ) : (
-            <div key={s.id} className="contents" onContextMenu={data?.builtin ? undefined : (e) => {
+            <div key={s.id} className="contents" onContextMenu={(e) => {
+              if (selecting) return;
               e.preventDefault();
-              if (!selecting) { setSelecting(true); setPicked(new Set([s.id])); }
-              else if (!picked.has(s.id)) setPicked((p) => new Set(p).add(s.id));
-              setMenu({ x: e.clientX, y: e.clientY });
+              setStartAt({ x: e.clientX, y: e.clientY, id: s.id });
             }}>
               <SeriesTile series={s} selectable={selecting} selected={picked.has(s.id)} onToggle={() => togglePick(s.id)} />
             </div>
@@ -331,17 +330,10 @@ function CollectionInner() {
         </div>
       )}
       {listing && <CollectionPickerModal seriesIds={[...picked]} onClose={() => setListing(false)} onDone={() => { setListing(false); leaveSelect(); }} />}
-      {menu && picked.size > 0 && (
-        <SelectionMenu at={menu} onClose={() => setMenu(null)} title={selectedText(picked.size)}
-          items={[
-            ...(!data?.builtin ? [{ label: tr('Remove from this list'), run: () => void removePicked(), danger: true }] : []),
-            { label: tr('Add to list'), run: () => setListing(true) },
-            { label: tr('Download as zip'), run: zipPicked },
-            { label: tr('Mark read'), run: () => void bulkMark('/api/library/bulk/read', { completed: true }) },
-            { label: tr('Mark unread'), run: () => void bulkMark('/api/library/bulk/read', { completed: false }) },
-            ...(!data?.builtin ? [{ label: tr('Favorite'), run: () => void bulkMark('/api/favorites/bulk', { favorite: true }) }] : []),
-            { label: tr('Select all'), run: () => setPicked(new Set(items.map((x) => x.id))) },
-          ]} />
+
+      {startAt && (
+        <SelectionMenu at={startAt} title={tr('Select')} onClose={() => setStartAt(null)}
+          items={[{ label: tr('Select'), run: () => { setSelecting(true); setPicked(new Set([startAt.id])); } }]} />
       )}
 
       {sorting && (
