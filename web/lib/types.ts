@@ -133,6 +133,8 @@ export interface SeriesEdition {
 }
 
 export interface Series {
+  /** What kind of comic it is (manga, manhwa, ...), for every viewer; null when nothing has said. The reader guesses its mode from it. */
+  looksLike?: string | null;
   /** The reading defaults of the library the series is in; null when it has none. */
   libraryReader?: { mode?: 'vertical' | 'paged'; theme?: 'amoled' | 'sepia' | 'gray'; spread?: boolean; pagedDirection?: 'ltr' | 'rtl' | 'series' } | null;
   /** Whether the scheduled updater fetches new chapters for this series. */

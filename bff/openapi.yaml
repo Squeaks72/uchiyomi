@@ -229,7 +229,7 @@ components:
         reader:
           type: object
           additionalProperties: true
-          description: Reader defaults, including `coverEdges` since v0.55.7.
+          description: Reader defaults, including `coverEdges` since v0.55.7 and `autoMode` (default true: pick the reading mode from page shape and kind of comic).
         listSorts:
           type: object
           additionalProperties:
@@ -1804,6 +1804,9 @@ paths:
                                 current: { type: boolean }
                                 lastRead: { type: [number, "null"] }
                       - type: "null"
+                  looksLike:
+                    description: What kind of comic the series is (manga, manhwa, manhua, webtoon, comic), the admin's override else the evidence's, for every viewer; null when nothing has said. The reader guesses a reading mode from it.
+                    type: [string, "null"]
                   libraryReader:
                     description: The reading defaults of the library the series is in (`mode`, `theme`, `spread`, `pagedDirection`), or null when it has none.
                     type: [object, "null"]

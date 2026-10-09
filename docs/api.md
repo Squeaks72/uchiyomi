@@ -1463,6 +1463,7 @@ The order chosen for each list is kept in the caller's settings, `PUT /api/setti
 "za" | "read" | "unread" | "latest"}}` — the whole map, since the settings merge top-level keys; the list's own order
 is not stored. The reader's defaults are the settings' `reader` object, and since v0.55.7 (#170) it carries
 `coverEdges` (default `true`): `false` takes the cover's colour off the reader's top and bottom edges.
+`autoMode` (default `true`): the reader picks a title's reading mode from the shape of its pages, then from `looksLike` on `GET /api/series/{id}`, when no library, source or series choice exists; `false` leaves the default.
 `homeCollections` controls which zero to three Lists also appear on Home and in what order. Home shows up to twelve
 series per selected rail; an empty selected List reserves its position and appears once it has a series.
 

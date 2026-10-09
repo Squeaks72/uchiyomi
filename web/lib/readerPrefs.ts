@@ -51,6 +51,8 @@ export interface ReaderPrefs {
    * does. Stored settings without the key pick up the default through the spread in `migratePrefs`.
    */
   coverEdges: boolean;
+  /** Pick the reading mode from the pages' shape and the kind of comic when nothing has been chosen for the title (lib/lookGuess.ts). */
+  autoMode: boolean;
 }
 
 export const DEFAULT_PREFS: ReaderPrefs = {
@@ -65,6 +67,7 @@ export const DEFAULT_PREFS: ReaderPrefs = {
   spread: false,
   pagedDirection: 'series',
   coverEdges: true,
+  autoMode: true,
 };
 
 const KEY = 'yomi_reader_prefs';
@@ -108,6 +111,7 @@ export function migratePrefs(raw: unknown): ReaderPrefs {
   if (!PAGED_DIRECTIONS.includes(p.pagedDirection)) p.pagedDirection = DEFAULT_PREFS.pagedDirection;
   // Only a real `false` turns the edges off: anything else out of storage keeps the default look.
   if (typeof p.coverEdges !== 'boolean') p.coverEdges = DEFAULT_PREFS.coverEdges;
+  if (typeof p.autoMode !== 'boolean') p.autoMode = DEFAULT_PREFS.autoMode;
   p.skipJunk = p.junkPages !== 'show';
   return p;
 }

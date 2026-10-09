@@ -2,7 +2,7 @@
   "_meta": {
     "language": "de",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 4152
+    "strings": 4153
   },
   "1 check found something": "1 Prüfung hat etwas gefunden",
   "1 member": "1 Mitglied",
@@ -4157,5 +4157,6 @@
   "Redownload this chapter": "Dieses Kapitel erneut herunterladen",
   "Reading defaults": "Reading defaults",
   "Used for every series in this library, unless the series or its source has its own.": "Used for every series in this library, unless the series or its source has its own.",
-  "Use my default": "Use my default"
+  "Use my default": "Use my default",
+  "Choose the reading mode for me": "Choose the reading mode for me"
 }
