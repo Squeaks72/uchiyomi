@@ -62,6 +62,7 @@ import opdsRoutes from './routes/opds';
 import komgaCompatRoutes from './routes/komgaCompat';
 import notifyRoutes from './routes/notify';
 import { isDesktop } from './lib/desktop';
+import { healFolderCase } from './lib/libraryFolders';
 import { loadSourceRatings } from './lib/sourceRatings';
 import { installDesktopGuards } from './lib/desktopGuard';
 import { ensureDesktopUser } from './lib/desktopUser';
@@ -69,6 +70,7 @@ import { initialiseBulkChapterDeleteRuns } from './lib/bulkChapterDelete';
 
 async function main() {
   await migrate();
+  await healFolderCase().catch((e) => console.warn(`[library] could not respell renamed folders: ${(e as Error)?.message || e}`));
   await initExports();
   // The language of sources and series that do not say (lib/lang.ts), before anything compares languages. A
   // database that cannot be read here leaves English, the default, and never stops the boot.

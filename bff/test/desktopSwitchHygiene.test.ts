@@ -251,6 +251,6 @@ test('typed library paths are stored with `/`, and on desktop in the spelling th
   const folders = code(read('lib/libraryFolders.ts'));
   assert.match(folders, /const typed = trimTrailingSlashes\(toStoredRel\(r\)\.replace\(/, 'a library\'s folder skips toStoredRel');
   assert.match(folders, /const path = await diskSpelling\(\[LIBRARY_ROOT, DL_ROOT\], typed\);/, 'a library\'s folder skips diskSpelling');
-  assert.equal(admin.match(/await storedFolders\(/g)?.length, 4, 'the preview, the create or the edit takes a folder without storedFolders');
+  assert.equal(admin.match(/await storedFolders\(/g)?.length, 7, 'the preview, the create, the edit, the gather or the relocate takes a folder without storedFolders');
   assert.match(code(read('lib/libraryAdmin.ts')), /const typed = toStoredRel\(newFolder\)\.replace\(/, 'the rename destination skips toStoredRel');
 });
