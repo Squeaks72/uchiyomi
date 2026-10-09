@@ -75,6 +75,26 @@ export function tapZone(x: number, width: number): TapZone {
   return 'chrome';
 }
 
+/**
+ * A webtoon's tap zones, laid out the way Mihon's default does: the top third and the left of the middle band
+ * scroll back, the bottom third and the right of the middle band scroll on, the centre is the controls.
+ */
+export function scrollZone(x: number, y: number, width: number, height: number): TapZone {
+  const fx = x / Math.max(1, width);
+  const fy = y / Math.max(1, height);
+  if (fy < 0.33) return 'back';
+  if (fy >= 0.66) return 'forward';
+  if (fx < 0.33) return 'back';
+  if (fx >= 0.66) return 'forward';
+  return 'chrome';
+}
+
+/** How far a tap on a scroll zone moves the page: three quarters of the screen, as Mihon does. */
+export const TAP_SCROLL_FRACTION = 0.75;
+
+/** How far the page must move under the controls before they put themselves away (Mihon's default). */
+export const CHROME_HIDE_SCROLL_PX = 31;
+
 /** The delay before a single tap may act. Equal to the double window, which is the point of this module. */
 export function singleTapDelay(): number {
   return TAP_WINDOW_MS;
@@ -94,15 +114,17 @@ export function readTap(args: {
   doubleDetect: boolean;
   /** When the last double (touch or mouse) was recognised; 0 when there is none. */
   lastDoubleAt?: number;
+  /** Decides the zone from where the press ended; the default is the pager's thirds across the width. */
+  zoneOf?: (x: number, y: number) => TapZone;
 }): TapAction {
-  const { from, to, width, lastTapAt, doubleDetect, lastDoubleAt = 0 } = args;
+  const { from, to, width, lastTapAt, doubleDetect, lastDoubleAt = 0, zoneOf } = args;
   if (!isTap(from, to)) return { kind: 'none' };
   // ⚠️ A third press right behind a double is the tail of the same flurry, not a new single. Without this a
   // triple-click (or a triple-tap) zoomed and then, 300 ms later, turned a page: the double reset the pairing
   // state, so the third press looked like the first of a fresh gesture.
   if (lastDoubleAt > 0 && to.t - lastDoubleAt < TAP_WINDOW_MS) return { kind: 'none' };
   if (doubleDetect && lastTapAt > 0 && to.t - lastTapAt < TAP_WINDOW_MS) return { kind: 'double' };
-  return { kind: 'single', zone: tapZone(to.x, width), after: singleTapDelay() };
+  return { kind: 'single', zone: zoneOf ? zoneOf(to.x, to.y) : tapZone(to.x, width), after: singleTapDelay() };
 }
 
 /** Whether a `dblclick` arriving at `now` should take back a single click's action from `at`. */

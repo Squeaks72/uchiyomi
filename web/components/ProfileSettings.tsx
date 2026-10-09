@@ -289,6 +289,9 @@ function ReadingSection({ weeklyGoal }: { weeklyGoal: number }) {
       <SwitchRow label={tr('Cover colour at the edges')}
         help={tr('A soft wash of the cover’s colour across the top and bottom of the reader.')}
         on={prefs.coverEdges} onChange={(coverEdges) => set({ coverEdges })} />
+      <SwitchRow label={tr('Tap the top or bottom to scroll')}
+        help={tr('On a touch screen, a tap near the top or bottom of a webtoon scrolls it three quarters of a screen; the middle brings up the controls.')}
+        on={prefs.tapScroll} onChange={(tapScroll) => set({ tapScroll })} />
       {prefs.mode === 'paged' && (
         <Choice label={tr('Pages per view')} value={prefs.spread ? 'double' : 'single'}
           options={[{ value: 'single', label: tr('Single') }, { value: 'double', label: tr('Double spread') }]}

@@ -6,7 +6,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  TAP_WINDOW_MS, UNDO_WINDOW_MS, isTap, readTap, singleTapDelay, tapZone, undoLeft, undoWindow,
+  TAP_WINDOW_MS, UNDO_WINDOW_MS, isTap, readTap, scrollZone, singleTapDelay, tapZone, TAP_SCROLL_FRACTION, CHROME_HIDE_SCROLL_PX, undoLeft, undoWindow,
 } from '../lib/readerGesture';
 
 const at = (t: number, x = 500, y = 400) => ({ x, y, t });
@@ -103,4 +103,25 @@ test('a finger toggles the interface only from the middle of the screen', () => 
   assert.equal(tapMayToggleChrome('touch', 'back'), false);
   assert.equal(tapMayToggleChrome('touch', 'forward'), false);
   assert.equal(tapMayToggleChrome('mouse', 'back'), true);
+});
+
+test('a webtoon\'s zones are the L: top and bottom thirds, then the sides of the middle band', () => {
+  const z = (x: number, y: number) => scrollZone(x, y, 1000, 2000);
+  assert.equal(z(500, 100), 'back');
+  assert.equal(z(900, 100), 'back');
+  assert.equal(z(100, 1000), 'back');
+  assert.equal(z(900, 1000), 'forward');
+  assert.equal(z(500, 1900), 'forward');
+  assert.equal(z(100, 1900), 'forward');
+  assert.equal(z(500, 1000), 'chrome');
+  assert.equal(TAP_SCROLL_FRACTION, 0.75);
+  assert.equal(CHROME_HIDE_SCROLL_PX, 31);
+});
+
+test('readTap takes its zone from zoneOf when given one', () => {
+  const act = readTap({
+    from: { x: 500, y: 1900, t: 0 }, to: { x: 500, y: 1900, t: 50 }, width: 1000,
+    lastTapAt: 0, doubleDetect: true, zoneOf: (x, y) => scrollZone(x, y, 1000, 2000),
+  });
+  assert.deepEqual(act, { kind: 'single', zone: 'forward', after: TAP_WINDOW_MS });
 });

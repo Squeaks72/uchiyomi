@@ -214,6 +214,12 @@ export function ReaderSettings({
           <span className="text-sm font-medium text-fog-200">{tr('Cover colour at the edges')}</span>
           <Switch on={prefs.coverEdges} onChange={(coverEdges) => set({ coverEdges })} label={tr('Cover colour at the edges')} />
         </div>
+        {prefs.mode === 'vertical' && (
+          <div className="flex items-center justify-between gap-3 py-3">
+            <span className="text-sm font-medium text-fog-200">{tr('Tap the top or bottom to scroll')}</span>
+            <Switch on={prefs.tapScroll} onChange={(tapScroll) => set({ tapScroll })} label={tr('Tap the top or bottom to scroll')} />
+          </div>
+        )}
         <div className="flex items-center justify-between gap-3 py-3">
           <span className="text-sm font-medium text-fog-200">{tr('Choose the reading mode for me')}</span>
           <Switch on={prefs.autoMode} onChange={(autoMode) => set({ autoMode })} label={tr('Choose the reading mode for me')} />

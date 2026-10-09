@@ -85,3 +85,11 @@ test('the cover colour at the edges stays on until it is switched off, for every
   assert.deepEqual(globalPrefsChange({ coverEdges: false }, true), { coverEdges: false }, 'switched off with a title open, the default did not change');
   assert.equal(seriesPinChange({ coverEdges: false }, { ...DEFAULT_PREFS, coverEdges: false }), null, "switched off in the reader, it pinned the title's look");
 });
+
+test('tap-to-scroll is on by default and only a real false turns it off', () => {
+  assert.equal(DEFAULT_PREFS.tapScroll, true);
+  assert.equal(migratePrefs({ theme: 'sepia' }).tapScroll, true, 'a reader stored before the switch gets the default');
+  assert.equal(migratePrefs({ tapScroll: false }).tapScroll, false);
+  assert.equal(migratePrefs({ tapScroll: 'no' } as never).tapScroll, true);
+  assert.ok(!(LOOK_KEYS as readonly string[]).includes('tapScroll'), 'tap-scroll is not a title\'s look');
+});

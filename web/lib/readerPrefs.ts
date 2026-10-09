@@ -53,6 +53,8 @@ export interface ReaderPrefs {
   coverEdges: boolean;
   /** Pick the reading mode from the pages' shape and the kind of comic when nothing has been chosen for the title (lib/lookGuess.ts). */
   autoMode: boolean;
+  /** Touch: a tap on the top or bottom of a webtoon scrolls it three quarters of a screen, the middle brings up the controls. */
+  tapScroll: boolean;
 }
 
 export const DEFAULT_PREFS: ReaderPrefs = {
@@ -68,6 +70,7 @@ export const DEFAULT_PREFS: ReaderPrefs = {
   pagedDirection: 'series',
   coverEdges: true,
   autoMode: true,
+  tapScroll: true,
 };
 
 const KEY = 'yomi_reader_prefs';
@@ -112,6 +115,7 @@ export function migratePrefs(raw: unknown): ReaderPrefs {
   // Only a real `false` turns the edges off: anything else out of storage keeps the default look.
   if (typeof p.coverEdges !== 'boolean') p.coverEdges = DEFAULT_PREFS.coverEdges;
   if (typeof p.autoMode !== 'boolean') p.autoMode = DEFAULT_PREFS.autoMode;
+  if (typeof p.tapScroll !== 'boolean') p.tapScroll = DEFAULT_PREFS.tapScroll;
   p.skipJunk = p.junkPages !== 'show';
   return p;
 }

@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import sharp from 'sharp';
+import { fitPageWidth } from '../lib/pageFit';
 import { IMG_COOKIE, API_TOKEN_PREFIX, resolveApiToken, resolveOpdsBasic } from '../lib/auth';
 import { komga, komgaImage } from '../lib/komga';
 import { serveImage, getOrFetch } from '../lib/imageCache';
@@ -673,8 +674,7 @@ export const serveLibBookPage = async (req: FastifyRequest, reply: FastifyReply,
     return serveImage(req, reply, `lib-page:${id}:${pageNo}:w${w}`, async () => {
       const page = await pageOrGone(abs, pageNo - 1);
       if (!page) throw Object.assign(new Error('no page'), { statusCode: 404 });
-      const buffer = await sharp(page.bytes).resize({ width: w, withoutEnlargement: true }).webp({ quality: 74 }).toBuffer();
-      return { buffer, contentType: 'image/webp' };
+      return fitPageWidth(page.bytes, w, libCt(page.name));
     });
   }
   return serveImage(req, reply, `lib-page:${id}:${pageNo}`, async () => {
@@ -799,9 +799,8 @@ export default async function imageRoutes(app: FastifyInstance) {
 
     if (w && Number.isInteger(w) && w >= 64 && w <= 2000) {
       return serveImage(req, reply, `page:${id}:${pageNo}:w${w}`, async () => {
-        const input = await fetchUpstream(komga.bookPagePath(id, pageNo));
-        const buffer = await sharp(input).resize({ width: w, withoutEnlargement: true }).webp({ quality: 74 }).toBuffer();
-        return { buffer, contentType: 'image/webp' };
+        const up = await fetchUpstreamWithType(komga.bookPagePath(id, pageNo));
+        return fitPageWidth(up.buffer, w, up.contentType);
       });
     }
 

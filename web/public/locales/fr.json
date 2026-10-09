@@ -2,7 +2,7 @@
   "_meta": {
     "language": "fr",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 4160
+    "strings": 4162
   },
   "1 check found something": "1 vérification a trouvé quelque chose",
   "1 member": "1 membre",
@@ -4165,5 +4165,7 @@
   "Chosen for you from the pages. Change it and it is kept for this series.": "Chosen for you from the pages. Change it and it is kept for this series.",
   "This library": "This library",
   "Use these settings for every series in {library}": "Use these settings for every series in {library}",
-  "Saved as the default for {library}.": "Saved as the default for {library}."
+  "Saved as the default for {library}.": "Saved as the default for {library}.",
+  "Tap the top or bottom to scroll": "Toucher le haut ou le bas pour faire défiler",
+  "On a touch screen, a tap near the top or bottom of a webtoon scrolls it three quarters of a screen; the middle brings up the controls.": "Sur un écran tactile, toucher près du haut ou du bas d’un webtoon le fait défiler de trois quarts d’écran ; le centre affiche les commandes."
 }
