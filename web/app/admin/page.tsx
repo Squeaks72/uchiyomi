@@ -44,6 +44,7 @@ import { StatusEdge, StatusMark } from '@/components/StatusMark';
 import { TONE_SURFACE, healthMark } from '@/lib/status';
 import Link from 'next/link';
 import { healthLinks } from '@/lib/healthLinks';
+import { FindSourceLink, SeriesRowTools } from '@/components/FindSourceLink';
 import { useLayer } from '@/lib/layers';
 import { SourceHealthBody } from '@/components/SourceHealthBody';
 import { releaseHref, shownVersion, updateState, type UpdateState } from '@/lib/versionLine';
@@ -2124,13 +2125,18 @@ function Health() {
                         // Two lines, never cut: "Öffnen · Einstellungen der Q…" hid which settings it opens (the
                         // arrow is held to the last word by a no-break space).
                         links={healthLinks(c.id, it).map((l) => (
-                          <Link key={l.href} href={l.href} className="line-clamp-2 max-w-[11rem] break-words text-end text-xs text-accent hover:underline"
+                          it.seriesId && l.href.endsWith('&attach=1')
+                            ? <FindSourceLink key={l.href} id={it.seriesId} className="line-clamp-2 max-w-[11rem] break-words text-end text-xs text-accent hover:underline" />
+                            : <Link key={l.href} href={l.href} className="line-clamp-2 max-w-[11rem] break-words text-end text-xs text-accent hover:underline"
                             title={l.label} aria-label={l.label ? `${tr('Open')}: ${l.label}` : undefined}
                             // A page off the app (the install guide, v0.52.0) opens beside it, never in place of it.
                             {...(/^https?:\/\//.test(l.href) ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>
                             {l.label ? `${tr('Open')} · ${l.label}` : tr('Open')}{'\u00a0'}›
                           </Link>
-                        ))}>
+                        )).concat(it.seriesId && c.id !== 'duplicates' ? [
+                          <SeriesRowTools key="tools" id={it.seriesId} title={it.title} details={c.id === 'details'}
+                            className="line-clamp-2 max-w-[11rem] break-words text-end text-xs text-accent hover:underline" />,
+                        ] : [])}>
                         {/* The server's words, in the reader's language where it sent their codes (lib/said.ts) and
                             in English where it could not (a folder's own error); a title in any script: `dir="auto"`,
                             or in an Arabic page a sentence's full stop and closing bracket land at its start. */}
