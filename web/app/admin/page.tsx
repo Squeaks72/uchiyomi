@@ -1365,6 +1365,7 @@ function LibraryDialog({ editing, start, libs, onClose, onSaved }: {
           <div className="mt-2 grid grid-cols-2 gap-2">
             {([
               ['mode', tr('Reading mode'), [['vertical', tr('Webtoon (scroll)')], ['paged', tr('Paged (swipe)')]]],
+              ['theme', tr('Page tone'), [['amoled', tr('AMOLED')], ['sepia', tr('Sepia')], ['gray', tr('Gray')]]],
               ['spread', tr('Pages per view'), [['false', tr('Single')], ['true', tr('Double spread')]]],
               ['pagedDirection', tr('Reading direction'), [['series', tr('Follow the series')], ['ltr', tr('Left to right')], ['rtl', tr('Right to left')]]],
             ] as const).map(([k, label, opts]) => (
