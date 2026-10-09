@@ -1272,7 +1272,22 @@ function LibraryDialog({ editing, start, libs, onClose, onSaved }: {
     setTyped('');
   };
 
+  const [asking, setAsking] = useState<string[] | null>(null);
+  // Folders taken out of the list: ask first whether the series in them should go somewhere, since otherwise the
+  // next scan hands them to whichever library holds the old place.
   const save = async () => {
+    const removed = editing && !isLib && !unchanged ? foldersOf(editing).filter((p) => !folders.includes(p)) : [];
+    if (removed.length) {
+      setBusy(true);
+      try {
+        const r = await api<{ total: number }>(`/api/admin/libraries/${editing!.id}/relocate`, { method: 'POST', json: { folders: removed, keep: folders, target: 'moved', dryRun: true } });
+        if (r.total > 0) { setAsking(removed); setBusy(false); return; }
+      } catch { /* the question is a courtesy: if it cannot be asked the save goes ahead as it always did */ }
+      setBusy(false);
+    }
+    await commit();
+  };
+  const commit = async () => {
     setBusy(true);
     try {
       const ageRating = age === '' ? null : Number(age);
@@ -1300,6 +1315,12 @@ function LibraryDialog({ editing, start, libs, onClose, onSaved }: {
   return (
     <Modal title={editing ? tr('Edit library') : tr('New library')} onClose={onClose}>
       <div data-library-dialog={editing?.id ?? 'new'}>
+        {asking && editing && (
+          <RemovedFoldersPrompt lib={editing} removed={asking} keep={folders}
+            onSkip={() => { setAsking(null); void commit(); }}
+            onMoved={() => { setAsking(null); void commit(); }}
+            onCancel={() => setAsking(null)} />
+        )}
         <label htmlFor="library-name" className="mb-1 block text-xs font-semibold uppercase tracking-wider text-fog-500">{tr('Name')}</label>
         <input id="library-name" value={name} onChange={(e) => setName(e.target.value)} className="field" />
 
@@ -1389,7 +1410,7 @@ function LibraryDialog({ editing, start, libs, onClose, onSaved }: {
                 {label}
                 <select value={look[k]} onChange={(e) => setLook({ ...look, [k]: e.target.value })}
                   className="mt-1 w-full rounded-md border border-ink-700 bg-ink-900 px-2 py-1.5 text-xs text-fog-200" data-library-look={k}>
-                  <option value="">{tr('Use my default')}</option>
+                  <option value="">{tr('Use user default')}</option>
                   {opts.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                 </select>
               </label>
@@ -1422,12 +1443,9 @@ type GatherAnswer = {
   sample: { from: string; to: string }[];
 };
 
-/** Move every series of a library under one folder, dropping the source-name level. Previewed first, then confirmed with a second press. */
-function GatherSeries({ lib, onDone, pending }: { lib: LibraryRow; onDone: () => void; pending: boolean }) {
-  const toast = useToast();
-  const roots = lib.id === 'lib' && !foldersOf(lib).length ? [''] : foldersOf(lib);
-  // A small folder browser: tap a folder to go into it (it becomes the destination), or make a new one inside it.
-  const [target, setTarget] = useState(roots[0] ?? '');
+/** The state of a folder browser that picks one destination: where it is, whether it is still at the top, a name being typed. */
+function useTargetFolder(roots: string[], initial: string, onNavigate?: () => void) {
+  const [target, setTarget] = useState(initial);
   const [top, setTop] = useState(false);
   const [fresh, setFresh] = useState('');
   const listed = useQuery({
@@ -1438,12 +1456,11 @@ function GatherSeries({ lib, onDone, pending }: { lib: LibraryRow; onDone: () =>
     retry: false,
   });
   const children = top ? roots.filter((r) => r) : (listed.data?.folders.map((f) => f.path) ?? []);
-  const leaf = (p: string) => p.slice(p.lastIndexOf('/') + 1) || p;
   const inRoots = roots.includes(target);
   const parentOf = target.includes('/') ? target.slice(0, target.lastIndexOf('/')) : '';
   const canUp = !top && (inRoots ? roots.length > 1 : true);
-  const goUp = () => { setPlan(null); if (inRoots) setTop(true); else setTarget(parentOf); };
-  const enter = (p: string) => { setPlan(null); setTop(false); setTarget(p); };
+  const goUp = () => { onNavigate?.(); if (inRoots) setTop(true); else setTarget(parentOf); };
+  const enter = (p: string) => { onNavigate?.(); setTop(false); setTarget(p); };
   const makeNew = () => {
     const name = fresh.trim().replace(/[\\/]+/g, ' ').trim();
     if (!name) return;
@@ -1451,7 +1468,116 @@ function GatherSeries({ lib, onDone, pending }: { lib: LibraryRow; onDone: () =>
     setFresh('');
   };
   const isNew = !top && !!target && !listed.isLoading && listed.isError;
+  return { target, top, fresh, setFresh, listed, children, canUp, goUp, enter, makeNew, isNew };
+}
+
+function TargetFolderPicker({ pick, label }: { pick: ReturnType<typeof useTargetFolder>; roots?: string[]; label: string }) {
+  const { target, top, fresh, setFresh, listed, children, canUp, goUp, enter, makeNew, isNew } = pick;
+  const leaf = (p: string) => p.slice(p.lastIndexOf('/') + 1) || p;
+  return (
+    <>
+        <p className="text-[11px] text-fog-500">{label}</p>
+        <p className="mt-0.5 break-all font-mono text-sm text-fog-50" dir="ltr" data-gather-target>
+          {top ? tr('Choose a folder below') : target || tr('(library root)')}
+          {isNew && <span className="ms-2 font-sans text-[11px] text-emerald-300">{tr('new, created when you move')}</span>}
+        </p>
+        <ul data-lenis-prevent data-gather-folders className="mt-2 max-h-44 overflow-y-auto rounded-md border border-ink-700 bg-ink-950/50 p-1">
+          {canUp && (
+            <li><button type="button" onClick={goUp} className="block w-full rounded px-2 py-1.5 text-start text-sm text-fog-300 hover:bg-ink-800/60">↑ {tr('Up one level')}</button></li>
+          )}
+          {children.map((c) => (
+            <li key={c}><button type="button" onClick={() => enter(c)} dir="ltr" title={c}
+              className="block w-full truncate rounded px-2 py-1.5 text-start font-mono text-sm text-fog-100 hover:bg-ink-800/60">{leaf(c)}</button></li>
+          ))}
+          {!top && !listed.isLoading && !children.length && <li className="px-2 py-1.5 text-xs text-fog-500">{tr('No folders inside this one.')}</li>}
+        </ul>
+        <div className="mt-2 flex gap-2">
+          <input value={fresh} onChange={(e) => setFresh(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); makeNew(); } }}
+            disabled={top} aria-label={tr('New folder name')} placeholder={tr('New folder name')} autoComplete="off" dir="auto" className="field min-w-0 flex-1" />
+          <button type="button" onClick={makeNew} disabled={top || !fresh.trim()} className="btn-key h-auto self-stretch">{tr('New folder here')}</button>
+        </div>
+    </>
+  );
+}
+
+/** Asked when Save would take folders out of a library: move the series in them into a new folder first, or leave them. */
+function RemovedFoldersPrompt({ lib, removed, keep, onSkip, onMoved, onCancel }: {
+  lib: LibraryRow; removed: string[]; keep: string[]; onSkip: () => void; onMoved: () => void; onCancel: () => void;
+}) {
+  const toast = useToast();
+  const [plan, setPlan] = useState<(GatherAnswer & { total: number }) | null>(null);
+  const pick = useTargetFolder([''], '', () => setPlan(null));
+  const [busy, setBusy] = useState(false);
+  const { armed, arm, disarm } = useArmed();
+  const ask = async (dryRun: boolean) => {
+    setBusy(true);
+    try {
+      const r = await api<GatherAnswer & { total: number }>(`/api/admin/libraries/${lib.id}/relocate`, {
+        method: 'POST', json: { folders: removed, keep, target: pick.target.trim(), dryRun } });
+      setPlan(r);
+      if (!dryRun) {
+        toast(tr('{n} series moved', { n: r.moved }), r.moved > 0 || !r.problems.length ? 'success' : 'error');
+        if (!r.problems.length) onMoved();
+      }
+    } catch (e) { toast(msgOf(e, tr('Could not move the series')), 'error'); }
+    setBusy(false);
+    disarm();
+  };
+  const ready = !!pick.target.trim() && !pick.top;
+  return (
+    <Modal title={tr('Move the series first?')} onClose={onCancel}>
+      <div data-library-removed-prompt>
+        <p className="text-sm text-fog-300">{tr('You are taking these folders out of the library:')}</p>
+        <ul className="mt-1 space-y-0.5 font-mono text-xs text-fog-200" dir="ltr">
+          {removed.map((p) => <li key={p} className="truncate">{p}</li>)}
+        </ul>
+        <p className="mt-2 text-xs text-fog-500">{tr('The series in them would stay where they are on disk and move to whichever library holds that place. Or move them into a new folder now, which keeps them together.')}</p>
+        <div className="mt-3 rounded-lg border border-ink-700 bg-ink-900/40 p-3">
+          <TargetFolderPicker pick={pick} label={tr('Move them into')} />
+          <button type="button" onClick={() => ask(true)} disabled={busy || !ready} className="btn-key mt-2 w-full">{tr('Preview')}</button>
+          {plan && (
+            <div role="status" className="mt-2 text-[11px] leading-relaxed text-fog-400">
+              {plan.planned === 1 ? tr('1 series would move.') : tr('{n} series would move.', { n: plan.planned })}
+              {plan.sample.length > 0 && (
+                <ul className="mt-1 space-y-0.5 font-mono text-fog-500">
+                  {plan.sample.map((m) => <li key={m.from} className="truncate" dir="ltr">{m.from} → {m.to}</li>)}
+                </ul>
+              )}
+              {plan.problems.length > 0 && (
+                <ul className="mt-2 max-h-48 space-y-2 overflow-y-auto text-amber-300" data-lenis-prevent>
+                  {plan.problems.map((m) => (
+                    <li key={m.id} className="rounded-md border border-amber-500/30 bg-ink-950/50 p-2 text-fog-300">
+                      <span className="block break-words font-medium text-amber-200">{m.title}</span>
+                      {m.reason && <span className="block break-words">{m.reason}</span>}
+                      {m.fix && <span className="block break-words text-fog-400">{m.fix}</span>}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+          {plan && plan.planned > 0 && (
+            <ArmButton type="button" armed={armed} arm={arm} onConfirm={() => void ask(false)} busy={busy} disabled={busy} className="btn-key mt-2">
+              {plan.planned === 1 ? tr('Move 1 series, then save') : tr('Move {n} series, then save', { n: plan.planned })}
+            </ArmButton>
+          )}
+        </div>
+        <div className="mt-4 flex justify-end gap-2">
+          <button type="button" onClick={onCancel} className="btn-key">{tr('Back')}</button>
+          <button type="button" onClick={onSkip} className="btn-key">{tr('Save without moving')}</button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+/** Move every series of a library under one folder, dropping the source-name level. Previewed first, then confirmed with a second press. */
+function GatherSeries({ lib, onDone, pending }: { lib: LibraryRow; onDone: () => void; pending: boolean }) {
+  const toast = useToast();
+  const roots = lib.id === 'lib' && !foldersOf(lib).length ? [''] : foldersOf(lib);
   const [plan, setPlan] = useState<GatherAnswer | null>(null);
+  const pick = useTargetFolder(roots, roots[0] ?? '', () => setPlan(null));
+  const { target, top } = pick;
   const [busy, setBusy] = useState(false);
   const { armed, arm, disarm } = useArmed();
   const ask = async (dryRun: boolean) => {
@@ -1475,26 +1601,7 @@ function GatherSeries({ lib, onDone, pending }: { lib: LibraryRow; onDone: () =>
       </p>
       {pending && <p role="status" className="mb-2 text-[11px] text-amber-300">{tr('Save your folder changes first. This works on the folders as saved.')}</p>}
       <fieldset disabled={pending} className="min-w-0 border-0 p-0">
-        <p className="text-[11px] text-fog-500">{tr('Gather into')}</p>
-        <p className="mt-0.5 break-all font-mono text-sm text-fog-50" dir="ltr" data-gather-target>
-          {top ? tr('Choose a folder below') : target || tr('(library root)')}
-          {isNew && <span className="ms-2 font-sans text-[11px] text-emerald-300">{tr('new, created when you move')}</span>}
-        </p>
-        <ul data-lenis-prevent data-gather-folders className="mt-2 max-h-44 overflow-y-auto rounded-md border border-ink-700 bg-ink-950/50 p-1">
-          {canUp && (
-            <li><button type="button" onClick={goUp} className="block w-full rounded px-2 py-1.5 text-start text-sm text-fog-300 hover:bg-ink-800/60">↑ {tr('Up one level')}</button></li>
-          )}
-          {children.map((c) => (
-            <li key={c}><button type="button" onClick={() => enter(c)} dir="ltr" title={c}
-              className="block w-full truncate rounded px-2 py-1.5 text-start font-mono text-sm text-fog-100 hover:bg-ink-800/60">{leaf(c)}</button></li>
-          ))}
-          {!top && !listed.isLoading && !children.length && <li className="px-2 py-1.5 text-xs text-fog-500">{tr('No folders inside this one.')}</li>}
-        </ul>
-        <div className="mt-2 flex gap-2">
-          <input value={fresh} onChange={(e) => setFresh(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); makeNew(); } }}
-            disabled={top} aria-label={tr('New folder name')} placeholder={tr('New folder name')} autoComplete="off" dir="auto" className="field min-w-0 flex-1" />
-          <button type="button" onClick={makeNew} disabled={top || !fresh.trim()} className="btn-key h-auto self-stretch">{tr('New folder here')}</button>
-        </div>
+        <TargetFolderPicker pick={pick} roots={roots} label={tr('Gather into')} />
         <button type="button" onClick={() => ask(true)} disabled={busy || pending || top} className="btn-key mt-2 w-full">{tr('Preview')}</button>
       </fieldset>
       {plan && (

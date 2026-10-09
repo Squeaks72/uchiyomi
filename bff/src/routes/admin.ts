@@ -13,7 +13,7 @@ import { content as komga } from '../lib/backend';
 import { cacheBytes } from '../lib/imageCache';
 import { runtime } from '../lib/runtime';
 import { persistScan, libraryIdFor, libraryRows, LIBRARY_ROOT, DL_ROOT, setBookDates, setBookMeta } from '../lib/library';
-import { applyMoves, heldElsewhere, lockLibrarySaves, previewMoves, setFolders, storedFolders, underSql, LIBRARY_MAX_FOLDERS } from '../lib/libraryFolders';
+import { applyMoves, heldElsewhere, lockLibrarySaves, previewMoves, setFolders, storedFolders, healFolderCase, underSql, LIBRARY_MAX_FOLDERS } from '../lib/libraryFolders';
 import { containedPath, allWritable, realContainedPath } from '../lib/fsGuard';
 import { removeChapters, restoreRemoved, removedNumbers } from '../lib/chapterRemovals';
 import { deleteSeries, restoreSeries, mergeSeries, mergeRefusal, MergeConflictError, getSeriesRow, deleteSeriesFiles, renameSeriesFolder, forgetSeries, diskSpelling, deleteChapterFiles } from '../lib/libraryAdmin';
@@ -2962,6 +2962,7 @@ export default async function adminRoutes(app: FastifyInstance) {
   // library into several named after scrapers. Library zero covers the whole root and always exists.
 
   app.get('/api/admin/libraries', async () => {
+    await healFolderCase().catch(() => 0);
     const rows = await q<{ id: string; name: string; path: string; paths: string[]; age_rating: number | null; anilist_lookup: boolean; default_visible: boolean; reader_prefs: unknown; n: number; pinned: number; members: string[] }>(
       // `paths`: every folder it holds (v0.55.1, #148), the first -- `path`, all a v0.55.0 reads -- first, then by name.
       `SELECT l.id, l.name, l.path, l.age_rating, l.anilist_lookup, l.default_visible, l.reader_prefs,
@@ -3322,6 +3323,13 @@ export default async function adminRoutes(app: FastifyInstance) {
         } catch (e) { m.status = 'refused'; m.reason = (e as Error).message; }
         finally { claim.release(); }
       }
+      // The folder the series were gathered into is one of the library's folders from now on, so the list shows
+      // where they went. Not for the default library (it has no list) and not when it already is one, or is
+      // another library's own folder.
+      const gathered = moves.some((m) => m.status === 'moved');
+      if (gathered && id !== 'lib' && target && !mine.includes(target) && !others.includes(target)) {
+        await q('INSERT INTO library_paths (library_id, path) VALUES ($1, $2) ON CONFLICT (path) DO NOTHING', [id, target]);
+      }
       await logAudit('library.consolidate', {
         userId: userIdOf(req), detail: { id, target, moved: moves.filter((m) => m.status === 'moved').length }, req });
     }
@@ -3330,6 +3338,72 @@ export default async function adminRoutes(app: FastifyInstance) {
       dryRun: !!b.data.dryRun, target,
       planned: count('planned'), moved: count('moved'), same: count('same'),
       problems: moves.filter((m) => ['conflict', 'outside', 'refused'].includes(m.status)),
+      sample: moves.filter((m) => m.status === 'planned' || m.status === 'moved').slice(0, 5).map((m) => ({ from: m.from, to: m.to })),
+    };
+  });
+
+  // Before folders are taken out of a library: move the series that live in them to <target>/<series folder name>,
+  // so they are not handed to whichever library holds the old place. `folders` are the ones being removed, `keep`
+  // the ones the library will still hold. dryRun answers what would happen and touches nothing.
+  app.post('/api/admin/libraries/:id/relocate', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const b = z.object({
+      folders: z.array(z.string().max(300)).min(1).max(LIBRARY_MAX_FOLDERS),
+      keep: z.array(z.string().max(300)).max(LIBRARY_MAX_FOLDERS).optional(),
+      target: z.string().min(1).max(300),
+      dryRun: z.boolean().optional(),
+    }).safeParse(req.body);
+    if (!b.success) return reply.code(400).send({ error: 'bad_request' });
+    if (id === 'lib') return reply.code(400).send({ error: 'bad_request', message: 'The default library has no folder list.' });
+    if (!(await one('SELECT 1 FROM libraries WHERE id = $1', [id]))) return reply.code(404).send({ error: 'not_found' });
+    const target = (await storedFolders([b.data.target]))?.[0];
+    const leaving = await storedFolders(b.data.folders);
+    const keep = b.data.keep?.length ? (await storedFolders(b.data.keep)) : [];
+    if (!target || !leaving || !keep) return reply.code(400).send({ error: 'bad_path', message: 'Use a folder path relative to your library root.' });
+    const under = (f: string, p: string) => f === p || f.startsWith(`${p}/`);
+    // Not into a folder that is being removed, nor one the library keeps: that would not take them out.
+    if (leaving.some((p) => under(target, p))) return reply.code(400).send({ error: 'bad_path', message: 'Pick a folder outside the ones you are removing.' });
+    const all = await q<{ id: string; title: string; folder: string }>(
+      `SELECT s.id, s.title, s.folder FROM lib_series s WHERE s.library_id = $1 AND ${visibleToAll('s')} ORDER BY s.folder`, [id]);
+    const rows = all.filter((r) => leaving.some((p) => under(r.folder, p)) && !keep.some((p) => under(r.folder, p)));
+    const takenRows = await q<{ folder: string; id: string; title: string }>(`SELECT s.folder, s.id, s.title FROM lib_series s WHERE ${visibleToAll('s')}`);
+    const taken = new Map(takenRows.map((r) => [r.folder, r]));
+    const claimed = new Map<string, string>();
+    type Move = { id: string; title: string; from: string; to: string; status: 'planned' | 'conflict' | 'moved' | 'refused'; reason?: string; fix?: string };
+    const moves: Move[] = rows.map((r) => {
+      const leaf = r.folder.slice(r.folder.lastIndexOf('/') + 1);
+      const to = `${target}/${leaf}`;
+      const m: Move = { id: r.id, title: r.title, from: r.folder, to, status: 'planned' };
+      if (claimed.has(to.toLowerCase())) {
+        m.status = 'conflict';
+        m.reason = `Another series in this move ("${claimed.get(to.toLowerCase())}") also has the folder name "${leaf}", so both would land in "${to}".`;
+        m.fix = 'Rename one of the two folders, then try again.';
+      } else if (taken.has(to) && taken.get(to)!.id !== r.id) {
+        m.status = 'conflict';
+        m.reason = `"${to}" is already the folder of "${taken.get(to)!.title}".`;
+        m.fix = 'Rename one of the two folders, or merge the series, then try again.';
+      } else claimed.set(to.toLowerCase(), r.title);
+      return m;
+    });
+    if (!b.data.dryRun) {
+      for (const m of moves) {
+        if (m.status !== 'planned') continue;
+        const claim = claimSeriesWriter([m.id], [m.from, m.to]);
+        if (!claim) { m.status = 'refused'; m.reason = 'Another task (a download, scan or rename) is using that series right now.'; m.fix = 'Try again when it has finished.'; continue; }
+        try {
+          const r = await renameSeriesFolder(m.id, m.to);
+          if (r.ok) m.status = 'moved'; else { m.status = 'refused'; m.reason = r.reason; m.fix = (r as { fix?: string }).fix; }
+        } catch (e) { m.status = 'refused'; m.reason = (e as Error).message; }
+        finally { claim.release(); }
+      }
+      await logAudit('library.relocate', {
+        userId: userIdOf(req), detail: { id, target, moved: moves.filter((m) => m.status === 'moved').length }, req });
+    }
+    const count = (st: Move['status']) => moves.filter((m) => m.status === st).length;
+    return {
+      dryRun: !!b.data.dryRun, target, total: moves.length,
+      planned: count('planned'), moved: count('moved'),
+      problems: moves.filter((m) => m.status === 'conflict' || m.status === 'refused'),
       sample: moves.filter((m) => m.status === 'planned' || m.status === 'moved').slice(0, 5).map((m) => ({ from: m.from, to: m.to })),
     };
   });

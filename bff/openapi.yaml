@@ -10210,6 +10210,55 @@ paths:
           description: "Forbidden: token scope, account permission or age limit"
         "404":
           description: not_found -- no such library.
+  /api/admin/libraries/{id}/relocate:
+    post:
+      tags:
+        - admin
+      summary: Move the series of folders about to leave a library into a new folder.
+      operationId: postApiAdminLibrariesIdRelocate
+      description: >-
+        Requires an admin account and a token carrying the admin scope. The series of this library that live in
+        `folders` (and in none of `keep`) are renamed on disk to `<target>/<last segment of their folder>`.
+        `dryRun: true` answers what would move and changes nothing. Series that would clash are left alone and
+        listed under `problems`.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [folders, target]
+              properties:
+                folders:
+                  type: array
+                  items: { type: string, maxLength: 300 }
+                keep:
+                  type: array
+                  items: { type: string, maxLength: 300 }
+                target:
+                  type: string
+                  maxLength: 300
+                dryRun:
+                  type: boolean
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: "`{dryRun, target, total, planned, moved, problems, sample}`."
+        "400":
+          description: bad_request or bad_path.
+        "401":
+          description: Not authenticated
+        "403":
+          description: "Forbidden: token scope, account permission or age limit"
+        "404":
+          description: not_found -- no such library.
   /api/admin/libraries/{id}:
     patch:
       tags:

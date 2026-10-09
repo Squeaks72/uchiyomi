@@ -1576,6 +1576,7 @@ GET    /api/admin/libraries/preview
 GET    /api/admin/libraries/folders
 PATCH  /api/admin/libraries/:id   DELETE /api/admin/libraries/:id
 POST   /api/admin/libraries/:id/consolidate
+POST   /api/admin/libraries/:id/relocate
 POST   /api/admin/series/bulk/genres
 POST   /api/admin/series/:id/library
 POST   /api/admin/series/library

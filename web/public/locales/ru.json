@@ -2,7 +2,7 @@
   "_meta": {
     "language": "ru",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 4199
+    "strings": 4210
   },
   "1 check found something": "1 проверка нашла проблему",
   "1 member": "1 участник",
@@ -4204,5 +4204,16 @@
   "Tap a day to see everything you read.": "Tap a day to see everything you read.",
   "Nothing read on this day.": "Nothing read on this day.",
   "Could not load": "Could not load",
-  "{done} finished, {total} opened.": "{done} finished, {total} opened."
+  "{done} finished, {total} opened.": "{done} finished, {total} opened.",
+  "Use user default": "Use user default",
+  "Could not move the series": "Could not move the series",
+  "Move the series first?": "Move the series first?",
+  "You are taking these folders out of the library:": "You are taking these folders out of the library:",
+  "The series in them would stay where they are on disk and move to whichever library holds that place. Or move them into a new folder now, which keeps them together.": "The series in them would stay where they are on disk and move to whichever library holds that place. Or move them into a new folder now, which keeps them together.",
+  "Move them into": "Move them into",
+  "1 series would move.": "1 series would move.",
+  "{n} series would move.": "{n} series would move.",
+  "Move 1 series, then save": "Move 1 series, then save",
+  "Move {n} series, then save": "Move {n} series, then save",
+  "Save without moving": "Save without moving"
 }

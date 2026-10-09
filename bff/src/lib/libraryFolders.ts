@@ -9,6 +9,7 @@
 //
 // The preview runs the same statement and stops short of the UPDATE, so the count it promises is what the save does.
 import { visibleToAll } from './visibility';
+import { q } from './db';
 import { diskSpelling } from './libraryAdmin';
 import { LIBRARY_ROOT, DL_ROOT } from './library';
 import { toStoredRel, trimTrailingSlashes } from './relPath';
@@ -132,4 +133,55 @@ export async function setFolders(qq: Qq, id: string, paths: string[]): Promise<v
   await qq('DELETE FROM library_paths WHERE library_id = $1', [id]);
   await qq('INSERT INTO library_paths (library_id, path) SELECT $1, p FROM unnest($2::text[]) AS p', [id, paths]);
   await qq('UPDATE libraries SET path = $2 WHERE id = $1', [id, paths[0]]);
+}
+
+/**
+ * A folder renamed on disk only in its case (`Hentai` -> `hentai`, in a file manager) leaves the library holding a
+ * spelling that no longer exists: the browser lists both, and the old one matches no series. Respell each stored
+ * folder that is gone to the one folder that answers to it in another case. Where the right spelling is already held
+ * (by this library the old one is dropped, by another it is left alone). Folders that match nothing are never touched.
+ */
+async function otherCase(rel: string): Promise<string> {
+  const { readdir } = await import('node:fs/promises');
+  const { join } = await import('node:path');
+  const fold = (x: string) => x.normalize('NFC').toLowerCase();
+  let best: string[] = [];
+  const segs = rel.split('/');
+  for (const root of [LIBRARY_ROOT, DL_ROOT]) {
+    const got: string[] = [];
+    let dir = root;
+    for (const seg of segs) {
+      const names = await readdir(dir).catch(() => null);
+      const same = names?.filter((n) => fold(n) === fold(seg)) ?? [];
+      const hit = names?.includes(seg) ? seg : same.length === 1 ? same[0] : undefined;
+      if (!hit) break;
+      got.push(hit);
+      dir = join(dir, hit);
+    }
+    if (got.length > best.length) best = got;
+  }
+  return [...best, ...segs.slice(best.length)].join('/');
+}
+
+export async function healFolderCase(): Promise<number> {
+  const { stat } = await import('node:fs/promises');
+  const { join } = await import('node:path');
+  const rows = await q<{ library_id: string; path: string }>('SELECT library_id, path FROM library_paths');
+  const held = new Map(rows.map((r) => [r.path, r.library_id]));
+  let healed = 0;
+  for (const r of rows) {
+    const there = await Promise.all([LIBRARY_ROOT, DL_ROOT].map((root) => stat(join(root, r.path)).then((s) => s.isDirectory()).catch(() => false)));
+    if (there.some(Boolean)) continue;
+    const fixed = await otherCase(r.path);
+    if (fixed === r.path) continue;
+    const real = await Promise.all([LIBRARY_ROOT, DL_ROOT].map((root) => stat(join(root, fixed)).then((s) => s.isDirectory()).catch(() => false)));
+    if (!real.some(Boolean)) continue;
+    const owner = held.get(fixed);
+    if (owner && owner !== r.library_id) continue;
+    await q('DELETE FROM library_paths WHERE library_id = $1 AND path = $2', [r.library_id, r.path]);
+    if (!owner) await q('INSERT INTO library_paths (library_id, path) VALUES ($1, $2) ON CONFLICT (path) DO NOTHING', [r.library_id, fixed]);
+    await q('UPDATE libraries SET path = $2 WHERE id = $1 AND path = $3', [r.library_id, fixed, r.path]);
+    healed++;
+  }
+  return healed;
 }
