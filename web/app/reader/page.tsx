@@ -186,6 +186,8 @@ function ReaderInner() {
   const [seriesSourceNames, setSeriesSourceNames] = useState<Record<string, string>>({});
   // The series' PRIMARY source, which keys the per-source reader default (lib/readerPrefs.ts seriesSourceOf).
   const [seriesSource, setSeriesSource] = useState<{ id: string; name: string } | null>(null);
+  const [seriesLibrary, setSeriesLibrary] = useState<{ id: string; name: string } | null>(null);
+  const [guessedMode, setGuessedMode] = useState(false);
   const [seriesKind, setSeriesKind] = useState<string | null>(null);
   const [libraryLook, setLibraryLook] = useState<NonNullable<Series['libraryReader']> | null>(null);
   // The work's language editions (v0.52.0, #72), for the chapter sheet's chips, and each chapter's number, which a
@@ -334,6 +336,7 @@ function ReaderInner() {
           setRtl(s?.metadata?.readingDirection === 'RIGHT_TO_LEFT');
           setLibraryLook(s?.libraryReader ?? null);
           setSeriesKind(s?.looksLike ?? null);
+          setSeriesLibrary(s?.library ?? null);
           setEditions((s?.edition?.editions?.length ?? 0) > 1 ? s.edition!.editions! : null);
           // The followed sources' display names, for the caption on a page the source never served. Free:
           // this request is made anyway, and `sources` is sent to every viewer, unlike /api/sources.
@@ -925,6 +928,7 @@ function ReaderInner() {
     const g = guessMode(firstPages, seriesKind, rtl);
     if (!g) return;
     guessedFor.current = seriesId;
+    setGuessedMode(true);
     setPrefs((cur) => (cur.mode === g ? cur : { ...cur, mode: g }));
   }, [seriesId, firstPages, seriesKind, rtl, libraryLook, seriesSourceId, prefs.autoMode]);
 
@@ -1513,6 +1517,21 @@ function ReaderInner() {
               if (!seriesSource) return;
               if (save) saveSourcePrefs(seriesSource.id, { mode: prefs.mode, theme: prefs.theme, spread: prefs.spread, pagedDirection: prefs.pagedDirection });
               else clearSourcePrefs(seriesSource.id);
+              setShowSettings(false);
+            }}
+            modeNote={
+              seriesId0 && loadSeriesPrefs(seriesId0).mode ? tr('Saved for this series.')
+              : libraryLook?.mode ? tr("From this library's reading defaults.")
+              : seriesSource && loadSourcePrefs(seriesSource.id).mode ? tr("From this source's default.")
+              : guessedMode ? tr('Chosen for you from the pages. Change it and it is kept for this series.')
+              : undefined
+            }
+            libraryName={seriesLibrary?.name}
+            onLibraryDefault={() => {
+              if (!seriesLibrary) return;
+              api(`/api/admin/libraries/${seriesLibrary.id}`, { method: 'PATCH', json: { readerPrefs: { mode: prefs.mode, theme: prefs.theme, spread: prefs.spread, pagedDirection: prefs.pagedDirection } } })
+                .then(() => { setLibraryLook({ mode: prefs.mode, theme: prefs.theme, spread: prefs.spread, pagedDirection: prefs.pagedDirection }); toast(tr('Saved as the default for {library}.', { library: seriesLibrary.name })); })
+                .catch((e) => toast(msgOf(e, tr('Could not save')), 'error'));
               setShowSettings(false);
             }}
             seriesPinned={!!seriesId0 && hasSeriesLook(seriesId0)}

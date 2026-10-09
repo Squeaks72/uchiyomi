@@ -1807,6 +1807,12 @@ paths:
                   looksLike:
                     description: What kind of comic the series is (manga, manhwa, manhua, webtoon, comic), the admin's override else the evidence's, for every viewer; null when nothing has said. The reader guesses a reading mode from it.
                     type: [string, "null"]
+                  library:
+                    description: Admins only. The library the series is in, for the reader's key that saves the current look as that library's reading defaults.
+                    type: object
+                    properties:
+                      id: { type: string }
+                      name: { type: string }
                   libraryReader:
                     description: The reading defaults of the library the series is in (`mode`, `theme`, `spread`, `pagedDirection`), or null when it has none.
                     type: [object, "null"]

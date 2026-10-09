@@ -28,3 +28,12 @@ test('the pages beat the kind', () => {
   assert.equal(guessMode(book, 'webtoon', false), 'paged');
   assert.equal(modeFromKind('unknown', false), null);
 });
+
+import { readFileSync } from 'fs';
+import { join } from 'path';
+test('the reader says where the mode came from, and an admin can save the look as the library default', () => {
+  const src = readFileSync(join(__dirname, '..', 'app/reader/page.tsx'), 'utf8');
+  assert.match(src, /Chosen for you from the pages/, 'a guess is not labelled as one');
+  assert.match(src, /readerPrefs: \{ mode: prefs\.mode/, 'the library default key does not send the look');
+  assert.match(src, /if \(!seriesId \|\| guessedFor\.current === seriesId \|\| !prefs\.autoMode/, 'the guess runs more than once or ignores the switch');
+});

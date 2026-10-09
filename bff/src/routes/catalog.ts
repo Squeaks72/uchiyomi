@@ -523,12 +523,14 @@ export default async function catalogRoutes(app: FastifyInstance) {
     out.sources = await seriesSourcesFor(id).catch(() => []);
     // The reading defaults of the library it sits in (lib/libraryReader.ts); null when it has none. Every viewer gets
     // them: they are layered under the source's and the series' own in the reader.
-    const lr = await one<{ p: unknown; t: string | null }>(
-      `SELECT l.reader_prefs AS p, coalesce((SELECT o.series_type FROM series_overrides o WHERE o.series_id = s.id), s.series_type) AS t
+    const lr = await one<{ p: unknown; t: string | null; lid: string | null; lname: string | null }>(
+      `SELECT l.id AS lid, l.name AS lname, l.reader_prefs AS p, coalesce((SELECT o.series_type FROM series_overrides o WHERE o.series_id = s.id), s.series_type) AS t
          FROM lib_series s LEFT JOIN libraries l ON l.id = s.library_id WHERE s.id = $1`, [id]);
     out.libraryReader = cleanLibraryReader(lr?.p);
     // What kind of comic it is, for every viewer: the reader guesses a reading mode from it when nothing says otherwise.
     out.looksLike = lr?.t ?? null;
+    // Admins only: which library it is in, for the reader's "use these settings for the library" key.
+    if (roleOf(req) === 'admin' && lr?.lid) out.library = { id: lr.lid, name: lr.lname };
     // v0.52.0 (#72): the other language editions of this work this viewer may open, for the series page's switcher
     // and the reader's; null for a series on its own. `lang` (the DTO's) is the language it is in.
     out.edition = await editionInfo(id, vc(req), userIdOf(req)).catch(() => null);
