@@ -137,9 +137,22 @@ function LibraryInner() {
   // the page, so a value read once would not follow it. Downloads only for a viewer who may download.
   const mayDownload = authStatus === 'authed' && canDownload(user);
   const view: LibraryView = readView(params.get('view'), mayDownload);
-  useEffect(() => { setSelecting(false); setPicked(new Set()); }, [read, status, genres.join(','), sortKey, lib, src, anysrc, view]);
-  const togglePick = (id: string) =>
-    setPicked((p) => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  useEffect(() => { setSelecting(false); setPicked(new Set()); anchor.current = null; }, [read, status, genres.join(','), sortKey, lib, src, anysrc, view]);
+  // The last tile clicked: Shift+click selects everything between it and the next one, as a file explorer does.
+  const anchor = useRef<string | null>(null);
+  const itemsRef = useRef<Array<{ id: string }>>([]);
+  const togglePick = (id: string, shiftKey = false) => {
+    const ids = itemsRef.current.map((x) => x.id);
+    const from = shiftKey && anchor.current ? ids.indexOf(anchor.current) : -1;
+    const to = ids.indexOf(id);
+    if (from >= 0 && to >= 0) {
+      const [lo, hi] = from < to ? [from, to] : [to, from];
+      setPicked((p) => new Set([...p, ...ids.slice(lo, hi + 1)]));
+    } else {
+      setPicked((p) => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; });
+    }
+    anchor.current = id;
+  };
   // ⚠️ `lib` counts. It used to be left out because it lived in its own tab rail rather than in the sheet,
   // so selecting a library filtered the grid while the badge said nothing was filtered and the "· filtered"
   // hint stayed dark. Now that every way to narrow the shelf is in one panel, every one of them counts.
@@ -503,6 +516,7 @@ function LibraryInner() {
   }, [hasNextPage, isFetchingNextPage, fetchNextPage, view]);
 
   const items = data?.pages.flatMap((p) => p.content) ?? [];
+  itemsRef.current = items;
   const total = data?.pages[0]?.totalElements;
 
   const series = view === 'series';
@@ -684,7 +698,7 @@ function LibraryInner() {
                 setMenu({ x: e.clientX, y: e.clientY });
               }}>
                 <SeriesTile series={s} eager={i < 12}
-                  selectable={selecting} selected={picked.has(s.id)} onToggle={() => togglePick(s.id)} />
+                  selectable={selecting} selected={picked.has(s.id)} onToggle={(e) => togglePick(s.id, e.shiftKey)} />
               </div>
             ))}
       </div>

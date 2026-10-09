@@ -307,19 +307,6 @@ export function LibraryFilters({ sort, read, status, genres, lib, libs, mainSrc,
         </Chips>
       </section>
 
-      {/* Only with a choice to make: two sources, or for Main source one source and series with none (#149), whose
-          "No source" makes two -- a library with no source at all has nothing to narrow. Empty on a Komga backend (no
-          sources there, and `none` is 0), so neither section renders and no condition a Komga server would refuse is
-          ever sent. */}
-      {(sources.length > 1 || (sources.length > 0 && (none > 0 || mainSrc === NO_SOURCE))) && (
-        <SourceSection title={tr('Main source')} help={tr('Series added from this source.')}
-          rows={sources} none={none} count={(s) => s.main} value={mainSrc} onPick={(id) => onSet('src', id)} />
-      )}
-      {sources.length > 1 && (
-        <SourceSection title={tr('Any source')} help={tr('Series that read from this source, as their main source or a followed one.')}
-          rows={sources} count={(s) => s.any} value={anySrc} onPick={(id) => onSet('anysrc', id)} />
-      )}
-
       {formats.length > 0 && (
         <section>
           <Eyebrow>{tr('Format')}</Eyebrow>
@@ -362,6 +349,19 @@ export function LibraryFilters({ sort, read, status, genres, lib, libs, mainSrc,
           </button>
         )}
       </section>
+
+      {/* Only with a choice to make: two sources, or for Main source one source and series with none (#149), whose
+          "No source" makes two -- a library with no source at all has nothing to narrow. Empty on a Komga backend (no
+          sources there, and `none` is 0), so neither section renders and no condition a Komga server would refuse is
+          ever sent. */}
+      {(sources.length > 1 || (sources.length > 0 && (none > 0 || mainSrc === NO_SOURCE))) && (
+        <SourceSection title={tr('Main source')} help={tr('Series added from this source.')}
+          rows={sources} none={none} count={(s) => s.main} value={mainSrc} onPick={(id) => onSet('src', id)} />
+      )}
+      {sources.length > 1 && (
+        <SourceSection title={tr('Any source')} help={tr('Series that read from this source, as their main source or a followed one.')}
+          rows={sources} count={(s) => s.any} value={anySrc} onPick={(id) => onSet('anysrc', id)} />
+      )}
     </div>
   );
 }

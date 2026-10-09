@@ -197,7 +197,7 @@ export function ContinueCard({ book, eager = false }: { book: Book; eager?: bool
 export function SeriesTile({ series, eager = false, selectable, selected, onToggle }: {
   series: Series; eager?: boolean;
   /** select mode: the tile stops navigating and toggles instead */
-  selectable?: boolean; selected?: boolean; onToggle?: () => void;
+  selectable?: boolean; selected?: boolean; onToggle?: (e: { shiftKey: boolean }) => void;
 }) {
   // yomi.unread first: it is computed per user in lib/enrich.ts. booksUnreadCount is now corrected there too,
   // but a rail added later that forgets to enrich would fall back to seriesDto's placeholder -- which is the
