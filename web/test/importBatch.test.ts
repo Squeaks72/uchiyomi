@@ -616,7 +616,7 @@ test('the add dialog offers the other sources only when it already holds a list,
   // (#116's `numbering` and #117's "Archive the rest slowly" ride after it, pinned in numbering.test.ts and
   // addSeriesDialog.test.ts.)
   // (v0.52.0's language edition rides after those, pinned in addSeriesDialog.test.ts.)
-  assert.match(src, /json: \{\s*source: picked\.source, sourceId: picked\.sourceId, chapterCount, chapterFrom, autoUpdate, force, alsoFollow: alsoFollowBody, numbering,?(?:\s*\.\.\.\(archiving \? \{ archive: true \} : \{\}\),?)?(?:\s*\.\.\.\(editionBody \? \{ edition: editionBody \} : \{\}\),?)?\s*\}/, 'the add body does not carry alsoFollow');
+  assert.match(src, /json: \{\s*source: picked\.source, sourceId: picked\.sourceId, chapterCount, chapterFrom, autoUpdate, force, alsoFollow: alsoFollowBody, numbering,?(?:\s*\.\.\.\(archiving \? \{ archive: true \} : \{\}\),?)?(?:\s*\.\.\.\(editionBody \? \{ edition: editionBody \} : \{\}\),?)?(?:\s*\.\.\.\(chosenLib && chosenLib !== 'lib' \? \{ libraryId: chosenLib \} : \{\}\),?)?\s*\}/, 'the add body does not carry alsoFollow');
   // The switch is on the options step only with candidates, remembered per device under one key.
   assert.match(src, /\{mayFollow && others\.length > 0 && !view\?\.posting && \(\s*<div className="mt-3" data-also-follow>/, 'the switch shows without candidates');
   // Remembered on the ACCOUNT now (lib/accountPrefs.ts, mirrored to the same localStorage key it always used).

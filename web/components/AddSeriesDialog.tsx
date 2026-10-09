@@ -12,6 +12,7 @@ import { Switch } from '@/components/Switch';
 import { useToast } from '@/components/Toast';
 import { IcCheck } from '@/components/icons';
 import { SourceIcon } from '@/components/SourcePicker';
+import { useLibraries } from '@/components/AdultToggle';
 import { GroupAvatar } from '@/components/GroupAvatar';
 import { ActivityDots } from '@/components/ActivityDots';
 import { activityStatus, weeksOf } from '@/lib/activity';
@@ -235,6 +236,10 @@ export function AddSeriesDialog({ seed, sources, mayFollow, onClose, onAdded }: 
   // simply clears the choice instead of racing the arrival of the new detail.
   const [pickChoice, setPickChoice] = useState<ChapterPick | null>(null);
   const [autoUpdate, setAutoUpdate] = useState(true);
+  // Which library the series is filed in; '' leaves it to the server (the default library, at the root).
+  const { data: libraries } = useLibraries();
+  const [libraryId, setLibraryId] = useState('');
+  const chosenLib = libraryId || (libraries?.find((l) => l.id === 'lib')?.id ?? libraries?.[0]?.id ?? '');
   // "Archive the rest slowly" (#117). Off until switched on, for every add: the rest of a series is days of
   // fetching, and that is a choice, not a default.
   const [archiveOn, setArchiveOn] = useState(false);
@@ -469,6 +474,7 @@ export function AddSeriesDialog({ seed, sources, mayFollow, onClose, onAdded }: 
         json: {
           source: picked.source, sourceId: picked.sourceId, chapterCount, chapterFrom, autoUpdate, force, alsoFollow: alsoFollowBody, numbering,
           ...(archiving ? { archive: true } : {}), ...(editionBody ? { edition: editionBody } : {}),
+          ...(chosenLib && chosenLib !== 'lib' ? { libraryId: chosenLib } : {}),
         },
         // The client has never set a timeout anywhere, so the only bound was the proxy's 120s -- which
         // turned a slow-but-working add into "Add failed. Try another source." while the download carried
@@ -886,6 +892,15 @@ export function AddSeriesDialog({ seed, sources, mayFollow, onClose, onAdded }: 
           </>)}
 
           {/* The switches depend on nothing the detail brings, so they are there from the first paint. */}
+          {(libraries?.length ?? 0) > 1 && (
+            <div className="mt-3">
+              <label htmlFor="add-library" className="mb-1 block text-xs font-semibold uppercase tracking-wider text-fog-500">{tr('Add to library')}</label>
+              <select id="add-library" value={chosenLib}
+                onChange={(e) => setLibraryId(e.target.value)} className="field">
+                {libraries!.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+              </select>
+            </div>
+          )}
           <div className="mt-3 flex items-center justify-between gap-3">
             <span className="text-sm text-fog-200">{tr('Auto-update new chapters')}</span>
             <Switch on={autoUpdate} onChange={setAutoUpdate} label={tr('Auto-update new chapters')} />
