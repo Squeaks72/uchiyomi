@@ -8693,6 +8693,32 @@ paths:
           description: "Forbidden: token scope, account permission or age limit"
         "404":
           description: Not found, or not visible to this account
+  /api/admin/series/{id}/banner/refresh:
+    post:
+      tags:
+        - admin
+      summary: Refresh a series banner.
+      description: Looks the series up online again and makes its automatic banner again from the art it has now. An uploaded banner answers 409.
+      operationId: postApiAdminSeriesIdBannerRefresh
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Not authenticated
+        "403":
+          description: Admin only
+        "404":
+          description: No such series
+        "409":
+          description: The banner is an uploaded file
   /api/admin/series/{id}/cover-candidates:
     get:
       tags:

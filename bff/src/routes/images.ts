@@ -432,13 +432,18 @@ async function backdropRecipe(id: string, style: 'hero' | 'banner' | null, ar: H
   // paced, standing aside for a sweep, a repair or the source check; a no-op for one made, tried lately or not
   // eligible). Nothing here waits on it: the payload offers it once it is made.
   if (!art.banner) queueHero(id);
-  const url = art.banner || art.cover;
+  // With no banner of its own, the wash is made from the cover -- the admin's, when they set one, else the online one.
+  const ownCover = !art.banner && ovr?.cover && ovr.cover !== FIRST_PAGE ? ovr.cover : null;
+  const url = art.banner || ownCover || art.cover;
   // The look the art in hand would get: the hero shows a banner OR a cover sharp (only the no-art first page stays
   // ambient), the series page only a real banner -- a cover blown up to a banner's frame stays the blurred wash.
   const planned = backdropLook(style, { hasUrl: !!url, fromBanner: !!art.banner });
+  // The override row's updated_at moves on every art change (a new cover, Refresh banner), so the picture made from
+  // the old art is not served again: the cache has no way to drop one series' entries, only a new key.
+  const artVer = ovr ? `:v${Math.floor(Number(ovr.v))}` : '';
   const variant = url
-    ? `artw${planned === 'hero' ? `7h${ar}` : planned === 'banner' ? '8b' : '6'}:${id}:${art.banner ? 'b' : 'c'}`
-    : `artw6:${id}:p`;
+    ? `artw${planned === 'hero' ? `7h${ar}` : planned === 'banner' ? '8b' : '6'}:${id}:${art.banner ? 'b' : 'c'}${artVer}`
+    : `artw6:${id}:p${artVer}`;
   const srcRow = await one<{ source_id: string | null }>('SELECT source_id FROM lib_series WHERE id = $1', [id]);
   return {
     variant,
@@ -448,7 +453,7 @@ async function backdropRecipe(id: string, style: 'hero' | 'banner' | null, ar: H
       let fetched = false;
       try {
         if (!url) throw new Error('no remote art');
-        input = await fetchCoverImage(url, srcRow?.source_id || undefined);
+        input = ownCover === 'upload' ? await readFile(artFile(id, 'cover')) : await fetchCoverImage(url, srcRow?.source_id || undefined);
         fetched = true;
       } catch {
         input = await firstPageInput(id, ctx);

@@ -1591,6 +1591,7 @@ GET    /api/admin/series/deleted
 POST   /api/admin/series/:id/check
 GET    /api/admin/series/:id/check
 GET    /api/admin/series/:id/cover-candidates
+POST   /api/admin/series/:id/banner/refresh
 GET    /api/admin/series/:id/copy-pages
 GET    /api/admin/series/:id/numbering POST   /api/admin/series/:id/numbering
 GET    /api/admin/art/overview    GET    /api/admin/art/candidates/:id

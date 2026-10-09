@@ -28,3 +28,10 @@ test('library: Shift+click selects the range from the last click, and sources si
   const f = read('components/LibraryFilters.tsx');
   assert.ok(f.indexOf("tr('Genres')") < f.indexOf("tr('Main source')"), 'genres come before the source filters');
 });
+
+test('Edit details: the banner menu offers Refresh banner, and the server remakes an automatic banner when the art changes', () => {
+  assert.match(read('components/SeriesEditor.tsx'), /label: tr\('Refresh banner'\)[\s\S]{0,120}disabled: ov\?\.banner === 'upload'/);
+  const images = readFileSync(new URL('../../bff/src/routes/images.ts', import.meta.url), 'utf8');
+  assert.match(images, /\$\{artVer\}/);
+  assert.match(images, /const ownCover = !art\.banner && ovr\?\.cover/);
+});

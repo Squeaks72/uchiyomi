@@ -3430,6 +3430,26 @@ export default async function adminRoutes(app: FastifyInstance) {
     return { ok: true };
   });
 
+  // Refresh the banner (Edit details > Banner > ...): look the series up online again and make the picture again from
+  // whatever it has now -- a new cover included. An uploaded banner is the admin's file, so there is nothing to refresh.
+  app.post('/api/admin/series/:id/banner/refresh', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const row = await getSeriesRow(id);
+    if (!row) return reply.code(404).send({ error: 'not_found' });
+    const ovr = await one<{ banner: string | null; cover: string | null }>('SELECT banner, cover FROM series_overrides WHERE series_id = $1', [id]);
+    if (ovr?.banner === 'upload') return reply.code(409).send({ error: 'not_refreshable', message: 'That banner is an uploaded file.' });
+    let found: 'banner' | 'cover' | null = null;
+    // A chosen banner (a link) is fetched again below; the lookup is for a banner nobody chose, and never for a series
+    // whose cover is its first page by choice, which keeps online art away (lib/seriesArt.ts FIRST_PAGE).
+    if (!ovr?.banner && ovr?.cover !== FIRST_PAGE) found = await huntArt({ id, title: row.title }).catch(() => null);
+    await q(
+      `INSERT INTO series_overrides (series_id, updated_at) VALUES ($1, now())
+       ON CONFLICT (series_id) DO UPDATE SET updated_at = now()`, [id],
+    );
+    await logAudit('series.banner_refresh', { userId: userIdOf(req), detail: { id, found }, req });
+    return { ok: true, found };
+  });
+
   // The covers the sources this series follows have for it, for the series page's "Change cover" picker. Each
   // is answered by the source's own record of the series (the same lookup the updater makes); a source that is
   // down or has no picture is left out. The picture is shown through /img/sources/cover and applied with
