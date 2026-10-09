@@ -833,6 +833,21 @@ function ArtPanel({ id, series, onSaved, onNewBanner }: { id: string; series: Se
     setBusy('banner');
     try { await onNewBanner(); } finally { setBusy(null); }
   };
+  // Look the series up again and remake its automatic banner from the art it has now.
+  const refreshBanner = async () => {
+    if (busy) return;
+    setBusy('banner');
+    try {
+      await api(`/api/admin/series/${id}/banner/refresh`, { method: 'POST', json: {} });
+      onSaved();
+      await qc.refetchQueries({ queryKey: ['series', id] }, { cancelRefetch: false }).catch(() => {});
+      toast(tr('Banner refreshed'), 'success');
+    } catch (e) {
+      toast(artRefusal(e, 'banner'), 'error');
+    } finally {
+      setBusy(null);
+    }
+  };
   const choose = (kind: ArtKind) => { fileFor.current = kind; file.current?.click(); };
 
   // Reset is offered only where there is something of the admin's to take back, and Use the first page only where the
@@ -843,6 +858,7 @@ function ArtPanel({ id, series, onSaved, onNewBanner }: { id: string; series: Se
     { label: tr('Reset to automatic'), onSelect: () => void reset('cover'), disabled: !can.reset, hook: 'cover-reset' },
   ], { label: tr('More cover options') });
   const bannerMenu = useContextMenu(() => [
+    { label: tr('Refresh banner'), onSelect: () => void refreshBanner(), disabled: ov?.banner === 'upload', hook: 'banner-refresh' },
     { label: tr('From a link'), onSelect: () => setLinkFor('banner') },
     { label: tr('Reset to automatic'), onSelect: () => void reset('banner'), disabled: !ov?.banner },
   ], { label: tr('More banner options') });
