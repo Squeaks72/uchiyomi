@@ -48,3 +48,11 @@ test('library view: libraries start from the default-visible ones and multiselec
   assert.match(filters, /onLibs\(on \? libSel\.filter/);
   assert.match(read('app/admin/page.tsx'), /data-library-default-visible/);
 });
+
+test('reader: the webtoon column width is a per-device setting, kept out of the account prefs', () => {
+  const w = read('lib/readerWidth.ts');
+  assert.match(w, /localStorage\.setItem\(KEY/);
+  assert.doesNotMatch(read('lib/readerPrefs.ts'), /readerWidth|yomi_reader_width/);
+  assert.match(read('app/reader/page.tsx'), /\* \(widthPct \/ 100\)/);
+  assert.match(read('components/ReaderSettings.tsx'), /data-reader-width/);
+});
