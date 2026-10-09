@@ -1,6 +1,7 @@
 'use client';
 import { Children, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
+import { SeriesNotes } from '@/components/SeriesNotes';
 import { motion } from 'framer-motion';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -1747,11 +1748,8 @@ function SeriesInner() {
       <Link href={`/moments/?series=${encodeURIComponent(id)}`}
         className="flex min-w-0 flex-1 items-center justify-center gap-2 rounded-full border border-ink-700 px-3 py-2.5 text-sm text-fog-300">
         <IcMoments width={16} height={16} className="shrink-0" />
-        <span className="truncate">{momentCount > 0
-          ? (momentCount === 1 ? tr('1 saved page') : tr('{n} saved pages', { n: momentCount }))
-          : noteCount > 0
-            ? (noteCount === 1 ? tr('1 note') : tr('{n} notes', { n: noteCount }))
-            : tr('Add a note')}</span>
+        <span className="truncate">{tr('Series Bookmarks')}</span>
+        {momentCount + noteCount > 0 && <span className="shrink-0 tabular-nums text-fog-500">{momentCount + noteCount}</span>}
       </Link>
       </div>
       <div className="mt-1 flex items-center justify-center">
@@ -2181,6 +2179,7 @@ function SeriesInner() {
           {OtherNames}
           {Genres}
           {Summary}
+          <SeriesNotes seriesId={id} />
           {Chapters}
         </div>
       </div>
