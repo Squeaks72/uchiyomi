@@ -309,7 +309,7 @@ function LibraryInner() {
   const bulk = async (path: string, extra: Record<string, unknown>) => {
     setActing(true);
     try {
-      const r = await api<{ applied: number; skipped: { id: string }[] }>(path, {
+      const r = await api<{ applied: number; skipped: { id: string }[]; problems?: { reason?: string }[] }>(path, {
         json: { seriesIds: [...picked], ...extra },
       });
       // Say what was skipped rather than silently applying to fewer than were selected. Each count its own pair of
@@ -319,6 +319,7 @@ function LibraryInner() {
       const gone = r.skipped.length === 1 ? tr('1 series is no longer in the library')
         : tr('{n} series are no longer in the library', { n: r.skipped.length });
       toast(r.skipped.length ? `${updated} · ${gone}` : updated, 'success');
+      if (r.problems?.length) toast(`${r.problems.length === 1 ? tr('1 folder could not be moved') : tr('{n} folders could not be moved', { n: r.problems.length })}: ${r.problems[0].reason ?? ''}`, 'error');
       if (typeof extra.favorite === 'boolean') { const gone = new Set(r.skipped.map((x) => x.id)); for (const sid of picked) if (!gone.has(sid)) applyFavorite(qc, sid, extra.favorite); }
       settle();
     } catch { toast(tr('Could not apply that'), 'error'); }
@@ -1029,7 +1030,7 @@ function MoveToLibrary({ n, busy, onClose, onPick }: {
           {tr('Automatic — follow the folder')}
         </button>
       </div>
-      <p className="mt-3 text-[11px] leading-relaxed text-fog-600">{tr('No files move. This only changes which library these series appear in, and it survives the next scan.')}</p>
+      <p className="mt-3 text-[11px] leading-relaxed text-fog-600">{tr('Their folders move into the chosen library\'s folder on disk. Automatic moves nothing.')}</p>
     </Modal>
   );
 }

@@ -705,7 +705,7 @@ export function LibraryRow({ id, series, onSaved }: { id: string; series: Series
   };
   return (
     <Row label={tr('Library')} htmlFor={sid} stacked
-      help={lib ? tr('Filed here by hand. Rescans and new libraries will leave it alone.') : tr('Whichever library covers this folder, most specific first.')}>
+      help={lib ? tr('Filed here by hand, and its folder was moved into this library. Rescans and new libraries will leave it alone.') : tr('Whichever library covers this folder, most specific first.')}>
       <select id={sid} value={lib} onChange={(e) => void pick(e.target.value)} className="field">
         <option value="">{tr('Automatic — follow the folder')}</option>
         {(libs?.content ?? []).map((l) => (

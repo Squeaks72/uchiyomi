@@ -9863,6 +9863,9 @@ paths:
               properties:
                 libraryId:
                   type: string
+                moveFiles:
+                  type: boolean
+                  description: Also move the series folder into the library's first folder on disk (default true). A move that cannot be done answers 409 move_failed (one series) or lists `problems` (many), and leaves that series where it was.
       security:
         - bearer: []
       responses:
@@ -9870,6 +9873,8 @@ paths:
           description: OK
         "400":
           description: Malformed body or parameter
+        "409":
+          description: The files could not be moved
         "401":
           description: Not authenticated
         "403":
@@ -9896,6 +9901,9 @@ paths:
                     type: string
                 libraryId:
                   type: string
+                moveFiles:
+                  type: boolean
+                  description: Also move the series folder into the library's first folder on disk (default true). A move that cannot be done answers 409 move_failed (one series) or lists `problems` (many), and leaves that series where it was.
       security:
         - bearer: []
       responses:

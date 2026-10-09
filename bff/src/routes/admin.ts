@@ -2839,6 +2839,66 @@ export default async function adminRoutes(app: FastifyInstance) {
     }
   });
 
+  type FolderMove = { id: string; title: string; from: string; to: string; status: 'planned' | 'conflict' | 'moved' | 'refused'; reason?: string; fix?: string };
+
+  /** `<target>/<leaf>` for each series, with collisions (two in this move, or a folder already taken) flagged. */
+  async function planFolderMoves(rows: { id: string; title: string; folder: string }[], target: string): Promise<FolderMove[]> {
+    const takenRows = await q<{ folder: string; id: string; title: string }>(`SELECT s.folder, s.id, s.title FROM lib_series s WHERE ${visibleToAll('s')}`);
+    const taken = new Map(takenRows.map((r) => [r.folder, r]));
+    const claimed = new Map<string, string>();
+    return rows.map((r) => {
+      const leaf = r.folder.slice(r.folder.lastIndexOf('/') + 1);
+      const to = target ? `${target}/${leaf}` : leaf;
+      const m: FolderMove = { id: r.id, title: r.title, from: r.folder, to, status: 'planned' };
+      if (to === r.folder) return m;
+      if (claimed.has(to.toLowerCase())) {
+        m.status = 'conflict';
+        m.reason = `Another series in this move ("${claimed.get(to.toLowerCase())}") also has the folder name "${leaf}", so both would land in "${to}".`;
+        m.fix = 'Rename one of the two folders, then try again.';
+      } else if (taken.has(to) && taken.get(to)!.id !== r.id) {
+        m.status = 'conflict';
+        m.reason = `"${to}" is already the folder of "${taken.get(to)!.title}".`;
+        m.fix = 'Rename one of the two folders, or merge the series, then try again.';
+      } else claimed.set(to.toLowerCase(), r.title);
+      return m;
+    });
+  }
+
+  /** Renames each planned folder on disk and in the database. A series already at its destination counts as moved. */
+  async function runFolderMoves(moves: FolderMove[]): Promise<void> {
+    for (const m of moves) {
+      if (m.status !== 'planned') continue;
+      if (m.to === m.from) { m.status = 'moved'; continue; }
+      const claim = claimSeriesWriter([m.id], [m.from, m.to]);
+      if (!claim) { m.status = 'refused'; m.reason = 'Another task (a download, scan or rename) is using that series right now.'; m.fix = 'Try again when it has finished.'; continue; }
+      try {
+        const r = await renameSeriesFolder(m.id, m.to);
+        if (r.ok) m.status = 'moved'; else { m.status = 'refused'; m.reason = r.reason; m.fix = (r as { fix?: string }).fix; }
+      } catch (e) { m.status = 'refused'; m.reason = (e as Error).message; }
+      finally { claim.release(); }
+    }
+  }
+
+  /** Where a library keeps its series: its first folder, or the root for one with no folder list (the default). */
+  async function libraryRootFolder(libraryId: string): Promise<string | null> {
+    const l = await one<{ path: string }>('SELECT path FROM libraries WHERE id = $1', [libraryId]);
+    if (!l) return null;
+    const first = await one<{ path: string }>(
+      'SELECT path FROM library_paths WHERE library_id = $1 ORDER BY path <> $2, path LIMIT 1', [libraryId, l.path]);
+    return first?.path ?? '';
+  }
+
+  /** Puts series in a library: moves their folders into its root unless `moveFiles` is off, then pins them there. */
+  async function putInLibrary(rows: { id: string; title: string; folder: string }[], libraryId: string, moveFiles: boolean) {
+    const root = moveFiles ? await libraryRootFolder(libraryId) : null;
+    const moves = root === null ? [] : await planFolderMoves(rows, root);
+    await runFolderMoves(moves);
+    const failed = new Set(moves.filter((m) => m.status !== 'moved').map((m) => m.id));
+    const ok = rows.filter((r) => !failed.has(r.id)).map((r) => r.id);
+    if (ok.length) await q('UPDATE lib_series SET library_id = $2, library_pinned = true WHERE id = ANY($1)', [ok, libraryId]);
+    return { applied: ok.length, problems: moves.filter((m) => failed.has(m.id)) };
+  }
+
   /**
    * Move one series into a library by hand, regardless of where its folder lives.
    *
@@ -2850,10 +2910,10 @@ export default async function adminRoutes(app: FastifyInstance) {
    */
   app.post('/api/admin/series/:id/library', async (req, reply) => {
     const { id } = req.params as { id: string };
-    const b = z.object({ libraryId: z.string().min(1).max(64).nullable() }).safeParse(req.body);
+    const b = z.object({ libraryId: z.string().min(1).max(64).nullable(), moveFiles: z.boolean().optional() }).safeParse(req.body);
     if (!b.success) return reply.code(400).send({ error: 'bad_request' });
 
-    const series = await one<{ folder: string }>('SELECT folder FROM lib_series WHERE id = $1', [id]);
+    const series = await one<{ folder: string; title: string }>('SELECT folder, title FROM lib_series WHERE id = $1', [id]);
     if (!series) return reply.code(404).send({ error: 'not_found' });
 
     if (b.data.libraryId === null) {
@@ -2866,8 +2926,12 @@ export default async function adminRoutes(app: FastifyInstance) {
 
     const lib = await one<{ id: string }>('SELECT id FROM libraries WHERE id = $1', [b.data.libraryId]);
     if (!lib) return reply.code(404).send({ error: 'no_such_library' });
-    await q('UPDATE lib_series SET library_id = $2, library_pinned = true WHERE id = $1', [id, b.data.libraryId]);
-    await logAudit('series.library', { userId: userIdOf(req), detail: { id, libraryId: b.data.libraryId }, req });
+    const done = await putInLibrary([{ id, title: series.title, folder: series.folder }], b.data.libraryId, b.data.moveFiles !== false);
+    if (!done.applied) {
+      const why = done.problems[0];
+      return reply.code(409).send({ error: 'move_failed', message: why?.reason ?? 'The files could not be moved.', fix: why?.fix, problems: done.problems });
+    }
+    await logAudit('series.library', { userId: userIdOf(req), detail: { id, libraryId: b.data.libraryId, moveFiles: b.data.moveFiles !== false }, req });
     return { ok: true, pinned: true };
   });
 
@@ -2883,13 +2947,16 @@ export default async function adminRoutes(app: FastifyInstance) {
     const b = z.object({
       seriesIds: z.array(z.string().min(1).max(64)).min(1).max(500),
       libraryId: z.string().min(1).max(64).nullable(),
+      moveFiles: z.boolean().optional(),
     }).safeParse(req.body);
     if (!b.success) return reply.code(400).send({ error: 'bad_request' });
 
-    const found = await q<{ id: string; folder: string }>(
-      'SELECT id, folder FROM lib_series WHERE id = ANY($1)', [b.data.seriesIds]);
+    const found = await q<{ id: string; title: string; folder: string }>(
+      'SELECT id, title, folder FROM lib_series WHERE id = ANY($1)', [b.data.seriesIds]);
     const skipped = b.data.seriesIds.filter((id) => !found.some((f) => f.id === id)).map((id) => ({ id }));
 
+    let applied = found.length;
+    let problems: FolderMove[] = [];
     if (b.data.libraryId === null) {
       const libs = await libraryRows();
       for (const s of found) {
@@ -2899,12 +2966,13 @@ export default async function adminRoutes(app: FastifyInstance) {
     } else {
       const lib = await one<{ id: string }>('SELECT id FROM libraries WHERE id = $1', [b.data.libraryId]);
       if (!lib) return reply.code(404).send({ error: 'no_such_library' });
-      await q('UPDATE lib_series SET library_id = $2, library_pinned = true WHERE id = ANY($1)',
-        [found.map((s) => s.id), b.data.libraryId]);
+      const done = await putInLibrary(found, b.data.libraryId, b.data.moveFiles !== false);
+      applied = done.applied;
+      problems = done.problems;
     }
     await logAudit('series.library', {
-      userId: userIdOf(req), detail: { n: found.length, libraryId: b.data.libraryId }, req });
-    return { applied: found.length, skipped };
+      userId: userIdOf(req), detail: { n: applied, libraryId: b.data.libraryId, moveFiles: b.data.moveFiles !== false }, req });
+    return { applied, skipped, ...(problems.length ? { problems } : {}) };
   });
 
   // Add and/or remove genres on a whole selection. Written to series_overrides, the layer a scan never overwrites.
@@ -3366,40 +3434,13 @@ export default async function adminRoutes(app: FastifyInstance) {
     const all = await q<{ id: string; title: string; folder: string }>(
       `SELECT s.id, s.title, s.folder FROM lib_series s WHERE s.library_id = $1 AND ${visibleToAll('s')} ORDER BY s.folder`, [id]);
     const rows = all.filter((r) => leaving.some((p) => under(r.folder, p)) && !keep.some((p) => under(r.folder, p)));
-    const takenRows = await q<{ folder: string; id: string; title: string }>(`SELECT s.folder, s.id, s.title FROM lib_series s WHERE ${visibleToAll('s')}`);
-    const taken = new Map(takenRows.map((r) => [r.folder, r]));
-    const claimed = new Map<string, string>();
-    type Move = { id: string; title: string; from: string; to: string; status: 'planned' | 'conflict' | 'moved' | 'refused'; reason?: string; fix?: string };
-    const moves: Move[] = rows.map((r) => {
-      const leaf = r.folder.slice(r.folder.lastIndexOf('/') + 1);
-      const to = `${target}/${leaf}`;
-      const m: Move = { id: r.id, title: r.title, from: r.folder, to, status: 'planned' };
-      if (claimed.has(to.toLowerCase())) {
-        m.status = 'conflict';
-        m.reason = `Another series in this move ("${claimed.get(to.toLowerCase())}") also has the folder name "${leaf}", so both would land in "${to}".`;
-        m.fix = 'Rename one of the two folders, then try again.';
-      } else if (taken.has(to) && taken.get(to)!.id !== r.id) {
-        m.status = 'conflict';
-        m.reason = `"${to}" is already the folder of "${taken.get(to)!.title}".`;
-        m.fix = 'Rename one of the two folders, or merge the series, then try again.';
-      } else claimed.set(to.toLowerCase(), r.title);
-      return m;
-    });
+    const moves = await planFolderMoves(rows, target);
     if (!b.data.dryRun) {
-      for (const m of moves) {
-        if (m.status !== 'planned') continue;
-        const claim = claimSeriesWriter([m.id], [m.from, m.to]);
-        if (!claim) { m.status = 'refused'; m.reason = 'Another task (a download, scan or rename) is using that series right now.'; m.fix = 'Try again when it has finished.'; continue; }
-        try {
-          const r = await renameSeriesFolder(m.id, m.to);
-          if (r.ok) m.status = 'moved'; else { m.status = 'refused'; m.reason = r.reason; m.fix = (r as { fix?: string }).fix; }
-        } catch (e) { m.status = 'refused'; m.reason = (e as Error).message; }
-        finally { claim.release(); }
-      }
+      await runFolderMoves(moves);
       await logAudit('library.relocate', {
         userId: userIdOf(req), detail: { id, target, moved: moves.filter((m) => m.status === 'moved').length }, req });
     }
-    const count = (st: Move['status']) => moves.filter((m) => m.status === st).length;
+    const count = (st: FolderMove['status']) => moves.filter((m) => m.status === st).length;
     return {
       dryRun: !!b.data.dryRun, target, total: moves.length,
       planned: count('planned'), moved: count('moved'),

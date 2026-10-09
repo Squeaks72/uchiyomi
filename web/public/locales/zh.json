@@ -2,7 +2,7 @@
   "_meta": {
     "language": "zh",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 4210
+    "strings": 4212
   },
   "1 check found something": "1 项检查发现问题",
   "1 member": "1 位成员",
@@ -185,7 +185,6 @@
   "External readers (OPDS)": "外部阅读器（OPDS）",
   "Favourite": "收藏",
   "File {n} series": "归入 {n} 个系列",
-  "Filed here by hand. Rescans and new libraries will leave it alone.": "已手动归入此处。重新扫描和新建库都不会改动它。",
   "Filters": "筛选",
   "Find and add": "查找并添加",
   "Finished": "已读完",
@@ -277,7 +276,6 @@
   "No files are deleted.": "不会删除任何文件。",
   "Deleted 1 file, {size}": "已删除 1 个文件，{size}",
   "Deleted {n} files, {size}": "已删除 {n} 个文件，{size}",
-  "No files move. This only changes which library these series appear in, and it survives the next scan.": "不会移动任何文件。这只会改变这些系列出现在哪个库中，并且会在下次扫描后继续保持。",
   "No folders here": "这里没有文件夹",
   "No genre matches that.": "没有匹配的类型。",
   "No link yet.": "还没有链接。",
@@ -4215,5 +4213,9 @@
   "{n} series would move.": "{n} series would move.",
   "Move 1 series, then save": "Move 1 series, then save",
   "Move {n} series, then save": "Move {n} series, then save",
-  "Save without moving": "Save without moving"
+  "Save without moving": "Save without moving",
+  "Their folders move into the chosen library's folder on disk. Automatic moves nothing.": "Their folders move into the chosen library's folder on disk. Automatic moves nothing.",
+  "1 folder could not be moved": "1 folder could not be moved",
+  "{n} folders could not be moved": "{n} folders could not be moved",
+  "Filed here by hand, and its folder was moved into this library. Rescans and new libraries will leave it alone.": "Filed here by hand, and its folder was moved into this library. Rescans and new libraries will leave it alone."
 }
