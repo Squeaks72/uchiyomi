@@ -190,6 +190,7 @@ export function mergeGroups<G extends GroupLike>(groups: G[]): G[] {
     } as G;
   }
   return out;
+}
 
 const WALL_SORT_LABELS = keys('Source order', 'A–Z', 'Z–A', 'Most sources', 'Not in library first');
 /**

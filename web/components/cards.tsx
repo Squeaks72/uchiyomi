@@ -363,14 +363,10 @@ export function SourceCard({ item, providers, onAdd, onOpenAdded, onSearch, eage
   const stackId = useId();
   const libraryHref = owned && item.librarySeriesId ? `/series/?id=${encodeURIComponent(item.librarySeriesId)}` : undefined;
   // Right-click, press-and-hold or Shift+F10, as on a library card (components/DiscoverMenu.tsx).
+  // Every source behind the card names itself in the glance's Sources fact: the names a folded search hit carries,
+  // else the icon stack's own list (v0.56.0), where this read the one source name the card used to be labelled with.
   const glance = useGlance(
-    // Every source behind the card names itself in the glance's Sources fact: the names a folded search hit carries,
-    // else the icon stack's own list (v0.56.0), where this read the one source name the card used to be labelled with.
-    glanceOfSource({
-      ...item,
-      providerNames: item.providerNames?.length ? item.providerNames : providers?.map((p) => p.name) ?? [],
-      providerTitles: item.altTitles,
-    }),
+    glanceOfSource({ ...item, providerNames: item.providerNames?.length ? item.providerNames : providers?.map((p) => p.name) ?? [], providerTitles: item.altTitles }),
     {
       cover: sourceCover(item.source, item.coverUrl, 800), fallbackCover: item.coverUrl || undefined,
       readSeriesId: owned ? item.librarySeriesId : undefined,

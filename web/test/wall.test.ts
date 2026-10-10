@@ -11,7 +11,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import {
-  applyWorks, emptiedCount, foldByWork, followWorks, mergeGroups, shownOnWall, unknownWorks, workKey, type WallItem, type WorkNow,
+  applyWorks, emptiedCount, foldByWork, followWorks, mergeGroups, shownOnWall, sortWall, unknownWorks, workKey,
+  type WallItem, type WallProvider, type WorkNow,
 } from '../lib/wall';
 import { normTitle } from '../lib/normTitle';
 
@@ -325,8 +326,8 @@ test('the page reads both views through the live answers, hides owned works on t
   assert.match(code, /onClose=\{\(\) => \{ fromKey\.current = null; setSeed\(null\); \}\}/, 'a closed dialog leaves its card for the next add from the hero');
   assert.match(code, /item=\{addedItem\(it\)\}/, 'a search card added on this visit does not read In library');
   assert.match(code, /const a = shownAddedInfo\.get\(workKey\(it\)\);/, 'a card added on this visit is not read by its work');
+});
 
-import { sortWall, type WallProvider } from '../lib/wall';
 const w = (title: string, extra: Partial<WallItem> = {}): WallItem => ({ source: 's', sourceId: title, title, ...extra });
 /** The providers a card folded to, in the shape foldByWork returns beside its items: what "Most sources" counts. */
 const providersOf = (counts: Record<string, number>): Record<string, WallProvider[]> =>
