@@ -13,8 +13,12 @@ import { seriesHref } from '@/lib/healthLinks';
 import { FindSourceLink, SeriesRowTools } from '@/components/FindSourceLink';
 import { ConfirmDialog, msgOf } from '@/components/ConfirmDialog';
 import { useToast } from '@/components/Toast';
+import { HealthRow } from '@/components/HealthActions';
+import { keysFor } from '@/lib/healthKeys';
+import type { HealthItem } from '@/lib/types';
+import { itemTitle } from '@/lib/said';
 
-interface Problem { check: string; label: string; detail: string }
+interface Problem { check: HealthCheck; item: HealthItem; key: string; label: string; detail: string }
 interface Row { id: string; title: string; problems: Problem[]; checks: Set<string> }
 
 const KEY = 'text-xs text-accent hover:underline';
@@ -30,10 +34,11 @@ export function HealthBySeries({ checks }: { checks: HealthCheck[] }) {
     const by = new Map<string, Row>();
     for (const c of checks) {
       if (c.id === 'duplicates') continue;
-      for (const it of c.items) {
+      const keys = keysFor(c.id, c.items);
+      for (const [i, it] of c.items.entries()) {
         if (!it.seriesId || it.info) continue;
         const r = by.get(it.seriesId) ?? { id: it.seriesId, title: it.title, problems: [], checks: new Set<string>() };
-        r.problems.push({ check: c.id, label: checkTitle(c), detail: itemDetail(it) });
+        r.problems.push({ check: c, item: it, key: keys[i], label: checkTitle(c), detail: itemDetail(it) });
         r.checks.add(c.id);
         by.set(it.seriesId, r);
       }
@@ -71,11 +76,14 @@ export function HealthBySeries({ checks }: { checks: HealthCheck[] }) {
             <input type="checkbox" checked={picked.has(r.id)} onChange={() => toggle(r.id)} aria-label={r.title} className="mt-1 size-4 accent-accent" />
             <div className="min-w-0 flex-1">
               <p dir="auto" className="break-words text-sm text-fog-100">{r.title}</p>
-              <ul className="mt-1 space-y-0.5">
-                {r.problems.map((p, i) => (
-                  <li key={i} dir="auto" className="text-[11px] text-fog-500"><span className="text-fog-300">{p.label}</span> · {p.detail}</li>
+              <div className="mt-2 divide-y divide-ink-800/70">
+                {r.problems.map((p) => (
+                  <HealthRow key={`${p.check.id}:${p.key}`} check={p.check} item={p.item} rowKey={p.key}>
+                    <p className="text-xs text-fog-300">{p.label}</p>
+                    <p dir="auto" className="text-[11px] text-fog-500">{p.detail}</p>
+                  </HealthRow>
                 ))}
-              </ul>
+              </div>
               <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
                 <Link href={seriesHref(r.id)} className={KEY}>{tr('Open')}{' '}›</Link>
                 <FindSourceLink id={r.id} className={KEY} />
