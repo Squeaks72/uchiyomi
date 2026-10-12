@@ -8,7 +8,7 @@ import { IcHome, IcGrid, IcSearch, IcRefresh, IcBell, IcSparkle, IcPlus, IcBookm
 import { triggerRefresh } from '@/lib/refresh';
 import { api } from '@/lib/api';
 import { useAuth, canDownload } from '@/lib/auth';
-import { Avatar } from './Avatar';
+import { ProfileMenu } from './ProfileMenu';
 import { HealthMarker } from './HealthAlert';
 import { DownloadsNavIcon } from './DownloadsRing';
 import { useToast } from './Toast';
@@ -119,9 +119,7 @@ export function TopNav({ onSearchFocus }: { onSearchFocus?: () => void }) {
           className={`${navIconCls(refreshing)}${refreshing ? ' animate-spin' : ''}`}>
           <IcRefresh width={19} height={19} />
         </button>
-        <Link href="/profile" className={`shrink-0 rounded-full transition hover:opacity-80 ${path.startsWith('/profile') ? 'ring-2 ring-accent ring-offset-2 ring-offset-ink-950' : ''}`} aria-label={tr('Profile')} aria-current={path.startsWith('/profile') ? 'page' : undefined}>
-          <Avatar avatar={user?.avatar} size={40} />
-        </Link>
+        <ProfileMenu />
       </div>
     </header>
   );

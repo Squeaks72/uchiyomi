@@ -109,9 +109,11 @@ export function AdultToggle({ className = '', alsoWhen = false }: { className?: 
 export function AdultBar() {
   const on = useAdultShown();
   return (
-    <div data-adult-bar className="shell flex items-center justify-end gap-3 pt-2 max-lg:pt-[max(0.5rem,env(safe-area-inset-top))]">
+    // From lg up the switch lives in the header's profile popup (ProfileMenu), so the bar is only the notice,
+    // and not there at all while 18+ is off. Below lg there is no header, and the bar keeps the switch.
+    <div data-adult-bar className={`shell flex items-center justify-end gap-3 pt-2 max-lg:pt-[max(0.5rem,env(safe-area-inset-top))]${on ? '' : ' lg:hidden'}`}>
       {on && <span role="status" data-adult-notice className="min-w-0 text-xs text-amber-200">{tr('18+ titles are showing everywhere, and marking one 18+ will not hide it.')}</span>}
-      <AdultToggle alsoWhen className="shrink-0 text-xs" />
+      <AdultToggle alsoWhen className="shrink-0 text-xs lg:hidden" />
     </div>
   );
 }

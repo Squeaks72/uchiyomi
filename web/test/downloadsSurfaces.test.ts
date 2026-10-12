@@ -205,7 +205,8 @@ test('the desktop header fits at 1024 px: round buttons keep their 40 px, and th
   assert.match(code(read('lib/navStyle.ts')), /const BASE = 'grid h-10 w-10 shrink-0 /, 'a round header button can be squeezed into an oval');
   assert.match(code(read('components/DownloadsRing.tsx')), /className=\{navIconCls\(here\)\}/, 'the downloads button can be squeezed into an oval');
   assert.match(code(read('components/HealthAlert.tsx')), /relative grid h-10 w-10 shrink-0 /, "the Health marker can be squeezed into an oval");
-  assert.match(header, /<Link href="\/profile" className=\{?[`"]shrink-0 /, 'the avatar can be squeezed');
+  assert.match(header, /<ProfileMenu \/>/, 'the avatar left the header');
+  assert.match(code(read('components/ProfileMenu.tsx')), /<div ref=\{root\} className="relative shrink-0">/, 'the avatar can be squeezed');
   // The search takes what is left: flexible, never a fixed 18 rem, its words truncating down to the icon.
   assert.match(header, /className="ms-auto flex min-w-0 max-w-72 flex-1 /, 'the search is a fixed width again');
   assert.doesNotMatch(header, /(?<![\w-])w-72\b/, 'the search is a fixed width again');

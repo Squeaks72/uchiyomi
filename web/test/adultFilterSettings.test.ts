@@ -134,7 +134,7 @@ test('the 18+ reveal still renders on Library and Home when only the 18+ filter 
     'the hook no longer asks /api/adult-filter');
   // The reveal now lives once, in AdultBar (rendered by AppShell on every page), and is always offered.
   const bar = code(read('components/AdultToggle.tsx'));
-  assert.ok(bar.includes('<AdultToggle alsoWhen className="shrink-0 text-xs" />'), 'AdultBar no longer offers the reveal unconditionally');
+  assert.ok(bar.includes('<AdultToggle alsoWhen className="shrink-0 text-xs lg:hidden" />'), 'AdultBar no longer offers the reveal unconditionally');
   assert.ok(code(read('components/AppShell.tsx')).includes('<AdultBar />'), 'AppShell no longer renders the AdultBar');
   // A save that changes the lists must refresh the answer, or the switch appears (or goes) only after
   // five minutes.
