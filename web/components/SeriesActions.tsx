@@ -19,12 +19,11 @@ import { ConfirmDialog, msgOf } from './ConfirmDialog';
 import { useArchiveEnqueue } from './ArchiveQueue';
 import { MoveToLibrary } from './MoveToLibrary';
 import { CollectionPickerModal } from './CollectionPicker';
-import { BulkGenresModal } from './BulkGenres';
 import { FindStartDialog } from './FindSources';
 import { BulkChapterDeleteRunDialog } from './BulkChapterDeleteRun';
 import type { MenuItem } from './ContextMenu';
 
-type Dialog = null | 'list' | 'genres' | 'move' | 'find' | 'remove' | 'chapters';
+type Dialog = null | 'list' | 'move' | 'find' | 'remove' | 'chapters';
 
 /**
  * Every action that makes sense for one series or for many, as menu items: the single source for the card's menu,
@@ -185,8 +184,6 @@ export function useSeriesActions({ onDone, builtinList }: { onDone?: () => void;
   const element: ReactNode = (
     <>
       {dialog === 'list' && <CollectionPickerModal seriesIds={ids} onClose={close} onDone={() => { close(); settle(); }} />}
-      {dialog === 'genres' && <BulkGenresModal n={n} seriesIds={ids} onClose={close}
-        onDone={() => { qc.invalidateQueries({ queryKey: ['genre-names'] }); close(); settle(); }} />}
       {dialog === 'move' && <MoveToLibrary n={n} busy={busy} onClose={close} onPick={async (libraryId) => {
         setBusy(true); close();
         await bulk(ids, '/api/admin/series/library', { libraryId }, updated);
@@ -226,22 +223,19 @@ export function useSeriesActions({ onDone, builtinList }: { onDone?: () => void;
     </>
   );
 
-  /** The menu for `of`: one series or a selection. `favourite` is whether one series is already a favourite. */
-  const items = (of: string[], opts: { favourite?: boolean } = {}): MenuItem[] => {
+  /**
+   * The menu for `of`: one series or a selection. `favourite`: whether one series is already a favourite.
+   * `monitored`: whether every one of them is monitored (true), none is (false), or it is mixed or unknown (undefined),
+   * which offers both.
+   */
+  const items = (of: string[], opts: { favourite?: boolean; monitored?: boolean } = {}): MenuItem[] => {
     const many = of.length > 1;
     const dl = canDownload(user);
     const favourite = !many && !!opts.favourite;
-    return [
-      { label: tr('Add to list'), disabled: offline, onSelect: () => open('list', of) },
+    const off = offline;
+    const downloads: MenuItem[] = [
       {
-        label: favourite ? tr('Remove from favorites') : tr('Favorite'), disabled: offline,
-        onSelect: () => bulk(of, '/api/favorites/bulk', { favorite: !favourite }, () => (favourite ? tr('Removed from favorites') : tr('Added to favorites'))),
-      },
-      ...(many ? [{ label: tr('Remove from favorites'), disabled: offline, onSelect: () => bulk(of, '/api/favorites/bulk', { favorite: false }, () => tr('Removed from favorites')) }] : []),
-      { label: many ? tr('Mark read') : tr('Mark all read'), disabled: offline, onSelect: () => bulk(of, '/api/library/bulk/read', { completed: true }, () => tr('Marked read')) },
-      { label: many ? tr('Mark unread') : tr('Mark all unread'), disabled: offline, onSelect: () => bulk(of, '/api/library/bulk/read', { completed: false }, () => tr('Marked unread')) },
-      {
-        label: tr('Download as zip'), divider: true, disabled: offline,
+        label: tr('Download as zip'), disabled: off,
         onSelect: () => {
           startExport({ seriesIds: of })
             .then(() => toast(tr('Zipping started. Follow it at the bottom of the screen.'), 'success'))
@@ -249,18 +243,34 @@ export function useSeriesActions({ onDone, builtinList }: { onDone?: () => void;
         },
       },
       ...(dl ? [
-        { label: tr('Fetch newest'), disabled: offline, onSelect: () => fetchNewest(of) },
-        { label: tr('Archive slowly'), disabled: offline, title: archiveWhy(), onSelect: async () => { const r = await archive(of); if (r) settle(); } },
+        { label: tr('Fetch newest'), disabled: off, onSelect: () => fetchNewest(of) },
+        { label: tr('Archive slowly'), disabled: off, title: archiveWhy(), onSelect: async () => { const r = await archive(of); if (r) settle(); } },
       ] : []),
+    ];
+    const manage: MenuItem[] = [
+      { label: tr('Check for new chapters'), disabled: off, onSelect: () => check(of) },
+      { label: tr('Find other sources'), disabled: off, hook: 'find-selected', onSelect: () => open('find', of) },
+      { label: tr('Move library'), disabled: off, hook: 'move-library', onSelect: () => open('move', of) },
+      ...(opts.monitored !== true ? [{ label: tr('Monitor'), disabled: off, onSelect: () => monitor(of, true) }] : []),
+      ...(opts.monitored !== false ? [{ label: tr('Unmonitor'), disabled: off, onSelect: () => monitor(of, false) }] : []),
+    ];
+    const remove: MenuItem[] = [
+      { label: tr('Delete chapters'), danger: true, disabled: off, onSelect: () => { setAlsoPause(true); open('chapters', of); } },
+      { label: tr('Remove from library'), danger: true, disabled: off, onSelect: () => open('remove', of) },
+    ];
+    return [
+      { label: tr('Add to list'), disabled: off, onSelect: () => open('list', of) },
+      {
+        label: favourite ? tr('Remove from favorites') : tr('Favorite'), disabled: off,
+        onSelect: () => bulk(of, '/api/favorites/bulk', { favorite: !favourite }, () => (favourite ? tr('Removed from favorites') : tr('Added to favorites'))),
+      },
+      ...(many ? [{ label: tr('Remove from favorites'), disabled: off, onSelect: () => bulk(of, '/api/favorites/bulk', { favorite: false }, () => tr('Removed from favorites')) }] : []),
+      { label: many ? tr('Mark read') : tr('Mark all read'), disabled: off, onSelect: () => bulk(of, '/api/library/bulk/read', { completed: true }, () => tr('Marked read')) },
+      { label: many ? tr('Mark unread') : tr('Mark all unread'), disabled: off, onSelect: () => bulk(of, '/api/library/bulk/read', { completed: false }, () => tr('Marked unread')) },
+      { label: tr('Download'), divider: true, onSelect: () => {}, children: downloads },
       ...(isAdmin ? [
-        { label: tr('Check for new chapters'), divider: true, disabled: offline, onSelect: () => check(of) },
-        { label: tr('Find other sources'), disabled: offline, hook: 'find-selected', onSelect: () => open('find', of) },
-        { label: tr('Edit genres'), disabled: offline, onSelect: () => open('genres', of) },
-        { label: tr('Move library'), disabled: offline, hook: 'move-library', onSelect: () => open('move', of) },
-        { label: tr('Monitor'), disabled: offline, onSelect: () => monitor(of, true) },
-        { label: tr('Unmonitor'), disabled: offline, onSelect: () => monitor(of, false) },
-        { label: tr('Delete chapters'), divider: true, danger: true, disabled: offline, onSelect: () => { setAlsoPause(true); open('chapters', of); } },
-        { label: tr('Remove from library'), danger: true, disabled: offline, onSelect: () => open('remove', of) },
+        { label: tr('Manage'), onSelect: () => {}, children: manage },
+        { label: tr('Remove'), danger: true, onSelect: () => {}, children: remove },
       ] : []),
     ].filter((it) => !(builtinList && it.label === tr('Favorite')));
   };

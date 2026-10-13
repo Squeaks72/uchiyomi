@@ -45,9 +45,7 @@ export function useSeriesMenu(series: Series, onDescribe?: () => void, opts?: { 
   };
 
   const items = (): MenuItem[] => [
-    ...(onDescribe ? [{ label: tr('Description and details'), onSelect: onDescribe }] : []),
     ...(opts?.onSelect ? [{ label: tr('Select'), hook: 'start-select', onSelect: opts.onSelect }] : []),
-    { label: tr('Open in a new tab'), onSelect: () => { window.open(href, '_blank', 'noopener'); } },
     {
       label: tr('Copy link'),
       onSelect: async () => {
@@ -55,7 +53,7 @@ export function useSeriesMenu(series: Series, onDescribe?: () => void, opts?: { 
         catch { toast(tr('Could not copy the link'), 'error'); }
       },
     },
-    ...actions.items([series.id], { favourite }).map((it, k) => (k === 0 ? { ...it, divider: true } : it)),
+    ...actions.items([series.id], { favourite, monitored: series.autoUpdate }).map((it, k) => (k === 0 ? { ...it, divider: true } : it)),
     ...(opts?.keepReading ? [{ label: tr('Remove from Keep reading'), disabled: offline, hook: 'leave-keep-reading', onSelect: leaveKeepReading }] : []),
     { label: tr('Properties…'), divider: true, onSelect: () => setProperties(true) },
   ];

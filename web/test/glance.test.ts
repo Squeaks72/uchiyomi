@@ -31,6 +31,5 @@ test('the card is opened from the thumbnail without opening the series, and from
   assert.match(card, /<OnBody>\s*<div onClick=\{stop\}/, 'events inside the card bubble to the thumbnail\'s link');
   assert.match(card, /Read more…/);
   assert.match(card, /useQuery\(\{[\s\S]*enabled: isAdmin && !!g\.altFrom/, 'other names are an admin read');
-  assert.match(read('components/SeriesMenu.tsx'), /onDescribe \? \[\{ label: tr\('Description and details'\)/);
   assert.match(read('components/DiscoverMenu.tsx'), /onDescribe \? \[\{ label: tr\('Description and details'\)/);
 });
