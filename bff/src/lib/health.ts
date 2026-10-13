@@ -48,6 +48,9 @@ import { mainSourceCounts } from './findScope';
 import { carries, EXTENSION_OFF, EXTENSION_OFF_BY, standingOf, standingRows, type Standing, type StandingRow } from './sourceStanding';
 import { numKey } from './postingOrder';
 import type { ListingCopy } from './seriesListing';
+import { chapterFiles } from './healthFiles';
+import { diskAndFolders, orphanedData, seriesCovers, seriesDetails, trackerSync } from './healthMore';
+import { DAY_MS, hiddenPart, ignoredPart, MAX_ITEMS, truncate, verdict } from './healthKit';
 
 export type HealthStatus = 'ok' | 'warn' | 'problem';
 
@@ -84,7 +87,10 @@ export type HealthAction =
   | 'link_editions'
   // v0.55.0: a frozen row whose source is dropped by SUWAYOMI_MAX_SOURCES -- open Admin → Sources on `sourceId` to free
   // a slot (no server action). Offered in place of Replace there: the source works, the limit is the cause.
-  | 'free_slot';
+  | 'free_slot'
+  // v0.56.0: a frozen series, removed from the library right there (DELETE /api/admin/series/{id}): hidden, files kept,
+  // everyone's progress kept, and Admin → Library puts it back.
+  | 'remove_series';
 
 export interface HealthItem {
   seriesId?: string;
@@ -122,6 +128,11 @@ export interface HealthItem {
    * for -- every series whose main source it is (lib/findScope.ts), the run's own `total`.
    */
   findSeries?: number;
+  /**
+   * v0.56.0, beside a `find_sources` action on a "Series that can no longer update" row: the run is over THIS row's
+   * series alone (POST /api/admin/sources/find {seriesIds: [seriesId]}), not every series of `sourceId`.
+   */
+  findScope?: 'series';
   /**
    * Of `seriesIds`, the one the merge should keep (lib/libraryAdmin.ts keepOrder, v0.57.0): one in a work, then the one
    * whose main source still works, then more live chapters, more readers, the older.
@@ -303,35 +314,12 @@ export interface HealthReport {
   checks: HealthCheck[];
 }
 
-const MAX_ITEMS = 50; // keep the payload sane; the summary always reports the true total
 /** The most gap numbers one item carries. A "Fill now" chip needs to NAME them; it does not need 4,000. */
 const MAX_NUMBERS = 100;
 /** The most chapters one Delete chip acts on, and the most an admin can sensibly read in a confirmation. */
 const MAX_BOOK_IDS = 20;
-const DAY_MS = 24 * 60 * 60 * 1000;
 /** How long a repair's conclusion about a gap stays a conclusion rather than a finding again. */
 const GAPS_FRESH_MS = 7 * DAY_MS;
-
-/**
- * ⚠️ FINDINGS FIRST, always, before the slice. A check's status is decided by the items WITHOUT `info`
- * (the page's one invariant, pinned in health.int.test.ts), so a check holding sixty greyed rows and three
- * real ones could cut the real ones off and report a warning with nothing in it -- which reads as a page
- * bug rather than as a finding. Sorting by severity first costs nothing and makes the slice safe whatever
- * order the check itself built its rows in.
- */
-function truncate<T extends { info?: boolean }>(rows: T[]): { items: T[]; hidden: number } {
-  const ordered = [...rows].sort((a, b) => Number(!!a.info) - Number(!!b.info));
-  return { items: ordered.slice(0, MAX_ITEMS), hidden: Math.max(0, rows.length - MAX_ITEMS) };
-}
-
-/** A check's verdict, from the items that are findings: the invariant, written once. */
-const verdict = (items: HealthItem[], bad: HealthStatus = 'warn'): HealthStatus =>
-  items.some((i) => !i.info) ? bad : 'ok';
-
-/** A summary's "; 2 ignored": the findings an admin chose to stop being told about (lib/healthIgnore.ts). */
-const ignoredPart = (n: number): Part | null => (n ? say('ignored', { n }) : null);
-/** A note's " 3 more not shown.": the rows past the slice. */
-const hiddenPart = (n: number): Part | null => (n > 0 ? joined('sentence', say('hidden', { n })) : null);
 
 /**
  * The shape lib/repair.ts stores in `lib_series.gaps_result`.
@@ -919,7 +907,7 @@ async function chapterFailures(ctx: IgnoreCtx = noIgnores()): Promise<HealthChec
   const waiting = rows.filter((r, i) => all[i].info && !all[i].ignored).reduce((n, r) => n + r.chapters, 0);
   return {
     id: 'chapter-failures',
-    title: 'Chapters that would not download',
+    title: 'Chapters that could not be fetched',
     status: verdict(all),
     ...summaryOf([
       live.length ? say('failures.live', { n: total, m: live.length })
@@ -1062,6 +1050,8 @@ export async function frozenSeries(
   // Reintroduce `source: r.source_id`: "a switched-off source is said to be switched off" and "the engine is the
   // reason" in health.int.test.ts read the id.
   const named = (r: typeof rows[number]): string => (r.source_id ? sourceLabel(r.source_id, r.engine_name) : '');
+  const withFind = (k: { sourceId?: string; actions?: HealthAction[]; findSeries?: number }) =>
+    ({ ...k, actions: [...(k.actions ?? []), 'remove_series' as const, 'find_sources' as const] as HealthAction[] });
   const found: HealthItem[] = frozen.map((r) => {
     const p = { n: r.books_count, source: named(r) };
     return {
@@ -1073,7 +1063,14 @@ export async function frozenSeries(
         : engineWhy(r)
           ? say(engine === 'unreachable' ? 'frozen.engineDown' : 'frozen.engineOff', p)
           : why(r, p)]),
-      ...keysFor(r, ['replace_source', 'find_sources']),
+      // v0.56.0: every frozen series can be searched for another source, whatever the reason -- including one with no
+      // source at all -- and the run is over THIS series (`findScope: 'series'`), not every series of its source.
+      // Reintroduce the source-wide key by dropping `findScope`: "the find key of a frozen row is for that series
+      // alone" in findSources.int.test.ts finds the web starting a run over the whole source.
+      // Replace is not offered per series: it moves EVERY series of the source, which is not what reviewing one is for
+      // (Admin → Sources and the source's own Health row have it). Reintroduce by adding 'replace_source' here.
+      ...withFind(keysFor(r, [])),
+      findScope: 'series' as const,
     };
   });
   const ignored = applyIgnores('frozen-series', found, ctx, !readFailed);
@@ -1088,7 +1085,7 @@ export async function frozenSeries(
         ? say('frozen.followingDown', { source: named(r), state: stall, names: followed.get(r.id)! })
         : say('frozen.following', { source: r.source_id ? named(r) : null, names: followed.get(r.id)! })]),
       info: true,
-      ...keysFor(r, ['replace_source']),
+      ...keysFor(r, []),
     });
   }
   return {
@@ -2165,6 +2162,12 @@ export async function runHealthChecks(): Promise<HealthReport> {
     ...(suwayomiConfigured() ? [extensionCap()] : []),
     // #72: the engine itself; null when there is none and nothing depends on one (lib/engineHealth.ts).
     extensionEngineCheck().catch(() => null),
+    chapterFiles(ctx).catch(() => null),
+    seriesCovers(ctx).catch(() => null),
+    seriesDetails(ctx).catch(() => null),
+    diskAndFolders(ctx).catch(() => null),
+    orphanedData().catch(() => null),
+    trackerSync(ctx).catch(() => null),
   ])).filter((c): c is HealthCheck => c !== null);
   await keepIgnoresAlive(ctx);
   // worst first, so the page opens on whatever needs attention
@@ -2188,6 +2191,53 @@ export async function findingOf(check: IgnorableCheck, key: string): Promise<Fin
     case 'frozen-series': await frozenSeries(ctx); break;
     case 'duplicates': await duplicateSeries(ctx); break;
     case 'downloads-missing': await downloadsMissing(ctx); break;
+    case 'files': await chapterFiles(ctx); break;
+    case 'covers': await seriesCovers(ctx); break;
+    case 'details': await seriesDetails(ctx); break;
+    case 'disk': await diskAndFolders(ctx); break;
+    case 'trackers': await trackerSync(ctx); break;
   }
   return ctx.found.get(`${check}\u0000${key}`) ?? null;
+}
+
+export const RECHECKABLE_CHECKS = [
+  'chapter-gaps', 'numbering', 'short-chapters', 'outliers', 'saved-twice', 'duplicates', 'sources',
+  'chapter-failures', 'frozen-series', 'solver', 'update', 'library-scan', 'downloads-missing',
+  'folders-twice', 'extension-cap', 'extension-engine',
+  'files', 'covers', 'details', 'disk', 'orphans', 'trackers',
+] as const;
+export type RecheckableCheck = typeof RECHECKABLE_CHECKS[number];
+
+/**
+ * One check, run again on its own: what a row's Recheck asks. The same function the full run calls, with the same
+ * ignore list, so the answer is what the next full run would say about this check. Null when the check has nothing
+ * to say any more (numbering with no series left to renumber, the two folders no longer side by side).
+ */
+export async function recheckCheck(id: RecheckableCheck): Promise<HealthCheck | null> {
+  const ctx = await loadIgnores();
+  switch (id) {
+    case 'chapter-gaps': return chapterGaps(await heldBySeries(), ctx);
+    case 'outliers': return outlierChapters(await heldBySeries(), ctx);
+    case 'numbering': return numberingCheck();
+    case 'short-chapters': return shortChapters();
+    case 'saved-twice': return savedTwice();
+    case 'duplicates': return duplicateSeries(ctx);
+    case 'sources': return sourceTrouble(ctx);
+    case 'chapter-failures': return chapterFailures(ctx);
+    case 'frozen-series': return frozenSeries(ctx);
+    case 'solver': return solverHealth();
+    case 'update': return updateCheck();
+    case 'library-scan': return libraryScan();
+    case 'downloads-missing': return downloadsMissing(ctx);
+    case 'folders-twice': return foldersScannedTwice().catch(() => null);
+    case 'extension-cap': return suwayomiConfigured() ? extensionCap() : null;
+    case 'extension-engine': return extensionEngineCheck().catch(() => null);
+    // A Recheck of the files looks at every one (up to a minute), where the page's own run looks at a slice.
+    case 'files': return chapterFiles(ctx, { full: true }).catch(() => null);
+    case 'covers': return seriesCovers(ctx).catch(() => null);
+    case 'details': return seriesDetails(ctx).catch(() => null);
+    case 'disk': return diskAndFolders(ctx).catch(() => null);
+    case 'orphans': return orphanedData().catch(() => null);
+    case 'trackers': return trackerSync(ctx).catch(() => null);
+  }
 }

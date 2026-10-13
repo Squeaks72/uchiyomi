@@ -2,6 +2,8 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
+import type { CollectionRow } from '@/lib/types';
+import { LoadingBlock, Sheet } from '@/components/ui';
 import { api } from '@/lib/api';
 import { IcChevronRight } from '@/components/icons';
 import { Heatmap } from '@/components/charts/Heatmap';
@@ -37,7 +39,6 @@ export interface Stats {
   weekChapters: number;
   weeklyGoal: number;
 }
-interface CollectionRow { id: string; name: string; item_count: number }
 
 /** GET /api/stats/time (v0.61.0): reading time from page turns, the reader's own (bff lib/readingTime.ts). */
 export interface ReadingTime {
@@ -65,12 +66,12 @@ export function deviceRows(list: ReadingTime['window']['byDevice']): { label: st
 // Rendered as `tr(b.label)`, so the labels are declared. See lib/i18n.ts.
 const BADGE_LABELS = keys('Reader', 'Bookworm', 'On a roll', 'Centurion', 'Devoted', 'Legend');
 export const BADGES = [
-  { emoji: '📖', label: BADGE_LABELS[0], test: (s: Stats) => s.chapters_completed >= 10 },
-  { emoji: '🐛', label: BADGE_LABELS[1], test: (s: Stats) => s.chapters_completed >= 50 },
-  { emoji: '🔥', label: BADGE_LABELS[2], test: (s: Stats) => s.longestStreak >= 7 },
-  { emoji: '💯', label: BADGE_LABELS[3], test: (s: Stats) => s.chapters_completed >= 100 },
-  { emoji: '🌙', label: BADGE_LABELS[4], test: (s: Stats) => s.longestStreak >= 30 },
-  { emoji: '👑', label: BADGE_LABELS[5], test: (s: Stats) => s.chapters_completed >= 500 },
+  { emoji: '📖', label: BADGE_LABELS[0], test: (s: Stats) => s.chapters_completed >= 10, why: (s: Stats) => tr('Finish 10 chapters. You have finished {n}.', { n: s.chapters_completed }) },
+  { emoji: '🐛', label: BADGE_LABELS[1], test: (s: Stats) => s.chapters_completed >= 50, why: (s: Stats) => tr('Finish 50 chapters. You have finished {n}.', { n: s.chapters_completed }) },
+  { emoji: '🔥', label: BADGE_LABELS[2], test: (s: Stats) => s.longestStreak >= 7, why: (s: Stats) => tr('Read on 7 days in a row. Your longest run is {n}.', { n: s.longestStreak }) },
+  { emoji: '💯', label: BADGE_LABELS[3], test: (s: Stats) => s.chapters_completed >= 100, why: (s: Stats) => tr('Finish 100 chapters. You have finished {n}.', { n: s.chapters_completed }) },
+  { emoji: '🌙', label: BADGE_LABELS[4], test: (s: Stats) => s.longestStreak >= 30, why: (s: Stats) => tr('Read on 30 days in a row. Your longest run is {n}.', { n: s.longestStreak }) },
+  { emoji: '👑', label: BADGE_LABELS[5], test: (s: Stats) => s.chapters_completed >= 500, why: (s: Stats) => tr('Finish 500 chapters. You have finished {n}.', { n: s.chapters_completed }) },
 ];
 
 /* ================================== You ================================== */
@@ -88,18 +89,21 @@ export function BadgesCard({ stats, span = '' }: { stats?: Stats; span?: string 
   return (
     <div id="badges" className={`${CARD} scroll-mt-4 lg:scroll-mt-20 ${span}`}>
       <h2 className="mb-3 font-display text-base font-semibold">{tr('Badges')}</h2>
-      <div className="flex flex-wrap gap-2">
+      <ul className="flex flex-wrap gap-2">
         {earned.map((b) => (
-          <span key={b.label} className="inline-flex items-center gap-1.5 rounded-full border border-accent/40 bg-accent-soft px-3 py-1.5 text-xs text-fog-100">
-            <span>{b.emoji}</span>{tr(b.label)}
-          </span>
+          <li key={b.label} title={b.why(stats)} tabIndex={0} className="inline-flex items-center gap-1.5 rounded-full border border-accent/40 bg-accent-soft px-3 py-1.5 text-xs text-fog-100">
+            <span aria-hidden>{b.emoji}</span>{tr(b.label)}
+            <span className="sr-only">{b.why(stats)}</span>
+          </li>
         ))}
         {next && (
-          <span key={next.label} className="inline-flex items-center gap-1.5 rounded-full border border-ink-700 px-3 py-1.5 text-xs text-ink-500 opacity-60">
-            <span>{next.emoji}</span>{tr(next.label)}
-          </span>
+          <li key={next.label} title={next.why(stats)} tabIndex={0} className="inline-flex items-center gap-1.5 rounded-full border border-ink-700 px-3 py-1.5 text-xs text-fog-500">
+            <span aria-hidden>{next.emoji}</span><span aria-hidden>{tr(next.label)}</span>
+            <span className="sr-only">{tr('Next badge: {name}', { name: tr(next.label) })}</span>
+            <span className="sr-only">{next.why(stats)}</span>
+          </li>
         )}
-      </div>
+      </ul>
     </div>
   );
 }
@@ -112,17 +116,19 @@ export function ListsCard({ span = '' }: { span?: string }) {
     <div className={`${CARD} ${span}`}>
       <h2 className="mb-3 font-display text-base font-semibold">{tr('Lists')}</h2>
       {rows.length ? (
-        <div className="space-y-1.5">
+        <ul className="space-y-1.5">
           {rows.slice(0, 6).map((c) => (
-            <Link key={c.id} href={`/collection/?id=${encodeURIComponent(c.id)}`}
-              className="flex items-center justify-between gap-3 rounded-xl border border-ink-700/70 bg-ink-850/50 px-3 py-2">
-              <span className="min-w-0 truncate text-sm text-fog-100">{c.name}</span>
-              <span className="shrink-0 text-xs tabular-nums text-fog-500">{c.item_count === 1 ? tr('1 series') : tr('{n} series', { n: c.item_count })}</span>
-            </Link>
+            <li key={c.id}>
+              <Link href={`/collection/?id=${encodeURIComponent(c.id)}`}
+                className="flex items-center justify-between gap-3 rounded-xl border border-ink-700/70 bg-ink-850/50 px-3 py-2">
+                <span className="min-w-0 truncate text-sm text-fog-100">{c.name}</span>
+                <span className="shrink-0 text-xs tabular-nums text-fog-500">{c.item_count === 1 ? tr('1 series') : tr('{n} series', { n: c.item_count })}</span>
+              </Link>
+            </li>
           ))}
-        </div>
+        </ul>
       ) : (
-        <p className="text-xs text-fog-500">{tr('No collections yet')}</p>
+        <p className="text-xs text-fog-500">{tr('No lists yet')}</p>
       )}
       <Link href="/collections/" className="chip mt-3 text-xs">{tr('See all')}<IcChevronRight width={14} height={14} aria-hidden className="rtl:-scale-x-100" /></Link>
     </div>
@@ -138,6 +144,7 @@ export function ListsCard({ span = '' }: { span?: string }) {
  */
 export function StudioCard({ span = '' }: { span?: string }) {
   const [days, setDays] = useState(90);
+  const [picked, setPicked] = useState<string | null>(null);
   const { data, isLoading } = useQuery({
     queryKey: ['stats', days],
     queryFn: () => api<Stats>(`/api/stats?days=${days}`),
@@ -164,13 +171,13 @@ export function StudioCard({ span = '' }: { span?: string }) {
   }
   const DOW = keys('Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat');
 
-  if (isLoading && !data) return <div className={`card skeleton h-64 ${span}`} />;
+  if (isLoading && !data) return <LoadingBlock className={`card h-64 ${span}`} />;
 
   return (
     <div id="reading-studio" className={`${CARD} scroll-mt-4 lg:scroll-mt-20 ${span}`}>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <h2 className="font-display text-base font-semibold">{tr('Reading studio')}</h2>
-        <div className="flex gap-1.5">
+        <div role="group" aria-label={tr('Time range')} className="flex gap-1.5">
           {[90, 180, 365].map((d) => (
             <button key={d} onClick={() => setDays(d)} aria-pressed={days === d}
               className={`chip text-[11px] ${days === d ? 'border-accent/50 text-accent' : 'text-fog-400'}`}>
@@ -210,7 +217,8 @@ export function StudioCard({ span = '' }: { span?: string }) {
             <p className="mb-1.5 text-[11px] uppercase tracking-widest text-fog-500">
               {bookCountText(total)}
             </p>
-            {series.length > 0 && <Heatmap values={counts} start={series[0].day} />}
+            {series.length > 0 && <Heatmap values={counts} start={series[0].day} onPick={setPicked} />}
+            <p className="mt-1.5 text-[11px] text-fog-500">{tr('Tap a day to see everything you read.')}</p>
           </div>
           <div>
             <p className="mb-1 text-[11px] uppercase tracking-widest text-fog-500">{tr('Pace')}</p>
@@ -235,6 +243,49 @@ export function StudioCard({ span = '' }: { span?: string }) {
           )}
         </div>
       )}
+      {picked && <DaySheet day={picked} onClose={() => setPicked(null)} />}
     </div>
+  );
+}
+
+interface DayChapter { bookId: string; title: string; number: number | null; completed: boolean; page: number; firstAt: string; lastAt: string }
+interface DayPayload { date: string; chaptersCompleted: number; chaptersTouched: number; series: { seriesId: string; title: string; firstAt: string; chapters: DayChapter[] }[] }
+
+/** Everything read on one heatmap day: each series, the chapters in it, whether they were finished, and when. */
+function DaySheet({ day, onClose }: { day: string; onClose: () => void }) {
+  const { data, isLoading, isError } = useQuery({ queryKey: ['stats-day', day], queryFn: () => api<DayPayload>(`/api/stats/day?date=${day}`) });
+  const time = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  const title = new Date(`${day}T12:00:00Z`).toLocaleDateString([], { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' });
+  return (
+    <Sheet title={title} onClose={onClose} overBottomNav>
+      <div className="px-5 pb-6">
+        {isLoading ? <LoadingBlock className="h-32" /> : isError ? <p className="text-sm text-fog-400">{tr('Could not load')}</p> : !data?.series.length ? (
+          <p className="py-6 text-center text-sm text-fog-500">{tr('Nothing read on this day.')}</p>
+        ) : (
+          <>
+            <p className="mb-3 text-xs text-fog-400">
+              {tr('{done} finished, {total} opened.', { done: data.chaptersCompleted, total: data.chaptersTouched })}
+            </p>
+            <ul className="space-y-4">
+              {data.series.map((g) => (
+                <li key={g.seriesId}>
+                  <Link href={`/series/?id=${encodeURIComponent(g.seriesId)}`} className="text-sm font-semibold text-fog-100 hover:text-accent">{g.title}</Link>
+                  <ul className="mt-1.5 space-y-1">
+                    {g.chapters.map((c) => (
+                      <li key={c.bookId} className="flex items-center justify-between gap-3 rounded-lg border border-ink-700/70 bg-ink-850/50 px-3 py-1.5 text-xs">
+                        <span className="min-w-0 truncate text-fog-200">{c.title || (c.number != null ? tr('Chapter {n}', { n: c.number }) : '')}</span>
+                        <span className="shrink-0 tabular-nums text-fog-500">
+                          {c.completed ? tr('Finished') : tr('Page {n}', { n: c.page + 1 })} · {time(c.lastAt)}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </div>
+    </Sheet>
   );
 }

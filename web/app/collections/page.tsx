@@ -1,16 +1,20 @@
 'use client';
+import { BackLink, Breadcrumb } from '@/components/BackLink';
 import Link from 'next/link';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useToast } from '@/components/Toast';
 import { useAuth } from '@/lib/auth';
 import { EmptyState } from '@/components/EmptyState';
 import { ART } from '@/lib/art';
-import { IcChevronLeft, IcChevronRight, IcHome, IcPlus, IcTrash } from '@/components/icons';
+import { IcChevronLeft, IcChevronRight, IcHeart, IcHome, IcPlus, IcTrash } from '@/components/icons';
+import { AdultToggle } from '@/components/AdultToggle';
+import { ImportListModal, useExportList } from '@/components/ListShare';
 import { useRtl } from '@/components/ui';
-import { t as tr } from '@/lib/i18n';
+import { keys, t as tr } from '@/lib/i18n';
+import { Modal } from '@/components/ConfirmDialog';
 import { useLayer } from '@/lib/layers';
 import { ACCENTS, homeIdsOf, isMine, type ListRow } from '@/lib/lists';
 import { ListOwnerLine, ListTags } from '@/components/ListBits';
@@ -19,7 +23,10 @@ import { invalidateLists, useListsAll } from '@/components/SaveListDialog';
 export type CollectionRow = ListRow;
 
 /** A list's name inside a sentence, isolated: in Arabic a Latin name would reorder the words around it. */
-const iso = (s: string): string => `\u2068${s}\u2069`;
+const iso = (s: string): string => `⁨${s}⁩`;
+
+// Each swatch's name, for a screen reader; declared so they are translated (see lib/i18n.ts keys).
+const ACCENT_NAMES = keys('Violet', 'Pink', 'Cyan', 'Green', 'Amber', 'Red');
 
 export default function CollectionsPage() {
   const router = useRouter();
@@ -29,9 +36,12 @@ export default function CollectionsPage() {
   const { user, setSettings } = useAuth();
   const [homeSaving, setHomeSaving] = useState(false);
   const [creating, setCreating] = useState(false);
-  // The New collection dialog below, on the notices' layer stack (lib/layers.ts) while it is open: it toasts
-  // "Failed to create" over itself.
-  useLayer('dialog', creating);
+  const [importing, setImporting] = useState(false);
+  const exportList = useExportList();
+  const favs = useQuery({ queryKey: ['favorite-ids'], staleTime: 60_000, queryFn: () => api<{ ids: string[] }>('/api/favorites/ids').then((r) => r.ids) });
+  const favCount = favs.data?.length ?? 0;
+  // The New collection dialog below is a Modal, which sits on the notices' layer stack (lib/layers.ts) and
+  // handles Escape and focus itself.
   const [name, setName] = useState('');
   const [accent, setAccent] = useState<string>(ACCENTS[0]);
   // v0.61.0: every list this reader may read (lib/lists.ts) -- their own, hand-picked and smart, then the household's
@@ -84,12 +94,12 @@ export default function CollectionsPage() {
     if (!n) return;
     try {
       const c = await api<CollectionRow>('/api/collections', { json: { name: n, accent } });
-      toast(tr('Collection created'), 'success');
+      toast(tr('List created'), 'success');
       setCreating(false);
       setName('');
       invalidateLists(qc);
       router.push(`/collection/?id=${c.id}`);
-    } catch { toast(tr('Could not create the collection'), 'error'); }
+    } catch { toast(tr('Could not create the list'), 'error'); }
   };
 
   const remove = async (c: CollectionRow) => {
@@ -134,6 +144,7 @@ export default function CollectionsPage() {
             </button>
           </>
         )}
+        <button type="button" onClick={() => void exportList(c.id, c.name)} className="chip ms-auto text-xs" data-list-export>{tr('Export')}</button>
       </div>
       {isMine(c) && (
         <button onClick={() => remove(c)} aria-label={tr('Delete “{name}”', { name: iso(c.name) })}
@@ -146,29 +157,42 @@ export default function CollectionsPage() {
 
   return (
     <div className="min-h-screen-d">
-      <header className="safe-top flex items-center gap-2 px-4 pb-2 lg:px-0 lg:pt-6">
-        <button onClick={() => router.back()} className="grid h-10 w-10 place-items-center rounded-full bg-ink-800/70 text-fog-100 lg:hidden">
-          <IcChevronLeft width={22} height={22} />
-        </button>
+      <div className="px-4 lg:px-0"><Breadcrumb trail={[{ label: tr('Home'), href: '/' }]} current={tr('Lists')} /></div>
+      <header className="safe-top flex items-center gap-2 px-4 pb-2 lg:px-0">
+        <BackLink fallback="/" phoneOnly />
         <div className="min-w-0">
-          <h1 className="font-display text-2xl font-bold lg:text-3xl">{tr('Collections')}</h1>
+          <h1 className="font-display text-2xl font-bold lg:text-3xl">{tr('Lists')}</h1>
           <p className="mt-0.5 text-xs text-fog-500">{tr('Choose up to 3 lists for Home. Empty lists stay selected and appear when they have series.')}</p>
         </div>
-        <button onClick={() => setCreating(true)} className="btn-accent ms-auto px-3.5 py-2 text-sm">
-          <IcPlus width={16} height={16} aria-hidden />{tr('New collection')}
+        <button type="button" onClick={() => setImporting(true)} aria-haspopup="dialog" data-list-import className="chip text-xs">{tr('Import')}</button>
+        <button type="button" onClick={() => setCreating(true)} aria-haspopup="dialog" className="btn-accent px-3.5 py-2 text-sm">
+          <IcPlus width={16} height={16} aria-hidden />{tr('New list')}
         </button>
       </header>
 
       {isLoading ? (
-        <div className="grid grid-cols-1 gap-3 px-4 pt-3 sm:grid-cols-2 lg:grid-cols-3 lg:px-0">
+        <div role="status" aria-busy="true" className="grid grid-cols-1 gap-3 px-4 pt-3 sm:grid-cols-2 lg:grid-cols-3 lg:px-0">
+          <span className="sr-only">{tr('Loading…')}</span>
           {Array.from({ length: 4 }).map((_, i) => <div key={i} className="skeleton h-24 rounded-2xl" />)}
         </div>
-      ) : items.length === 0 ? (
-        <EmptyState art={ART.emptyLibrary} title={tr('No collections yet')}
-          sub={tr('Group series into reading lists — “Plan to read”, “Finished favorites”, anything. Create one and add series from any series page.')}
+      ) : false ? (
+        <EmptyState art={ART.emptyLibrary} title={tr('No lists yet')}
+          sub={tr('Group series into reading lists, like “Plan to read”. Create one, then add series from any series page.')}
           cta={undefined} />
       ) : (
         <>
+          <ul className="grid grid-cols-1 gap-3 px-4 pt-3 sm:grid-cols-2 lg:grid-cols-3 lg:px-0">
+            <li data-list-favorites className="card group relative overflow-hidden p-4">
+              <span aria-hidden className="absolute inset-y-0 start-0 w-1.5 bg-rose-400" />
+              <Link href="/collection/?id=favorites" className="block ps-2">
+                <p className="flex items-center gap-2 font-display text-lg font-semibold text-fog-50"><IcHeart width={16} height={16} aria-hidden className="text-rose-400" />{tr('Favorites')}</p>
+                <p className="text-xs text-fog-500">{favCount === 1 ? tr('1 series') : tr('{n} series', { n: favCount })}</p>
+              </Link>
+              <div className="mt-3 flex items-center gap-1.5 ps-2">
+                <button type="button" onClick={() => void exportList('favorites', tr('Favorites'))} className="chip text-xs">{tr('Export')}</button>
+              </div>
+            </li>
+          </ul>
           {/* v0.61.0: the reader's own lists, then those someone else shares with the household -- read-only here, and
               never theirs to delete. A section is named only when there are two. */}
           {theirs.length > 0 && <h2 className="px-4 pt-4 font-display text-base font-semibold text-fog-100 lg:px-0">{tr('Your lists')}</h2>}
@@ -182,23 +206,22 @@ export default function CollectionsPage() {
         </>
       )}
 
+      {importing && <ImportListModal onClose={() => setImporting(false)} onDone={(id) => router.push(`/collection/?id=${id}`)} />}
+
       {creating && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-ink-950/70 p-4 backdrop-blur-xs" onClick={() => setCreating(false)}>
-          <div role="dialog" aria-modal="true" aria-label={tr('New collection')} className="glass w-full max-w-sm rounded-2xl border border-ink-700 p-5" onClick={(e) => e.stopPropagation()}>
-            <h3 className="mb-3 font-display text-lg font-semibold">{tr('New collection')}</h3>
-            <input value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && create()}
-              placeholder={tr('e.g. Plan to read')} autoFocus
-              className="w-full rounded-xl border border-ink-700 bg-ink-900 px-3 py-2.5 text-sm text-fog-50 outline-hidden focus:border-accent" />
-            <div className="mt-3 flex items-center gap-2">
-              {ACCENTS.map((a, i) => (
-                <button key={a} onClick={() => setAccent(a)} aria-label={tr('Colour {n}', { n: i + 1 })} aria-pressed={accent === a}
-                  className={`h-7 w-7 rounded-full transition ${accent === a ? 'ring-2 ring-white/80 ring-offset-2 ring-offset-ink-900' : ''}`}
-                  style={{ background: a }} />
-              ))}
-            </div>
-            <button onClick={create} disabled={!name.trim()} className="btn-accent mt-4 w-full py-2.5 text-sm disabled:opacity-50">{tr('Create')}</button>
+        <Modal title={tr('New list')} onClose={() => setCreating(false)}>
+          <input value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && create()}
+            aria-label={tr('Name')} placeholder={tr('e.g. Plan to read')} autoComplete="off"
+            className="w-full rounded-xl border border-ink-700 bg-ink-900 px-3 py-2.5 text-sm text-fog-50 outline-hidden focus-visible:outline-accent focus-visible:outline-offset-0 focus:border-accent" />
+          <div className="mt-3 flex items-center gap-2" role="group" aria-label={tr('Color')}>
+            {ACCENTS.map((a, i) => (
+              <button key={a} type="button" onClick={() => setAccent(a)} aria-label={tr(ACCENT_NAMES[i])} aria-pressed={accent === a}
+                className={`relative h-7 w-7 rounded-full transition before:absolute before:-inset-1 ${accent === a ? 'ring-2 ring-white/80 ring-offset-2 ring-offset-ink-900' : ''}`}
+                style={{ background: a }} />
+            ))}
           </div>
-        </div>
+          <button type="button" onClick={create} disabled={!name.trim()} className="btn-accent mt-4 w-full py-2.5 text-sm disabled:opacity-50">{tr('Create')}</button>
+        </Modal>
       )}
     </div>
   );

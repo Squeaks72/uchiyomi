@@ -80,7 +80,7 @@ export function LanguagesSheet({ onClose }: { onClose: () => void }) {
                     </div>
                     {/* A source that declares no language cannot be chosen by one -- the server reaches it by id only. */}
                     {code === null ? (
-                      <span className="shrink-0 text-[11px] text-fog-600">{tr('no language declared')}</span>
+                      <span className="shrink-0 text-[11px] text-fog-500">{tr('no language declared')}</span>
                     ) : busy === code ? (
                       <Busy tone="muted"><span className="sr-only">{tr('Loading…')}</span></Busy>
                     ) : (

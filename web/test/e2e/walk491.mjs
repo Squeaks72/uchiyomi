@@ -655,7 +655,7 @@ async function select() {
   await shot('select-2-more');
   const before = (await findState()).run?.id ?? null;
   check(`${tag}: More -> Find other sources`, await press('Find other sources', '[role="dialog"][aria-label="2 selected"]'));
-  const notice = await waitFor(async () => /Looking for other sources for 2 series… Library → Downloads shows how it goes\./.test(await bodyText()), 10_000);
+  const notice = await waitFor(async () => /Looking for other sources for 2 series… Library → Fetching shows how it goes\./.test(await bodyText()), 10_000);
   check(`${tag}: the notice says a search for 2 series began, and where it shows`, !!notice);
   await shot('select-3-started');
   const started = await waitFor(async () => { const s = await findState(); return s.run && s.run.id !== before ? s.run : null; }, 15_000);

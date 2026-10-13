@@ -35,7 +35,7 @@ import { startArchive } from './lib/archive';
 import { startHeroWarmup } from './lib/autoHero';
 import { closeInterruptedFindRuns, findSettledWithin } from './lib/findSources';
 import { loadUnstatedLang } from './lib/seriesLang';
-import { refreshNoticesActive } from './lib/noticeSettings';
+import { applyNoticeDefault, refreshNoticesActive } from './lib/noticeSettings';
 import { loadMangadexLangs } from './lib/sources/mangadexLangs';
 import { runChapterCleanup, unpruneRestored } from './lib/chapterCleanup';
 import { runExtensionMonitor } from './lib/extensionMonitor';
@@ -55,24 +55,33 @@ import adminRoutes, { sweepImportBatches } from './routes/admin';
 import catalogRoutes from './routes/catalog';
 import imageRoutes, { authorizeImageRequest } from './routes/images';
 import personalRoutes from './routes/personal';
+import recommendationRoutes from './routes/recommendations';
 import downloadRoutes from './routes/downloads';
+import { initExports } from './lib/zipExport';
 import sourceRoutes, { jobBusy } from './routes/sources';
 import opdsRoutes from './routes/opds';
 import komgaCompatRoutes from './routes/komgaCompat';
 import notifyRoutes from './routes/notify';
 import { isDesktop } from './lib/desktop';
+import { healFolderCase } from './lib/libraryFolders';
+import { loadSourceRatings } from './lib/sourceRatings';
 import { installDesktopGuards } from './lib/desktopGuard';
 import { ensureDesktopUser } from './lib/desktopUser';
 import { initialiseBulkChapterDeleteRuns } from './lib/bulkChapterDelete';
 
 async function main() {
   await migrate();
+  await healFolderCase().catch((e) => console.warn(`[library] could not respell renamed folders: ${(e as Error)?.message || e}`));
+  await initExports();
   // The language of sources and series that do not say (lib/lang.ts), before anything compares languages. A
   // database that cannot be read here leaves English, the default, and never stops the boot.
   await loadUnstatedLang().catch((e) => console.warn(`[lang] could not read the unstated language: ${(e as Error)?.message || e}`));
   // Whether any notice-chapter switch is on (lib/noticeChapters.ts), before the first query is built: while none is,
   // every query is the one the previous release ran. Unreadable leaves them off, as they were before the feature.
+  await applyNoticeDefault();
   await refreshNoticesActive().catch((e) => console.warn(`[notices] could not read the switches: ${(e as Error)?.message || e}`));
+  // The admin's per-source age ratings (lib/sourceRatings.ts), before anything asks which sources an account may reach.
+  await loadSourceRatings().catch((e) => console.warn(`[ratings] could not read the source ratings: ${(e as Error)?.message || e}`));
   // A Find other sources run still `running` belonged to the process that just went away (v0.49.1): say so.
   await closeInterruptedFindRuns().catch((e) => console.warn(`[find] could not close interrupted runs: ${(e as Error)?.message || e}`));
   // v0.55.0: a Fix everything run the last process was in the middle of (lib/autofix.ts) reads `interrupted`, not running.
@@ -203,6 +212,7 @@ async function main() {
   await app.register(catalogRoutes);
   await app.register(imageRoutes);
   await app.register(personalRoutes);
+  await app.register(recommendationRoutes);
   await app.register(downloadRoutes);
   await app.register(sourceRoutes);
   // Neither OPDS nor the Komga-compatible API exists on desktop: both are for OTHER devices reading this

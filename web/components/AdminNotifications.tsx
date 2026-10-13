@@ -117,8 +117,8 @@ export function NotificationsSection() {
       <Section id="notifications" title={tr('Notifications')} icon={<IcBell width={18} height={18} />}
         description={tr('Send new chapters and server problems somewhere besides this browser: a webhook, Home Assistant, ntfy or Discord. One message per library update, not one per chapter.')}
         action={(
-          <button type="button" onClick={() => setEditing('new')} className="chip inline-flex items-center gap-1 text-xs">
-            <IcPlus width={14} height={14} />{tr('Add')}
+          <button type="button" onClick={() => setEditing('new')} aria-label={tr('Add a notification target')} className="chip inline-flex items-center gap-1 text-xs">
+            <IcPlus aria-hidden width={14} height={14} />{tr('Add')}
           </button>
         )}>
         {!data ? (
@@ -221,11 +221,11 @@ function TargetRow({ t, onEdit, onDelete, refresh }: {
         </div>
       </div>
       <div className="mt-2 flex flex-wrap gap-1.5">
-        <button type="button" onClick={test} disabled={testing} className="chip text-xs disabled:opacity-50">
+        <button type="button" onClick={test} disabled={testing} aria-label={`${tr('Send a test')}: ${t.name}`} className="chip text-xs disabled:opacity-50">
           {testing ? tr('Sending…') : tr('Send a test')}
         </button>
-        <button type="button" onClick={onEdit} className="chip text-xs">{tr('Edit')}</button>
-        <button type="button" onClick={onDelete} className="chip text-xs hover:text-rose-300">{tr('Delete')}</button>
+        <button type="button" onClick={onEdit} aria-label={`${tr('Edit')}: ${t.name}`} className="chip text-xs">{tr('Edit')}</button>
+        <button type="button" onClick={onDelete} aria-label={`${tr('Delete')}: ${t.name}`} className="chip text-xs hover:text-rose-300">{tr('Delete')}</button>
       </div>
     </div>
   );
@@ -412,7 +412,7 @@ function TargetDialog({ target, onClose, onSaved }: { target: NotifyTarget | nul
 
         {events.includes('new_chapters') && (
           <Field label={tr('Message')}
-            help={<>{tr('{count} chapters added · {series} the series’ title, or “3 series” · {list} up to ten titles')}</>}>
+            help={<>{tr('You can use {count} for the number of chapters added, {series} for the series title (or “3 series”) and {list} for up to ten titles.')}</>}>
             <input value={template} onChange={(e) => setTemplate(e.target.value)} maxLength={500} autoComplete="off"
               placeholder={DEFAULT_TEMPLATE} className="field" dir="auto" />
             {/* A span, not a <p>: this sits inside the field's <label>, which may hold phrasing content only. */}

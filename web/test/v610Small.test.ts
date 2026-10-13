@@ -84,7 +84,7 @@ test("Home draws Pick back up and Hidden gems only when they hold something, in 
   assert.match(home, /\{\(data\?\.gems\?\.length \?\? 0\) > 0 && \(\s*<section className="pt-8" data-home-gems>/);
   const at = (s: string) => { const i = home.indexOf(s); assert.ok(i > 0, `not found: ${s}`); return i; };
   const order = [
-    at("tr('Keep reading')"), at("tr('For you')"), at("tr('New episodes')"), at("tr('Your favorites')"), at('<CollectionRails />'),
+    at("tr('Keep reading')"), at("tr('New episodes')"), at("tr('Your favorites')"), at('<CollectionRails />'),
     at("tr('Pick back up')"), at("tr('Recently added')"), at("tr('Most popular in your library')"), at("tr('Hidden gems')"),
     at("tr('Top 10 in your library')"),
   ];

@@ -185,13 +185,13 @@ test('Browse reaches every extension: pages as it scrolls, Show more under them,
 test('the 18+ control says what it does, and off hides them', () => {
   // #121: a chip reading "18+" was read as "only 18+". Reintroduce the chip: the switch's words are gone.
   const browse = slice(code(read('components/ExtensionsPanel.tsx')), 'export function BrowseView(', 'function NothingFound(');
-  assert.match(browse, /<Switch on=\{f\.adult\} onChange=\{onAdult\} label=\{tr\('Show 18\+ extensions'\)\} \/>\s*<span>\{tr\('Show 18\+ extensions'\)\}<\/span>/,
-    'the 18+ filter is not a switch saying "Show 18+ extensions"');
+  assert.match(browse, /<Switch on=\{f\.adult\} onChange=\{onAdult\} label=\{tr\('Include 18\+ extensions in this list'\)\} \/>\s*<span>\{tr\('Include 18\+ extensions in this list'\)\}<\/span>/,
+    'the 18+ filter is not a switch saying "Include 18+ extensions in this list"');
   assert.doesNotMatch(browse, />\s*18\+\s*</, 'a bare "18+" control is back');
   assert.deepEqual(NO_FILTERS.adult, false, '18+ extensions are shown by default');
   // Nothing found: the 18+ extensions the search would have found are offered, by the switch's own words.
   const none = slice(code(read('components/ExtensionsPanel.tsx')), 'function NothingFound(', 'function BrowseRow(');
-  assert.match(none, /\{hiddenAdult > 0 && <button type="button" onClick=\{onAdult\} className="btn-key btn-key-primary">\{tr\('Show 18\+ extensions'\)\}<\/button>\}/);
+  assert.match(none, /\{hiddenAdult > 0 && <button type="button" onClick=\{onAdult\} className="btn-key btn-key-primary">\{tr\('Include 18\+ extensions in this list'\)\}<\/button>\}/);
 });
 
 test('an extension installed in the engine\'s own page shows as installed, with its sources one press away', () => {

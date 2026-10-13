@@ -1,12 +1,17 @@
 'use client';
-import { useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { canDownload, useAuth } from '@/lib/auth';
 import { t as tr } from '@/lib/i18n';
+import { applyFavorite } from '@/lib/favoriteCache';
 import type { Series } from '@/lib/types';
 import { useToast } from './Toast';
 import { useContextMenu, type MenuItem } from './ContextMenu';
 import { useArchiveEnqueue } from './ArchiveQueue';
+import { SeriesPropertiesSheet } from './SeriesPropertiesSheet';
+import { MoveToLibrary } from './MoveToLibrary';
+import { useAdultMark, useAlwaysShow } from './useAdultMark';
 
 /**
  * A series card's menu (#100): the few things worth doing without opening the series, from wherever it is on
@@ -18,14 +23,24 @@ import { useArchiveEnqueue } from './ArchiveQueue';
  * archive of the rest (#117). Offered by role, never offered and then refused, and greyed rather than hidden
  * while offline. Anything larger is the series page, one click away.
  */
-export function useSeriesMenu(series: Series) {
+export function useSeriesMenu(series: Series, onDescribe?: () => void, opts?: { keepReading?: boolean; onSelect?: () => void }) {
   const qc = useQueryClient();
   const toast = useToast();
   const { isAdmin, status, user } = useAuth();
   const archive = useArchiveEnqueue();
   const offline = status === 'offline';
   const href = `/series/?id=${encodeURIComponent(series.id)}`;
-  const favourite = !!series.yomi?.favorite;
+  // A card built from a book (Home's Keep reading) carries no `yomi`: its favourite state comes from the id list.
+  const favIds = useQuery({
+    queryKey: ['favorite-ids'], enabled: !series.yomi, staleTime: 60_000,
+    queryFn: () => api<{ ids: string[] }>('/api/favorites/ids').then((r) => r.ids),
+  });
+  const favourite = series.yomi ? !!series.yomi.favorite : !!favIds.data?.includes(series.id);
+  const [properties, setProperties] = useState(false);
+  const [moving, setMoving] = useState(false);
+  const [moveBusy, setMoveBusy] = useState(false);
+  const adultItem = useAdultMark(series.metadata?.title || series.name, series.id, series.metadata?.ageRating);
+  const showItem = useAlwaysShow(series.id, series.overrides?.adultExempt);
 
   // ['collection']: a list's tiles carry the same badges since v0.55.7 (#164), and Mark all read from one of them must
   // move its count there too, not only on the Library.
@@ -37,11 +52,37 @@ export function useSeriesMenu(series: Series) {
     try {
       const r = await api<{ applied: number }>(path, { json: { seriesIds: [series.id], ...extra } });
       toast(r.applied ? done : tr('That series is no longer in the library'), r.applied ? 'success' : 'error');
+      if (r.applied && typeof extra.favorite === 'boolean') applyFavorite(qc, series.id, extra.favorite);
       settle();
+      qc.invalidateQueries({ queryKey: ['favorite-ids'] });
+    } catch { toast(tr('Could not do that'), 'error'); }
+  };
+
+  const moveTo = async (libraryId: string | null) => {
+    setMoveBusy(true);
+    try {
+      const r = await api<{ applied: number; problems?: { reason?: string }[] }>('/api/admin/series/library', { json: { seriesIds: [series.id], libraryId } });
+      if (r.problems?.length) toast(`${tr('1 folder could not be moved')}: ${r.problems[0].reason ?? ''}`, 'error');
+      else toast(r.applied ? tr('1 series updated') : tr('That series is no longer in the library'), r.applied ? 'success' : 'error');
+      settle();
+      qc.invalidateQueries({ queryKey: ['library-sources'] });
+    } catch { toast(tr('Could not do that'), 'error'); }
+    setMoveBusy(false);
+    setMoving(false);
+  };
+
+  // Home's Keep reading row only: the series stays in the library and returns to the row when it is read again.
+  const leaveKeepReading = async () => {
+    try {
+      await api(`/api/keep-reading/${encodeURIComponent(series.id)}`, { method: 'PUT', json: { hidden: true } });
+      toast(tr('Removed from Keep reading. Reading it again brings it back.'), 'success');
+      qc.invalidateQueries({ queryKey: ['home'] });
     } catch { toast(tr('Could not do that'), 'error'); }
   };
 
   const items = (): MenuItem[] => [
+    ...(onDescribe ? [{ label: tr('Description and details'), onSelect: onDescribe }] : []),
+    ...(opts?.onSelect ? [{ label: tr('Select'), hook: 'start-select', onSelect: opts.onSelect }] : []),
     { label: tr('Open in a new tab'), onSelect: () => { window.open(href, '_blank', 'noopener'); } },
     {
       label: tr('Copy link'),
@@ -51,9 +92,10 @@ export function useSeriesMenu(series: Series) {
       },
     },
     {
-      label: favourite ? tr('Remove from favourites') : tr('Favourite'), divider: true, disabled: offline,
-      onSelect: () => bulk('/api/favorites/bulk', { favorite: !favourite }, favourite ? tr('Removed from favourites') : tr('Added to favourites')),
+      label: favourite ? tr('Remove from favorites') : tr('Favorite'), divider: true, disabled: offline,
+      onSelect: () => bulk('/api/favorites/bulk', { favorite: !favourite }, favourite ? tr('Removed from favorites') : tr('Added to favorites')),
     },
+    ...(opts?.keepReading ? [{ label: tr('Remove from Keep reading'), disabled: offline, hook: 'leave-keep-reading', onSelect: leaveKeepReading }] : []),
     { label: tr('Mark all read'), disabled: offline, onSelect: () => bulk('/api/library/bulk/read', { completed: true }, tr('Marked read')) },
     { label: tr('Mark all unread'), disabled: offline, onSelect: () => bulk('/api/library/bulk/read', { completed: false }, tr('Marked unread')) },
     ...(isAdmin ? [{
@@ -65,12 +107,19 @@ export function useSeriesMenu(series: Series) {
         } catch { toast(tr('Could not do that'), 'error'); }
       },
     }] : []),
+    ...(isAdmin ? [{ label: tr('Move library'), disabled: offline, hook: 'move-library', onSelect: () => setMoving(true) }] : []),
     // What is missing is the server's to work out; the notice says when there was nothing older to fetch.
     ...(canDownload(user) ? [{
       label: tr('Archive slowly'), divider: !isAdmin, disabled: offline,
       onSelect: () => { void archive([series.id], series.metadata?.title || series.name); },
     }] : []),
+    ...adultItem,
+    ...showItem,
+    { label: tr('Properties…'), divider: !adultItem.length, onSelect: () => setProperties(true) },
   ];
 
-  return useContextMenu(items, { label: series.metadata?.title || series.name });
+  const menu = useContextMenu(items, { label: series.metadata?.title || series.name });
+  // The sheet rides on the menu's `element`, so every card that renders the menu renders it too.
+  const element = <>{menu.element}{properties && <SeriesPropertiesSheet series={series} onClose={() => setProperties(false)} />}{moving && <MoveToLibrary n={1} busy={moveBusy} onClose={() => setMoving(false)} onPick={moveTo} />}</>;
+  return { ...menu, element };
 }

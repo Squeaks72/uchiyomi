@@ -62,7 +62,7 @@ test("the phone title paints above the banner, so a long title's first lines are
   // unpositioned. Reintroduce by dropping `relative z-10` from the phone title block: this fails.
   const page = src('app/series/page.tsx');
   assert.match(page, /<div className="relative z-10 min-w-0 pb-1 lg:hidden">/, 'the phone title block sits above the banner');
-  assert.match(page, /<h1 dir="auto" className="break-words [^"]*text-2xl/, 'and a long word wraps rather than overflowing');
+  assert.match(page, /<h1 dir="auto" className="[^"]*\bbreak-words [^"]*text-2xl/, 'and a long word wraps rather than overflowing');
 });
 
 test('changing libraries in Admin refreshes the library list the Library page and the 18+ toggle read', () => {

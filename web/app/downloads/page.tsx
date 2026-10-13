@@ -24,7 +24,7 @@ export default function DownloadsPage() {
   const router = useRouter();
   const { user, status } = useAuth();
   // Desktop hides the Offline tab and "Save offline" (the chapters are on this disk already), so this page there
-  // is an empty "No downloads yet" pointing at controls the app does not show. A deep link to it -- the reader's
+  // is an empty "Nothing saved yet" pointing at controls the app does not show. A deep link to it -- the reader's
   // end-of-downloads button, an old bookmark -- goes to what "downloads" means on a desktop: what the app
   // fetched onto this PC, Library -> Downloads (v0.49.0; the library itself before there was such a view).
   const desktop = isDesktop();
@@ -58,8 +58,8 @@ export default function DownloadsPage() {
 
   const removeSeries = async (seriesId: string, title: string, count: number) => {
     if (!window.confirm(count === 1
-      ? tr('Delete the downloaded chapter of “{title}”?', { title })
-      : tr('Delete all {n} downloaded chapters of “{title}”?', { n: count, title }))) return;
+      ? tr('Delete the fetched chapter of “{title}”?', { title })
+      : tr('Delete all {n} fetched chapters of “{title}”?', { n: count, title }))) return;
     const n = await deleteSeriesDownloads(seriesId);
     toast(deleted(n), 'success');
     refresh();
@@ -67,8 +67,8 @@ export default function DownloadsPage() {
 
   const removeAll = async () => {
     if (!window.confirm(items.length === 1
-      ? tr('Delete the downloaded chapter on this device?')
-      : tr('Delete all {n} downloaded chapters on this device?', { n: items.length }))) return;
+      ? tr('Remove the saved chapter from this device?')
+      : tr('Remove all {n} saved chapters from this device?', { n: items.length }))) return;
     const n = await clearAllDownloads();
     toast(deleted(n), 'success');
     refresh();
@@ -80,7 +80,7 @@ export default function DownloadsPage() {
     // One card, in one language: the result takes the busy card's place (the same key).
     toast(tr('Syncing favorites…'), 'info', { busy: true, key: 'sync' });
     const n = await runSmartOffline(5);
-    toast(!n ? tr('Already up to date') : n === 1 ? tr('Downloaded 1 chapter') : tr('Downloaded {n} chapters', { n }), 'success', { key: 'sync' });
+    toast(!n ? tr('Already up to date') : n === 1 ? tr('Fetched 1 chapter') : tr('Fetched {n} chapters', { n }), 'success', { key: 'sync' });
     await refresh();
     setSyncing(false);
   };
@@ -96,8 +96,8 @@ export default function DownloadsPage() {
     <div className="min-h-screen-d">
       <header className="safe-top sticky top-0 z-30 bg-ink-950/85 px-5 pb-3 backdrop-blur-xl lg:static lg:bg-transparent lg:px-0 lg:pt-6 lg:backdrop-blur-none">
         <div className="flex items-center justify-between">
-          <h1 className="font-display text-2xl font-bold tracking-tight lg:text-3xl">{tr('Offline')}</h1>
-          <button onClick={sync} disabled={syncing || !online}
+          <h1 className="font-display text-2xl font-bold tracking-tight lg:text-3xl">{tr('Saved on this device')}</h1>
+          <button type="button" onClick={sync} disabled={syncing || !online}
             className="flex items-center gap-1.5 rounded-full border border-ink-700 bg-ink-850/70 px-3.5 py-2 text-xs text-fog-200 disabled:opacity-50">
             <IcRefresh width={15} height={15} className={syncing ? 'animate-spin text-accent' : ''} /> {syncing ? tr('Syncing…') : tr('Sync now')}
           </button>
@@ -106,13 +106,13 @@ export default function DownloadsPage() {
           <span>{items.length === 1 ? tr('1 chapter') : tr('{n} chapters', { n: items.length })} · {bytes(totalBytes)}</span>
           {!online && <span className="inline-flex items-center gap-1 text-accent"><IcWifiOff width={13} height={13} /> {tr('offline')}</span>}
           {items.length > 0 && (
-            <button onClick={removeAll} className="ms-auto inline-flex items-center gap-1 text-fog-500 transition hover:text-red-400">
+            <button type="button" onClick={removeAll} className="relative ms-auto inline-flex items-center gap-1 text-fog-500 transition before:absolute before:-inset-2 hover:text-red-400">
               <IcTrash width={13} height={13} />{tr('Delete all')}</button>
           )}
         </div>
         {usage.quota > 0 && (
           <div className="mt-3">
-            <div className="h-1.5 overflow-hidden rounded-full bg-ink-700">
+            <div aria-hidden className="h-1.5 overflow-hidden rounded-full bg-ink-700">
               <div className="h-full rounded-full bg-accent" style={{ width: `${Math.min(100, (usage.usage / usage.quota) * 100)}%` }} />
             </div>
             <p className="mt-1 text-[11px] text-fog-500">{tr('{used} of {total} device storage used', { used: bytes(usage.usage), total: bytes(usage.quota) })}</p>
@@ -125,17 +125,20 @@ export default function DownloadsPage() {
           signed in, since offline there is no server to show, and it asks the server nothing itself. */}
       {online && status === 'authed' && canDownload(user) && (
         <p data-server-downloads-pointer className="px-5 pt-3 text-xs text-fog-500 lg:px-0">
-          <Link href={downloadsHref()} className="hover:text-fog-200 hover:underline">{tr('What the server fetches is under Library → Downloads.')}</Link>
+          <Link href={downloadsHref()} className="hover:text-fog-200 hover:underline">{tr('What the server fetches is under Library → Fetching.')}</Link>
         </p>
       )}
 
       {loaded && items.length === 0 ? (
-        <EmptyState art={ART.emptyDownloads} title={tr('No downloads yet')}
+        <EmptyState art={ART.emptyDownloads} title={tr('Nothing saved yet')}
           sub={online
-            ? tr('Tap the download icon on any chapter — or turn on Keep favorites offline under Profile → Settings → Downloads — to read offline. Perfect for flights and commutes.')
-            : tr('Nothing is saved on this device, and there is no connection to fetch anything with. Reconnect and download a chapter to read it here.')}
+            ? tr('Tap the Save offline icon on any chapter — or turn on Keep favorites offline under Profile → Settings → Saved on this device — to read offline. Perfect for flights and commutes.')
+            : tr('Nothing is saved on this device, and there is no connection to fetch anything with. Reconnect and save a chapter to read it here.')}
           cta={/* no cta offline: it points at the library, which is built entirely from the server */
-            online ? { href: '/library', label: tr('Browse library') } : undefined} />
+            online ? { href: '/library', label: tr('Browse library') } : undefined}>
+          {/* The switch the sentence above names is one tap away rather than a path to remember. */}
+          <Link href="/profile/?tab=Settings&section=downloads" className="btn-key text-sm">{tr('Open Settings')}</Link>
+        </EmptyState>
       ) : (
         <div className="px-5 pt-4">
           {Object.entries(groups).map(([series, chapters]) => (
@@ -144,8 +147,8 @@ export default function DownloadsPage() {
                 <h2 className="min-w-0 truncate font-display text-base font-semibold text-fog-100">{series}</h2>
                 <div className="flex shrink-0 items-center gap-2 text-[11px] text-fog-500">
                   <span>{chapters.length === 1 ? tr('1 chapter') : tr('{n} chapters', { n: chapters.length })} · {bytes(chapters.reduce((a, c) => a + (c.totalBytes || 0), 0))}</span>
-                  <button onClick={() => removeSeries(chapters[0].seriesId, series, chapters.length)}
-                    className="inline-flex items-center gap-1 transition hover:text-red-400" aria-label={tr('Delete all of {title}', { title: series })}>
+                  <button type="button" onClick={() => removeSeries(chapters[0].seriesId, series, chapters.length)}
+                    className="relative inline-flex items-center gap-1 transition before:absolute before:-inset-2 hover:text-red-400" aria-label={tr('Delete all of {title}', { title: series })}>
                     <IcTrash width={13} height={13} />
                   </button>
                 </div>
@@ -153,14 +156,14 @@ export default function DownloadsPage() {
               <div className="card divide-y divide-ink-800/70 overflow-hidden">
                 {chapters.map((c) => (
                   <div key={c.bookId} className="flex items-center gap-3 px-4 py-3">
-                    <Link href={`/reader/?book=${c.bookId}`} className="grid h-9 w-9 place-items-center rounded-full bg-accent-soft text-accent">
+                    <Link href={`/reader/?book=${c.bookId}`} aria-label={tr('Read {title}', { title: c.title })} className="grid h-9 w-9 place-items-center rounded-full bg-accent-soft text-accent">
                       <IcPlay width={16} height={16} />
                     </Link>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm text-fog-100">{c.title}</p>
                       <p className="text-[11px] text-fog-500">{c.pageCount === 1 ? tr('1 page') : tr('{n} pages', { n: c.pageCount })} · {bytes(c.totalBytes)}</p>
                     </div>
-                    <button onClick={() => remove(c.bookId)} className="grid h-9 w-9 place-items-center rounded-full border border-ink-700 text-fog-500">
+                    <button type="button" onClick={() => remove(c.bookId)} aria-label={tr('Delete {title}', { title: c.title })} className="grid h-9 w-9 place-items-center rounded-full border border-ink-700 text-fog-500">
                       <IcTrash width={16} height={16} />
                     </button>
                   </div>

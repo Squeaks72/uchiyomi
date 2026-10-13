@@ -35,7 +35,7 @@ test('the floating pill is gone, and the Offline tab is this device only', () =>
   assert.doesNotMatch(offline, /ServerDownloads\b|\/api\/sources\/jobs|useServerDownloads|source-jobs/, 'server downloads on the device tab');
   // One line points the way, online and signed in only: offline there is no server to show.
   assert.match(offline, /\{online && status === 'authed' && canDownload\(user\) && \(\s*<p data-server-downloads-pointer/, 'the pointer shows offline, or to a viewer who may not download');
-  assert.match(offline, /tr\('What the server fetches is under Library → Downloads\.'\)/);
+  assert.match(offline, /tr\('What the server fetches is under Library → Fetching\.'\)/);
 });
 
 test('ONE poller: only AppShell polls the jobs, and only the two dialogs keep a poll of their own', () => {
@@ -91,18 +91,17 @@ test('the Library ring: on the phone\'s Library tab, beside the desktop bell, ne
   assert.match(map, /glyph: ring\.slow \? <IcHourglass/);
   // The palette's way in, for the same viewers only, and kept on desktop.
   const pal = code(read('components/CommandPalette.tsx'));
-  assert.match(pal, /\.\.\.\(mayDownload \? \[\{ key: 'server-downloads', label: tr\('Server downloads'\)/, 'the palette offers Server downloads to a viewer who may not download');
+  assert.match(pal, /\.\.\.\(mayDownload \? \[\{ key: 'server-downloads', label: tr\('Server fetching'\)/, 'the palette offers Server fetching to a viewer who may not download');
   assert.match(pal, /const mayDownload = status === 'authed' && canDownload\(user\);/);
   assert.match(pal, /run: \(\) => go\(downloadsHref\(\)\)/);
 });
 
 test('every way that used to lead to the pill or the Offline tab leads to Library -> Downloads', () => {
   // Reintroduce the Offline tab as the add dialog's fallback: addSeriesDialog.test.ts and desktopSurfaces.test.ts
-  // fail too. Here: Discover's strip and its "See all", and the series band's "See all".
+  // fail too. Here: the series band's "See all".
   const discover = code(read('app/discover/page.tsx'));
-  // Where each card leads is lib/libraryView.ts stripHref's (libraryView.test.ts); a card it sends nowhere is not a link.
-  assert.match(discover, /const href = stripHref\(j\);[\s\S]*?return href\s*\? <Link key=\{j\.folder\} href=\{href\}/, 'a strip card leads nowhere');
-  assert.match(discover, /<Link href=\{downloadsHref\(\)\}[^>]*>\{tr\('See all'\)\}<\/Link>/, 'the strip has no way to the whole list');
+  // Discover carries no downloads strip: in-progress work lives behind the header's Server fetching button.
+  assert.doesNotMatch(discover, /data-job-card|useServerDownloads/, 'Discover shows downloads again');
   assert.match(code(read('components/SeriesServerDownloads.tsx')), /const href = downloadsHref\(/);
   assert.match(code(read('app/series/page.tsx')), /<SeriesServerDownloads seriesId=\{id\} folder=\{series\?\.folder\} \/>/, 'the series page has no band');
 });
@@ -119,18 +118,18 @@ test('no pill clearance is left: the select bars no longer make room for a pill 
 });
 
 test("'Downloads' names the server's view only: the reader's way to this device's chapters says Offline", () => {
-  // The critic's vocabulary ruling (v0.49.0): the Library switch keeps "Downloads"; the reader's button to
+  // The critic's vocabulary ruling (v0.49.0): the Library switch is now "Fetching"; the reader's button to
   // /downloads/ and the profile's section are about THIS DEVICE's copies. Reintroduce tr('Downloads') on either:
   // "a second meaning of Downloads" fails.
   const reader = code(read('app/reader/page.tsx'));
   assert.match(reader, /router\.push\('\/downloads\/'\)\} className="[^"]*">\{tr\('Offline'\)\}<\/button>/, "the reader's button to the Offline tab is not called Offline");
-  assert.match(code(read('components/ProfileSettings.tsx')), /<Section id="downloads" title=\{tr\('Offline downloads'\)\}/,
+  assert.match(code(read('components/ProfileSettings.tsx')), /<Section id="downloads" title=\{tr\('Saved on this device'\)\}/,
     "the profile's section about this device's copies is called Downloads");
   const users: string[] = [];
   for (const f of ['app/reader/page.tsx', 'components/ProfileSettings.tsx', 'app/library/page.tsx', 'app/downloads/page.tsx', 'components/BottomNav.tsx', 'components/TopNav.tsx']) {
     if (/tr\('Downloads'\)/.test(code(read(f)))) users.push(f);
   }
-  assert.deepEqual(users, ['app/library/page.tsx'], 'a second meaning of Downloads');
+  assert.deepEqual(users, [], 'a second meaning of Downloads');
 });
 
 test('a Server tasks card is named by runName, leads to its series, and for an admin to what the repair did', () => {
@@ -201,10 +200,12 @@ test('the desktop header fits at 1024 px: round buttons keep their 40 px, and th
   for (const m of header.matchAll(/className=\{?[`"]([^`"]*\bh-10 w-10\b[^`"]*)[`"]/g)) {
     assert.match(m[1], /\bshrink-0\b/, `a round header button can be squeezed into an oval: ${m[1].slice(0, 80)}`);
   }
-  assert.ok([...header.matchAll(/\bh-10 w-10\b/g)].length >= 3, 'the round buttons moved -- redo this scan');
-  assert.match(code(read('components/DownloadsRing.tsx')), /className="grid h-10 w-10 shrink-0 /, 'the downloads button can be squeezed into an oval');
+  // The cluster's buttons (Moments, Updates, refresh) share one look from lib/navStyle.ts, whose base keeps the 40 px.
+  assert.ok([...header.matchAll(/\bnavIconCls\(/g)].length >= 3, 'the round buttons moved -- redo this scan');
+  assert.match(code(read('lib/navStyle.ts')), /const BASE = 'grid h-10 w-10 shrink-0 /, 'a round header button can be squeezed into an oval');
+  assert.match(code(read('components/DownloadsRing.tsx')), /className=\{navIconCls\(here\)\}/, 'the downloads button can be squeezed into an oval');
   assert.match(code(read('components/HealthAlert.tsx')), /relative grid h-10 w-10 shrink-0 /, "the Health marker can be squeezed into an oval");
-  assert.match(header, /<Link href="\/profile" className="shrink-0 /, 'the avatar can be squeezed');
+  assert.match(header, /<Link href="\/profile" className=\{?[`"]shrink-0 /, 'the avatar can be squeezed');
   // The search takes what is left: flexible, never a fixed 18 rem, its words truncating down to the icon.
   assert.match(header, /className="ms-auto flex min-w-0 max-w-72 flex-1 /, 'the search is a fixed width again');
   assert.doesNotMatch(header, /(?<![\w-])w-72\b/, 'the search is a fixed width again');
@@ -212,9 +213,9 @@ test('the desktop header fits at 1024 px: round buttons keep their 40 px, and th
   // stroke of the "П"): the button is a size container, and the label and the ⌘K hint show only when it has room
   // for them. Reintroduce the always-shown `min-w-0 flex-1 truncate` label: "shows a sliver" fails.
   assert.match(header, /className="ms-auto flex min-w-0 max-w-72 flex-1 @container /, 'the search is not a size container');
-  assert.match(header, /<span data-search-label className="hidden min-w-0 flex-1 truncate text-sm text-fog-500 @\[4\.5rem\]:block">/,
+  assert.match(header, /<span data-search-label className="hidden min-w-0 flex-1 truncate text-sm text-fog-400 @\[4\.5rem\]:block">/,
     'the search label shows a sliver when the search is squeezed');
-  assert.match(header, /<kbd data-search-kbd className="hidden [^"]*\bxl:@\[12rem\]:block">/, 'the ⌘K hint shows in a squeezed search');
+  assert.match(header, /<kbd data-search-kbd className="hidden [^"]*\bxl:@\[12rem\]:block"(?: aria-hidden)?>/, 'the ⌘K hint shows in a squeezed search');
   assert.match(header, /aria-label=\{tr\('Search…'\)\}/, 'with its label hidden the search has no accessible name');
   // Below xl: 12 px gaps, the logo's mark alone (its words kept for screen readers), and no ⌘K hint.
   assert.match(header, /<div className="shell flex items-center gap-3 py-3 xl:gap-6">/, 'the header keeps its 24 px gaps at lg');

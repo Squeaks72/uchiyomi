@@ -17,6 +17,8 @@ export interface ListRow {
   name: string;
   accent: string | null;
   sort_order: number;
+  /** Fork: the owner's note on the list (collections.description). */
+  description?: string | null;
   /** A smart list's saved search; null for a list picked by hand. */
   query: unknown | null;
   shared: boolean;
@@ -34,6 +36,7 @@ export interface ListSummary {
   name: string;
   accent: string | null;
   sort_order: number;
+  description?: string | null;
   /** How many series it shows THIS viewer. */
   item_count: number;
   kind: ListKind;
@@ -45,7 +48,7 @@ export interface ListSummary {
   query?: SmartQuery;
 }
 
-const COLS = 'c.id, c.user_id, c.name, c.accent, c.sort_order, c.query, c.shared';
+const COLS = 'c.id, c.user_id, c.name, c.accent, c.sort_order, c.description, c.query, c.shared';
 
 /** A list id is a uuid: anything else names no list. */
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -94,8 +97,8 @@ async function manualCounts(ids: string[], ctx: ViewCtx): Promise<Map<string, nu
 export async function listsFor(uid: string, ctx: ViewCtx, scope: 'manual' | 'all'): Promise<ListSummary[]> {
   if (scope === 'manual') {
     const rows = await q<ListRow & { item_count: string | number }>(
-      `SELECT c.id, c.name, c.accent, c.sort_order,
-              (SELECT count(*) FROM collection_items ci WHERE ci.collection_id = c.id) AS item_count
+      `SELECT c.id, c.name, c.accent, c.sort_order, c.description,
+              ((SELECT count(*) FROM collection_items ci WHERE ci.collection_id = c.id) + (SELECT count(*) FROM collection_wants w WHERE w.collection_id = c.id)) AS item_count
        FROM collections c WHERE c.user_id = $1 AND c.query IS NULL ORDER BY c.sort_order, c.created_at`,
       [uid],
     );
@@ -124,7 +127,7 @@ export async function listsFor(uid: string, ctx: ViewCtx, scope: 'manual' | 'all
     if (!mine && n === 0) continue;
     const query = mine && kind === 'smart' ? parseQuery(r.query) : null;
     out.push({
-      id: r.id, name: r.name, accent: r.accent, sort_order: r.sort_order, item_count: n, kind, shared: r.shared, mine,
+      id: r.id, name: r.name, accent: r.accent, sort_order: r.sort_order, description: r.description ?? null, item_count: n, kind, shared: r.shared, mine,
       ...(mine ? {} : { owner: { id: r.user_id, name: r.owner_name || r.owner_username || '', avatar: r.owner_avatar ?? null } }),
       ...(query ? { query } : {}),
     });

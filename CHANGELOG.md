@@ -2006,7 +2006,7 @@ script would take, over nights or days, and a restart never loses its place.
   floor is never changed while it runs, and finishing lifts it only if nobody has changed it meanwhile. **Stop
   archiving** keeps what came in and leaves the rest where it was before: under a *Latest N* or *Nothing yet* floor
   it waits for you, otherwise the scheduled check fetches it at its own pace.
-- **Admin → Settings → Downloads** holds the pace: *Slow archive* (off pauses every archive and keeps the queue),
+- **Admin → Settings → Fetching** holds the pace: *Slow archive* (off pauses every archive and keeps the queue),
   *Chapters an hour, per source* (1–30, with what that comes to a day), *Only during set hours* (in the server's
   local time; 22 until 6 runs overnight) and *Stop when free space is below (GB)* (20 by default, with the space free
   now; chapters you fetch yourself are not held to it). Every change applies at once.
@@ -2331,7 +2331,7 @@ touchscreen, or press Shift+F10, for a short menu: **Open in a new tab**, **Copy
 read** / **unread**, and for an admin **Check for new chapters** ([#100](https://github.com/AngeloSha/uchiyomi/issues/100),
 @Squeaks72's proposal). A chapter row's right-click opens the same menu as its ⋯ button, which now works from
 the keyboard and no longer clips at the edge of the screen. The browser's own menu is left alone on selected
-text, in text fields and with Shift held, and **Profile → Settings → Appearance → Right-click menus** turns
+text, in text fields and with Shift held, and a setting in Appearance (since removed) could turn
 them off on a device.
 
 ### The admin is told when the library needs attention

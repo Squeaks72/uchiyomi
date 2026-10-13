@@ -133,15 +133,13 @@ test('an absolute page url is left alone', async () => {
 
 test('junk in a response produces nothing, never invented entries', async () => {
   const { makeSuwayomiAdapter } = await load();
-  // a series with no title, or a chapter with no usable number, cannot be acted on. Dropping them is the
-  // only safe answer: a fabricated "Chapter 0" would collide with a real one and corrupt the library.
+  // a series with no title, or a chapter with no id, cannot be acted on. Dropping them is the only safe answer.
   const a = makeSuwayomiAdapter(LOCAL, fakeGql({
     fetchSourceManga: { fetchSourceManga: { mangas: [
       { id: 1, title: '   ' }, { id: 2 }, { title: 'no id' }, null,
     ] } },
     fetchChapters: { fetchChapters: { chapters: [
-      { id: 1, chapterNumber: null }, { id: 2, chapterNumber: NaN }, { chapterNumber: 4 },
-      { id: 3, chapterNumber: -1 }, null,
+      { chapterNumber: 4 }, { chapterNumber: null }, null,
     ] } },
     fetchChapterPages: { fetchChapterPages: { pages: ['', '   ', null, 42] } },
   }));
@@ -326,22 +324,58 @@ test('against the pinned engine: Istrevelia arrives with its posting order, its 
 });
 
 test('chapters with no usable number are counted on the answer, not silently lost (#115)', async () => {
-  // Reintroduce by dropping the Object.defineProperty(out, UNNUMBERED, ...) in listChapters: the count reads 0 and
-  // the smoke test calls an extension that numbers nothing "lists no chapters" (sourceProbe.test.ts).
+  // Reintroduce by dropping the Object.defineProperty(out, UNNUMBERED, ...) in listChapters: the count reads 0.
+  // (A list where NO row has a number is numbered by order instead, tested below.)
   const { makeSuwayomiAdapter } = await load();
   const { UNNUMBERED, unnumberedOf } = await import('../src/lib/sources/types');
   const a = makeSuwayomiAdapter(LOCAL, fakeGql({
     fetchChapters: { fetchChapters: { chapters: [
       { id: 1, chapterNumber: -1, name: 'Prologue' }, { id: 2, chapterNumber: -1, name: 'Notice' }, { id: 3, chapterNumber: null, name: 'Extra' },
+      { id: 4, chapterNumber: 1, name: 'One' },
     ] } },
   }));
   const list = await a.listChapters('7');
-  assert.deepEqual([...list], []);
+  assert.deepEqual(list.map((c) => c.number), [1]);
   assert.equal((list as any)[UNNUMBERED], 3);
   assert.equal(unnumberedOf(list), 3);
-  assert.deepEqual(Object.keys(list), [], 'non-enumerable: spreads and JSON never see it');
-  assert.equal(JSON.stringify(list), '[]');
+  assert.deepEqual(Object.keys(list), ['0'], 'non-enumerable: spreads and JSON never see it');
+  assert.equal(JSON.stringify(list).includes('uchiyomi'), false);
   // A normal list carries nothing.
   const b = makeSuwayomiAdapter(LOCAL, fakeGql({ fetchChapters: { fetchChapters: { chapters: [{ id: 1, chapterNumber: 1, name: 'One' }] } } }));
   assert.equal(unnumberedOf(await b.listChapters('7')), 0);
+});
+
+test('a source that numbers no chapter is numbered 1..K by the engine\'s own order', async () => {
+  const { makeSuwayomiAdapter } = await load();
+  const { unnumberedOf } = await import('../src/lib/sources/types');
+  const a = makeSuwayomiAdapter(LOCAL, fakeGql({
+    fetchChapters: { fetchChapters: { chapters: [
+      { id: 10, chapterNumber: -1, name: 'Part one', sourceOrder: 1 },
+      { id: 11, chapterNumber: -1, name: 'Part two', sourceOrder: 2 },
+      { id: 12, chapterNumber: null, name: 'Part three', sourceOrder: 3 },
+      null,
+    ] } },
+  }));
+  const list = await a.listChapters('1');
+  assert.deepEqual(list.map((c) => [c.sourceId, c.number, c.title]), [['10', 1, 'Part one'], ['11', 2, 'Part two'], ['12', 3, 'Part three']]);
+  assert.equal(unnumberedOf(list), 3, 'the smoke test can say the list was numbered by order');
+});
+
+test('a one-shot with no number is chapter 1', async () => {
+  const { makeSuwayomiAdapter } = await load();
+  const a = makeSuwayomiAdapter(LOCAL, fakeGql({ fetchChapters: { fetchChapters: { chapters: [{ id: 5, chapterNumber: -1, name: 'Oneshot' }] } } }));
+  assert.deepEqual((await a.listChapters('1')).map((c) => [c.number, c.title]), [[1, 'Oneshot']]);
+});
+
+test('a list with some real numbers never invents any: the numberless rows are dropped as before', async () => {
+  const { makeSuwayomiAdapter } = await load();
+  const { unnumberedOf } = await import('../src/lib/sources/types');
+  const a = makeSuwayomiAdapter(LOCAL, fakeGql({
+    fetchChapters: { fetchChapters: { chapters: [
+      { id: 1, chapterNumber: 1, name: 'Chapter 1' }, { id: 2, chapterNumber: -1, name: 'Extra' }, { id: 3, chapterNumber: 2, name: 'Chapter 2' },
+    ] } },
+  }));
+  const list = await a.listChapters('1');
+  assert.deepEqual(list.map((c) => c.number), [1, 2]);
+  assert.equal(unnumberedOf(list), 1);
 });

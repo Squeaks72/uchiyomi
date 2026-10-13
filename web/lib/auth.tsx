@@ -5,8 +5,10 @@ import { readOfflineIdentity, writeOfflineIdentity, clearOfflineIdentity, Offlin
 import { deviceId, deviceName } from './device';
 import { clearShownOnce } from './shownOnce';
 import { applyReduceEffects, restoreReduceEffects } from './effects';
+import { adoptAccountPrefs, clearAccountPrefs, localOnlyPrefs } from './accountPrefs';
 import { isDesktop, serverReachableHint, untilReachable } from './desktop';
 import { t as tr } from './i18n';
+import { readableAccent } from './theme';
 
 export interface Avatar { emoji?: string; color?: string }
 interface User {
@@ -44,6 +46,7 @@ interface AuthCtx {
   register: (username: string, password: string) => Promise<{ ok: boolean; closed?: boolean; error?: string }>;
   logout: () => Promise<void>;
   setSettings: (partial: Record<string, any>) => void;
+  setDisplayName: (name: string) => void;
   setAvatar: (avatar: Avatar) => void;
   /** Written the moment 2FA is enabled or disabled, see the note beside its definition. */
   setTotpEnabled: (v: boolean) => void;
@@ -72,14 +75,8 @@ export function canDownload(user: { role?: string; perms?: Record<string, boolea
 }
 
 function applyAccent(settings?: Record<string, any>) {
-  const hex: string | undefined = settings?.accent;
-  if (hex && /^#?[0-9a-fA-F]{6}$/.test(hex)) {
-    const h = hex.replace('#', '');
-    const r = parseInt(h.slice(0, 2), 16);
-    const g = parseInt(h.slice(2, 4), 16);
-    const b = parseInt(h.slice(4, 6), 16);
-    document.documentElement.style.setProperty('--accent', `${r} ${g} ${b}`);
-  }
+  const t = readableAccent(settings?.accent);
+  if (t) document.documentElement.style.setProperty('--accent', t);
 }
 
 /**
@@ -136,6 +133,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // arrived one commit later would let the mesh, grain and vignette paint a frame on every reload with
     // Reduce effects on (#71). Both directions, so the next account on a shared device gets its own setting.
     applyReduceEffects(u.settings?.reduceEffects === true);
+    // The device switches that follow the account (lib/accountPrefs.ts): the account's value over the device's.
+    // A switch the account holds no value for yet keeps this device's and is carried up once, so a choice made
+    // before these were account settings is not lost on the first sign-in after the upgrade.
+    adoptAccountPrefs(u.settings);
+    const carry = localOnlyPrefs(u.settings);
+    if (Object.keys(carry).length) {
+      void api('/api/settings', { method: 'PUT', json: carry }).catch(() => { /* the device keeps it; the next sign-in tries again */ });
+    }
     setStatus('authed');
   };
 
@@ -178,6 +183,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // sign-in screen reduced for whoever's session happened to lapse. The account still holds the setting and
     // the next sign-in applies it, both ways.
     applyReduceEffects(false);
+    clearAccountPrefs();
     setUser(null);
     setStatus('anon');
     // Secrets the server only ever sends once are held outside React so a remount cannot destroy them.
@@ -343,6 +349,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if ('reduceEffects' in partial) applyReduceEffects(partial.reduceEffects === true);
   };
 
+  const setDisplayName = (displayName: string) => setUser((u) => (u ? { ...u, displayName } : u));
+
   const setAvatar = (avatar: Avatar) => setUser((u) => (u ? { ...u, avatar } : u));
 
   // ⚠️ `user` is otherwise re-read only by `revalidate` -- every 12 minutes and on visibilitychange -- and the
@@ -360,7 +368,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <Ctx.Provider value={{ status, user, isAdmin: user?.role === 'admin', login, firstRunSetup, register, logout, setSettings, setAvatar, setTotpEnabled, desktop: isDesktop(), reconnect }}>
+    <Ctx.Provider value={{ status, user, isAdmin: user?.role === 'admin', login, firstRunSetup, register, logout, setSettings, setDisplayName, setAvatar, setTotpEnabled, desktop: isDesktop(), reconnect }}>
       {children}
     </Ctx.Provider>
   );

@@ -10,12 +10,15 @@
 // More is a menu from lg up (components/ContextMenu.tsx) and a sheet below (components/SeriesKeys.tsx): both draw these
 // groups, in this order.
 import { t as tr } from './i18n';
+import { archiveWhy } from './archive';
 
 export type SeriesActionId =
   | 'notes' | 'markAllRead' | 'markAllUnread'
   | 'findMissing' | 'archive' | 'checkNew'
   | 'copyLink' | 'openTab'
-  | 'edit' | 'newBanner' | 'rename' | 'remove';
+  | 'edit' | 'newBanner' | 'rename' | 'remove'
+  // The fork's (kept through the v0.62 merge): zip of the series, the 18+ exemption, removed chapters, other sources' cull.
+  | 'zip' | 'alwaysShow' | 'removed' | 'cull';
 
 export type SeriesActionGroupId = 'reading' | 'chapters' | 'share' | 'admin';
 
@@ -30,6 +33,8 @@ export interface SeriesAction {
    * keys had under the cover.
    */
   hook?: string;
+  /** A line saying what the item is for (Archive slowly: never hits a source with a burst), under it in the sheet, a tooltip in the menu. */
+  why?: string;
   /** Shown, not hidden, while the server cannot be reached: greyed, as a series card's menu does it. */
   disabled?: boolean;
 }
@@ -52,6 +57,12 @@ export interface SeriesActionsInput {
   /** `series.folder`, sent to admins only: Rename folder. */
   hasFolder: boolean;
   offline?: boolean;
+  /** Fork: the series is exempt from the 18+ filter (`series.overrides.adultExempt`). */
+  adultExempt?: boolean;
+  /** Fork: chapters removed from this series (Removed chapters dialog). */
+  removedCount?: number;
+  /** Fork: chapters from sources other than the primary one exist (Remove chapters from other sources). */
+  hasForeign?: boolean;
   /**
    * Items whose work this page already has running -- a Check for new chapters, an archive being queued, a banner being
    * made: greyed until it ends, as their keys were under the cover.
@@ -88,8 +99,10 @@ export function seriesActionGroups(x: SeriesActionsInput): SeriesActionGroup[] {
   const chapters: SeriesAction[] = [
     // Refused below three chapters by the route itself, so not offered there.
     ...(x.mayDownload && x.booksCount >= 3 ? [{ id: 'findMissing' as const, label: tr('Find missing chapters'), disabled: offline }] : []),
-    ...(x.mayArchive ? [{ id: 'archive' as const, label: tr('Archive slowly'), hook: 'archive-slowly', disabled: offline }] : []),
+    ...(x.mayArchive ? [{ id: 'archive' as const, label: tr('Archive slowly'), hook: 'archive-slowly', why: archiveWhy(), disabled: offline }] : []),
     ...(x.isAdmin ? [{ id: 'checkNew' as const, label: tr('Check for new chapters'), disabled: offline }] : []),
+    ...(some ? [{ id: 'zip' as const, label: tr('Download series as zip'), hook: 'zip-series', disabled: offline }] : []),
+    ...(x.isAdmin && (x.removedCount ?? 0) > 0 ? [{ id: 'removed' as const, label: tr('Removed chapters ({n})…', { n: x.removedCount ?? 0 }), hook: 'removed-open', disabled: offline }] : []),
   ];
   const share: SeriesAction[] = [
     { id: 'copyLink', label: tr('Copy link') },
@@ -100,6 +113,8 @@ export function seriesActionGroups(x: SeriesActionsInput): SeriesActionGroup[] {
     // Only while the hero is an automatic one: a real banner is changed in Edit details, and Shuffle answers 409 for it.
     ...(x.autoHero ? [{ id: 'newBanner' as const, label: tr('New banner'), hook: 'new-banner', disabled: offline }] : []),
     ...(x.hasFolder ? [{ id: 'rename' as const, label: tr('Rename folder'), disabled: offline }] : []),
+    { id: 'alwaysShow' as const, label: x.adultExempt ? tr('Always shown (tap to undo)') : tr('Always show (ignore 18+ filter)'), hook: 'always-show', disabled: offline },
+    ...(x.hasForeign ? [{ id: 'cull' as const, label: tr('Remove chapters from other sources…'), hook: 'cull-sources-open', danger: true, disabled: offline }] : []),
     { id: 'remove', label: tr('Remove from library'), danger: true, hook: 'remove-series', disabled: offline },
   ] : [];
   const groups: SeriesActionGroup[] = [

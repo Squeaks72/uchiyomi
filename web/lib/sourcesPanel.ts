@@ -57,6 +57,10 @@ export interface OverviewSource {
   icon?: boolean;
   /** A site added by address: where it lives. */
   address?: string | null;
+  /** The admin's own age rating for the whole source (0 = all ages), null when none is set. Fork change. */
+  ageRating?: number | null;
+  /** What it is held to without one: 18 for an extension that declares itself adult, else null. */
+  defaultAgeRating?: number | null;
   /**
    * v0.55.1: not loaded because the engine's source limit is full, with the limit it is over -- not broken, and Replace is
    * not its fix (the sheet says so instead: limitLine). Absent from every other source, and from an older server.
@@ -307,13 +311,17 @@ export const updatesTitle = (n: number): string =>
 
 // ---- the sheet's keys --------------------------------------------------------------------------------------------
 
-export type SheetKey = 'replace' | 'test' | 'unblock' | 'turn-off' | 'turn-on' | 'remove';
+export type SheetKey = 'replace' | 'backup' | 'test' | 'unblock' | 'turn-off' | 'turn-on' | 'remove';
+
+/** A source that is cooling down after refusals, or blocked: the ones with a Clear block key (and Settings → Downloads' list). */
+export const isBlocked = (s: Pick<OverviewSource, 'standing' | 'state'>): boolean => s.standing === 'cooling' || s.state === 'blocked';
 
 /**
  * What a source's sheet offers, in the order its keys sit:
  * - Replace, the one filled key, while it cannot serve the series it is main to: failing, switched off or not loaded --
  *   but not loaded because the engine's source limit is full (v0.55.1, `overLimit`): that source works, Health's Free a
  *   slot lands on its sheet, and room under the limit is the fix, which its line says (limitLine);
+ * - Add backups, beside Replace: follow other sources for the same series without replacing or removing anything;
  * - Test, for a source Uchiyomi has loaded (a source its extension switched off is not, and its Test would only say so);
  * - Clear block, while a cooldown holds it;
  * - Turn off, or Turn on for one switched off;
@@ -323,10 +331,10 @@ export type SheetKey = 'replace' | 'test' | 'unblock' | 'turn-off' | 'turn-on' |
 export function sheetKeys(s: OverviewSource, a?: Pick<SourcesAttention, 'replace'> | null): SheetKey[] {
   const out: SheetKey[] = [];
   const dead = s.standing === 'failing' || s.standing === 'off' || s.standing === 'not_loaded' || !!a?.replace.includes(s.id);
-  if (dead && s.main > 0 && !s.overLimit) out.push('replace');
+  if (dead && s.main > 0 && !s.overLimit) out.push('replace', 'backup');
   const loaded = s.standing !== 'not_loaded' && !(s.standing === 'off' && (s.offBy === 'extension' || s.offBy === 'language'));
   if (loaded) out.push('test');
-  if (s.standing === 'cooling' || s.state === 'blocked') out.push('unblock');
+  if (isBlocked(s)) out.push('unblock');
   if (s.standing === 'off') out.push('turn-on');
   else if (s.standing !== 'not_loaded') out.push('turn-off');
   if (s.kind === 'site') out.push('remove');

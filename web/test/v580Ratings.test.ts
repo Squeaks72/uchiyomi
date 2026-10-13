@@ -228,16 +228,21 @@ test('Home: "Most popular in your library" after Recently added, saying AniList\
   // Reintroduce the rail unconditionally (or with a RailSkeleton): a server older than v0.58.0 sends no `popular`, and
   // Home would hold a title over nothing, or a skeleton that never fills -- "the rail shows without a list" fails.
   const home = code(read('app/page.tsx'));
-  const rail = slice(home, '{(data?.popular?.length ?? 0) > 0 && (', '</section>');
+  const rail = slice(home, '(data?.popular?.length ?? 0) > 0 &&', '</section>');
   assert.match(rail, /<SectionTitle action=\{<Link href="\/library\?sort=popular" className="text-xs text-accent">\{tr\('See all'\)\}<\/Link>\}>\{tr\('Most popular in your library'\)\}<\/SectionTitle>/,
     'See all does not open the Library sorted by popularity, as New episodes and Recently added open theirs');
   assert.match(rail, /\{data!\.popular!\.map\(\(s\) => <SeriesCard key=\{s\.id\} series=\{s\} note=\{sortValue\(s, 'score'\)\} \/>\)\}/,
     'the cards are not the other rails\' SeriesCard, or do not say AniList\'s score');
   assert.doesNotMatch(rail, /RailSkeleton|isLoading/, 'the rail shows without a list');
   assert.equal((home.match(/tr\('Most popular in your library'\)/g) ?? []).length, 1);
-  const at = (s: string) => home.indexOf(s);
-  assert.ok(at("tr('Recently added')") > 0 && at("tr('Recently added')") < at('data?.popular') && at('data?.popular') < at("tr('Top 10 in your library')"),
+  // Its place is its place in the row order, which is what Home renders by (and what the Customize Home sheet
+  // reorders). Reintroduce it before 'added' in HOME_ROWS: this fails, as it did when the rail was inline JSX.
+  const rows = code(read('lib/homeRows.ts'));
+  const order = /HOME_ROWS = \[([^\]]*)\]/.exec(rows)![1].split(',').map((x) => x.trim().replace(/'/g, ''));
+  assert.deepEqual(order.slice(order.indexOf('added')), ['added', 'popular', 'top'],
     'the rail is not between Recently added and Top 10 in your library');
+  assert.match(code(read('components/HomeRowsSheet.tsx')), /popular: \(\) => tr\('Most popular in your library'\),/,
+    'the rail cannot be named in Customize Home');
   assert.ok(SORTS.some((s) => s.key === 'popular'), 'See all names an order the Library does not have');
   assert.match(read('lib/types.ts'), /popular\?: Series\[\];/, 'HomePayload has no optional `popular`');
 });

@@ -149,6 +149,7 @@ export function moreMenuItems(groups: SeriesActionGroup[], onPick: (id: SeriesAc
     divider: it.danger && i > 0 ? true : undefined,
     disabled: it.disabled,
     hook: it.hook,
+    title: it.why,
     onSelect: () => onPick(it.id),
   })));
 }
@@ -190,7 +191,7 @@ export function SeriesMoreSheet({ title, groups, notesHref, onPick, onClose }: {
                   </Link>
                 ) : (
                   <button key={it.id} type="button" disabled={it.disabled} onClick={() => onPick(it.id)} className={row} {...hooks(it.hook)}>
-                    {icon}<span className="min-w-0 flex-1">{it.label}</span>
+                    {icon}<span className="min-w-0 flex-1">{it.label}{it.why && <span data-archive-why className="mt-0.5 block text-xs text-fog-500">{it.why}</span>}</span>
                   </button>
                 );
               })}

@@ -1128,13 +1128,19 @@ async function promote(
   };
   const stored = await one<{ scope: { review?: boolean; mode?: string; sourceId?: string } | null; results: FindResult[] }>(
     'SELECT scope, results FROM source_find_runs WHERE id::text = $1', [runId]);
-  const X = stored?.scope?.review && stored.scope.mode === 'replace' ? stored.scope.sourceId : undefined;
+  // A review of a Replace run, or of a Find run over one source's series (an added backup made main too). Find's old
+  // main is KEPT as a follower -- adding backups never removes the source that is struggling -- where Replace drops it.
+  const replaceRun = stored?.scope?.mode === 'replace';
+  const X = stored?.scope?.review ? stored.scope.sourceId : undefined;
   const { p } = find(X ? stored!.results : undefined);
   if (!X || !p || !(await seriesVisible(seriesId, ctx))) return { refused: 'not_found' };
-  // Final, as a decision is. Reintroduce by dropping it: the second promote in "review first moves nothing ... and
-  // promote does exactly that" (findSources.int.test.ts) is refused as is_main, not decided -- "and only once".
-  if (p.state) return { refused: 'decided', state: p.state };
-  if (p.kind === 'search') {
+  // Final, as a decision is -- but a Find review's followed match may still be made main. Reintroduce by dropping it:
+  // the second promote in "review first moves nothing ... and promote does exactly that" (findSources.int.test.ts) is
+  // refused as is_main, not decided -- "and only once".
+  const wasFollowed = !replaceRun && p.state === 'followed';
+  if (p.state && !wasFollowed) return { refused: 'decided', state: p.state };
+  const search = p.kind !== 'follower';
+  if (search && !wasFollowed) {
     const series = await one<{ source_id: string | null }>('SELECT source_id FROM lib_series WHERE id = $1', [seriesId]);
     if (!series) return { refused: 'not_found' };
     if (series.source_id !== X) return { refused: 'moved', said: say('main.moved') };
@@ -1149,7 +1155,7 @@ async function promote(
     if (!(await one('SELECT 1 FROM series_sources WHERE series_id = $1 AND source_id = $2', [seriesId, sourceId]))) {
       const facts = (await replaceFacts([seriesId], { maxAgeRating: ctx.maxAgeRating })).get(seriesId);
       const dropped: Array<{ sourceId: string; name: string }> = [];
-      if (facts) await makeRoom(seriesId, deadFollowers(facts), dropped);
+      if (facts && replaceRun) await makeRoom(seriesId, deadFollowers(facts), dropped);
       const written = await followJudged(seriesId,
         { source: sourceId, name: p.sourceName, sourceSeriesId: p.sourceSeriesId, theirTitle: p.title, coverage: p.coverage },
         { addedBy: userId }).catch(() => 'gone' as const);
@@ -1159,24 +1165,24 @@ async function promote(
         userId,
         detail: {
           id: seriesId, source: sourceId, sourceSeriesId: p.sourceSeriesId, coverage: p.coverage, theirTitle: p.title,
-          via: 'replace_review', runId, verdict: p.verdict, ...(dropped.length ? { dropped: dropped.map((d) => d.sourceId) } : {}),
+          via: replaceRun ? 'replace_review' : 'find_review', runId, verdict: p.verdict, ...(dropped.length ? { dropped: dropped.map((d) => d.sourceId) } : {}),
         },
       });
     }
   }
-  const out = await switchMainSource(seriesId, sourceId, { old: 'drop', ctx, userId, via: 'review', runId, expect: X });
+  const out = await switchMainSource(seriesId, sourceId, { old: replaceRun ? 'drop' : 'keep', ctx, userId, via: 'review', runId, expect: X });
   if ('refused' in out) {
     return out.refused === 'not_found' ? { refused: 'not_found' }
       : { refused: out.refused, ...(out.said ? { said: out.said } : {}), ...(out.edition ? { edition: out.edition } : {}) };
   }
   const promoted: Promoted = {
-    from: X, fromName: getSource(X)?.name ?? X, to: sourceId, toName: p.sourceName, via: p.kind === 'search' ? 'search' : 'follower', old: out.old,
+    from: X, fromName: getSource(X)?.name ?? X, to: sourceId, toName: p.sourceName, via: search ? 'search' : 'follower', old: out.old,
   };
   const mark = (r: FindResult, prop: FindProposal) => {
     prop.state = 'promoted';
     r.promoted = promoted;
     delete r.why;
-    if (p.kind === 'search' && !r.followed.some((f) => f.sourceId === sourceId)) r.followed.push({ sourceId, name: p.sourceName, chapters: p.chapters });
+    if (search && !r.followed.some((f) => f.sourceId === sourceId)) r.followed.push({ sourceId, name: p.sourceName, chapters: p.chapters });
   };
   // Marked under the run row's lock: the run itself may be appending the next series' result meanwhile.
   const result = await tx(async (qq) => {
@@ -1185,7 +1191,7 @@ async function promote(
     if (!row || !r || !prop) return null;
     mark(r, prop);
     await qq('UPDATE source_find_runs SET results = $2::jsonb, followed = followed + $3 WHERE id::text = $1',
-      [runId, JSON.stringify(row.results), p.kind === 'search' ? 1 : 0]);
+      [runId, JSON.stringify(row.results), search && !wasFollowed ? 1 : 0]);
     return r;
   });
   const a = active;
@@ -1193,7 +1199,7 @@ async function promote(
     const { r, p: prop } = find(a.results);
     if (r && prop) mark(r, prop);
     a.card.promoted = ++a.promoted;
-    if (p.kind === 'search') a.card.followed = ++a.followed;
+    if (search && !wasFollowed) a.card.followed = ++a.followed;
   }
   scheduleFindRefresh([seriesId]);
   scheduleHealthSummaryRefresh();

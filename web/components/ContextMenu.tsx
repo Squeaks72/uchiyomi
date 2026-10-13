@@ -4,7 +4,7 @@ import {
   Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState,
   type CSSProperties, type KeyboardEvent, type MouseEvent, type PointerEvent, type ReactNode,
 } from 'react';
-import { contextMenusOn, placeMenu, wantsOwnMenu, LONG_PRESS_MS, LONG_PRESS_SLOP } from '@/lib/contextMenus';
+import { placeMenu, wantsOwnMenu, LONG_PRESS_MS, LONG_PRESS_SLOP } from '@/lib/contextMenus';
 
 // One menu, opened four ways (#100). lib/contextMenus.ts says when the browser's own menu is left alone.
 //
@@ -24,6 +24,8 @@ export interface MenuItem {
   disabled?: boolean;
   /** `data-menu-item` on the item, for a browser walk to find it by what it does rather than by its words. */
   hook?: string;
+  /** A tooltip: what the item is for, when its label alone does not say. */
+  title?: string;
   /**
    * A group's name, shown above this item (v0.60.0): the series page's More and the Library's Sort menu group their
    * items. Not focusable -- the arrow keys move between items only. Implies the divider.
@@ -97,9 +99,9 @@ function Menu({ items, at, label, onClose }: { items: MenuItem[]; at: At; label:
             )}
             <button type="button" role={it.checked === undefined ? 'menuitem' : 'menuitemradio'}
               aria-checked={it.checked === undefined ? undefined : it.checked}
-              tabIndex={-1} disabled={it.disabled} data-menu-item={it.hook}
+              tabIndex={-1} disabled={it.disabled} data-menu-item={it.hook} title={it.title}
               onClick={() => { onClose(true); void it.onSelect(); }}
-              className={`flex w-full items-center gap-2.5 px-3.5 py-2.5 text-start text-xs hover:bg-ink-800 focus:bg-ink-800 focus:outline-none disabled:opacity-40 ${
+              className={`flex w-full items-center gap-2.5 px-3.5 py-2.5 text-start text-xs hover:bg-ink-800 focus:bg-ink-800 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent disabled:opacity-40 ${
                 it.divider && !it.heading && k > 0 ? 'border-t border-ink-800' : ''} ${it.danger ? 'text-red-300' : it.checked ? 'text-accent' : 'text-fog-200'}`}>
               {it.icon && <span aria-hidden className="grid w-4 shrink-0 place-items-center">{it.icon}</span>}
               <span className="min-w-0 flex-1">{it.label}</span>
@@ -127,9 +129,6 @@ export function useContextMenu(getItems: () => MenuItem[], { label }: { label: s
   const press = useRef<{ x: number; y: number; timer: ReturnType<typeof setTimeout> } | null>(null);
   // The click a long-press's release would send the card: swallowed, or the menu opens and the card opens too.
   const swallowClick = useRef(false);
-  // Read after mount: the static export renders without storage, and the first client render must match it.
-  const [on, setOn] = useState(true);
-  useEffect(() => { setOn(contextMenusOn()); }, []);
 
   const close = useCallback((refocus: boolean) => {
     setAt(null);
@@ -152,7 +151,7 @@ export function useContextMenu(getItems: () => MenuItem[], { label }: { label: s
         editable: !!t.closest('input, textarea, select, [contenteditable="true"]'),
         selection: sel?.toString() ?? '',
         inSelection: !!sel && !sel.isCollapsed && sel.containsNode(t, true),
-      }, contextMenusOn());
+      });
       if (!own) return;
       e.preventDefault();
       cancelPress();
@@ -162,7 +161,7 @@ export function useContextMenu(getItems: () => MenuItem[], { label }: { label: s
     // which lands on the handler above at the same point; iOS sends nothing, which is why this exists.
     onPointerDown: (e: PointerEvent<HTMLElement>) => {
       swallowClick.current = false;
-      if (e.pointerType === 'mouse' || !contextMenusOn()) return;
+      if (e.pointerType === 'mouse') return;
       const { clientX: x, clientY: y } = e;
       const el = e.currentTarget;
       cancelPress();
@@ -184,7 +183,7 @@ export function useContextMenu(getItems: () => MenuItem[], { label }: { label: s
       if ((e.shiftKey && e.key === 'F10') || e.key === 'ContextMenu') { e.preventDefault(); openFrom(e.currentTarget); }
     },
     // iOS draws its own link preview on a long-press; with the menu on, that is what the press is for instead.
-    style: (on ? { WebkitTouchCallout: 'none' } : undefined) as CSSProperties | undefined,
+    style: { WebkitTouchCallout: 'none' } as CSSProperties,
   };
 
   const element = at ? <Menu items={getItems()} at={at} label={label} onClose={close} /> : null;

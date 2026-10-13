@@ -212,7 +212,7 @@ test('the search follows a pause in the typing, Escape empties it, and the URL c
   const lib = page();
   assert.match(lib, /const q = \(params\.get\('q'\) \|\| ''\)\.trim\(\);/);
   assert.match(lib, /q=\{q\} onSearch=\{\(v\) => setParam\('q', v\)\}/, 'the search does not go through the page\'s one URL writer');
-  assert.match(lib, /queryKey: \['library', active\.key, dir, read, status, genres\.join\(','\), lib, src, anysrc, q\],/);
+  assert.match(lib, /queryKey: \['library', active\.key, dir, read, status, genres\.join\(','\), libKey, src, anysrc, q\],/);
   assert.match(lib, /query: q \|\| undefined, collapseEditions: true/, 'the search is not sent');
   // The count says how many match, and an empty search says so -- never "your library is empty".
   assert.match(lib, /\(total === 1 \? tr\('1 series matches'\) : tr\('\{n\} series match', \{ n: total \}\)\)/);
@@ -314,7 +314,7 @@ test('the tags are squared and mirror in Arabic, and the select bubble no longer
   const fav = series({ yomi: { favorite: true, rating: null, unread: 120, newCount: 2 } });
   for (const [name, el] of [['tile', SeriesTile], ['card', SeriesCard], ['row', SeriesRow]] as const) {
     const html = mounted(createElement(el as typeof SeriesTile, { series: fav }));
-    const unread = /<span ([^>]*)><span dir="ltr" data-unread="120">99\+<\/span><\/span>/.exec(html);
+    const unread = /<span ([^>]*)><span (?:aria-hidden="true" )?dir="ltr" data-unread="120">99\+<\/span>(?:<span class="sr-only">[^<]*<\/span>)?<\/span>/.exec(html);
     assert.ok(unread, `${name}: the unread count is not capped "99+" in a left-to-right box`);
     assert.match(unread![1], /^class="[^"]*"$/, `${name}: the tag carries its own direction (or another attribute)`);
     assert.match(unread![1], /rounded-\[4px\]/, `${name}: a capsule tag`);

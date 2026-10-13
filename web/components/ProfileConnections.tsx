@@ -12,6 +12,7 @@ import { ConfirmDialog, msgOf } from '@/components/ConfirmDialog';
 import { IcCloudDownload, IcPlus, IcRefresh } from '@/components/icons';
 import { Row, Section, SETTINGS_GRID, SwitchRow } from '@/components/settings';
 import { isDesktop } from '@/lib/desktop';
+import { callbackUrl, startSignIn } from '@/lib/trackerSignIn';
 import { connectProblem, testProblem, testSaid, tokenFromPaste, tokenSource, type TestResult } from '@/lib/trackerHelp';
 
 /**
@@ -75,6 +76,11 @@ interface TrackerStatus {
   label?: string;
   /** The server's English help: shown only for a provider lib/trackerHelp.ts does not know (v0.61.0). */
   tokenHelp?: string;
+  /** How this service signs people in: a redirect (AniList, MyAnimeList) or a username and password (Kitsu, MangaUpdates). */
+  method?: 'oauth-implicit' | 'oauth-code' | 'password';
+  /** false until an admin has registered the sign-in application. */
+  configured?: boolean;
+  authorizeUrl?: string; clientId?: string;
   provider: string; connected: boolean; accountName: string | null;
   expiresAt: string | null; expiringSoon: boolean; lastSyncAt: string | null; lastError: string | null;
 }
@@ -85,9 +91,10 @@ interface TrackerStatus {
  * The provider list comes from the server rather than being written here: each one reports its own name and
  * where a token comes from, so adding a fourth service is a backend change alone.
  *
- * Token-paste rather than an OAuth round-trip, for all of them. A real OAuth flow would need every
- * self-hoster to register an application with each service and keep its secret in their compose file, which
- * is a worse trade for a household app than copying a token once.
+ * How each connects is the server's to say (`method`, `configured`): AniList and MyAnimeList go to the service's own
+ * login and come back to app/tracker-callback, Kitsu and MangaUpdates take a username and password, and a pasted token still works
+ * for all of them. The redirect services need an application registered once, which an admin does on the row
+ * (TrackerSetup); everyone else just presses Connect. See lib/trackerSignIn.ts and bff/src/lib/trackerOauth.ts.
  *
  * The section renders nothing at all when the server offers no providers. The old page put the heading
  * outside this component, so an empty list left an orphan "Progress tracking" over blank space.
@@ -113,7 +120,7 @@ function TrackerSection({ focus }: { focus: boolean }) {
   return (
     <Section ref={ref} id="progress-tracking" className="scroll-mt-4 lg:scroll-mt-20" title={tr('Progress tracking')}
       icon={<IcRefresh width={18} height={18} />}
-      description={tr('Connect a service and every chapter you finish is pushed to it.')}>
+      description={tr('Connect a service to update it each time you finish a chapter.')}>
       {all.map((t) => <TrackerRow key={t.provider} t={t} refetch={refetch} />)}
     </Section>
   );
@@ -127,9 +134,13 @@ function TrackerSection({ focus }: { focus: boolean }) {
  */
 function TrackerRow({ t, refetch }: { t: TrackerStatus; refetch: () => void }) {
   const toast = useToast();
+  const { user } = useAuth();
+  const admin = user?.role === 'admin';
   const [token, setToken] = useState('');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
-  const [open, setOpen] = useState(false);
+  const [panel, setPanel] = useState<null | 'token' | 'password' | 'setup'>(null);
   // Why the last Connect failed, said under the field (role="status"); cleared as the paste changes.
   const [problem, setProblem] = useState('');
   const [testing, setTesting] = useState(false);
@@ -137,8 +148,21 @@ function TrackerRow({ t, refetch }: { t: TrackerStatus; refetch: () => void }) {
   const formId = useId();
   // A service's own name is a proper noun: it is passed as a placeholder rather than translated.
   const label = t.label || t.provider;
+  const redirects = t.method === 'oauth-implicit' || t.method === 'oauth-code';
 
-  const connect = async () => {
+  const connected = async (account: string) => {
+    toast(tr('Connected to {name} as {account}', { name: label, account }), 'success');
+    setToken(''); setPassword('');
+    setPanel(null);
+    refetch();
+    // Only AniList has a backfill endpoint today; the others start syncing from the next chapter read.
+    if (t.provider === 'anilist') {
+      const b = await api<{ series: number }>('/api/trackers/anilist/backfill', { json: {} });
+      if (b.series) toast(tr('Syncing {n} series you have already finished…', { n: b.series }), 'info', { busy: true });
+    }
+  };
+
+  const pasteToken = async () => {
     // The address of AniList's pin page, or a token endpoint's whole JSON answer, carries the token: it is taken out.
     // Anything else is sent as pasted -- a shape only ever chooses the message below, never refuses the paste.
     const sent = tokenFromPaste(token);
@@ -147,17 +171,26 @@ function TrackerRow({ t, refetch }: { t: TrackerStatus; refetch: () => void }) {
     setProblem('');
     try {
       const r = await api<{ account: string }>(`/api/trackers/${t.provider}/connect`, { json: { token: sent } });
-      toast(tr('Connected to {name} as {account}', { name: label, account: r.account }), 'success');
-      setToken('');
-      setOpen(false);
-      refetch();
-      // Only AniList has a backfill endpoint today; the others start syncing from the next chapter read.
-      if (t.provider === 'anilist') {
-        const b = await api<{ series: number }>('/api/trackers/anilist/backfill', { json: {} });
-        if (b.series) toast(tr('Syncing {n} series you have already finished…', { n: b.series }), 'info', { busy: true });
-      }
+      await connected(r.account);
     } catch (e) { setProblem(connectProblem(e, t.provider, label, sent)); }
     setBusy(false);
+  };
+
+  const signInWithPassword = async () => {
+    if (!username.trim() || !password) return;
+    setBusy(true);
+    try {
+      const r = await api<{ account: string }>(`/api/trackers/${t.provider}/login`, { json: { username: username.trim(), password } });
+      await connected(r.account);
+    } catch (e: any) { toast(msgOf(e, tr('{name} did not accept that sign-in', { name: label })), 'error'); }
+    setBusy(false);
+  };
+
+  // The button on a row: go to the service's own login, or open whatever this service needs first.
+  const start = () => {
+    if (t.method === 'password') return setPanel((v) => (v === 'password' ? null : 'password'));
+    if (t.configured) return startSignIn(t, window.location.origin);
+    setPanel((v) => (v ? null : admin ? 'setup' : 'token'));
   };
 
   const test = async () => {
@@ -191,7 +224,7 @@ function TrackerRow({ t, refetch }: { t: TrackerStatus; refetch: () => void }) {
                 hold a <p>, and a block-level span keeps them inside this provider's row of the divider list. */}
             {t.expiringSoon && (
               <span className="mt-2 block rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5 text-xs text-amber-300">
-                {tr('This {name} token expires {when}. None of these services can refresh a token silently, so reconnect before then to keep syncing.',
+                {tr('This {name} token expires {when}. Reconnect before then to keep syncing.',
                   { name: label, when: t.expiresAt ? relativeTime(t.expiresAt) : tr('soon') })}
               </span>
             )}
@@ -204,32 +237,68 @@ function TrackerRow({ t, refetch }: { t: TrackerStatus; refetch: () => void }) {
           </>
         }
       >
-        <button type="button" onClick={test} disabled={testing} className="btn-key">
-          {testing ? tr('Testing…') : tr('Test connection')}
-        </button>
-        <button type="button" onClick={disconnect} className="btn-key btn-key-danger">{tr('Disconnect')}</button>
+        <div className="flex gap-2">
+          {redirects && t.configured && (t.expiringSoon || t.lastError) && (
+            <button type="button" onClick={() => startSignIn(t, window.location.origin)} aria-label={tr('Reconnect {name}', { name: label })} className="btn-key">{tr('Reconnect')}</button>
+          )}
+          <button type="button" onClick={test} disabled={testing} className="btn-key">
+            {testing ? tr('Testing…') : tr('Test connection')}
+          </button>
+          <button type="button" onClick={disconnect} aria-label={tr('Disconnect {name}', { name: label })} className="btn-key btn-key-danger">{tr('Disconnect')}</button>
+        </div>
       </Row>
     );
   }
 
+  const link = 'underline underline-offset-2 hover:text-fog-300';
+  const alternatives = (
+    <span className="mt-1 block text-xs text-fog-500">
+      <button type="button" onClick={() => setPanel('token')} className={link}>{tr('Paste an access token instead')}</button>
+      {redirects && admin && <> · <button type="button" onClick={() => setPanel('setup')} className={link}>{tr('Sign-in settings')}</button></>}
+    </span>
+  );
+
   return (
     <>
       {/* ⚠️ The row text keeps `Sync your reading to {name}`: scripts/shots/capture.mjs finds this card by it.
-          While the form is open the row drops its divider (`border-b-0` beats the body's zero-specificity
-          `:where(.divide-y > …)` rule) so the token field reads as part of this provider, not the next one. */}
+          While a panel is open the row drops its divider (`border-b-0` beats the body's zero-specificity
+          `:where(.divide-y > …)` rule) so the form reads as part of this provider, not the next one. */}
       <Row
-        className={open ? 'border-b-0 pb-1' : undefined}
+        className={panel ? 'border-b-0 pb-1' : undefined}
         label={tr('Sync your reading to {name}', { name: label })}
-        help={t.provider === 'anilist'
-          ? <>{tr('Manual AniList actions can contact AniList even when automatic lookups are off.')}{t.lastError && <span className="mt-1 block text-red-300">{t.lastError}</span>}</>
-          : t.lastError ? <span className="text-red-300">{t.lastError}</span> : undefined}
+        help={t.provider === 'anilist' || t.lastError || (!panel && (t.configured || t.method === 'password')) ? <>
+          {t.provider === 'anilist' && tr('Manual AniList actions can contact AniList even when automatic lookups are off.')}
+          {t.lastError && <span className="mt-1 block text-red-300">{t.lastError}</span>}
+          {!panel && (t.configured || t.method === 'password') && alternatives}
+        </> : undefined}
       >
-        <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} aria-controls={formId} className="btn-key">
-          {open ? tr('Cancel') : tr('Connect')}
+        <button type="button" onClick={start} aria-expanded={panel ? true : undefined} aria-controls={panel ? formId : undefined}
+          aria-label={panel ? undefined : tr('Connect {name}', { name: label })} className="btn-key">
+          {panel ? tr('Cancel') : tr('Connect')}
         </button>
       </Row>
-      {open && (
+      {panel === 'password' && (
         <div id={formId} className="pb-3 last:pb-0">
+          <p className="max-w-prose text-[11px] text-fog-500">{tr('Your password is used once to get a token and is not stored.')}</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <input value={username} onChange={(e) => setUsername(e.target.value)} placeholder={tr('Username or email')} aria-label={tr('Username or email')}
+              autoCapitalize="none" autoCorrect="off" autoComplete="username" spellCheck={false} className="field min-w-0 flex-1" />
+            <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" placeholder={tr('Password')} aria-label={tr('Password')}
+              onKeyDown={(e) => { if (e.key === 'Enter' && !busy) signInWithPassword(); }}
+              autoComplete="current-password" className="field min-w-0 flex-1" />
+            <button type="button" onClick={signInWithPassword} disabled={busy || !username.trim() || !password} className="btn-key btn-key-primary shrink-0">
+              {busy ? tr('Working…') : tr('Sign in')}
+            </button>
+          </div>
+          <p className="mt-2 text-xs text-fog-500"><button type="button" onClick={() => setPanel('token')} className={link}>{tr('Paste an access token instead')}</button></p>
+        </div>
+      )}
+      {panel === 'setup' && <TrackerSetup t={t} id={formId} onSaved={() => { setPanel(null); refetch(); }} onToken={() => setPanel('token')} />}
+      {panel === 'token' && (
+        <div id={formId} className="pb-3 last:pb-0">
+          {redirects && !t.configured && (
+            <p className="max-w-prose text-xs text-fog-500">{tr('Sign-in for {name} is not set up yet. Ask an admin to set it up, or paste an access token.', { name: label })}</p>
+          )}
           <TokenHelp provider={t.provider} name={label} fallback={t.tokenHelp} />
           {/* fog-500, not fog-600: this is the one security fact on the form, and fog-600 measures 2.6:1 on
               the card -- below AA for any size of text. fog-500 (4.1:1) is the floor for helper text. */}
@@ -238,10 +307,10 @@ function TrackerRow({ t, refetch }: { t: TrackerStatus; refetch: () => void }) {
           </p>
           <div className="mt-3 flex gap-2">
             <input value={token} onChange={(e) => { setToken(e.target.value); setProblem(''); }} type="password"
-              onKeyDown={(e) => { if (e.key === 'Enter' && !busy) connect(); }}
+              onKeyDown={(e) => { if (e.key === 'Enter' && !busy) pasteToken(); }}
               placeholder={tr('{name} access token', { name: label })} aria-label={tr('{name} access token', { name: label })}
-              autoCapitalize="none" autoCorrect="off" autoComplete="off" className="field min-w-0 flex-1" />
-            <button type="button" onClick={connect} disabled={busy || !token.trim()} className="btn-key btn-key-primary shrink-0">
+              autoCapitalize="none" autoCorrect="off" autoComplete="off" spellCheck={false} className="field min-w-0 flex-1" />
+            <button type="button" onClick={pasteToken} disabled={busy || !token.trim()} className="btn-key btn-key-primary shrink-0">
               {busy ? tr('Working…') : tr('Connect')}
             </button>
           </div>
@@ -249,6 +318,71 @@ function TrackerRow({ t, refetch }: { t: TrackerStatus; refetch: () => void }) {
         </div>
       )}
     </>
+  );
+}
+
+/**
+ * The admin's one-time setup for a service that signs people in through an application: where to register it,
+ * the redirect URL to register (this app's own callback page), and the client ID back. After it, every member
+ * just presses Connect. The secret, for the services that issue one, is write-only.
+ */
+function TrackerSetup({ t, id, onSaved, onToken }: { t: TrackerStatus; id: string; onSaved: () => void; onToken: () => void }) {
+  const toast = useToast();
+  const label = t.label || t.provider;
+  const [clientId, setClientId] = useState(t.clientId || '');
+  const [secret, setSecret] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [canCopy, setCanCopy] = useState(false);
+  const [copied, setCopied] = useState(false);
+  // `navigator.clipboard` is missing outside a secure context (plain http on a LAN), so Copy appears only once
+  // a mounted client has seen it; the URL sits in a read-only field either way, ready to select.
+  useEffect(() => { setCanCopy(typeof navigator !== 'undefined' && typeof navigator.clipboard?.writeText === 'function'); }, []);
+  const redirect = typeof window === 'undefined' ? '' : callbackUrl(window.location.origin);
+  const steps = t.provider === 'myanimelist'
+    ? tr('myanimelist.net → Account settings → API → Create ID. Choose app type web.')
+    : tr('anilist.co → Settings → Developer → Create new client.');
+
+  const save = async () => {
+    setBusy(true);
+    try {
+      await api(`/api/admin/trackers/apps/${t.provider}`, { method: 'PUT', json: { clientId: clientId.trim(), clientSecret: secret.trim() } });
+      toast(tr('Sign-in saved'), 'success');
+      onSaved();
+    } catch (e: any) { toast(msgOf(e, tr('Could not save the sign-in')), 'error'); }
+    setBusy(false);
+  };
+
+  return (
+    <div id={id} className="pb-3 last:pb-0">
+      <p className="max-w-prose text-xs text-fog-500">
+        {tr('Register an application with {name} once, and every member of this server can then connect with a button.', { name: label })}
+      </p>
+      <p className="mt-1 max-w-prose text-xs text-fog-500">{steps}</p>
+      <label className="mt-3 block text-xs font-semibold uppercase tracking-wider text-fog-500" htmlFor={`${id}-redirect`}>{tr('Redirect URL')}</label>
+      <div className="mt-1 flex gap-2">
+        <input id={`${id}-redirect`} readOnly value={redirect} onFocus={(e) => e.currentTarget.select()} className="field min-w-0 flex-1" />
+        {canCopy && (
+          <button type="button" className="btn-key"
+            onClick={() => navigator.clipboard.writeText(redirect).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); }, () => setCopied(false))}>
+            {copied ? tr('Copied') : tr('Copy')}
+          </button>
+        )}
+      </div>
+      <label className="mt-3 block text-xs font-semibold uppercase tracking-wider text-fog-500" htmlFor={`${id}-client`}>{tr('Client ID')}</label>
+      <input id={`${id}-client`} value={clientId} onChange={(e) => setClientId(e.target.value)} autoCapitalize="none" autoCorrect="off" autoComplete="off" spellCheck={false} className="field mt-1 w-full" />
+      {t.provider === 'myanimelist' && (
+        <>
+          <label className="mt-3 block text-xs font-semibold uppercase tracking-wider text-fog-500" htmlFor={`${id}-secret`}>{tr('Client secret (optional)')}</label>
+          <input id={`${id}-secret`} value={secret} onChange={(e) => setSecret(e.target.value)} type="password" autoComplete="off" className="field mt-1 w-full" />
+        </>
+      )}
+      <div className="mt-3 flex items-center gap-3">
+        <button type="button" onClick={save} disabled={busy || !clientId.trim()} className="btn-key btn-key-primary">
+          {busy ? tr('Working…') : tr('Save')}
+        </button>
+        <button type="button" onClick={onToken} className="text-xs text-fog-500 underline underline-offset-2 hover:text-fog-300">{tr('Paste an access token instead')}</button>
+      </div>
+    </div>
   );
 }
 
@@ -339,7 +473,7 @@ function OpdsSection() {
       id="opds"
       title={tr('External readers (OPDS)')}
       icon={<IcCloudDownload width={18} height={18} />}
-      description={tr('Add Uchiyomi as an OPDS catalog in readers like Panels, Chunky, KOReader or Moon+. Generate a personal link, then enter the URL and credentials below in your reader.')}
+      description={tr('Read in Panels, Chunky, KOReader or Moon+. Generate a link, then add its URL, username and password to your reader as an OPDS catalog.')}
       // Hidden while the fresh password is on screen: generating again would replace the one being copied.
       // A chip, like every other section action: the accent button was 172 px wide at 390 and wrapped
       // "Externe Leseprogramme (OPDS)" onto three lines beside it.
@@ -351,19 +485,21 @@ function OpdsSection() {
     >
       {/* Shown whenever a link is held -- never behind a collapse, see the component comment. */}
       {link && (
-        <div className="my-1 space-y-2 rounded-xl border border-accent/40 bg-accent/10 p-3 text-xs">
-          <div>
-            <span className="text-fog-500">{tr('Catalog URL')}</span>
-            <div className="mt-0.5 break-all rounded-lg border border-ink-700 bg-ink-900/60 px-2 py-1.5 font-mono text-fog-100">{link.url}</div>
-          </div>
-          <div>
-            <span className="text-fog-500">{tr('Username')}</span>
-            <div className="mt-0.5 rounded-lg border border-ink-700 bg-ink-900/60 px-2 py-1.5 font-mono text-fog-100">{user?.username || 'me'}</div>
-          </div>
-          <div>
-            <span className="text-fog-500">{tr('Password (shown once, copy it now)')}</span>
-            <div className="mt-0.5 break-all rounded-lg border border-ink-700 bg-ink-900/60 px-2 py-1.5 font-mono text-accent">{link.token}</div>
-          </div>
+        <div role="group" aria-label={tr('Your OPDS link')} className="my-1 space-y-2 rounded-xl border border-accent/40 bg-accent/10 p-3 text-xs">
+          <dl className="space-y-2">
+            <div>
+              <dt className="text-fog-500">{tr('Catalog URL')}</dt>
+              <dd className="mt-0.5 break-all rounded-lg border border-ink-700 bg-ink-900/60 px-2 py-1.5 font-mono text-fog-100">{link.url}</dd>
+            </div>
+            <div>
+              <dt className="text-fog-500">{tr('Username')}</dt>
+              <dd className="mt-0.5 rounded-lg border border-ink-700 bg-ink-900/60 px-2 py-1.5 font-mono text-fog-100">{user?.username || 'me'}</dd>
+            </div>
+            <div>
+              <dt className="text-fog-500">{tr('Password (shown once, copy it now)')}</dt>
+              <dd className="mt-0.5 break-all rounded-lg border border-ink-700 bg-ink-900/60 px-2 py-1.5 font-mono text-accent">{link.token}</dd>
+            </div>
+          </dl>
           <p className="max-w-prose text-[11px] text-fog-500">
             {tr('Generating again replaces the previous token.')}
             {link.expiresInDays != null && <> {tr('This one stops working in {n} days. You can revoke it sooner.', { n: link.expiresInDays })}</>}
@@ -390,6 +526,7 @@ function OpdsSection() {
         >
           {st.exists && (
             <button type="button" onClick={revoke} disabled={busy}
+              aria-label={tr('Revoke the OPDS link')}
               className="chip text-xs hover:border-rose-500/50 hover:text-rose-400 disabled:opacity-50">{tr('Revoke')}</button>
           )}
         </Row>
@@ -397,8 +534,8 @@ function OpdsSection() {
 
       {st?.exists && (
         <SwitchRow
-          label={tr('Include 18+ content in this reader')}
-          help={tr('Off by default. Your age limit, if you have one, still applies whatever this says.')}
+          label={tr('Show 18+ content in this reader (this link only)')}
+          help={tr('Off by default. Your age limit still applies if you have one.')}
           on={!!st.showAdult}
           disabled={busy}
           onChange={setAdult}
@@ -414,7 +551,7 @@ interface ApiToken { id: string; name: string; scopes: string[]; createdAt: stri
 
 /** The one icon this file draws itself: icons.tsx has no key, and a token is a key. Same 24-grid and stroke as the rest. */
 const IcKey = () => (
-  <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+  <svg aria-hidden focusable="false" width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
     <path d="M2.6 17.4A2 2 0 0 0 2 18.8V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.2a2 2 0 0 0 1.4-.6l.8-.8a6.5 6.5 0 1 0-4-4Z" />
     <circle cx="16.5" cy="7.5" r=".6" fill="currentColor" />
   </svg>
@@ -474,7 +611,7 @@ function TokensSection() {
       id="api-tokens"
       title={tr('API tokens')}
       icon={<IcKey />}
-      description={`${tr('For scripts and integrations. A normal login expires every 15 minutes; these do not, so treat one like a password.')} ${tr('Mihon’s Komga extension and the Uchiyomi extension use these too.')}`}
+      description={`${tr('For scripts and integrations. A token does not expire like a login does, so treat it like a password.')} ${tr('Mihon’s Komga extension and the Uchiyomi extension use these too.')}`}
       action={
         <button ref={actionRef} type="button" onClick={() => (open ? cancel() : setOpen(true))} aria-expanded={open} aria-controls={formId}
           className={`chip text-xs ${open ? 'chip-active' : ''}`}>
@@ -484,8 +621,8 @@ function TokensSection() {
     >
       {/* A token is shown once; it stays on screen through a remount and is never behind the form. */}
       {fresh && (
-        <div className="my-1 rounded-xl border border-accent/40 bg-accent/10 p-3">
-          <p className="text-xs text-fog-100">{tr('Copy this now. It will not be shown again.')}</p>
+        <div role="group" aria-label={tr('Your new token')} className="my-1 rounded-xl border border-accent/40 bg-accent/10 p-3">
+          <p role="status" className="text-xs text-fog-100">{tr('Copy this now. It will not be shown again.')}</p>
           <p className="mt-1.5 break-all rounded-lg border border-ink-700 bg-ink-900/60 px-2 py-1.5 font-mono text-xs text-accent">{fresh}</p>
           {/* A chip, like the OPDS box's Done: the control that dismisses a once-only secret was a 16-px link. */}
           <button ref={doneRef} type="button" onClick={done} className="chip mt-2 text-xs">{tr('Done')}</button>
@@ -495,19 +632,19 @@ function TokensSection() {
       {open && (
         <div id={formId} className="space-y-2 py-3">
           <input value={name} onChange={(e) => setName(e.target.value)} placeholder={tr('What is it for? e.g. backup script')}
-            aria-label={tr('What is it for? e.g. backup script')}
+            aria-label={tr('What is it for? e.g. backup script')} aria-required required autoComplete="off" spellCheck={false}
             onKeyDown={(e) => { if (e.key === 'Enter' && name.trim()) (admin ? setConfirmAdmin(true) : create()); }}
             className="field" />
-          <label className="flex items-center gap-2 text-xs text-fog-300">
+          <label className="flex items-center gap-2 py-1 text-xs text-fog-300">
             <input type="checkbox" checked={write} onChange={(e) => setWrite(e.target.checked)} className="accent-accent" />{tr('Allow changes (without this the token can only read)')}</label>
           {user?.role === 'admin' && (
-            <label className="flex items-center gap-2 text-xs text-fog-300">
+            <label className="flex items-center gap-2 py-1 text-xs text-fog-300">
               <input type="checkbox" checked={admin} onChange={(e) => setAdmin(e.target.checked)} className="accent-accent" />{tr('Allow server administration')}</label>
           )}
           {/* Mirrors the OPDS link's switch. The Komga-compatible API (Mihon, Tachimanga) reads the library
               through a token, and without this the 18+ libraries are simply absent from it. */}
-          <label className="flex items-center gap-2 text-xs text-fog-300">
-            <input type="checkbox" checked={adult} onChange={(e) => setAdult(e.target.checked)} className="accent-accent" />{tr('Include 18+ content')}</label>
+          <label className="flex items-center gap-2 py-1 text-xs text-fog-300">
+            <input type="checkbox" checked={adult} onChange={(e) => setAdult(e.target.checked)} className="accent-accent" />{tr('Show 18+ content (this token only)')}</label>
           <div className="flex flex-wrap gap-2 pt-1">
             {/* An admin-scoped token never expires and can do anything its owner can, so it costs one more
                 deliberate step. The rest of the form is unchanged. */}
@@ -523,7 +660,7 @@ function TokensSection() {
           label={
             <>
               {t.name}
-              {t.expired && <span className="ms-2 rounded bg-red-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-red-300">{tr('Expired')}</span>}
+              {t.expired && <span className="ms-2 rounded bg-red-500/20 px-1.5 py-0.5 text-[11px] font-semibold text-red-300">{tr('Expired')}</span>}
             </>
           }
           help={
@@ -534,10 +671,10 @@ function TokensSection() {
             </>
           }
         >
-          <button type="button" onClick={() => revoke(t.id)} className="chip text-xs hover:border-rose-500/50 hover:text-rose-400">{tr('Revoke')}</button>
+          <button type="button" onClick={() => revoke(t.id)} aria-label={tr('Revoke {name}', { name: t.name })} className="chip text-xs hover:border-rose-500/50 hover:text-rose-400">{tr('Revoke')}</button>
         </Row>
       ))}
-      {!tokens.length && !open && <p className="py-3 text-xs text-fog-600">{tr('No tokens yet.')}</p>}
+      {!tokens.length && !open && <p className="py-3 text-xs text-fog-500">{tr('No tokens yet.')}</p>}
 
       {confirmAdmin && (
         <ConfirmDialog

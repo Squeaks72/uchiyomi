@@ -1,14 +1,21 @@
 'use client';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { useReduceEffects } from '@/lib/effects';
 import { useLayer } from '@/lib/layers';
+import { BACKDROP_CLS } from '@/components/ui';
 import { t as tr } from '@/lib/i18n';
 
 export interface NavGroup<T extends string> {
   id: string;
   label: string;
   tabs: readonly T[];
+  /**
+   * Fork change: places in this group that are pages of their own rather than tabs (Admin's Import). Drawn under the
+   * tabs, and never "current". The label goes through tr(), so the caller declares it with keys().
+   */
+  links?: ReadonlyArray<{ label: string; href: string }>;
 }
 
 /**
@@ -59,7 +66,7 @@ export function ConsoleNav<T extends string>({
             {groups.map((g) => (
               <div key={g.id}>
                 {!flat && (
-                  <p className="mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-wider text-fog-600">{tr(g.label)}</p>
+                  <p className="mb-1.5 px-3 text-xs font-semibold uppercase tracking-wider text-fog-400">{tr(g.label)}</p>
                 )}
                 <div className="space-y-0.5">
                   {g.tabs.map((t) => (
@@ -73,6 +80,12 @@ export function ConsoleNav<T extends string>({
                       {tr(t)}
                     </button>
                   ))}
+                  {g.links?.map((l) => (
+                    <Link key={l.href} href={l.href}
+                      className="relative flex w-full items-center rounded-lg px-3 py-1.5 text-start text-sm text-fog-400 transition hover:bg-ink-800/60 hover:text-fog-100">
+                      {tr(l.label)}
+                    </Link>
+                  ))}
                 </div>
               </div>
             ))}
@@ -84,12 +97,12 @@ export function ConsoleNav<T extends string>({
 
         {/* ---- phone: the group is a sheet, its panels stay a pill row ---- */}
         <div className="min-w-0 flex-1">
-          <div className="mb-4 flex items-center gap-2 lg:hidden">
+          <nav className="mb-4 flex items-center gap-2 lg:hidden" aria-label={ariaLabel}>
             {!flat && (
               <button onClick={() => setSheet(true)}
                 className="chip shrink-0 gap-1 text-xs" aria-haspopup="dialog">
                 {tr(group.label)}
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+                <svg aria-hidden width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
               </button>
             )}
             <div className="-me-4 flex gap-1.5 overflow-x-auto pe-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -99,11 +112,14 @@ export function ConsoleNav<T extends string>({
                 <button key={t} onClick={() => onTab(t)}
                   aria-current={tab === t ? 'page' : undefined}
                   className={`shrink-0 rounded-full px-3.5 py-1.5 text-sm font-medium transition ${
-                    tab === t ? 'bg-accent text-white' : 'bg-ink-800 text-fog-300'
+                    tab === t ? 'bg-accent text-black' : 'bg-ink-800 text-fog-300'
                   }`}>{tr(t)}</button>
               ))}
+              {group.links?.map((l) => (
+                <Link key={l.href} href={l.href} className="shrink-0 rounded-full bg-ink-800 px-3.5 py-1.5 text-sm font-medium text-fog-300 transition">{tr(l.label)}</Link>
+              ))}
             </div>
-          </div>
+          </nav>
           {/* A flat nav has no group sheet, so on a phone the footer would have nowhere to live. */}
           {footer && flat && <div className="mb-4 flex flex-wrap gap-2 lg:hidden">{footer}</div>}
 
@@ -158,21 +174,25 @@ function GroupSheet<T extends string>({ groups, ariaLabel, current, footer, onPi
     return () => { document.removeEventListener('keydown', onKey); opener?.focus(); };
   }, []);
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink-950/70 backdrop-blur-xs sm:items-center" onClick={onClose}>
+    <div className={`fixed inset-0 z-50 flex items-end justify-center ${BACKDROP_CLS} sm:items-center`} onClick={onClose}>
       <div ref={ref} className="glass max-h-[80vh] w-full overflow-y-auto rounded-t-2xl border border-ink-700 p-5 pb-[calc(5.5rem+env(safe-area-inset-bottom))] sm:pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:max-w-md sm:rounded-2xl"
         role="dialog" aria-modal="true" aria-label={ariaLabel} data-lenis-prevent onClick={(e) => e.stopPropagation()}>
         <div className="mb-4 flex items-start justify-between gap-3">
           <h3 className="font-display text-lg font-semibold leading-tight">{ariaLabel}</h3>
-          <button onClick={onClose} aria-label={tr('Close')} className="shrink-0 text-fog-500 hover:text-fog-200">✕</button>
+          <button onClick={onClose} aria-label={tr('Close')} className="-m-1.5 shrink-0 p-1.5 text-fog-300 hover:text-fog-100"><span aria-hidden>✕</span></button>
         </div>
         <div className="space-y-4">
           {groups.map((g) => (
             <div key={g.id}>
-              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-fog-600">{tr(g.label)}</p>
+              <p className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-fog-400">{tr(g.label)}</p>
               <div className="flex flex-wrap gap-1.5">
                 {g.tabs.map((t) => (
                   <button key={t} onClick={() => onPick(t)}
+                    aria-current={current === t ? 'page' : undefined}
                     className={`chip text-xs ${current === t ? 'chip-active' : ''}`}>{tr(t)}</button>
+                ))}
+                {g.links?.map((l) => (
+                  <Link key={l.href} href={l.href} className="chip text-xs">{tr(l.label)}</Link>
                 ))}
               </div>
             </div>

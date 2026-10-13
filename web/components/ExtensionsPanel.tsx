@@ -3,7 +3,7 @@
 // extensions from (Add sources), the actions every extension key runs, and the tools of the list.
 //
 // Built around discussion #121, a real user lost in a 1,300-extension repository: Browse is its search and language,
-// one quiet line (how many match, the repositories as a link, Show 18+ extensions), and the catalogue a page at a time.
+// one quiet line (how many match, the repositories as a link, Include 18+ extensions in this list), and the catalogue a page at a time.
 // A row says at most one state word and offers at most one key; amber is for a real problem only.
 //
 // The Installed list that was this tab's other half is Admin → Sources' Your sources since v0.54.0: one list of every
@@ -234,7 +234,7 @@ export function BrowseView({ actions, repos, adult, onAdult, onOpen, onRepos }: 
               <span className="sr-only">{tr('Search extensions…')}</span>
               <IcSearch aria-hidden width={16} height={16} className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-fog-500" />
               <input value={typed} onChange={(e) => setTyped(e.target.value)} placeholder={tr('Search extensions…')} enterKeyHint="search"
-                autoCapitalize="none" autoCorrect="off" spellCheck={false} data-ext-search
+                type="search" autoComplete="off" autoCapitalize="none" autoCorrect="off" spellCheck={false} data-ext-search
                 className="field max-w-none ps-9" />
             </label>
             <select value={f.lang} onChange={(e) => set({ lang: e.target.value })} aria-label={tr('Language')} className="field sm:w-56" data-ext-lang>
@@ -247,7 +247,7 @@ export function BrowseView({ actions, repos, adult, onAdult, onOpen, onRepos }: 
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[12px] text-fog-500" data-ext-count-line>
             <p className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1">
               {counted && (
-                <span className="tabular-nums" data-ext-count>
+                <span role="status" className="tabular-nums" data-ext-count>
                   {first.matched === 1 ? tr('1 extension matches') : tr('{n} extensions match', { n: numberText(first.matched) })}
                 </span>
               )}
@@ -260,8 +260,8 @@ export function BrowseView({ actions, repos, adult, onAdult, onOpen, onRepos }: 
             </p>
             {/* A switch with its words, not a chip reading "18+": that read as "only 18+" (#121), and off it hides them. */}
             <label className="ms-auto flex items-center gap-2 text-fog-300" data-ext-adult>
-              <Switch on={f.adult} onChange={onAdult} label={tr('Show 18+ extensions')} />
-              <span>{tr('Show 18+ extensions')}</span>
+              <Switch on={f.adult} onChange={onAdult} label={tr('Include 18+ extensions in this list')} />
+              <span>{tr('Include 18+ extensions in this list')}</span>
             </label>
           </div>
 
@@ -273,7 +273,7 @@ export function BrowseView({ actions, repos, adult, onAdult, onOpen, onRepos }: 
 
           {isError ? (
             <div className="card px-4 py-6 text-center" data-ext-browse-error>
-              <p className="text-sm font-medium text-fog-100">{tr('Could not read the extension list')}</p>
+              <p role="alert" className="text-sm font-medium text-fog-100">{tr('Could not read the extension list')}</p>
               <p dir="auto" className="mx-auto mt-1 line-clamp-3 max-w-md break-words text-[12px] text-fog-500">{reasonLine(msgOf(error, '')) || tr('The extension engine did not answer. Try again in a moment.')}</p>
               <button type="button" onClick={() => void refetch()} className="btn-key btn-key-primary mt-3">{tr('Try again')}</button>
             </div>
@@ -324,12 +324,12 @@ function NothingFound({ f, hiddenAdult, total, onClear, onAdult }: {
       </p>
       {hiddenAdult > 0 && (
         <p className="mx-auto mt-1.5 max-w-sm text-[12px] text-fog-400" data-ext-hidden-adult>
-          {hiddenAdult === 1 ? tr('An 18+ extension matches. It is hidden while Show 18+ extensions is off.')
-            : tr('{n} 18+ extensions match. They are hidden while Show 18+ extensions is off.', { n: hiddenAdult })}
+          {hiddenAdult === 1 ? tr('An 18+ extension matches. It is hidden while “Include 18+ extensions in this list” is off.')
+            : tr('{n} 18+ extensions match. They are hidden while “Include 18+ extensions in this list” is off.', { n: hiddenAdult })}
         </p>
       )}
       <div className="mt-3 flex flex-wrap justify-center gap-2">
-        {hiddenAdult > 0 && <button type="button" onClick={onAdult} className="btn-key btn-key-primary">{tr('Show 18+ extensions')}</button>}
+        {hiddenAdult > 0 && <button type="button" onClick={onAdult} className="btn-key btn-key-primary">{tr('Include 18+ extensions in this list')}</button>}
         {narrowed(f) && <button type="button" onClick={onClear} className="btn-key">{tr('Clear filters')}</button>}
       </div>
     </div>
@@ -376,11 +376,11 @@ function BrowseRow({ e, busy, onInstall, onUpdate, onOpen }: {
       )}
       {!e.installed ? (
         // The accent without its fill: a page of sixty would be a column of sixty bright buttons.
-        <button type="button" onClick={onInstall} disabled={!!busy} className={`btn-key btn-key-accent min-w-[5.5rem] ${busyKey(busy === 'install')}`} data-ext-install>
+        <button type="button" onClick={onInstall} disabled={!!busy} aria-label={`${tr('Install')}: ${e.name}`} className={`btn-key btn-key-accent min-w-[5.5rem] ${busyKey(busy === 'install')}`} data-ext-install>
           {busy === 'install' ? <Busy>{tr('Installing…')}</Busy> : tr('Install')}
         </button>
       ) : e.hasUpdate ? (
-        <button type="button" onClick={onUpdate} disabled={!!busy} className={`btn-key relative ${AMBER_KEY} ${busyKey(busy === 'update')}`} data-ext-update>
+        <button type="button" onClick={onUpdate} disabled={!!busy} aria-label={`${tr('Update')}: ${e.name}`} className={`btn-key relative ${AMBER_KEY} ${busyKey(busy === 'update')}`} data-ext-update>
           {busy === 'update' ? <Busy tone="amber">{tr('Updating…')}</Busy> : tr('Update')}
         </button>
       ) : null}

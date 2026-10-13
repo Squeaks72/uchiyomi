@@ -1,11 +1,11 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { adultShown, setAdultShown, onAdultChange } from '@/lib/adult';
 import { t as tr } from '@/lib/i18n';
 
-export interface LibraryRow { id: string; name: string; adult?: boolean }
+export interface LibraryRow { id: string; name: string; adult?: boolean; defaultVisible?: boolean }
 
 /** The library list, shared by the toggle and by whatever renders library tabs. */
 export function useLibraries() {
@@ -13,6 +13,7 @@ export function useLibraries() {
     queryKey: ['libraries'],
     queryFn: () => api<LibraryRow[]>('/api/libraries'),
     staleTime: 5 * 60 * 1000,
+    refetchOnMount: 'always',
   });
 }
 
@@ -74,13 +75,20 @@ export function AdultToggle({ className = '', alsoWhen = false }: { className?: 
   const qc = useQueryClient();
   const { data: libs } = useLibraries();
   const on = useAdultShown();
+  const helpId = useId();
 
   if (!alsoWhen && !(libs ?? []).some((l) => l.adult)) return null;
 
+  const help = tr('Show 18+ content until you close this browser. For an e-reader or app, use Profile → Connections.');
   return (
+    <>
     <button
       type="button"
       aria-pressed={on}
+      aria-describedby={helpId}
+      // One name for the switch everywhere ("Show 18+"); the scope is said here, as help, so the chip
+      // itself stays as short as it was. Text only: what the button does is unchanged.
+      title={help}
       onClick={() => {
         setAdultShown(!on);
         qc.invalidateQueries();
@@ -89,5 +97,21 @@ export function AdultToggle({ className = '', alsoWhen = false }: { className?: 
     >
       {tr('Show 18+')}
     </button>
+    <span id={helpId} className="sr-only">{help}</span>
+    </>
+  );
+}
+
+/**
+ * The one place Show 18+ lives: a slim row at the top of every page, right under the header, so it never moves with
+ * the page. While it is on the row also says so, because nothing hides when marked 18+ and 18+ titles show everywhere.
+ */
+export function AdultBar() {
+  const on = useAdultShown();
+  return (
+    <div data-adult-bar className="shell flex items-center justify-end gap-3 pt-2 max-lg:pt-[max(0.5rem,env(safe-area-inset-top))]">
+      {on && <span role="status" data-adult-notice className="min-w-0 text-xs text-amber-200">{tr('18+ titles are showing everywhere, and marking one 18+ will not hide it.')}</span>}
+      <AdultToggle alsoWhen className="shrink-0 text-xs" />
+    </div>
   );
 }

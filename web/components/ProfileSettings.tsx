@@ -1,6 +1,7 @@
 'use client';
 import { ReactNode, useEffect, useRef, useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { setTitleIgnored } from '@/lib/ignoredTitles';
 import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { requestPersist, storageEstimate } from '@/lib/downloads';
@@ -8,9 +9,8 @@ import { deviceId } from '@/lib/device';
 import { bytes } from '@/lib/format';
 import { readShownOnce } from '@/lib/shownOnce';
 import { setTypeToSearchOn, typeToSearchOn } from '@/lib/typeToSearch';
-import { compactChaptersOn, setCompactChaptersOn } from '@/lib/compactChapters';
 import { showAllChaptersOn } from '@/lib/showAllChapters';
-import { contextMenusOn, setContextMenusOn } from '@/lib/contextMenus';
+import { useAccountPref } from '@/lib/useAccountPref';
 import { ReaderPrefs, loadPrefs, savePrefs, syncPrefsFromServer } from '@/lib/readerPrefs';
 import { Avatar, AVATAR_EMOJIS, AVATAR_COLORS } from '@/components/Avatar';
 import { ProgressBar } from '@/components/ui';
@@ -18,13 +18,13 @@ import { useToast } from '@/components/Toast';
 import { IcBell, IcCheck, IcDownload, IcMoments, IcSparkle } from '@/components/icons';
 import { t as tr, LOCALES, keys } from '@/lib/i18n';
 import { useT } from '@/lib/I18nProvider';
-import { SETTINGS_GRID, Section, Row, SwitchRow, Segmented, NumberRow, RangeRow, LinkRow, useAutosave } from '@/components/settings';
+import { SETTINGS_GRID, Section, Row, SwitchRow, Segmented, NumberRow, RangeRow, LinkRow, Disclosure, useAutosave } from '@/components/settings';
 import { inDesktopWindow, isDesktop } from '@/lib/desktop';
 import { useIncognito } from '@/components/IncognitoBanner';
 import { INCOGNITO_TEXT } from '@/lib/incognito';
 
 /**
- * The profile's Settings tab: Appearance · Reading · Downloads · This device.
+ * The profile's Settings tab: Appearance · Reading · Downloads · Notifications & install.
  *
  * Before v0.39.0 these lived as eleven cards across two tabs -- the reader's own defaults on none of them --
  * and every card saved its own way: some on tap, some behind a Save button, some silently. Here every row
@@ -43,6 +43,7 @@ export function ProfileSettings({ weeklyGoal }: { weeklyGoal: number }) {
       <ReadingSection weeklyGoal={weeklyGoal} />
       {!desktop && <DownloadsSection />}
       {!desktop && <DeviceSection />}
+      <IgnoredSection />
     </div>
   );
 }
@@ -63,6 +64,14 @@ function Choice<T extends string>({ label, help, value, options, onChange }: {
       <Segmented label={label} value={value} options={options} onChange={(v) => { void run(() => onChange(v)); }} />
     </Row>
   );
+}
+
+/**
+ * A heading inside a card, for the card that holds two or three kinds of setting (Appearance: who you are, how
+ * it looks, what only this device does). It sits in the card's divided list as its own row.
+ */
+function Sub({ title }: { title: string }) {
+  return <h3 className="pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wide text-fog-500 first:pt-0">{title}</h3>;
 }
 
 /* ============================== Appearance ============================== */
@@ -121,24 +130,12 @@ function AppearanceSection() {
   // Read after mount: localStorage is not there during the static export's render.
   const [typeSearch, setTypeSearch] = useState(true);
   useEffect(() => { setTypeSearch(typeToSearchOn()); }, []);
-  const [compactList, setCompactList] = useState(false);
-  useEffect(() => { setCompactList(compactChaptersOn()); }, []);
-  const [contextMenus, setContextMenus] = useState(true);
-  useEffect(() => { setContextMenus(contextMenusOn()); }, []);
+  const [banners, setBanners] = useAccountPref('showBanners');
   const saveReduceEffects = async (next: boolean) => {
     const prev = reduceEffects;
     setSettings({ reduceEffects: next });
     try { await api('/api/settings', { method: 'PUT', json: { reduceEffects: next } }); }
     catch (e) { setSettings({ reduceEffects: prev }); throw e; }
-  };
-  // Show all chapters at once (lib/showAllChapters.ts): on the account like Reduce effects, so every device the
-  // reader signs in on opens the whole list; optimistic, and put back when the server refuses.
-  const showAllChapters = showAllChaptersOn(user?.settings);
-  const saveShowAllChapters = async (next: boolean) => {
-    const prev = showAllChapters;
-    setSettings({ showAllChapters: next });
-    try { await api('/api/settings', { method: 'PUT', json: { showAllChapters: next } }); }
-    catch (e) { setSettings({ showAllChapters: prev }); throw e; }
   };
 
   // ⚠️ Read at render time, not held in state. I18nProvider remounts its entire subtree on a language change,
@@ -150,6 +147,7 @@ function AppearanceSection() {
 
   return (
     <Section id="appearance" title={tr('Appearance')} icon={<IcSparkle width={18} height={18} />}>
+      <Sub title={tr('Profile')} />
       <Row stacked label={tr('Avatar')} status={avatarSave.status}>
         <div className="flex items-center gap-4">
           <Avatar avatar={av} size={56} />
@@ -174,6 +172,27 @@ function AppearanceSection() {
         </div>
       </Row>
 
+      <Sub title={tr('Look')} />
+      {/* Written to the server so it follows you to another device, and mirrored to localStorage so the login
+          screen -- which nobody is signed in to -- is already translated. The note about machine assistance
+          is shown rather than buried in a commit message: someone reading their own language deserves to
+          know how it got there, and it is what makes "this is wrong" an invitation instead of a complaint. */}
+      <Row stacked label={tr('Language')}
+        help={tr('Languages other than English are machine-translated, so some text may read wrong. Fixes are welcome: each language is one JSON file.')}>
+        <div className="flex flex-wrap gap-1.5">
+          {LOCALES.map((l) => (
+            <button key={l.code} type="button" lang={l.code} onClick={() => setLang(l.code)} disabled={locked} aria-pressed={lang === l.code}
+              className={`chip text-xs disabled:opacity-40 ${lang === l.code ? 'chip-active' : ''}`}>
+              {l.name}
+            </button>
+          ))}
+        </div>
+        {locked && (
+          <p className="mt-2 max-w-prose text-[11px] text-amber-300">
+            {tr('Copy what is on screen first. Changing language reloads this page, and the code is shown only once.')}
+          </p>
+        )}
+      </Row>
       <Row stacked label={tr('Accent')} status={accentSave.status}>
         <div className="flex flex-wrap gap-3">
           {ACCENTS.map((a) => (
@@ -190,48 +209,15 @@ function AppearanceSection() {
       <SwitchRow label={tr('Reduce effects')}
         help={tr('Turns off the animated background, blur, smooth scrolling and transitions. Try it if scrolling feels slow.')}
         on={reduceEffects} onChange={saveReduceEffects} />
+      <SwitchRow label={tr('Big banners')}
+        help={tr('Shows the large banner at the top of Home (the daily pick) and of Discover (trending now). Off by default.')}
+        on={banners} onChange={setBanners} />
 
+      <Sub title={tr('On this device')} />
       {/* This device only (lib/typeToSearch.ts says why): single-key shortcuts must be possible to switch off. */}
       <SwitchRow label={tr('Type anywhere to search')}
-        help={tr('Start typing a title on any page to open search with it. This also switches the / shortcut, on this device only.')}
+        help={tr('Start typing on any page to search. Also turns the / shortcut on or off. This device only.')}
         on={typeSearch} onChange={(next) => { setTypeToSearchOn(next); setTypeSearch(next); }} />
-
-      {/* This device only, and only a computer's rows change: lib/compactChapters.ts. Off by default -- the
-          default chapter row is the deliberate look, and taking part of it away is the reader's choice. */}
-      {/* This device only, like the two above (lib/contextMenus.ts, #100). On by default: the menus only take the
-          right-click where the browser's offers nothing worth keeping, and Shift+right-click still gets it. */}
-      <SwitchRow label={tr('Right-click menus')}
-        help={tr('Right-click a series or a chapter, or press and hold one on a touchscreen, for its actions. Shift+right-click still opens the browser’s own menu. This device only.')}
-        on={contextMenus} onChange={(next) => { setContextMenusOn(next); setContextMenus(next); }} />
-
-      <SwitchRow label={tr('Compact chapter list')}
-        help={tr('On a computer, chapter rows without thumbnails, and their buttons appear when you point at a row. Phones and tablets are unchanged. This device only.')}
-        on={compactList} onChange={(next) => { setCompactChaptersOn(next); setCompactList(next); }} />
-
-      <SwitchRow label={tr('Show all chapters at once')}
-        help={tr('A series page lists every chapter, including those not here yet, on one page instead of a hundred at a time. Saved to your account.')}
-        on={showAllChapters} onChange={saveShowAllChapters} />
-
-      {/* Written to the server so it follows you to another device, and mirrored to localStorage so the login
-          screen -- which nobody is signed in to -- is already translated. The note about machine assistance
-          is shown rather than buried in a commit message: someone reading their own language deserves to
-          know how it got there, and it is what makes "this is wrong" an invitation instead of a complaint. */}
-      <Row stacked label={tr('Language')}
-        help={tr('Translations other than English are machine-assisted and have not been checked by a native speaker. If something reads wrong, the language files are one JSON each — corrections are welcome.')}>
-        <div className="flex flex-wrap gap-1.5">
-          {LOCALES.map((l) => (
-            <button key={l.code} type="button" onClick={() => setLang(l.code)} disabled={locked} aria-pressed={lang === l.code}
-              className={`chip text-xs disabled:opacity-40 ${lang === l.code ? 'chip-active' : ''}`}>
-              {l.name}
-            </button>
-          ))}
-        </div>
-        {locked && (
-          <p className="mt-2 max-w-prose text-[11px] text-amber-300">
-            {tr('Copy what is on screen first. Changing language reloads this page, and the code is shown only once.')}
-          </p>
-        )}
-      </Row>
     </Section>
   );
 }
@@ -272,23 +258,39 @@ function ReadingSection({ weeklyGoal }: { weeklyGoal: number }) {
     return () => { live = false; };
   }, []);
   const set = (p: Partial<ReaderPrefs>) => { const n = { ...prefs, ...p }; setPrefs(n); savePrefs(n); };
+  const [compactList, setCompactList] = useAccountPref('compactChapters');
+  // Show all chapters at once (lib/showAllChapters.ts): on the account like Reduce effects, so every device the
+  // reader signs in on opens the whole list; optimistic, and put back when the server refuses. Not a
+  // useAccountPref: that hook's keys are enforced as booleans by the bff's own error shape, and this key
+  // already has upstream's validation and message.
+  const { user, setSettings } = useAuth();
+  const showAllChapters = showAllChaptersOn(user?.settings);
+  const saveShowAllChapters = async (next: boolean) => {
+    const prev = showAllChapters;
+    setSettings({ showAllChapters: next });
+    try { await api('/api/settings', { method: 'PUT', json: { showAllChapters: next } }); }
+    catch (e) { setSettings({ showAllChapters: prev }); throw e; }
+  };
   const incognito = useIncognito();
 
   return (
     <Section id="reading" title={tr('Reading')} icon={<IcMoments width={18} height={18} />}
-      description={tr('These are your defaults: the reader’s own sheet still changes them for the session you are in, and a series you have adjusted keeps its own.')}>
+      description={tr('Your defaults for every series. The reader’s own settings can change them while you read.')}>
+      <p className="pb-2 text-xs text-fog-400">{tr('A source or a series can keep its own settings.')}</p>
+      <Sub title={tr('Goals')} />
       <Choice<Goal> label={tr('Weekly goal')} value={(GOALS as readonly string[]).includes(String(goal)) ? (String(goal) as Goal) : null}
         options={GOALS.map((g) => ({ value: g, label: g }))} onChange={(g) => saveGoal(Number(g))} />
       <NumberRow label={tr('Custom')} value={goal} min={1} max={999} unit={tr('chapters')} onSave={saveGoal} />
 
-      <Choice label={tr('Mode')} value={prefs.mode}
+      <Sub title={tr('Reader defaults')} />
+      <Choice label={tr('Reading mode')} value={prefs.mode}
         options={[{ value: 'vertical', label: tr('Webtoon (scroll)') }, { value: 'paged', label: tr('Paged (swipe)') }]}
         onChange={(mode) => set({ mode })} />
       {/* v0.61.0: the mode above is then the default only for a title the pick cannot place. Through `set`, the one writer. */}
       <SwitchRow label={tr('Pick the mode for each series')}
         help={tr('Long strips and webtoons open in Webtoon mode, manga and right-to-left series in Paged. A series or a source you have set yourself keeps its own.')}
         on={prefs.autoMode} onChange={(autoMode) => set({ autoMode })} />
-      <Choice label={tr('Theme')} value={prefs.theme}
+      <Choice label={tr('Page tone')} value={prefs.theme}
         options={[{ value: 'amoled', label: tr('AMOLED') }, { value: 'sepia', label: tr('Sepia') }, { value: 'gray', label: tr('Gray') }]}
         onChange={(theme) => set({ theme })} />
       {/* #170. On by default, because it is the reader's look; this is how someone who wants the page's own edges
@@ -296,6 +298,9 @@ function ReadingSection({ weeklyGoal }: { weeklyGoal: number }) {
       <SwitchRow label={tr('Cover colour at the edges')}
         help={tr('A soft wash of the cover’s colour across the top and bottom of the reader.')}
         on={prefs.coverEdges} onChange={(coverEdges) => set({ coverEdges })} />
+      <SwitchRow label={tr('Tap the top or bottom to scroll')}
+        help={tr('On a touch screen, a tap near the top or bottom of a webtoon scrolls it three quarters of a screen; the middle brings up the controls.')}
+        on={prefs.tapScroll} onChange={(tapScroll) => set({ tapScroll })} />
       {/* v0.61.0: the account's, not this device's (lib/incognito.ts); the reader's sheet has the same switch. */}
       <SwitchRow label={tr(INCOGNITO_TEXT[0])} help={tr(INCOGNITO_TEXT[1])} on={incognito.on} onChange={incognito.set} />
       {prefs.mode === 'paged' && (
@@ -305,7 +310,7 @@ function ReadingSection({ weeklyGoal }: { weeklyGoal: number }) {
       )}
       {prefs.mode === 'paged' && (
         <Choice label={tr('Reading direction')} value={prefs.pagedDirection}
-          options={[{ value: 'series', label: tr('Series default') }, { value: 'ltr', label: tr('Left to right') }, { value: 'rtl', label: tr('Right to left') }]}
+          options={[{ value: 'series', label: tr('Follow the series') }, { value: 'ltr', label: tr('Left to right') }, { value: 'rtl', label: tr('Right to left') }]}
           onChange={(v) => set({ pagedDirection: v })} />
       )}
       {/* v0.61.0: what a double-page spread becomes on a screen held upright. Through `set`, the one writer. */}
@@ -316,16 +321,6 @@ function ReadingSection({ weeklyGoal }: { weeklyGoal: number }) {
       <SwitchRow label={tr('Crop page borders')}
         help={tr('Trims the blank margins around scanned pages. In Webtoon mode only the sides are trimmed, by the same amount for a whole chapter.')}
         on={prefs.cropBorders} onChange={(cropBorders) => set({ cropBorders })} />
-      {/* Set in both modes. ⚠️ It cannot LOOK the same in both: a page-by-page view has no thin slide --
-          every slide is exactly one viewport wide -- so Collapse falls back to removing there, where an
-          unwanted page costs one swipe rather than a scroll and there is no flow to interrupt. */}
-      <Choice label={tr('Repeated pages')} value={prefs.junkPages}
-        help={tr('Credit pages and adverts repeat in every chapter. Collapse folds them down to a line you can scroll past or tap to open; hide takes them out of the chapter altogether.')}
-        options={[{ value: 'show', label: tr('Show all') }, { value: 'collapse', label: tr('Collapse') }, { value: 'hide', label: tr('Hide') }]}
-        onChange={(junkPages) => set({ junkPages })} />
-      <Choice label={tr('Fit')} value={prefs.fitWidth ? 'width' : 'original'}
-        options={[{ value: 'width', label: tr('Fit width') }, { value: 'original', label: tr('Original') }]}
-        onChange={(v) => set({ fitWidth: v === 'width' })} />
       {prefs.mode === 'vertical' && (
         <>
           <RangeRow label={tr('Page gap')} value={prefs.gap} min={0} max={40} step={2} format={(v) => `${v}px`} onChange={(gap) => set({ gap })} />
@@ -333,8 +328,32 @@ function ReadingSection({ weeklyGoal }: { weeklyGoal: number }) {
             format={(v) => (v === 0 ? tr('off') : v.toFixed(1))} onChange={(autoScroll) => set({ autoScroll })} />
         </>
       )}
+      <Disclosure label={tr('Advanced')}>
+        <div className="divide-y divide-ink-800/80">
+      {/* Set in both modes. ⚠️ It cannot LOOK the same in both: a page-by-page view has no thin slide --
+          every slide is exactly one viewport wide -- so Collapse falls back to removing there, where an
+          unwanted page costs one swipe rather than a scroll and there is no flow to interrupt. */}
+      <Choice label={tr('Repeated pages')} value={prefs.junkPages}
+        help={tr('Credits and ads repeat in every chapter. Collapse shrinks them to a thin strip you can tap to open. Hide removes them.')}
+        options={[{ value: 'show', label: tr('Show all') }, { value: 'collapse', label: tr('Collapse') }, { value: 'hide', label: tr('Hide') }]}
+        onChange={(junkPages) => set({ junkPages })} />
+      <Choice label={tr('Page size')} value={prefs.fitWidth ? 'width' : 'original'}
+        options={[{ value: 'width', label: tr('Fit width') }, { value: 'original', label: tr('Original') }]}
+        onChange={(v) => set({ fitWidth: v === 'width' })} />
       <RangeRow label={tr('Brightness')} value={prefs.brightness} min={0.25} max={1} step={0.05}
         format={(v) => `${Math.round(v * 100)}%`} onChange={(brightness) => set({ brightness })} />
+        </div>
+      </Disclosure>
+      <Sub title={tr('Chapter lists')} />
+      {/* On the account (lib/accountPrefs.ts), mirrored to this browser: the series page reads the mirror. Off by
+          default -- the default chapter row is the deliberate look, and taking part of it away is the reader's choice. */}
+      <SwitchRow label={tr('Compact chapter list (series pages)')}
+        help={tr('On a computer, removes thumbnails from chapter rows and shows their buttons when you point at a row. Phones and tablets are unchanged.')}
+        on={compactList} onChange={setCompactList} />
+
+      <SwitchRow label={tr('Show all chapters at once')}
+        help={tr('A series page lists every chapter, including those not here yet, on one page instead of a hundred at a time. Saved to your account.')}
+        on={showAllChapters} onChange={saveShowAllChapters} />
     </Section>
   );
 }
@@ -375,32 +394,59 @@ function DownloadsSection() {
   const ask = async () => {
     const ok = await requestPersist();
     setPersisted(ok);
-    toast(ok ? tr('Protected from eviction') : tr('The browser did not grant it.'), ok ? 'success' : 'error');
+    toast(ok ? tr('Your saved chapters are protected') : tr('The browser did not grant it.'), ok ? 'success' : 'error');
   };
 
   return (
-    // "Offline downloads": this device's copies. Since v0.49.0 a bare "Downloads" names the server's view.
-    <Section id="downloads" title={tr('Offline downloads')} icon={<IcDownload width={18} height={18} />}>
-      <SwitchRow label={tr('Keep favorites offline')} help={tr('Auto-download the latest unread chapters of your favorites.')}
+    // "Saved on this device": this device's copies. Since v0.49.0 a bare "Downloads" names the server's view.
+    <Section id="downloads" title={tr('Saved on this device')} icon={<IcDownload width={18} height={18} />}>
+      <SwitchRow label={tr('Keep favorites offline')} help={tr('Saves the latest unread chapters of your favorites to the device. Applies on each device where you turn it on.')}
         on={!!so.enabled} onChange={(enabled) => set({ enabled })} />
       {so.enabled && (
-        <Choice<PerSeries> label={tr('Per series')} value={String(so.perSeries || 3) as PerSeries}
+        <Choice<PerSeries> label={tr('Chapters kept per series')} value={String(so.perSeries || 3) as PerSeries}
           options={PER_SERIES.map((n) => ({ value: n, label: n }))} onChange={(n) => set({ perSeries: Number(n) })} />
       )}
       <Row stacked label={tr('Storage used')}>
         <p className="font-display text-xl font-bold tabular-nums text-fog-50">{bytes(usage.usage)}</p>
         <div className="mt-2"><ProgressBar value={usage.quota ? Math.min(1, usage.usage / usage.quota) : 0} /></div>
       </Row>
-      <Row label={tr('Protect downloads')}
-        help={persisted ? tr('Protected from eviction') : tr('Tap to ask the browser to protect your downloads from eviction.')}>
-        {!persisted && <button type="button" onClick={ask} className="chip text-xs">{tr('Protect downloads')}</button>}
+      <Row label={tr('Protect saved chapters')}
+        help={persisted ? tr('Your saved chapters are protected') : tr('Ask the browser not to delete your saved chapters when storage runs low.')}>
+        {!persisted && <button type="button" onClick={ask} className="btn-key text-xs">{tr('Protect saved chapters')}</button>}
       </Row>
-      <LinkRow href="/downloads/" label={tr('Offline downloads')} />
+      <LinkRow href="/downloads/" label={tr('Saved on this device')} />
     </Section>
   );
 }
 
-/* ============================== This device ============================== */
+/* ============================== Ignored titles ============================== */
+
+/** Titles ignored from Discover's menu, each with the way back. Drawn only once there is something to take back. */
+function IgnoredSection() {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const { data } = useQuery({
+    queryKey: ['ignored-titles-list'], staleTime: 60_000,
+    queryFn: () => api<{ content: Array<{ key: string; title: string }> }>('/api/ignored-titles').then((r) => r.content),
+  });
+  if (!data?.length) return null;
+  const restore = async (title: string) => {
+    try { await setTitleIgnored(qc, title, false); }
+    catch { toast(tr('Could not do that'), 'error'); }
+  };
+  return (
+    <Section id="ignored" title={tr('Ignored titles')} icon={<IcCheck width={18} height={18} />}>
+      <p className="px-1 pb-2 text-xs text-fog-500">{tr('These never show on Discover. Show again puts one back.')}</p>
+      {data.map((m) => (
+        <Row key={m.key} label={m.title}>
+          <button type="button" onClick={() => restore(m.title)} className="btn-key text-xs">{tr('Show again')}</button>
+        </Row>
+      ))}
+    </Section>
+  );
+}
+
+/* ========================== Notifications & install ========================== */
 
 function urlB64ToUint8(s: string): Uint8Array {
   const pad = '='.repeat((4 - (s.length % 4)) % 4);
@@ -509,10 +555,10 @@ function DeviceSection() {
   if (!enabledSrv && standalone) return null;
 
   return (
-    <Section id="device" title={tr('This device')} icon={<IcBell width={18} height={18} />}>
+    <Section id="device" title={tr('Notifications & install')} icon={<IcBell width={18} height={18} />}>
       {enabledSrv && (inApp ? (
         <Row stacked label={tr('New-chapter alerts')}>
-          <p className="max-w-prose text-sm text-fog-400">{tr('The desktop app cannot receive push notifications. Your server can still send new chapters to your phone, Home Assistant or Discord through a notification target, which an admin sets up under Admin → Settings → Notifications.')}</p>
+          <p className="max-w-prose text-sm text-fog-400">{tr('The desktop app cannot receive push notifications. An admin can send new chapters to your phone, Home Assistant or Discord under Admin → Settings → Notifications.')}</p>
         </Row>
       ) : (
         <SwitchRow label={tr('New-chapter alerts')}
@@ -530,7 +576,7 @@ function DeviceSection() {
             <div className="max-w-prose text-sm text-fog-300">
               <p className="mb-1 font-medium text-fog-100">{tr('Add to your iPhone')}</p>
               <p>{tr('Tap Share in Safari, then Add to Home Screen.')}</p>
-              <p className="mt-2 text-xs text-fog-500">{tr('On iOS, offline downloads may be cleared by the system under storage pressure.')}</p>
+              <p className="mt-2 text-xs text-fog-500">{tr('On iOS, the system may clear saved chapters when storage runs low.')}</p>
             </div>
           ) : (
             <p className="max-w-prose text-sm text-fog-400">{tr('Open in Chrome/Edge and use “Install app” from the menu.')}</p>

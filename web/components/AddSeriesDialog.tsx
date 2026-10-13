@@ -12,6 +12,7 @@ import { Switch } from '@/components/Switch';
 import { useToast } from '@/components/Toast';
 import { IcCheck } from '@/components/icons';
 import { SourceIcon } from '@/components/SourcePicker';
+import { useLibraries } from '@/components/AdultToggle';
 import { GroupAvatar } from '@/components/GroupAvatar';
 import { ActivityDots } from '@/components/ActivityDots';
 import { activityStatus, weeksOf } from '@/lib/activity';
@@ -22,6 +23,7 @@ import { normTitle } from '@/lib/normTitle';
 import { cadenceText } from '@/lib/cadence';
 import { jobNoteLines, type JobCardNotes } from '@/lib/jobNotes';
 import { downloadsHref } from '@/lib/libraryView';
+import { waitForSeries } from '@/lib/waitForSeries';
 import { PreviewReader } from '@/components/PreviewReader';
 import { ARCHIVE_PACE, archiveAddLine, archiveSwitchHelp, type EnqueueOutcome } from '@/lib/archive';
 import { useServerDownloads } from '@/lib/useServerDownloads';
@@ -30,6 +32,8 @@ import { addNoticeHeading, addNumberingView, numLabel, type DetailNumbering } fr
 import { extensionSettingsHref } from '@/lib/sourcePrefs';
 import { baseOf, codeLabel, editionLangPreset, languageChoices, openingLanguage } from '@/lib/editions';
 import { MANGADEX_LANGUAGES_HREF } from '@/lib/mangadexLangs';
+import { useAccountPref } from '@/lib/useAccountPref';
+import { ListChoiceField, CollectionPickerModal, addToList, type ListChoice } from '@/components/CollectionPicker';
 
 export interface Provider {
   source: string; name: string; sourceId: string; title: string; coverUrl?: string;
@@ -108,12 +112,9 @@ export type AddSeed =
   | { kind: 'group'; title: string; providers: Provider[]; library?: HeldTitle }
   | { kind: 'edition'; of: string; title: string; lang?: string; source?: string };
 
-/**
- * Per-device memory of the "Also check the other sources" switch. A device setting, not an account one: it
- * is about how this person adds, and the server has nothing to store for a choice the dialog makes at add
- * time. Off until switched on.
- */
-const ALSO_FOLLOW_KEY = 'uchiyomi.alsoFollow';
+// The "Also check the other sources" switch is remembered on the ACCOUNT (`alsoFollow`, lib/accountPrefs.ts; it was
+// per device): it is about how this person adds, and it should not have to be found again on another browser.
+// Off until switched on.
 /** At most this many candidates ride with an add: the server judges each with two outbound calls, under one wall budget. */
 const ALSO_FOLLOW_MAX = 6;
 
@@ -193,6 +194,19 @@ const looksCss = (s: string) =>
  * The server returns `folder`, which is the key into `/api/sources/jobs`, so the dialog can stay open and
  * show the real download rather than dismissing itself and hoping.
  */
+/** Keeps the title on one of your lists without adding it, to bring into the library later. */
+function SaveForLater({ title, coverUrl, className = '' }: { title: string; coverUrl?: string | null; className?: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button type="button" onClick={() => setOpen(true)} aria-haspopup="dialog" data-save-for-later className={`chip text-xs ${className}`}>
+        {tr('Save to a list for later')}
+      </button>
+      {open && <CollectionPickerModal seriesIds={[]} want={{ title, coverUrl }} onClose={() => setOpen(false)} />}
+    </>
+  );
+}
+
 export function AddSeriesDialog({ seed, sources, mayFollow, onClose, onAdded }: {
   seed: AddSeed;
   /** Which sources to look in. Unscoped, one tap is an outbound request to every source on the server. */
@@ -204,7 +218,7 @@ export function AddSeriesDialog({ seed, sources, mayFollow, onClose, onAdded }: 
    */
   mayFollow: boolean;
   onClose: () => void;
-  onAdded: (r: { title: string; folder: string; chapters: number }) => void;
+  onAdded: (r: { title: string; folder: string; chapters: number; seriesId?: string }) => void;
 }) {
   const toast = useToast();
   const router = useRouter();
@@ -222,6 +236,10 @@ export function AddSeriesDialog({ seed, sources, mayFollow, onClose, onAdded }: 
   // simply clears the choice instead of racing the arrival of the new detail.
   const [pickChoice, setPickChoice] = useState<ChapterPick | null>(null);
   const [autoUpdate, setAutoUpdate] = useState(true);
+  // Which library the series is filed in; '' leaves it to the server (the default library, at the root).
+  const { data: libraries } = useLibraries();
+  const [libraryId, setLibraryId] = useState('');
+  const chosenLib = libraryId || (libraries?.find((l) => l.id === 'lib')?.id ?? libraries?.[0]?.id ?? '');
   // "Archive the rest slowly" (#117). Off until switched on, for every add: the rest of a series is days of
   // fetching, and that is a choice, not a default.
   const [archiveOn, setArchiveOn] = useState(false);
@@ -241,6 +259,9 @@ export function AddSeriesDialog({ seed, sources, mayFollow, onClose, onAdded }: 
   const [previewing, setPreviewing] = useState(false);
   const [done, setDone] = useState<AddAnswer | null>(null);
   const [opening, setOpening] = useState(false);
+  // A list to put the series on as soon as its row exists (the add answers with the id, or the job card does).
+  const [listChoice, setListChoice] = useState<ListChoice>(null);
+  const listApplied = useRef(false);
   const title = seed.kind === 'result' ? seed.provider.title : seed.title;
 
   // ---- a language edition (v0.52.0, #72) ----
@@ -333,13 +354,9 @@ export function AddSeriesDialog({ seed, sources, mayFollow, onClose, onAdded }: 
     }
     return out.slice(0, ALSO_FOLLOW_MAX);
   }, [offered, picked]);
-  const [alsoFollow, setAlsoFollowState] = useState<boolean>(() => {
-    try { return typeof localStorage !== 'undefined' && localStorage.getItem(ALSO_FOLLOW_KEY) === '1'; } catch { return false; }
-  });
-  const setAlsoFollow = (v: boolean) => {
-    setAlsoFollowState(v);
-    try { localStorage.setItem(ALSO_FOLLOW_KEY, v ? '1' : '0'); } catch { /* private mode: the switch still works for this dialog */ }
-  };
+  const [alsoFollow, setAlsoFollowPref] = useAccountPref('alsoFollow');
+  // Applied at once; a refused save puts it back, which is all a switch in a dialog needs to say.
+  const setAlsoFollow = (v: boolean) => { void setAlsoFollowPref(v).catch(() => {}); };
   // How many candidates rode with the add, so the done step knows whether to look for results on the job
   // card and what "Checking {n} sources" counts. Zero when the switch was off or there was nobody to check.
   const [sentFollow, setSentFollow] = useState(0);
@@ -409,6 +426,17 @@ export function AddSeriesDialog({ seed, sources, mayFollow, onClose, onAdded }: 
     },
   });
   const job = done ? (jobs?.content ?? []).find((j) => j.folder === done.folder) : undefined;
+  const newSeriesId = done?.seriesId ?? job?.seriesId;
+  useEffect(() => {
+    if (listApplied.current || !newSeriesId || !listChoice) return;
+    listApplied.current = true;
+    addToList([newSeriesId], listChoice)
+      .then(() => {
+        toast(tr('Added to your list'), 'success');
+        qc.invalidateQueries({ queryKey: ['collections'] });
+      })
+      .catch(() => { listApplied.current = false; toast(tr('Could not do that'), 'error'); });
+  }, [newSeriesId, listChoice, qc, toast]);
 
   // Derived, not stored: the payload, the rate-limit warning and the "latest" hint all read these.
   // `none` sends no count at all -- `chapterFrom: 'none'` is the whole instruction -- and counts as zero
@@ -446,6 +474,7 @@ export function AddSeriesDialog({ seed, sources, mayFollow, onClose, onAdded }: 
         json: {
           source: picked.source, sourceId: picked.sourceId, chapterCount, chapterFrom, autoUpdate, force, alsoFollow: alsoFollowBody, numbering,
           ...(archiving ? { archive: true } : {}), ...(editionBody ? { edition: editionBody } : {}),
+          ...(chosenLib && chosenLib !== 'lib' ? { libraryId: chosenLib } : {}),
         },
         // The client has never set a timeout anywhere, so the only bound was the proxy's 120s -- which
         // turned a slow-but-working add into "Add failed. Try another source." while the download carried
@@ -488,6 +517,9 @@ export function AddSeriesDialog({ seed, sources, mayFollow, onClose, onAdded }: 
       router.push(`/series/?id=${known}`);
       return;
     }
+    // The row appears once the first chapter is scanned in, so wait for it rather than giving up on the first look.
+    const waited = await waitForSeries({ seriesId: null, title: done.title, folder: done.folder });
+    if (waited) { qc.invalidateQueries({ queryKey: ['library'] }); router.push(`/series/?id=${waited}`); return; }
     try {
       // Last resort, and only for a download whose first chapter has not been scanned yet: search by title
       // and accept an EXACT normalised match.
@@ -526,7 +558,7 @@ export function AddSeriesDialog({ seed, sources, mayFollow, onClose, onAdded }: 
         // A download that died before its listing existed has no judgement to wait for.
         if (job?.status === 'error') return null;
         return (
-          <p className="text-start text-[11px] text-fog-500" data-auto-follow="checking">
+          <p role="status" className="text-start text-[11px] text-fog-500" data-auto-follow="checking">
             {sentFollow === 1
               ? tr('Checking this source…')
               : tr('Checking {n} sources — this can take a minute. You can close this; anything followed shows under Sources & translations.', { n: sentFollow })}
@@ -537,7 +569,7 @@ export function AddSeriesDialog({ seed, sources, mayFollow, onClose, onAdded }: 
       const followed = af.results.filter((r) => r.followed).length;
       const m = af.results.length;
       return (
-        <div className="space-y-1 text-start text-[11px]" data-auto-follow="done">
+        <div role="status" className="space-y-1 text-start text-[11px]" data-auto-follow="done">
           {af.results.map((r) => (
             <p key={r.source} className={`break-words ${r.followed ? 'text-emerald-400' : 'text-fog-500'}`}>{autoFollowLine(r)}</p>
           ))}
@@ -596,6 +628,7 @@ export function AddSeriesDialog({ seed, sources, mayFollow, onClose, onAdded }: 
           {/* Where the rest went, when "Archive the rest slowly" was on. */}
           {done.archive && <p className="text-start text-[11px] leading-relaxed text-fog-400" data-archive-outcome={done.archive}>{archiveAddLine(done.archive, !!done.nothing)}</p>}
           {followBlock}
+          <ListChoiceField value={listChoice} onChange={(v) => { if (!listApplied.current) setListChoice(v); }} />
           <div className="flex gap-2">
             <button onClick={onClose} className="btn-ghost flex-1 py-2.5 text-sm">{tr('Done')}</button>
             <button onClick={openIt} disabled={opening} className="btn-accent flex-1 py-2.5 text-sm disabled:opacity-50">
@@ -616,9 +649,9 @@ export function AddSeriesDialog({ seed, sources, mayFollow, onClose, onAdded }: 
       <Modal title={tr('Add a language')} onClose={onClose}>
         <p dir="auto" className="-mt-2 mb-3 truncate text-sm text-fog-400">{edSeed.title}</p>
         {candQ.isLoading ? (
-          <div className="skeleton h-28 rounded-xl" />
+          <div className="skeleton h-28 rounded-xl" role="status" aria-label={tr('Searching…')} />
         ) : candQ.isError ? (
-          <p className="py-6 text-center text-sm text-amber-300">{tr('Could not be reached right now.')}</p>
+          <p role="alert" className="py-6 text-center text-sm text-amber-300">{tr('Could not be reached right now.')}</p>
         ) : !c || (!c.languages.length && !c.unstated.length) ? (
           <div className="py-6 text-center text-sm text-fog-500" data-edition-none>
             <p>{tr('None of your sources is in another language yet.')}</p>
@@ -673,12 +706,13 @@ export function AddSeriesDialog({ seed, sources, mayFollow, onClose, onAdded }: 
               className="font-semibold text-accent hover:underline">{tr('Open')}</button>
           </p>
         )}
+        {!edSeed && <div className="mb-3"><SaveForLater title={title} coverUrl={seed.kind === 'result' ? seed.provider.coverUrl : undefined} /></div>}
         {searching ? (
-          <p className="py-8 text-center text-sm text-fog-500">{tr('Searching…')}</p>
+          <p role="status" className="py-8 text-center text-sm text-fog-500">{tr('Searching…')}</p>
         ) : edSeed && edSearch.isError ? (
-          <p className="py-8 text-center text-sm text-amber-300">{tr('Could not be reached right now.')}</p>
+          <p role="alert" className="py-8 text-center text-sm text-amber-300">{tr('Could not be reached right now.')}</p>
         ) : !offered?.length ? (
-          <p className="py-8 text-center text-sm text-fog-500">
+          <p role="status" className="py-8 text-center text-sm text-fog-500">
             {!edSeed ? tr('Not found on any source yet — try searching manually.')
               : inLang ? tr('Not found in {language}. Try another language.', { language: inLang })
               : tr('Not found there. Try another language.')}
@@ -697,7 +731,7 @@ export function AddSeriesDialog({ seed, sources, mayFollow, onClose, onAdded }: 
                       <SourceIcon id={p.source} name={p.name} size={20} />
                       <span className="truncate">{p.name}</span>
                       {/* Its language, as the versions sheet marks a copy's (v0.52.0): which edition picking it adds. */}
-                      {p.lang && <span className="shrink-0 rounded border border-ink-700 px-1 text-[10px] leading-4 text-fog-500">{codeLabel(p.lang)}</span>}
+                      {p.lang && <span className="shrink-0 rounded border border-ink-700 px-1 text-[11px] leading-4 text-fog-500">{codeLabel(p.lang)}</span>}
                     </span>
                     <span dir="auto" className="block truncate text-[11px] text-fog-500">{p.title}</span>
                   </span>
@@ -705,8 +739,8 @@ export function AddSeriesDialog({ seed, sources, mayFollow, onClose, onAdded }: 
                       is what that is; "preferred" made it sound like a setting someone had chosen. A provider in a
                       language the library holds says so instead: picking it is the copy you already have. */}
                   {p.inLibrary
-                    ? <span className="shrink-0 text-[10px] text-fog-500">{tr('in your library')}</span>
-                    : i === 0 && !edSeed && <span className="chip shrink-0 text-[10px]">{tr('most used')}</span>}
+                    ? <span className="shrink-0 text-[11px] text-fog-500">{tr('in your library')}</span>
+                    : i === 0 && !edSeed && <span className="chip shrink-0 text-[11px]">{tr('most used')}</span>}
                 </button>
               ))}
             </div>
@@ -760,7 +794,7 @@ export function AddSeriesDialog({ seed, sources, mayFollow, onClose, onAdded }: 
             </p>
           ) : detailQ.isError ? (
             // The picker's own words for a source that did not answer; Change is right above it.
-            <p className="text-xs text-amber-300" data-detail="failed">{tr('Could not be reached right now.')}</p>
+            <p role="alert" className="text-xs text-amber-300" data-detail="failed">{tr('Could not be reached right now.')}</p>
           ) : (
             <p className="text-xs text-fog-500" aria-live="polite" data-detail="loading">{tr('Loading chapter list…')}</p>
           )}
@@ -826,8 +860,8 @@ export function AddSeriesDialog({ seed, sources, mayFollow, onClose, onAdded }: 
             {/* "Fetch now", not "download": the chapters land on the server, and the server side of the app
                 is called fetching everywhere else. With nothing listed, "Nothing yet" is the only option that
                 can succeed, so it is the only one offered. */}
-            <label className="mb-1 mt-4 block text-xs font-semibold uppercase tracking-wider text-fog-500">{tr('Chapters to fetch now')}</label>
-            <select value={pick} onChange={(e) => setPickChoice(e.target.value as ChapterPick)} className="field">
+            <label htmlFor="add-chapter-pick" className="mb-1 mt-4 block text-xs font-semibold uppercase tracking-wider text-fog-500">{tr('Chapters to fetch now')}</label>
+            <select id="add-chapter-pick" value={pick} onChange={(e) => setPickChoice(e.target.value as ChapterPick)} className="field">
               {view!.count > 0 && <option value="all">{tr('All ({n})', { n: view!.count })}</option>}
               {presets.map((n) => <option key={`first:${n}`} value={`first:${n}`}>{tr('First {n}', { n })}</option>)}
               {presets.map((n) => <option key={`latest:${n}`} value={`latest:${n}`}>{tr('Latest {n}', { n })}</option>)}
@@ -858,6 +892,15 @@ export function AddSeriesDialog({ seed, sources, mayFollow, onClose, onAdded }: 
           </>)}
 
           {/* The switches depend on nothing the detail brings, so they are there from the first paint. */}
+          {(libraries?.length ?? 0) > 1 && (
+            <div className="mt-3">
+              <label htmlFor="add-library" className="mb-1 block text-xs font-semibold uppercase tracking-wider text-fog-500">{tr('Add to library')}</label>
+              <select id="add-library" value={chosenLib}
+                onChange={(e) => setLibraryId(e.target.value)} className="field">
+                {libraries!.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+              </select>
+            </div>
+          )}
           <div className="mt-3 flex items-center justify-between gap-3">
             <span className="text-sm text-fog-200">{tr('Auto-update new chapters')}</span>
             <Switch on={autoUpdate} onChange={setAutoUpdate} label={tr('Auto-update new chapters')} />
@@ -878,7 +921,7 @@ export function AddSeriesDialog({ seed, sources, mayFollow, onClose, onAdded }: 
                 <Switch on={alsoFollow} onChange={setAlsoFollow} label={tr('Also check the other sources that carry this title')} />
               </div>
               <p className="mt-1 text-[11px] text-fog-500">
-                {tr('Following one means new chapters are taken from whichever source has them first. Each is checked against this title\'s chapter list — only a source listing at least 90 % of the same numbers is followed, up to two per series.')}
+                {tr('Followed sources supply new chapters, whichever has one first. A source is followed only if it lists at least 90 % of the same chapter numbers. Up to two per series.')}
               </p>
             </div>
           )}
@@ -893,12 +936,12 @@ export function AddSeriesDialog({ seed, sources, mayFollow, onClose, onAdded }: 
           {/* The duplicate prompt. "Open it" is offered only when the server sent the id -- it withholds
               one for a series this account may not see, and the note still reads the same without it. */}
           {dup && (
-            <div className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5 text-[11px] text-amber-300">
+            <div role="alert" className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5 text-[11px] text-amber-300">
               <p>{dup.message}</p>
               {dup.id && (
                 <button
                   onClick={() => { qc.invalidateQueries({ queryKey: ['library'] }); router.push(`/series/?id=${dup.id}`); }}
-                  className="mt-1 font-semibold underline underline-offset-2">
+                  className="mt-1 py-1 font-semibold underline underline-offset-2">
                   {tr('Open it')}
                 </button>
               )}
@@ -907,7 +950,7 @@ export function AddSeriesDialog({ seed, sources, mayFollow, onClose, onAdded }: 
               {dup.id && (
                 <button type="button" data-another-language
                   onClick={() => { setAnotherOf(dup.id!); setEditionFor({ key: pickKey, on: true }); setEdLangFor({ key: pickKey, lang: '' }); setDup(null); }}
-                  className="ms-3 mt-1 font-semibold underline underline-offset-2">
+                  className="ms-3 mt-1 py-1 font-semibold underline underline-offset-2">
                   {tr('It is in another language')}
                 </button>
               )}
@@ -928,6 +971,7 @@ export function AddSeriesDialog({ seed, sources, mayFollow, onClose, onAdded }: 
               {tr('Read a chapter first')}
             </button>
           )}
+          <SaveForLater title={detail?.title || title} coverUrl={coverUrl} className="mt-2 w-full justify-center py-2.5 text-sm" />
         </div>
       </div>
       {previewing && picked && (

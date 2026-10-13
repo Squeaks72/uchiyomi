@@ -31,8 +31,9 @@ test('the Notifications section is mounted once, after the four pinned sections,
   assert.match(src, /import \{ NotificationsSection \} from '@\/components\/AdminNotifications';/);
   assert.equal((src.match(/<NotificationsSection\b/g) ?? []).length, 1, 'the section is mounted more than once, or not at all');
   const grid = src.slice(src.indexOf('return (\n    <div className={SETTINGS_GRID}>'));
-  assert.match(grid, /<ServerSection [^\n]*\/>\s*<SchedulesSection [^\n]*\/>\s*<HousekeepingSection [^\n]*\/>\s*<ScanlatorsSection [^\n]*\/>\s*\{\}\s*<NotificationsSection \/>/,
-    'Notifications is not the last section after Server, Updates & schedules, Library housekeeping and Scanlators');
+  // Fork change: Server is General, Privacy & access split off it, and Scanlators moved into Chapters & naming.
+  assert.match(grid, /<ServerSection [^\n]*\/>\s*<PrivacySection [^\n]*\/>\s*<SchedulesSection [^\n]*\/>\s*<HousekeepingSection [^\n]*\/>\s*<ChaptersSection [^\n]*\/>\s*\{\}\s*<NotificationsSection \/>/,
+    'Notifications is not right after General, Privacy & access, Updates & schedules, Library housekeeping and Chapters & naming');
 });
 
 test('A STORED ADDRESS, TOKEN OR TOPIC IS NEVER PUT BACK ON SCREEN -- credential fields start empty, even on edit', () => {

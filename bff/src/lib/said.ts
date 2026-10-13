@@ -146,7 +146,7 @@ const EN = {
   'numbering.since': ({ at }: { at: string }) => `numbered by posting order since ${day(at)}.`,
   'numbering.hint': () => 'they may be different chapters listed as versions of one.',
   'numbering.kept': () => "you chose to keep the source's own numbers.",
-  'numbering.held': () => 'Nothing downloads for this series until then.',
+  'numbering.held': () => 'Nothing is fetched for this series until then.',
 
   // ---- Suspiciously short chapters
   'short.live': ({ n }: { n: number }) => `${n} chapter${s(n, '', 's')} contain only one or two images`,
@@ -159,7 +159,7 @@ const EN = {
     'this short, and the nightly stops looking at it.',
   'short.detail': ({ number, pages }: { number: number; pages: number }) => `Chapter ${number} has ${pages} page${s(pages, '', 's')}`,
 
-  // ---- Chapters that would not download
+  // ---- Chapters that could not be fetched
   'failures.live': ({ n, m }: { n: number; m: number }) => `${n} chapter${s(n, '', 's')} across ${m} source${s(m, '', 's')} keep failing`,
   'failures.none': () => 'Every attempted chapter landed',
   // v0.55.1: a source whose every failing chapter was refused for room (HTTP 429) is waiting, not failing.
@@ -260,7 +260,7 @@ const EN = {
     `${STAGE_LABEL[stage]} failed ${days} days ago and nothing has checked it since — test it again`,
   // v0.55.3: the source downloads at a raised pace (lib/pace.ts): one chapter at a time, longer gaps, until it has gone
   // a while without a 429. The whole of a `slowed` row, and a sentence after the rest on any other row.
-  'sources.paced': () => 'Downloading slowly: the site asked for fewer requests',
+  'sources.paced': () => 'Fetching slowly: the site asked for fewer requests',
 
   // ---- Duplicate series
   'dupes.live': ({ n }: { n: number }) => `${n} title${s(n, ' appears', 's appear')} to be in the library twice`,
@@ -485,9 +485,9 @@ const EN = {
   'engine.solverQuietDetail': () =>
     'It is connected to Uchiyomi’s own Cloudflare helper, which is not answering (the Cloudflare solver row says what to do). Extension sources on Cloudflare-protected sites fail until it answers again.',
 
-  // ---- A download job's reason (Library → Downloads, the series band, Discover). `source` is a source's name.
+  // ---- A download job's reason (Library → Fetching, the series band, Discover). `source` is a source's name.
   'job.noSpace': ({ error }: { error: string }) => `Not enough free space: ${error}`,
-  'job.noSpaceToDownload': ({ error }: { error: string }) => `Not enough free space to download: ${error}.`,
+  'job.noSpaceToDownload': ({ error }: { error: string }) => `Not enough free space to fetch: ${error}.`,
   'job.saved': ({ done, total }: { done: number; total: number }) => `${done} of ${total} chapters saved.`,
   'job.slowedDown': ({ from, to }: { from: string; to: string }) => `${from} asked us to slow down — continued from ${to}`,
   'job.switched': ({ from, number, to }: { from: string; number: number; to: string }) =>
@@ -496,7 +496,7 @@ const EN = {
   'job.stopped': ({ source }: { source: string }) => `${source} stopped part-way`,
   'job.stoppedRefusing': ({ source, status }: { source: string; status: string }) => `${source} stopped part-way: it is ${statusWord(status)} downloads`,
   'job.refusing': ({ source, status }: { source: string; status: string }) => `${source} is currently ${statusWord(status)} downloads.`,
-  'job.undownloadable': () => 'No downloadable chapters here — this title may be licensed or hosted externally on this source.',
+  'job.undownloadable': () => 'No fetchable chapters here — this title may be licensed or hosted externally on this source.',
   'job.failed': ({ n, error }: { n: number; error: string }) => `${n} chapter${s(n, '', 's')} could not be saved: ${error}`,
   'job.cancelled': ({ done, total }: { done: number; total: number }) => `Cancelled after ${done} of ${total} chapter${s(total, '', 's')}.`,
   'job.notSaved': ({ n }: { n: number }) => `${n} could not be saved.`,
@@ -571,13 +571,17 @@ const EN = {
   'autofix.now.retiring': ({ name }: { name: string }) => `Turning off ${name}`,
   'autofix.now.duplicates': () => 'Merging duplicates and linking language editions',
   'autofix.now.renumbering': () => 'Applying safe renumbering plans',
-  'autofix.now.failures': () => 'Retrying chapters that would not download',
+  'autofix.now.failures': () => 'Retrying chapters that could not be fetched',
   'autofix.now.short': () => 'Looking for longer copies of short chapters',
   'autofix.now.gaps': () => 'Filling gaps',
   'autofix.now.installing': ({ name }: { name: string }) => `Installing ${name}`,
   'autofix.now.searching': ({ name }: { name: string }) => `Searching ${name}`,
   'autofix.now.removing': ({ name }: { name: string }) => `Removing ${name}`,
   'autofix.now.files': () => 'Deleting chapters saved twice or numbered impossibly',
+  'autofix.now.badFiles': () => 'Fetching again the chapter files that are empty or cut short',
+  'autofix.now.groups': () => 'Swapping chapters for a preferred group’s copy',
+  'autofix.now.names': () => 'Borrowing chapter names from other sources',
+  'autofix.now.directions': () => 'Working out reading directions',
   'autofix.now.rechecking': () => 'Checking Health again',
   'autofix.now.waitSweep': () => 'Waiting for the chapter sweep to finish',
 
@@ -595,7 +599,7 @@ const EN = {
   'autofix.done.merged': ({ n }: { n: number }) => `Merged ${n} duplicate${s(n, '', 's')}`,
   'autofix.done.renumbered': ({ n }: { n: number }) => `Renumbered ${n} series by a safe plan`,
   'autofix.done.fetched': ({ n }: { n: number }) => `Fetched ${n} missing chapter${s(n, '', 's')}`,
-  'autofix.done.refetched': ({ n }: { n: number }) => `Downloaded ${n} chapter${s(n, '', 's')} that had failed`,
+  'autofix.done.refetched': ({ n }: { n: number }) => `Fetched ${n} chapter${s(n, '', 's')} that had failed`,
   'autofix.done.failuresCleared': ({ n }: { n: number }) => `Gave ${n} failed chapter${s(n, '', 's')} another try`,
   'autofix.done.shortFixed': ({ n }: { n: number }) => `Found a longer copy of ${n} short chapter${s(n, '', 's')}`,
   'autofix.done.shortConfirmed': ({ n }: { n: number }) => `${n} short chapter${s(n, '', 's')} really ${s(n, 'is', 'are')} that short at every source`,
@@ -609,6 +613,10 @@ const EN = {
   'autofix.done.triedNone': ({ n }: { n: number }) => `Tried ${n} extension${s(n, '', 's')}: none of the series were there`,
   'autofix.done.deletedTwice': ({ n }: { n: number }) => `Deleted ${n} chapter${s(n, '', 's')} saved twice`,
   'autofix.done.deletedOdd': ({ n }: { n: number }) => `Deleted ${n} chapter${s(n, '', 's')} numbered impossibly`,
+  'autofix.done.badFiles': ({ n }: { n: number }) => `Took ${n} broken chapter file${s(n, '', 's')} off the disk to fetch again`,
+  'autofix.done.groupsUpgraded': ({ n }: { n: number }) => `Swapped ${n} chapter${s(n, '', 's')} for a preferred group’s copy`,
+  'autofix.done.named': ({ n }: { n: number }) => `Named ${n} chapter${s(n, '', 's')} from another source`,
+  'autofix.done.directions': ({ n }: { n: number }) => `Worked out the reading direction of ${n} series`,
 
   // One thing it did or met, for Details (the done lines' `items`, and the run's log).
   'autofix.item.tested': ({ name, ok }: { name: string; ok: boolean }) => (ok ? `${name} passed its test` : `${name} failed its test again`),
@@ -630,6 +638,8 @@ const EN = {
   'autofix.item.noRoom': ({ name }: { name: string }) => `Did not keep ${name}: the source limit is full`,
   'autofix.item.installFailed': ({ name }: { name: string }) => `${name} could not be installed`,
   'autofix.item.deleted': ({ title, n }: { title: string; n: number; seriesIds?: string[] }) => `Deleted ${n} chapter${s(n, '', 's')} of “${title}”`,
+  'autofix.item.refetching': ({ title, n }: { title: string; n: number; seriesIds?: string[] }) =>
+    `Took ${n} broken chapter file${s(n, '', 's')} of “${title}” off the disk to fetch again`,
   // Why a part of the run was passed over: solver_down | engine_down | no_engine | time | stopped | installs.
   'autofix.item.skipped': ({ why }: { why: string }) => AUTOFIX_SKIPPED[why] ?? why,
 
@@ -658,13 +668,14 @@ const EN = {
   'autofix.needs.duplicates': ({ n }: { n: number }) => `${n} duplicate${s(n, '', 's')} ${s(n, 'needs', 'need')} your decision`,
   'autofix.needs.numbering': ({ n }: { n: number }) => `${n} series ${s(n, 'waits', 'wait')} for your numbering review`,
   'autofix.needs.short': ({ n }: { n: number }) => `${n} short chapter${s(n, '', 's')} ${s(n, 'needs', 'need')} your decision`,
-  'autofix.needs.failures': ({ n }: { n: number }) => `${n} chapter${s(n, '', 's')} no source can download`,
+  'autofix.needs.failures': ({ n }: { n: number }) => `${n} chapter${s(n, '', 's')} no source can fetch`,
   'autofix.needs.outliers': ({ n }: { n: number }) => `${n} chapter${s(n, '', 's')} numbered impossibly ${s(n, 'is', 'are')} bookmarked or in your own library`,
   'autofix.needs.twice': ({ n }: { n: number }) => `${n} chapter${s(n, '', 's')} saved twice ${s(n, 'needs', 'need')} you to choose the copy to keep`,
   'autofix.needs.gapsPaused': ({ n }: { n: number }) => `${n} series with missing chapters ${s(n, 'has', 'have')} updates paused`,
   'autofix.needs.gaps': ({ n }: { n: number }) => `${n} series ${s(n, 'has', 'have')} chapters no source lists`,
   'autofix.needs.scan': ({ n }: { n: number }) => `The library scan could not read ${n} folder${s(n, '', 's')}`,
   'autofix.needs.downloadsMissing': ({ n }: { n: number }) => `${n} downloaded chapter${s(n, '', 's')} ${s(n, 'is', 'are')} where the library scan never looks`,
+  'autofix.needs.other': ({ title }: { title: string }) => `${title} needs a look`,
   'autofix.needs.noRoom': ({ name }: { name: string }) => `${name} may carry your series, but the source limit is full: free a slot`,
 
   // What clears by itself (summary.clears), with when where there is a time.
@@ -679,6 +690,70 @@ const EN = {
   // helper and never a backup, so neither is ever said there.
   'autofix.clears.mainSolverDown': () => 'The main Cloudflare solver is not answering, and the backup is solving meanwhile',
   'autofix.clears.backupSolverDown': () => 'The backup Cloudflare solver is not answering, and the main one is solving',
+
+  // ---- Chapter files (lib/healthFiles.ts)
+  'files.detail': ({ missing, empty, broken }: { missing: number; empty: number; broken: number }) =>
+    [missing && `Missing: ${missing}`, empty && `Empty: ${empty}`, broken && `Incomplete: ${broken}`].filter(Boolean).join(' · '),
+  'files.bad': ({ n, m }: { n: number; m: number }) => `Chapters with a missing or damaged file: ${n}; series affected: ${m}`,
+  'files.ok': ({ looked, total }: { looked: number; total: number }) => `no missing or damaged chapter files found (checked: ${looked} of ${total})`,
+  'files.note': ({ looked, total }: { looked: number; total: number }) =>
+    'A slice of the library is looked at on every run, chapters never looked at or last found wrong first, so all of it is covered over several runs ' +
+    `(looked at so far: ${looked} of ${total}). A chapter is damaged when its file is empty, or a zip that ends too early. ` +
+    'Rescan everything and Verify chapter files (Admin → Tasks) put right what is missing; Recheck looks at every file.',
+  'files.skipped': ({ roots }: { roots: string[] }) =>
+    `Not counted: ${roots.join(', ')} holds none of its files, so the share is probably not mounted (see Disk space and folders).`,
+
+  // ---- Series covers (lib/healthMore.ts)
+  'covers.detail': () => 'no cover set, none fetched, and no chapter to take one from',
+  'covers.bad': ({ n }: { n: number }) => `Series with nothing to show as a cover: ${n}`,
+  'covers.ok': () => 'every series has a cover, or a chapter to take one from',
+  'covers.note': () => 'A cover is one set by hand, one fetched from a source or the web, or the first page of a chapter. A cover that exists but is blank cannot be detected here.',
+
+  // ---- Series details
+  'details.missing': ({ summary, genres, author }: { summary: boolean; genres: boolean; author: boolean }) =>
+    `Missing: ${[summary && 'description', genres && 'genres', author && 'author'].filter(Boolean).join(', ')}`,
+  'details.bad': ({ n }: { n: number }) => `Series missing a description or genres: ${n}`,
+  'details.ok': () => 'every series has a description and genres',
+  'details.note': () => 'Descriptions and genres come from a source or a metadata lookup. Open a series to edit them or fetch them again. A series missing only its author is listed for reference.',
+
+  // ---- Disk space and folders
+  'disk.where': ({ kind }: { kind: string }) => (kind === 'library' ? 'Library folder' : kind === 'downloads' ? 'Downloads folder' : 'Config folder'),
+  'disk.free': ({ free, total }: { free: number; total: number }) => `${free} GB free of ${total} GB`,
+  'disk.low': ({ free, total }: { free: number; total: number }) => `only ${free} GB free of ${total} GB`,
+  'disk.cannotRead': ({ error }: { error: string }) => `could not be read (${error})`,
+  'disk.looksEmpty': ({ n }: { n: number }) => `looks empty, but the library records chapters under it (count: ${n}). Is the share mounted?`,
+  'disk.bad': ({ n }: { n: number }) => `Folders or disks needing attention: ${n}`,
+  'disk.ok': () => 'enough free space, and every folder can be read',
+  'disk.note': () =>
+    'Free space is flagged under 5 % on a disk of under 200 GB, and always under 2 % or 5 GB. A library or download folder that cannot be read, ' +
+    'or looks empty while chapters are recorded under it, is usually a share that is not mounted: nothing is marked missing until it is back.',
+
+  // ---- Reading data
+  'orphans.kind': ({ kind }: { kind: string }) => ({
+    eventsSeries: 'Reading history of removed series',
+    eventsChapter: 'Reading history of removed chapters',
+    trackerSeries: 'Tracker records of removed series',
+    downloads: 'Offline downloads of removed chapters',
+    removed: 'Favourites and progress held by removed or merged series',
+  } as Record<string, string>)[kind] ?? kind,
+  'orphans.rows': ({ n }: { n: number }) => `Records: ${n}`,
+  'orphans.some': ({ n }: { n: number }) => `Leftover records: ${n}`,
+  'orphans.none': () => 'no leftover reading data',
+  'orphans.note': () =>
+    'Reading history is kept on purpose when a series or chapter goes away, so it comes back if the series is added again, and tracker progress is a ' +
+    'floor that stops a tracker being rewound. Nothing here is deleted; it is listed so the growth is visible.',
+
+  // ---- Tracker sync
+  'trackers.rejected': () => 'the tracker refused the saved sign-in; it has to be reconnected',
+  'trackers.error': ({ error }: { error: string }) => `last sync failed: ${error}`,
+  'trackers.expired': ({ at }: { at: string }) => `sign-in expired ${day(at)}`,
+  'trackers.expiring': ({ at }: { at: string }) => `sign-in expires ${day(at)}`,
+  'trackers.bad': ({ n }: { n: number }) => `Tracker sign-ins needing attention: ${n}`,
+  'trackers.ok': ({ n }: { n: number }) => `all tracker sign-ins look fine (count: ${n})`,
+  'trackers.none': () => 'no one has connected a tracker',
+  'trackers.note': () =>
+    'Each person reconnects their own tracker under Settings → Trackers; one whose sign-in was refused stays switched off until they do. ' +
+    'Sign-ins ending within 14 days are findings, and within 30 days listed for reference.',
 };
 
 /** Why Fix everything passed a part of its run over (`autofix.item.skipped`). */

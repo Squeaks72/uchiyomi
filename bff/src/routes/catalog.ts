@@ -1,12 +1,14 @@
+import { otherTitlesFor } from '../lib/otherTitles';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { q, one } from '../lib/db';
+import { cleanLibraryReader } from '../lib/libraryReader';
 import { junkPagesFor, setPageOverride } from '../lib/junkPages';
 import { komgaImage } from '../lib/komga';
 import { content as komga, NATIVE_PROGRESS, OWNED } from '../lib/backend';
 import { UnsupportedFilter, owned } from '../lib/ownedCatalog';
 import { cleanDescription } from '../lib/htmlText';
-import { viewCtxFor, SYSTEM_CTX, type ViewCtx, hideAdult, browsableIds, browsable, Params, adultFilterConfigured } from '../lib/visibility';
+import { viewCtxFor, SYSTEM_CTX, type ViewCtx, hideAdult, seriesVisible, browsableIds, browsable, Params, adultFilterConfigured } from '../lib/visibility';
 
 /** The viewer attached by the preHandler above. */
 const vc = (req: FastifyRequest): ViewCtx => (req as any).viewCtx as ViewCtx;
@@ -116,7 +118,12 @@ async function tasteRecs(req: FastifyRequest): Promise<any[]> {
   // while 18+ was revealed would otherwise be handed straight back after it was hidden again.
   const key = `${uid}:${vc(req).hideAdultLibraries ? 'safe' : 'all'}`;
   const cached = forYouCache.get(key);
-  if (cached && Date.now() - cached.ts < 10 * 60 * 1000) return cached.pool;
+  if (cached && Date.now() - cached.ts < 10 * 60 * 1000) {
+    // Re-checked on the way out: a series marked 18+ since the pool was built (the card menu's "Mark as 18+") must not
+    // keep coming back for the rest of the ten minutes.
+    const ok = await browsableIds(cached.pool.map((s) => s.id), vc(req));
+    return cached.pool.filter((s) => ok.has(s.id));
+  }
   const favIds = (await q<{ series_id: string }>('SELECT series_id FROM favorites WHERE user_id = $1', [uid])).map((r) => r.series_id);
   const doneIds = (await q<{ series_id: string }>('SELECT DISTINCT series_id FROM read_progress WHERE user_id = $1 AND completed = true', [uid])).map((r) => r.series_id);
   const sourceIds = Array.from(new Set([...favIds, ...doneIds])).slice(0, 30);
@@ -324,6 +331,20 @@ export default async function catalogRoutes(app: FastifyInstance) {
     };
   });
 
+  // "Remove from Keep reading": the series stays in the library and only leaves that row, until it is read again.
+  app.put('/api/keep-reading/:seriesId', async (req) => {
+    const uid = userIdOf(req);
+    const { seriesId } = req.params as { seriesId: string };
+    const { hidden } = z.object({ hidden: z.boolean() }).parse(req.body);
+    if (hidden) {
+      await q(`INSERT INTO keep_reading_hidden (user_id, series_id) VALUES ($1, $2)
+               ON CONFLICT (user_id, series_id) DO UPDATE SET hidden_at = now()`, [uid, seriesId]);
+    } else {
+      await q('DELETE FROM keep_reading_hidden WHERE user_id = $1 AND series_id = $2', [uid, seriesId]);
+    }
+    return { ok: true, hidden };
+  });
+
   app.get('/api/home', async (req) => {
     const uid = userIdOf(req);
     const admin = NATIVE_PROGRESS && roleOf(req) === 'admin';
@@ -337,7 +358,17 @@ export default async function catalogRoutes(app: FastifyInstance) {
 
     let onDeckP: Promise<any[]>;
     if (admin) {
-      onDeckP = komga.booksOnDeck(vc(req), 0, 20).then((r: any) => r.content).catch(() => []);
+      onDeckP = komga.booksOnDeck(vc(req), 0, 20).then((r: any) => r.content).catch(() => [])
+        .then(async (books: any[]) => {
+          if (!books.length) return books;
+          const gone = await q<{ series_id: string }>(
+            `SELECT h.series_id FROM keep_reading_hidden h
+              WHERE h.user_id = $1 AND h.hidden_at >= COALESCE((SELECT max(updated_at) FROM read_progress rp WHERE rp.user_id = h.user_id AND rp.series_id = h.series_id), '-infinity')`,
+            [uid],
+          ).catch(() => []);
+          const hide = new Set(gone.map((r) => r.series_id));
+          return hide.size ? books.filter((b) => !hide.has(b.seriesId)) : books;
+        });
     } else {
       // The pick itself is lib/onDeck.ts (v0.61.0: shared with Pick back up and the OPDS Keep reading shelf).
       onDeckP = onDeckPicks(uid, vc(req), { window: 'recent', limit: ON_DECK_LIMIT }).then(resolvePicks);
@@ -440,6 +471,13 @@ export default async function catalogRoutes(app: FastifyInstance) {
     }
   });
 
+  // The English / romanised / Japanese titles of the series' AniList entry, for the series page.
+  app.get('/api/series/:id/other-titles', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    if (!(await seriesVisible(id, vc(req)))) return reply.code(404).send({ error: 'not_found' });
+    return { titles: await otherTitlesFor(id) };
+  });
+
   app.get('/api/series/:id', async (req) => {
     const { id } = req.params as { id: string };
     const series = await komga.series(vc(req), id);
@@ -482,6 +520,16 @@ export default async function catalogRoutes(app: FastifyInstance) {
     // Where the chapters come from: the primary source first, then any followed ones. Every viewer gets
     // this -- it is what the "Sources" line under the title shows, and nothing in it names the host.
     out.sources = await seriesSourcesFor(id).catch(() => []);
+    // The reading defaults of the library it sits in (lib/libraryReader.ts); null when it has none. Every viewer gets
+    // them: they are layered under the source's and the series' own in the reader.
+    const lr = await one<{ p: unknown; t: string | null; lid: string | null; lname: string | null }>(
+      `SELECT l.id AS lid, l.name AS lname, l.reader_prefs AS p, coalesce((SELECT o.series_type FROM series_overrides o WHERE o.series_id = s.id), s.series_type) AS t
+         FROM lib_series s LEFT JOIN libraries l ON l.id = s.library_id WHERE s.id = $1`, [id]);
+    out.libraryReader = cleanLibraryReader(lr?.p);
+    // What kind of comic it is, for every viewer: the reader guesses a reading mode from it when nothing says otherwise.
+    out.looksLike = lr?.t ?? null;
+    // Admins only: which library it is in, for the reader's "use these settings for the library" key.
+    if (roleOf(req) === 'admin' && lr?.lid) out.library = { id: lr.lid, name: lr.lname };
     // v0.61.0: what kind of comic it is -- the admin's override, else what the evidence learned, else unknown -- for EVERY
     // viewer: the reader's "Pick the mode for each series" opens a manhwa as a webtoon and a manga page by page. The
     // evidence behind it (`detectedType`) stays an admin's, below. Additive: the admin block sets the same value.
@@ -941,6 +989,8 @@ export default async function catalogRoutes(app: FastifyInstance) {
 
   // Mark or un-mark one page by hand. A person's call outranks the heuristic in both directions.
   app.put('/api/books/:id/pages/:n/junk', async (req, reply) => {
+    // The flag is shared by every account, so only an admin may set it.
+    if (roleOf(req) !== 'admin') return reply.code(403).send({ error: 'forbidden' });
     const { id, n } = req.params as { id: string; n: string };
     const page = Number(n);
     const body = (req.body ?? {}) as { junk?: boolean | null };

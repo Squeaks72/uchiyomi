@@ -34,17 +34,18 @@ const shape = (x: SeriesActionsInput) => seriesActionGroups(x).map((g) => `${g.i
 
 test('a member: their reading, and the link -- nothing that fetches or changes the series', () => {
   // Reintroduce Find missing chapters for everyone (drop `x.mayDownload &&`): "a member is offered" fails.
-  assert.deepEqual(shape(MEMBER), ['reading: notes markAllRead markAllUnread', 'share: copyLink openTab'], 'a member is offered more than their own');
+  assert.deepEqual(shape(MEMBER), ['reading: notes markAllRead markAllUnread', 'chapters: zip', 'share: copyLink openTab'], 'a member is offered more than their own');
+  // Fork: the series zip is for everyone (it only reads).
   const headings = seriesActionGroups(MEMBER).map((g) => g.heading);
-  assert.deepEqual(headings, ['Reading', 'Share']);
+  assert.deepEqual(headings, ['Reading', 'Chapters', 'Share']);
 });
 
 test('one who may download: Find missing chapters from three chapters, and the slow archive while there is something to archive', () => {
-  assert.deepEqual(shape(DOWNLOADER), ['reading: notes markAllRead markAllUnread', 'chapters: findMissing archive', 'share: copyLink openTab']);
+  assert.deepEqual(shape(DOWNLOADER), ['reading: notes markAllRead markAllUnread', 'chapters: findMissing archive zip', 'share: copyLink openTab']);
   // The route refuses Find missing below three chapters, so it is not offered there.
-  assert.deepEqual(shape({ ...DOWNLOADER, booksCount: 2 }).find((g) => g.startsWith('chapters')), 'chapters: archive');
+  assert.deepEqual(shape({ ...DOWNLOADER, booksCount: 2 }).find((g) => g.startsWith('chapters')), 'chapters: archive zip');
   // No archive to start (the page's mayArchive): no Archive slowly.
-  assert.deepEqual(shape({ ...DOWNLOADER, mayArchive: false }).find((g) => g.startsWith('chapters')), 'chapters: findMissing');
+  assert.deepEqual(shape({ ...DOWNLOADER, mayArchive: false }).find((g) => g.startsWith('chapters')), 'chapters: findMissing zip');
   // A "Nothing yet" series: nothing to mark.
   assert.deepEqual(shape({ ...DOWNLOADER, booksCount: 0 })[0], 'reading: notes');
 });
@@ -52,17 +53,17 @@ test('one who may download: Find missing chapters from three chapters, and the s
 test('an admin: Check for new chapters, and the admin group with Remove from library last, in red', () => {
   assert.deepEqual(shape(ADMIN), [
     'reading: notes markAllRead markAllUnread',
-    'chapters: findMissing archive checkNew',
+    'chapters: findMissing archive checkNew zip',
     'share: copyLink openTab',
-    'admin: edit newBanner rename remove',
+    'admin: edit newBanner rename alwaysShow remove',
   ]);
   const admin = seriesActionGroups(ADMIN).find((g) => g.id === 'admin')!;
   assert.equal(admin.heading, 'Admin');
   assert.deepEqual(admin.items.map((i) => [i.label, !!i.danger]), [
-    ['Edit details', false], ['New banner', false], ['Rename folder', false], ['Remove from library', true],
+    ['Edit details', false], ['New banner', false], ['Rename folder', false], ['Always show (ignore 18+ filter)', false], ['Remove from library', true],
   ]);
   // New banner only while the hero is the automatic one; Rename folder only with a folder (sent to admins only).
-  assert.deepEqual(shape({ ...ADMIN, autoHero: false, hasFolder: false }).at(-1), 'admin: edit remove');
+  assert.deepEqual(shape({ ...ADMIN, autoHero: false, hasFolder: false }).at(-1), 'admin: edit alwaysShow remove');
   // Never an admin's for anyone else, whatever else is true.
   for (const x of [{ ...ADMIN, isAdmin: false }, { ...DOWNLOADER, autoHero: true, hasFolder: true }]) {
     const ids = seriesActionGroups(x).flatMap((g) => g.items.map((i) => i.id));
@@ -108,7 +109,7 @@ test('the Offline key: never in Uchiyomi Desktop, never on a series with nothing
 test('More as a menu: each group named above its first item, icons before the words, Remove apart', () => {
   const picked: string[] = [];
   const items = moreMenuItems(seriesActionGroups(ADMIN), (id) => { picked.push(id); });
-  assert.deepEqual(items.map((i) => i.heading ?? null), ['Reading', null, null, 'Chapters', null, null, 'Share', null, 'Admin', null, null, null]);
+  assert.deepEqual(items.map((i) => i.heading ?? null), ['Reading', null, null, 'Chapters', null, null, null, 'Share', null, 'Admin', null, null, null, null]);
   assert.ok(items.every((i) => i.icon), 'an item has no icon');
   const remove = items.at(-1)!;
   assert.equal(remove.label, 'Remove from library');

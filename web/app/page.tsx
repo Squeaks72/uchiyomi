@@ -1,11 +1,12 @@
 'use client';
 import Link from 'next/link';
-import { useEffect } from 'react';
+import { Fragment, useEffect, useState, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, img } from '@/lib/api';
 import { HomePayload, Series } from '@/lib/types';
 import { chapterLabel, progressOf } from '@/lib/format';
 import { useAuth } from '@/lib/auth';
+import { useAccountPrefValue } from '@/lib/accountPrefs';
 import { triggerRefresh } from '@/lib/refresh';
 import { applyCover, clearCover } from '@/lib/theme';
 import { ART } from '@/lib/art';
@@ -13,11 +14,13 @@ import { Img, ProgressBar, Rail, RailSkeleton, SectionTitle, Reveal } from '@/co
 import { SeriesCard, ContinueCard } from '@/components/cards';
 import { HeroCarousel } from '@/components/HeroCarousel';
 import { AdultToggle, useAdultFilterConfigured } from '@/components/AdultToggle';
-import { IcPlay, IcSparkle, IcRefresh, IcBell } from '@/components/icons';
+import { IcPlay, IcSparkle, IcRefresh, IcBell, IcSliders } from '@/components/icons';
 import { PullToRefresh } from '@/components/PullToRefresh';
 import { Avatar } from '@/components/Avatar';
 import { Lockup } from '@/components/Brand';
 import { LibraryStart } from '@/components/LibraryStart';
+import { HomeRowsSheet } from '@/components/HomeRowsSheet';
+import { homeRowOrder, homeRowsHidden, type HomeRowId, type HomeRowsSetting } from '@/lib/homeRows';
 import { t as tr } from '@/lib/i18n';
 import { sortValue } from '@/lib/sortValue';
 import { relativeTime } from '@/lib/format';
@@ -59,7 +62,7 @@ function CollectionRail({ col }: { col: CollectionRow }) {
   if (!items.length) return null;
   return (
     <section className="pt-8">
-      <SectionTitle action={<Link href={`/collection/?id=${col.id}`} className="text-xs text-accent">{tr('See all')}</Link>}>
+      <SectionTitle action={<Link href={`/collection/?id=${col.id}`} aria-label={tr('See all {title}', { title: col.name })} className="text-xs text-accent">{tr('See all')}</Link>}>
         <span className="inline-flex items-center gap-2">
           <span aria-hidden className="h-4 w-1.5 rounded-full" style={{ background: col.accent || 'rgb(var(--accent))' }} />
           {col.name}
@@ -86,11 +89,11 @@ function greeting(name?: string) {
 
 export default function HomePage() {
   const { user } = useAuth();
+  const banners = useAccountPrefValue('showBanners');
   const qc = useQueryClient();
   // A second reason for the 18+ reveal to render: a genre or source on the admin's 18+ filter.
   const adultFilter = useAdultFilterConfigured();
   const { data, isLoading } = useQuery({ queryKey: ['home'], queryFn: () => api<HomePayload>('/api/home') });
-  const { data: foryou } = useQuery({ queryKey: ['foryou'], queryFn: () => api<{ genres: string[]; content: Series[] }>('/api/foryou'), staleTime: 600000 });
   const { data: trending } = useQuery({ queryKey: ['trending'], queryFn: () => api<{ content: Series[] }>('/api/trending'), staleTime: 300000 });
   const { data: featured, isPending: featuredPending } = useQuery({ queryKey: ['featured'], queryFn: () => api<{ content: Series[] }>('/api/featured'), staleTime: 600000 });
 
@@ -104,6 +107,20 @@ export default function HomePage() {
     queryKey: ['because', seed?.id ?? 'none'],
     queryFn: () => api<{ content: Series[] }>(`/api/series/${seed!.id}/similar`),
     enabled: !!seed?.id,
+    staleTime: 600000,
+  });
+
+  // "Because you rated X": the series last given four or five stars, when it isn't the one above.
+  const { data: loved } = useQuery({
+    queryKey: ['loved'],
+    queryFn: () => api<{ series: { id: string; name: string; stars: number } | null }>('/api/ratings/loved'),
+    staleTime: 600000,
+  });
+  const lovedSeed = loved?.series && loved.series.id !== seed?.id ? loved.series : null;
+  const { data: becauseRated } = useQuery({
+    queryKey: ['because', lovedSeed?.id ?? 'none'],
+    queryFn: () => api<{ content: Series[] }>(`/api/series/${lovedSeed!.id}/similar`),
+    enabled: !!lovedSeed?.id,
     staleTime: 600000,
   });
 
@@ -121,6 +138,134 @@ export default function HomePage() {
   // the hero carousel drives ambient --cover; clear it when leaving home
   useEffect(() => () => clearCover(), []);
 
+  const [arranging, setArranging] = useState(false);
+  const order = homeRowOrder(user?.settings?.homeRows as HomeRowsSetting | undefined);
+  const hidden = homeRowsHidden(user?.settings?.homeRows as HomeRowsSetting | undefined);
+
+  const rows: Record<HomeRowId, ReactNode> = {
+    continue: (
+      (data?.onDeck?.length ?? 0) > 0 ? (
+        <section className="pt-4">
+          <SectionTitle>{tr('Keep reading')}</SectionTitle>
+          <Rail>
+            {data!.onDeck.map((b, i) => <ContinueCard key={b.id} book={b} eager={i < 4} />)}
+          </Rail>
+        </section>
+      ) : null
+    ),
+    updates: (
+      <section className="pt-8">
+        <SectionTitle action={<Link href="/library/?sort=updated" aria-label={tr('See all {title}', { title: tr('New episodes') })} className="text-xs text-accent">{tr('See all')}</Link>}>{tr('New episodes')}</SectionTitle>
+        {isLoading ? <RailSkeleton /> : (
+          <Rail>
+            {(data?.updated ?? []).map((s, i) => <SeriesCard key={s.id} series={s} eager={i < 8} />)}
+          </Rail>
+        )}
+      </section>
+
+    ),
+    favorites: (
+      (data?.favorites?.length ?? 0) > 0 ? (
+        <section className="pt-8">
+          <SectionTitle action={<Link href="/collection/?id=favorites" className="text-xs text-accent">{tr('Manage')}</Link>}>{tr('Your favorites')}</SectionTitle>
+          <Rail>
+            {data!.favorites.map((s) => <SeriesCard key={s.id} series={s} />)}
+          </Rail>
+        </section>
+      ) : null
+    ),
+    because: (
+      seed && (because?.content?.length ?? 0) > 0 ? (
+        <section className="pt-8">
+          <SectionTitle>{tr('Because you read {title}', { title: `⁨${seed.name}⁩` })}</SectionTitle>
+          <Rail>
+            {because!.content.map((s) => <SeriesCard key={s.id} series={s} />)}
+          </Rail>
+        </section>
+      ) : null
+    ),
+    rated: (
+      lovedSeed && (becauseRated?.content?.length ?? 0) > 0 ? (
+        <section className="pt-8">
+          <SectionTitle>{lovedSeed.stars >= 5 ? tr('Because you rated {title} 5 stars', { title: `⁨${lovedSeed.name}⁩` }) : tr('Because you rated {title} 4 stars', { title: `⁨${lovedSeed.name}⁩` })}</SectionTitle>
+          <Rail>
+            {becauseRated!.content.map((s) => <SeriesCard key={s.id} series={s} />)}
+          </Rail>
+        </section>
+      ) : null
+    ),
+    collections: (
+      <>
+        <CollectionRails />
+        {/* Pick back up (v0.61.0): series put down three months to two years ago, each at its next chapter and saying when.
+            Only with something in it, like every rail an older server does not send. */}
+        {(data?.pickUp?.length ?? 0) > 0 && (
+          <section className="pt-8" data-home-pickup>
+            <SectionTitle>{tr('Pick back up')}</SectionTitle>
+            <Rail>
+              {data!.pickUp!.map((b) => (
+                <ContinueCard key={b.id} book={b} note={b.stoppedAt ? tr('Read {when}', { when: relativeTime(b.stoppedAt) }) : undefined} />
+              ))}
+            </Rail>
+          </section>
+        )}
+      </>
+    ),
+    added: (
+      <section className="pt-8">
+        <SectionTitle action={<Link href="/library/?sort=new" aria-label={tr('See all {title}', { title: tr('Recently added') })} className="text-xs text-accent">{tr('See all')}</Link>}>{tr('Recently added')}</SectionTitle>
+        {isLoading ? <RailSkeleton /> : (
+          <Rail>
+            {(data?.new ?? []).map((s) => <SeriesCard key={s.id} series={s} />)}
+          </Rail>
+        )}
+      </section>
+
+    ),
+    /* Most popular in your library (v0.58.0): the viewer's series by AniList popularity, each saying AniList's score.
+       Only with something in it -- a server older than v0.58.0 sends no `popular`, and a library with no AniList
+       numbers yet has nothing to rank -- so it never shows an empty rail or a skeleton that turns into nothing. */
+    popular: (
+      <>
+      {(data?.popular?.length ?? 0) > 0 && (
+        <section className="pt-8">
+          <SectionTitle action={<Link href="/library?sort=popular" className="text-xs text-accent">{tr('See all')}</Link>}>{tr('Most popular in your library')}</SectionTitle>
+          <Rail>
+            {data!.popular!.map((s) => <SeriesCard key={s.id} series={s} note={sortValue(s, 'score')} />)}
+          </Rail>
+        </section>
+      )}
+      {/* Hidden gems (v0.61.0): well-rated series nobody here has opened, each saying AniList's score. Only with something
+          in it. See all is the Library's own answer to the same question, best first and not started. */}
+      {(data?.gems?.length ?? 0) > 0 && (
+        <section className="pt-8" data-home-gems>
+          <SectionTitle action={<Link href="/library?sort=score&read=UNREAD" className="text-xs text-accent">{tr('See all')}</Link>}>{tr('Hidden gems')}</SectionTitle>
+          <Rail>
+            {data!.gems!.map((s) => <SeriesCard key={s.id} series={s} note={sortValue(s, 'score')} />)}
+          </Rail>
+        </section>
+      )}
+      </>
+    ),
+    top: (
+      (trending?.content?.length ?? 0) > 0 ? (
+        <section className="pt-8">
+          <SectionTitle>{tr('Top 10 in your library')}</SectionTitle>
+          <Rail>
+            {trending!.content.slice(0, 10).map((s, i) => (
+              <div key={s.id} className="flex shrink-0 items-end [scroll-snap-align:start]">
+                <span aria-hidden className="rank-numeral -me-5 mb-6 select-none font-display text-[88px] font-black leading-[0.78]">
+                  {i + 1}
+                </span>
+                <SeriesCard series={s} />
+              </div>
+            ))}
+          </Rail>
+        </section>
+      ) : null
+    ),
+  };
+
   return (
     <PullToRefresh onRefresh={onRefresh}>
     <div className="min-h-screen-d">
@@ -128,11 +273,11 @@ export default function HomePage() {
       <header className="safe-top sticky top-0 z-30 flex items-center justify-between px-5 pb-3 lg:hidden">
         <Lockup className="text-2xl" markSize={36} />
         <div className="flex items-center gap-2">
-          <Link href="/updates" className="relative grid h-10 w-10 place-items-center rounded-full border border-ink-700 bg-ink-850/70 text-fog-300 backdrop-blur">
+          <Link href="/updates" aria-label={tr('Updates')} className="relative grid h-10 w-10 place-items-center rounded-full border border-ink-700 bg-ink-850/70 text-fog-300 backdrop-blur">
             <IcBell width={19} height={19} />
-            {(data?.updatesCount ?? 0) > 0 && <span className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-accent px-1 text-[10px] font-bold text-black">{(data!.updatesCount ?? 0) > 9 ? '9+' : data!.updatesCount}</span>}
+            {(data?.updatesCount ?? 0) > 0 && <span className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-accent px-1 text-[11px] font-bold text-black">{(data!.updatesCount ?? 0) > 9 ? '9+' : data!.updatesCount}</span>}
           </Link>
-          <Link href="/profile" className="transition active:opacity-80">
+          <Link href="/profile" aria-label={tr('Profile')} className="transition active:opacity-80">
             <Avatar avatar={user?.avatar} size={40} />
           </Link>
         </div>
@@ -142,10 +287,17 @@ export default function HomePage() {
       {/* The welcome is for a library with nothing in it for this viewer -- `/api/featured` is the latest series they
           can see, so it is empty only then -- and never a flash while that answer is on its way: it now offers the
           import (v0.55.4), which a full library must not show for the second before its carousel arrives. */}
+      {/* The banner is a setting (Profile → Settings, off by default): off, a page still needs its one heading, so
+          the carousel and its skeleton give way to a screen-reader-only "Home". The welcome is not a banner -- it
+          is what an empty library shows, and stays. */}
       {(featured?.content?.length ?? 0) > 0 ? (
-        <HeroCarousel slides={featured!.content} />
+        banners ? <HeroCarousel slides={featured!.content} /> : <h1 className="sr-only" data-no-banner>{tr('Home')}</h1>
       ) : isLoading || featuredPending ? (
-        <div className="skeleton h-[62vh] min-h-[440px] w-full lg:-mx-6 lg:w-[calc(100%+3rem)]" />
+        !banners ? <h1 className="sr-only" data-no-banner>{tr('Home')}</h1> :
+        <div className="skeleton h-[62vh] min-h-[440px] w-full lg:-mx-6 lg:w-[calc(100%+3rem)]" role="status">
+          <h1 className="sr-only">{tr('Home')}</h1>
+          <span className="sr-only">{tr('Loading…')}</span>
+        </div>
       ) : (
         <div className="relative h-[58vh] min-h-[420px] overflow-hidden lg:-mx-6 lg:h-[70vh] lg:w-[calc(100%+3rem)]">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -169,124 +321,17 @@ export default function HomePage() {
         <p className="min-w-0 text-sm text-fog-400 lg:text-base">
           {greeting(user?.displayName && user.displayName !== 'me' ? user.displayName : undefined)}
         </p>
-        <AdultToggle className="shrink-0" alsoWhen={adultFilter} />
       </div>
 
-      {/* Keep reading */}
-      {(data?.onDeck?.length ?? 0) > 0 && (
-        <section className="pt-4">
-          <SectionTitle>{tr('Keep reading')}</SectionTitle>
-          <Rail>
-            {data!.onDeck.map((b, i) => <ContinueCard key={b.id} book={b} eager={i < 4} />)}
-          </Rail>
-        </section>
-      )}
+      <div className="flex justify-end px-5 pt-2 lg:px-0">
+        <button type="button" onClick={() => setArranging(true)} className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs text-fog-400 transition hover:text-fog-100">
+          <IcSliders width={14} height={14} />{tr('Customize Home')}
+        </button>
+      </div>
 
-      {/* For you */}
-      {(foryou?.content?.length ?? 0) > 0 && (
-        <section className="pt-8">
-          <SectionTitle action={<Link href="/library" className="text-xs text-accent">{tr('Library')}</Link>}>{tr('For you')}</SectionTitle>
-          <Rail>
-            {foryou!.content.map((s) => <SeriesCard key={s.id} series={s} />)}
-          </Rail>
-        </section>
-      )}
+      {order.filter((id) => !hidden.has(id)).map((id) => <Fragment key={id}>{rows[id]}</Fragment>)}
 
-      {/* Because you read X */}
-      {seed && (because?.content?.length ?? 0) > 0 && (
-        <section className="pt-8">
-          <SectionTitle>{tr('Because you read {title}', { title: `⁨${seed.name}⁩` })}</SectionTitle>
-          <Rail>
-            {because!.content.map((s) => <SeriesCard key={s.id} series={s} />)}
-          </Rail>
-        </section>
-      )}
-
-      {/* New episodes */}
-      <section className="pt-8">
-        <SectionTitle action={<Link href="/library?sort=updated" className="text-xs text-accent">{tr('See all')}</Link>}>{tr('New episodes')}</SectionTitle>
-        {isLoading ? <RailSkeleton /> : (
-          <Rail>
-            {(data?.updated ?? []).map((s, i) => <SeriesCard key={s.id} series={s} eager={i < 8} />)}
-          </Rail>
-        )}
-      </section>
-
-      {/* Favorites */}
-      {(data?.favorites?.length ?? 0) > 0 && (
-        <section className="pt-8">
-          <SectionTitle action={<Link href="/profile" className="text-xs text-accent">{tr('Manage')}</Link>}>{tr('Your favorites')}</SectionTitle>
-          <Rail>
-            {data!.favorites.map((s) => <SeriesCard key={s.id} series={s} />)}
-          </Rail>
-        </section>
-      )}
-
-      {/* Your collections */}
-      <CollectionRails />
-
-      {/* Pick back up (v0.61.0): series put down three months to two years ago, each at its next chapter and saying when.
-          Only with something in it, like every rail an older server does not send. */}
-      {(data?.pickUp?.length ?? 0) > 0 && (
-        <section className="pt-8" data-home-pickup>
-          <SectionTitle>{tr('Pick back up')}</SectionTitle>
-          <Rail>
-            {data!.pickUp!.map((b) => (
-              <ContinueCard key={b.id} book={b} note={b.stoppedAt ? tr('Read {when}', { when: relativeTime(b.stoppedAt) }) : undefined} />
-            ))}
-          </Rail>
-        </section>
-      )}
-
-      {/* Recently added */}
-      <section className="pt-8">
-        <SectionTitle action={<Link href="/library?sort=new" className="text-xs text-accent">{tr('See all')}</Link>}>{tr('Recently added')}</SectionTitle>
-        {isLoading ? <RailSkeleton /> : (
-          <Rail>
-            {(data?.new ?? []).map((s) => <SeriesCard key={s.id} series={s} />)}
-          </Rail>
-        )}
-      </section>
-
-      {/* Most popular in your library (v0.58.0): the viewer's series by AniList popularity, each saying AniList's score.
-          Only with something in it -- a server older than v0.58.0 sends no `popular`, and a library with no AniList
-          numbers yet has nothing to rank -- so it never shows an empty rail or a skeleton that turns into nothing. */}
-      {(data?.popular?.length ?? 0) > 0 && (
-        <section className="pt-8">
-          <SectionTitle action={<Link href="/library?sort=popular" className="text-xs text-accent">{tr('See all')}</Link>}>{tr('Most popular in your library')}</SectionTitle>
-          <Rail>
-            {data!.popular!.map((s) => <SeriesCard key={s.id} series={s} note={sortValue(s, 'score')} />)}
-          </Rail>
-        </section>
-      )}
-
-      {/* Hidden gems (v0.61.0): well-rated series nobody here has opened, each saying AniList's score. Only with something
-          in it. See all is the Library's own answer to the same question, best first and not started. */}
-      {(data?.gems?.length ?? 0) > 0 && (
-        <section className="pt-8" data-home-gems>
-          <SectionTitle action={<Link href="/library?sort=score&read=UNREAD" className="text-xs text-accent">{tr('See all')}</Link>}>{tr('Hidden gems')}</SectionTitle>
-          <Rail>
-            {data!.gems!.map((s) => <SeriesCard key={s.id} series={s} note={sortValue(s, 'score')} />)}
-          </Rail>
-        </section>
-      )}
-
-      {/* Trending across accounts — Netflix-style Top 10 with big rank numerals */}
-      {(trending?.content?.length ?? 0) > 0 && (
-        <section className="pt-8">
-          <SectionTitle>{tr('Top 10 in your library')}</SectionTitle>
-          <Rail>
-            {trending!.content.slice(0, 10).map((s, i) => (
-              <div key={s.id} className="flex shrink-0 items-end [scroll-snap-align:start]">
-                <span aria-hidden className="rank-numeral -me-5 mb-6 select-none font-display text-[88px] font-black leading-[0.78]">
-                  {i + 1}
-                </span>
-                <SeriesCard series={s} />
-              </div>
-            ))}
-          </Rail>
-        </section>
-      )}
+      {arranging && <HomeRowsSheet onClose={() => setArranging(false)} />}
     </div>
     </PullToRefresh>
   );

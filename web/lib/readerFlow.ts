@@ -159,3 +159,51 @@ export function renderWindow(flow: FlowItem[], current: number, behind: number, 
   }
   return s;
 }
+
+/**
+ * The window for a scrolling column, measured in screens as well as pages.
+ *
+ * ⚠️ `renderWindow` counts pages, which is the wrong unit for a webtoon: a strip can be a fraction of a screen, so six
+ * pages ahead was often less than one screen, and a fling ran into pages that were still numbers. This keeps at least the
+ * page counts given and reaches on until `aheadPx` / `behindPx` of the column is covered, never past the maximums
+ * (every page in the window is a full-size image to fetch and decode). A collapsed page spends nothing, as above.
+ */
+export function renderWindowPx(
+  flow: FlowItem[], tops: number[], heights: number[], current: number,
+  o: { behindPx: number; aheadPx: number; minBehind: number; minAhead: number; maxBehind: number; maxAhead: number },
+): Set<number> {
+  const s = new Set<number>();
+  if (current < 0 || current >= flow.length) return s;
+  if (!flow[current].collapsed) s.add(current);
+  const end = (tops[current] ?? 0) + (heights[current] ?? 0);
+  let spent = 0;
+  for (let i = current + 1; i < flow.length && spent < o.maxAhead; i++) {
+    if (flow[i].collapsed) continue;
+    if (spent >= o.minAhead && (tops[i] ?? 0) - end >= o.aheadPx) break;
+    s.add(i);
+    spent++;
+  }
+  const start = tops[current] ?? 0;
+  spent = 0;
+  for (let i = current - 1; i >= 0 && spent < o.maxBehind; i--) {
+    if (flow[i].collapsed) continue;
+    if (spent >= o.minBehind && start - ((tops[i] ?? 0) + (heights[i] ?? 0)) >= o.behindPx) break;
+    s.add(i);
+    spent++;
+  }
+  return s;
+}
+
+/** The page widths the reader asks the server for; the server caches a copy of each page per width. */
+export const PAGE_WIDTHS = [720, 1080, 1440, 2000] as const;
+
+/**
+ * The width to request a page at: the column's CSS width in device pixels (at most 3x), rounded UP to a
+ * step so the picture is never softer than the screen. 0 when the column is not measured yet. A page that is
+ * already narrower than this comes back as it is.
+ */
+export function pageWidthBucket(cssWidth: number, dpr: number): number {
+  if (!(cssWidth > 0)) return 0;
+  const want = cssWidth * Math.min(3, Math.max(1, dpr || 1));
+  return PAGE_WIDTHS.find((w) => w >= want) ?? PAGE_WIDTHS[PAGE_WIDTHS.length - 1];
+}

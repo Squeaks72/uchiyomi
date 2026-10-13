@@ -71,7 +71,7 @@ test('the reader applies the title\'s look with `ready`, and no effect lays it o
   // move setPrefs(look.prefs) below setReady(true): one of these fails.
   const src = code(read('app/reader/page.tsx'));
   const load = between(src, 'const first = await loadChapter(bookId);', '}, [bookId, reloadKey]);', 'the load effect');
-  const look = load.indexOf('const look = titleLook(loadPrefs(), src ? loadSourcePrefs(src.id) : {}, memory, autoGuess.current);\n      setPrefs(look.prefs);');
+  const look = load.indexOf('const look = titleLook(loadPrefs(), { ...(libLook ?? {}), ...(src ? loadSourcePrefs(src.id) : {}) }, memory, autoGuess.current);\n      setPrefs(look.prefs);');
   const ready = load.lastIndexOf('setReady(true);');
   assert.ok(look > 0, 'the load effect does not lay the title\'s look over the STORED default');
   assert.ok(look < ready, 'the title\'s look is set after `ready`, so the initial scroll runs on the wrong mode');
@@ -120,11 +120,14 @@ test('the automatic pick, case by case', () => {
 test('the automatic mode sits between the source default and the global one, and is off by default', () => {
   const auto: AutoGuess = { mode: 'paged', reason: 'manga' };
   const on = { ...base, autoMode: true };
-  assert.equal(DEFAULT_PREFS.autoMode, false, 'the automatic pick is on for every install');
-  assert.equal(migratePrefs({}).autoMode, false);
-  assert.equal(migratePrefs({ autoMode: 'yes' }).autoMode, false);
+  const off = { ...base, autoMode: false };
+  // Fork: the automatic pick is ON by default (upstream ships it off); a stored boolean is kept, junk reads as the default.
+  assert.equal(DEFAULT_PREFS.autoMode, true, 'the automatic pick is off for every install');
+  assert.equal(migratePrefs({}).autoMode, true);
+  assert.equal(migratePrefs({ autoMode: 'yes' }).autoMode, true);
+  assert.equal(migratePrefs({ autoMode: false }).autoMode, false);
   assert.ok(!(LOOK_KEYS as readonly string[]).includes('autoMode'));
-  assert.deepEqual(titleLook(base, {}, {}, auto), { prefs: base, autoApplied: null }, 'the guess applied with the switch off');
+  assert.deepEqual(titleLook(off, {}, {}, auto), { prefs: off, autoApplied: null }, 'the guess applied with the switch off');
   const picked = titleLook(on, {}, {}, auto);
   assert.equal(picked.prefs.mode, 'paged');
   assert.deepEqual(picked.autoApplied, auto, 'the reader is not told the mode was the pick\'s');
