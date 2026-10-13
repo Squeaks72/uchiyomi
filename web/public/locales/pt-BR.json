@@ -4548,5 +4548,6 @@
   "A source counts as 18+ when it is rated 18+, or when its extension flags it and it is not rated lower. While “Show 18+” is off it is left out of Discover and search.": "Uma fonte conta como 18+ quando está classificada como 18+, ou quando sua extensão a marca e ela não tem classificação menor. Enquanto “Mostrar 18+” estiver desligado, ela fica fora de Descobrir e da busca.",
   "Rate a whole source. 18+ keeps it out of Discover and search while “Show 18+” is off. A lower age means only accounts at least that old can see it. All ages ignores the extension’s own adult flag. Default follows the extension.": "Classifique uma fonte inteira. 18+ a mantém fora de Descobrir e da busca enquanto “Mostrar 18+” estiver desativado. Com uma idade menor, só contas com pelo menos essa idade a veem. “Todas as idades” ignora a marcação adulta da própria extensão. “Padrão” segue a extensão.",
   "Quick settings": "Ajustes rápidos",
-  "Profile settings": "Configurações do perfil"
+  "Profile settings": "Configurações do perfil",
+  "Your tracker connection needs attention: {names}": "Sua conexão com o rastreador precisa de atenção: {names}"
 }

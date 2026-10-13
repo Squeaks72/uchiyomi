@@ -4548,5 +4548,6 @@
   "A source counts as 18+ when it is rated 18+, or when its extension flags it and it is not rated lower. While “Show 18+” is off it is left out of Discover and search.": "来源被分级为 18+，或其扩展将其标记且未设置更低分级时，视为 18+。“显示 18+”关闭时，它不会出现在发现和搜索中。",
   "Rate a whole source. 18+ keeps it out of Discover and search while “Show 18+” is off. A lower age means only accounts at least that old can see it. All ages ignores the extension’s own adult flag. Default follows the extension.": "为整个来源设置分级。18+ 会在“显示 18+”关闭时将其排除在发现和搜索之外。设置为更低的年龄时，只有达到该年龄的账号才能看到。“所有年龄”会忽略扩展自带的成人标记。“默认”则遵循扩展。",
   "Quick settings": "快速设置",
-  "Profile settings": "个人资料设置"
+  "Profile settings": "个人资料设置",
+  "Your tracker connection needs attention: {names}": "你的追踪器连接需要处理：{names}"
 }

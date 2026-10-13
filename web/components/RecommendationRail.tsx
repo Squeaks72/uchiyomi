@@ -7,6 +7,7 @@ import { sourceCover } from '@/components/cards';
 import { ScrollRail, CARD_RAIL } from '@/components/ScrollRail';
 import { IcPlus } from '@/components/icons';
 import { useDiscoverMenu } from '@/components/DiscoverMenu';
+import { useTrackers, usableTrackers } from '@/lib/trackerHealth';
 import { useIsHiddenTitle } from '@/lib/ignoredTitles';
 import { badgeOf, becauseOf, pollAfter, provenance, type Recommendation, type Recommendations } from '@/lib/recommendations';
 
@@ -47,16 +48,20 @@ export function RecommendationRail({ enabled, onPick, onSearch }: {
   onPick: (title: string) => void;
   onSearch?: (title: string) => void;
 }) {
+  // Built from the person's own lists, so it needs a connection that works: with none (or only ones that need
+  // reconnecting, components/TrackerAlert.tsx) nothing is asked and nothing is drawn.
+  const trackers = useTrackers();
+  const usable = usableTrackers(trackers.data).length > 0;
   const { data } = useQuery({
     queryKey: ['discover-recommendations'],
     queryFn: () => api<Recommendations>('/api/discover/recommendations'),
-    enabled,
+    enabled: enabled && usable,
     staleTime: 10 * 60_000,
     refetchInterval: (q) => pollAfter(q.state.data, q.state.dataUpdateCount),
   });
   const isHidden = useIsHiddenTitle();
   const items = (data?.content ?? []).filter((r) => !isHidden(r.title));
-  if (!items.length) return null;
+  if (!usable || !items.length) return null;
   return (
     <section className="pt-5 pb-1">
       <h2 className="mb-3 font-display text-lg font-semibold tracking-tight text-fog-50 lg:text-xl">{tr('Recommended for you')}</h2>

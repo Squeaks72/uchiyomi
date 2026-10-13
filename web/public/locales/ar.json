@@ -4555,5 +4555,6 @@
   "A source counts as 18+ when it is rated 18+, or when its extension flags it and it is not rated lower. While “Show 18+” is off it is left out of Discover and search.": "يُعدّ المصدر +18 إذا صُنّف +18، أو إذا وسمته إضافته ولم يُصنَّف بدرجة أقل. وما دام «إظهار +18» متوقفًا يُستبعد من الاستكشاف والبحث.",
   "Rate a whole source. 18+ keeps it out of Discover and search while “Show 18+” is off. A lower age means only accounts at least that old can see it. All ages ignores the extension’s own adult flag. Default follows the extension.": "حدّد تصنيفًا لمصدر كامل. يُبقيه 18+ خارج استكشاف والبحث ما دام خيار «إظهار 18+» متوقفًا. مع عمر أقل، لا يراه إلا الحسابات التي بلغت هذا العمر على الأقل. «كل الأعمار» يتجاهل علامة البالغين الخاصة بالامتداد. «افتراضي» يتبع الامتداد.",
   "Quick settings": "إعدادات سريعة",
-  "Profile settings": "إعدادات الملف الشخصي"
+  "Profile settings": "إعدادات الملف الشخصي",
+  "Your tracker connection needs attention: {names}": "اتصال المتتبع الخاص بك يحتاج إلى انتباه: {names}"
 }

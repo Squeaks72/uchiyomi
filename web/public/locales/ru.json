@@ -4548,5 +4548,6 @@
   "A source counts as 18+ when it is rated 18+, or when its extension flags it and it is not rated lower. While “Show 18+” is off it is left out of Discover and search.": "Источник считается 18+, если ему поставлен рейтинг 18+ или его помечает расширение и ему не задан более низкий рейтинг. Пока «Показывать 18+» выключено, он не попадает в «Обзор» и поиск.",
   "Rate a whole source. 18+ keeps it out of Discover and search while “Show 18+” is off. A lower age means only accounts at least that old can see it. All ages ignores the extension’s own adult flag. Default follows the extension.": "Задайте возрастной рейтинг для всего источника. 18+ скрывает его из «Обзора» и поиска, пока «Показывать 18+» выключено. При меньшем возрасте его видят только аккаунты не младше этого возраста. «Для всех возрастов» игнорирует собственную пометку расширения о взрослом контенте. «По умолчанию» следует расширению.",
   "Quick settings": "Быстрые настройки",
-  "Profile settings": "Настройки профиля"
+  "Profile settings": "Настройки профиля",
+  "Your tracker connection needs attention: {names}": "Подключение к трекеру требует внимания: {names}"
 }

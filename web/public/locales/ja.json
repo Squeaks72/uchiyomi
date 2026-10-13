@@ -4548,5 +4548,6 @@
   "A source counts as 18+ when it is rated 18+, or when its extension flags it and it is not rated lower. While “Show 18+” is off it is left out of Discover and search.": "ソースは、18+ に設定されているか、拡張機能がフラグを付けていて、それより低いレーティングが設定されていない場合に 18+ として扱われます。「18+ を表示」がオフの間は、探すと検索に表示されません。",
   "Rate a whole source. 18+ keeps it out of Discover and search while “Show 18+” is off. A lower age means only accounts at least that old can see it. All ages ignores the extension’s own adult flag. Default follows the extension.": "ソース全体に年齢区分を設定します。18+ にすると、「18+ を表示」がオフの間は、探すと検索に表示されません。それより低い年齢にすると、その年齢以上のアカウントだけが見られます。「全年齢」は拡張機能自身の成人向けフラグを無視します。「デフォルト」は拡張機能に従います。",
   "Quick settings": "クイック設定",
-  "Profile settings": "プロフィール設定"
+  "Profile settings": "プロフィール設定",
+  "Your tracker connection needs attention: {names}": "トラッカー接続の確認が必要です: {names}"
 }
