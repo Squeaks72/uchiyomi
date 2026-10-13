@@ -21,6 +21,8 @@ function Host({ id, onClose }: { id: string; onClose: () => void }) {
   const { data: series } = useQuery({ queryKey: ['series', id], queryFn: () => api<Series>(`/api/series/${id}`) });
   const g = useSeriesGroups(id, true);
   const toSeries = () => router.push(seriesHref(id));
+  // The sheet seeds its search box from the title once, on mount, so wait for the series rather than open on an empty one.
+  if (!series) return null;
   return (
     <SourcesSheet id={id} title={series?.metadata?.title || series?.name || ''} series={series} groups={g.groups} admin={g.admin}
       error={g.error} isLoading={g.isLoading} haveNumbers={NONE} checkedAt={g.checkedAt} startAttach
