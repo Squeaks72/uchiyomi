@@ -24,7 +24,7 @@ export function chords(ctx: ShortcutCtx): Chord[] {
     { key: 'w', label: tr('Wrapped'), href: '/wrapped/' },
     ...(ctx.mayDownload ? [{ key: 'v', label: tr('Library → Downloads'), href: downloadsHref() }] : []),
     // The chapters saved on this device: not on Uchiyomi Desktop, where they are already on the disk.
-    ...(ctx.mayDownload && !ctx.desktop ? [{ key: 'o', label: tr('Saved on this device'), href: '/downloads/' }] : []),
+    ...(ctx.mayDownload && !ctx.desktop ? [{ key: 'o', label: tr('Offline downloads'), href: '/downloads/' }] : []),
     { key: 'p', label: tr('Profile & settings'), href: '/profile/' },
     ...(ctx.admin ? [{ key: 'a', label: tr('Admin'), href: '/admin/' }] : []),
   ];

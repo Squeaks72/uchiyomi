@@ -71,14 +71,15 @@ test('visibleGroups keeps a group\'s links while it drops hidden tabs', () => {
   assert.deepEqual(out, [{ id: 'a', label: 'A', tabs: ['One'], links: [{ label: 'Import', href: '/admin/import/' }] }]);
 });
 
-test('Admin has an Import entry in the Content group, and Settings links to Backups', () => {
+test('Admin keeps its Content group as it was, and the new settings sections are mounted', () => {
   const page = code(read('app/admin/page.tsx'));
-  assert.match(page, /id: 'content', label: 'Content', tabs: keys\('Library', 'Health', 'Art'\), links: \[\{ label: keys\('Import'\)\[0\], href: '\/admin\/import\/' \}\]/);
+  assert.match(page, /id: 'content', label: 'Content', tabs: keys\('Library', 'Health', 'Art'\) \}/);
   const settings = code(read('components/AdminSettings.tsx'));
-  assert.match(settings, /<Link href="\/admin\/\?tab=Tasks&section=task-backup"/, 'the backup hour has no Backups link');
+  assert.match(settings, /<ContentRatingsSection [^\n]*\/>/, 'Content ratings is not mounted');
+  assert.match(settings, /<PolitenessSection \/>/, 'Downloads & politeness is not mounted');
 });
 
-test('Fetching & politeness shows the limits read-only and unblocks through the source route', () => {
+test('Downloads & politeness shows the limits read-only and unblocks through the source route', () => {
   const src = code(read('components/ArchiveSettings.tsx'));
   const section = src.slice(src.indexOf('export function PolitenessSection('));
   assert.match(section, /api<\{ limits: Limit\[\]; note: string \}>\('\/api\/admin\/limits'\)/);

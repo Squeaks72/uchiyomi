@@ -470,7 +470,7 @@ function ChapterRow({ book, downloaded, sourceNames, primarySource, versions, on
     ...(onDelete ? [{ label: tr('Delete from server'), divider: !onRefetch, danger: true, onSelect: onDelete }] : []),
     // The only way to drop a saved copy: the ✓ on the row is a status, never a button, so a stray click cannot undo it.
     ...(downloaded && !isDesktop() ? [{ label: tr('Remove from this device'), divider: true, onSelect: () => { void onToggleDownload().catch(() => {}); } }] : []),
-    ...(onRemove ? [{ label: tr('Remove from series'), divider: true, danger: true, onSelect: onRemove }] : []),
+    ...(onRemove ? [{ label: tr('Remove from library'), divider: true, danger: true, onSelect: onRemove }] : []),
   ], { label: tr('Chapter actions') });
   // Only a name is shown; an id that resolves to nothing (a source since removed) shows no caption at all.
   const altSource = book.sourceId && book.sourceId !== primarySource ? (sourceNames?.[book.sourceId] ?? null) : null;
@@ -523,7 +523,7 @@ function ChapterRow({ book, downloaded, sourceNames, primarySource, versions, on
       {book.metadata?.releaseDate && <RowDate iso={book.metadata.releaseDate} />}
       {!selectable && <ButtonsWrap compact={!!compact} menuOpen={menu.open}>
       {fresh && (
-        <span role="img" aria-label={tr('Fetched')} title={`${tr('Fetched')}: ${tr('Fetch brings a chapter onto the server for everyone.')}`} data-fetched
+        <span role="img" aria-label={tr('Fetched')} data-fetched
           className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-emerald-400/50 text-emerald-400">
           <IcCheck width={16} height={16} />
         </span>
@@ -544,7 +544,6 @@ function ChapterRow({ book, downloaded, sourceNames, primarySource, versions, on
         // "Save offline", not "Download": the ☁ on a ghost row brings a chapter onto the server, this arrow
         // copies one to this device, and one word for both promised the wrong thing on one of them.
         aria-label={downloaded ? tr('Saved on this device') : tr('Save offline')}
-        title={downloaded ? tr('Saved on this device') : `${tr('Save offline')}: ${tr('Save offline copies it to this device.')}`}
       >
         {busy ? <span className="text-[11px] font-semibold text-accent">…</span> : downloaded ? <IcCheck width={16} height={16} /> : <IcDownload width={16} height={16} />}
       </button>}
@@ -620,7 +619,7 @@ function GhostRow({ ghost, sourceNames, primarySource, selectable, selected, onT
   // The one action that applies to a chapter that is not here, on the same menu as a chapter row's (#100).
   const menu = useContextMenu(() => (onMark ? [
     { label: read ? tr('Mark unread') : tr('Mark read'), onSelect: () => onMark(!read) },
-    ...(onRemove ? [{ label: tr('Remove from series'), divider: true, danger: true, onSelect: onRemove }] : []),
+    ...(onRemove ? [{ label: tr('Remove from library'), divider: true, danger: true, onSelect: onRemove }] : []),
   ] : []), { label: tr('Chapter actions') });
   const menuBind = onMark && !selectable ? menu.bind : {};
   const label = whyLabel(ghost, { wholeHere });
@@ -668,7 +667,7 @@ function GhostRow({ ghost, sourceNames, primarySource, selectable, selected, onT
       {/* The cloud, not the ⬇ of the row above: that arrow saves a chapter to THIS DEVICE, this one brings
           it onto the server, and the same glyph for both would promise the wrong thing on one of them. */}
       {onFetch && !selectable && (
-        <button type="button" aria-label={fetching ? tr('Fetching…') : tr('Fetch')} title={`${tr('Fetch')}: ${tr('Fetch brings a chapter onto the server for everyone.')}`} disabled={busy || fetching} aria-busy={fetching || undefined}
+        <button type="button" aria-label={fetching ? tr('Fetching…') : tr('Fetch')} disabled={busy || fetching} aria-busy={fetching || undefined}
           data-fetching={fetching ? '' : undefined}
           onClick={async () => {
             if (busy) return;
@@ -2415,14 +2414,14 @@ function SeriesInner() {
       {Toolbar}
       {removing != null && (
         <ConfirmDialog
-          title={tr('Remove this chapter from the series?')}
+          title={tr('Remove this chapter from the library?')}
           danger
           busy={acting}
           confirmLabel={tr('Remove')}
           body={
             <>
               <p>{tr('The chapter’s files are deleted from the server and the number is no longer listed or fetched for this series. Use it for a chapter a source added that is not part of the series.')}</p>
-              <p className="mt-2">{tr('A chapter somebody has bookmarked, and a chapter in a library you assembled yourself, is skipped. “Removed chapters” on this page brings a removed chapter back.')}</p>
+              <p className="mt-2">{tr('A chapter somebody has bookmarked, and a chapter in a library you assembled yourself, is skipped. Series Properties can bring a removed chapter back.')}</p>
             </>
           }
           onConfirm={removeChapter}
@@ -2470,7 +2469,7 @@ function SeriesInner() {
           body={
             <>
               <p>{tr('The chapters’ files are deleted from the server and the numbers are no longer listed or fetched for this series. Use it for chapters a source added that are not part of the series.')}</p>
-              <p className="mt-2">{tr('A chapter somebody has bookmarked, and a chapter in a library you assembled yourself, is skipped. “Removed chapters” on this page brings a removed chapter back.')}</p>
+              <p className="mt-2">{tr('A chapter somebody has bookmarked, and a chapter in a library you assembled yourself, is skipped. Series Properties can bring a removed chapter back.')}</p>
             </>
           }
           onConfirm={bulkPurge}
@@ -2511,8 +2510,8 @@ function SeriesInner() {
           // A tombstone has no file to set aside -- the cleanup already deleted it -- and a sentence that
           // says one is set aside on a row that reads "Deleted from the server" contradicts the row.
           body={<p>{replacing.book.pruned
-            ? tr('The chapter was deleted from the server; this copy is fetched onto the same row and everyone’s progress stays.')
-            : tr('The current file is set aside and this copy is fetched onto the same row. Everyone’s progress stays; the page count may differ.')}</p>}
+            ? tr('The chapter was deleted from the server; this copy is downloaded onto the same row and everyone’s progress stays.')
+            : tr('The current file is set aside and this copy is downloaded onto the same row. Everyone’s progress stays; the page count may differ.')}</p>}
           onConfirm={replaceWith}
           onClose={() => setReplacing(null)}
         />

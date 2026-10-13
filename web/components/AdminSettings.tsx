@@ -1,10 +1,5 @@
 'use client';
-// Admin → Settings: sections on the settings grid, every row saving on its own.
-//
-// Fork reorganisation: General · Privacy & access · Updates & schedules · Library housekeeping · Chapters & naming
-// (scanlators, source order, notice chapters, borrowed names, group upgrades) · Notifications · Downloads · Downloads &
-// politeness · Content ratings. The text below describes how the tab was first built; where it says "Server" read
-// "General" plus "Privacy & access", and "18+ filter" is now Content ratings.
+// Admin → Settings: four sections on the settings grid, every row saving on its own.
 //
 // Until v0.39.0 this tab was a `.board` of cards of every shape with three save idioms side by side: three
 // full-width "Save name" / "Save interval" buttons, switches that saved on their own with a toast, a tiny
@@ -87,28 +82,29 @@ export function AdminSettings() {
         ['adult-filter', tr('18+ filter')], ['source-order', tr('Source order')], ['notice-chapters', tr('Notice chapters')],
       ]} />
       <ServerSection data={data} save={save} />
-      <PrivacySection data={data} save={save} />
       <SchedulesSection data={data} save={save} />
       <HousekeepingSection data={data} save={save} />
-      <ChaptersSection data={data} save={save} />
+      <ScanlatorsSection data={data} save={save} />
       {/* v0.43.0 (#70): webhook, Home Assistant, ntfy and Discord targets. Last, after Library housekeeping and
-          Chapters & naming: General must stay first (run.mjs), and settingsConsole.test.ts pins the sections above in
+          Scanlators: Server must stay first (run.mjs), and settingsConsole.test.ts pins the four above in
           their order. Its rows and its one dialog live in their own file; it reads its own endpoint. */}
       <NotificationsSection />
       {/* v0.49.0 (#117): the slow archive's pause and pace, in its own file. After the pinned sections, the
-          ones above and Notifications right behind them (adminNotifications.test.ts). Its second card, Downloads &
+          four above and Notifications right behind them (adminNotifications.test.ts). Its second card, Downloads &
           politeness, is the env-only knobs read-only and the sources that are blocked right now. */}
       <DownloadsSection data={data} save={save} />
       <PolitenessSection />
       <ContentRatingsSection data={data} save={save} />
+      <SourceOrderSection data={data} save={save} />
+      <NoticeChaptersSection data={data} save={save} />
     </div>
   );
 }
 
 /**
  * A titled part of one card: a heading, a sentence, and its controls, as ONE divider group in the section's `divide-y`.
- * Chapters & naming holds five things that used to be four cards, and a Section inside a Section is a card in a card; a
- * Block keeps each one findable (its `id` is a `?section=` target, lib/destinations.ts) without a second frame.
+ * Content ratings holds three groups, and a Section inside a Section is a card in a card; a Block keeps each one
+ * separate without a second frame.
  */
 function Block({ id, title, description, children }: { id?: string; title: string; description?: string; children: ReactNode }) {
   return (
@@ -117,37 +113,6 @@ function Block({ id, title, description, children }: { id?: string; title: strin
       {description && <p className="mt-0.5 max-w-prose text-[11px] leading-relaxed text-fog-500">{description}</p>}
       {children}
     </div>
-  );
-}
-
-/**
- * Chapters & naming: everything that decides WHICH copy of a chapter is kept and what it is called, in one card that was
- * five (Scanlators, Source order, Notice chapters, and two switches that sat under the scanlator lists). The parts keep
- * their own ids, so `?section=scanlators`, `source-order` and `notice-chapters` still land on them.
- */
-function ChaptersSection({ data, save }: { data: any; save: Save }) {
-  return (
-    <Section id="chapters" title={tr('Chapters & naming')} icon={<IcFilter width={18} height={18} />}
-      description={tr('Which copy of a chapter is taken, what it is called, and which short chapters count as notices.')}>
-      <ScanlatorsBlock data={data} save={save} />
-      {/* Group upgrades (#81): the nightly repair's sixth step. Off by default, because it replaces files on
-          disk; the help says every rule it keeps, so switching it on is not a leap in the dark. */}
-      {/* Off by default: outbound traffic to sources that carry nothing else for a series. A series can
-          switch it for itself on its Sources & translations sheet. */}
-      <SwitchRow label={tr('Borrow chapter names from other sources')}
-        help={tr('Off by default. If a series’ own source only says “Chapter 12”, use the chapter name from another source whose numbering matches. A source that numbers chapters differently is never used. Only the displayed name changes, never the file. If the series’ own source names the chapter later, that name wins. Switching this off removes borrowed names.')}
-        on={data.borrow_names === true} onChange={(next) => save({ borrowNames: next })} />
-      {/* v0.56.0: Discover's names looked up on AniList, MangaDex and MangaUpdates, beside the other row that sends titles
-          off the server. ON by default, which `!== false` reads as: a server that does not send the key yet looks them up. */}
-      <SwitchRow label={tr('Match Discover titles online')}
-        help={tr('On by default. Titles shown in Discover are looked up on AniList, MangaDex and MangaUpdates, once each and in the background, so that a series several sources name differently shows as one card and one you already have stays hidden. Off, only the names themselves are compared and nothing is sent anywhere.')}
-        on={data.discover_lookups !== false} onChange={(next) => save({ discoverLookups: next })} />
-      <SwitchRow label={tr('Upgrade chapters to a preferred group')}
-        help={tr('Off by default. Each night, a chapter you have from one group is replaced if a group you rank higher releases it on a source the series follows. Only files Uchiyomi downloaded itself are replaced. A copy with fewer pages never replaces one with more, a chapter you picked a version for by hand is never touched, and at most ten are replaced a night. Reading progress is kept.')}
-        on={data.group_upgrade === true} onChange={(next) => save({ groupUpgrade: next })} />
-      <SourceOrderBlock data={data} save={save} />
-      <NoticeChaptersBlock data={data} save={save} />
-    </Section>
   );
 }
 
@@ -166,7 +131,7 @@ function ChaptersSection({ data, save }: { data: any; save: Save }) {
  * Held locally and saved whole on every flip, re-seeded from the refetch, for the reason ContentRatingsSection says:
  * two quick flips must not both start from the list as it was before either landed.
  */
-function NoticeChaptersBlock({ data, save }: { data: any; save: Save }) {
+function NoticeChaptersSection({ data, save }: { data: any; save: Save }) {
   const [types, setTypes] = useState<SeriesType[]>(() => (Array.isArray(data.hide_notice_types) ? data.hide_notice_types : []));
   useEffect(() => { setTypes(Array.isArray(data.hide_notice_types) ? data.hide_notice_types : []); }, [data.hide_notice_types]);
   const flip = async (t: SeriesType, on: boolean) => {
@@ -177,7 +142,7 @@ function NoticeChaptersBlock({ data, save }: { data: any; save: Save }) {
   };
   const shortOnly = data.hideNoticeShortOnly !== false;
   return (
-    <Block id="notice-chapters" title={tr('Notice chapters')}
+    <Section id="notice-chapters" title={tr('Notice chapters')} icon={<IcFilter width={18} height={18} />}
       description={shortOnly
         ? tr('Some sources post notices as a short chapter numbered like 100.5. For each type switched on, chapters numbered like 12.5 with 3 pages or fewer are hidden from the library, reader, OPDS and Mihon. Longer ones stay, and so do any whose pages are not counted yet. A hidden chapter is not downloaded. Nothing is deleted; switching a type off shows them again. A series can override this in its Sources & translations sheet.')
         : tr('Some sources post notices as a short chapter numbered like 100.5. For each type switched on, every chapter numbered like 12.5 is hidden from the library, reader, OPDS and Mihon, and is not downloaded. Nothing is deleted; switching a type off shows them again. A series can override this in its Sources & translations sheet.')}>
@@ -192,7 +157,7 @@ function NoticeChaptersBlock({ data, save }: { data: any; save: Save }) {
           help={tr('Off hides every chapter numbered like 12.5 of the types switched on, including real chapters a site split into parts.')}
           on={shortOnly} onChange={(next) => save({ hideNoticeShortOnly: next })} />
       </div>
-    </Block>
+    </Section>
   );
 }
 
@@ -399,7 +364,7 @@ function ContentRatingsSection({ data, save }: { data: any; save: Save }) {
  * Arrows rather than dragging: a short list that changes rarely, and two buttons work on a phone, from a
  * keyboard and with a screen reader.
  */
-function SourceOrderBlock({ data, save }: { data: any; save: Save }) {
+function SourceOrderSection({ data, save }: { data: any; save: Save }) {
   const toast = useToast();
   const fromServer = (): string[] => (Array.isArray(data.source_prefs?.priority) ? data.source_prefs.priority : []);
   const [order, setOrder] = useState<string[]>(fromServer);
@@ -425,13 +390,15 @@ function SourceOrderBlock({ data, save }: { data: any; save: Save }) {
   };
 
   return (
-    <Block id="source-order" title={tr('Source order')}
-      description={tr('When a series follows more than one source, a new chapter is taken from the highest one here that has it, after your scanlation group preferences. Chapters you already have are never replaced because of it. A series can have its own order in its Sources & translations.')}>
+    <Section id="source-order" title={tr('Source order')} icon={<IcRefresh width={18} height={18} />}>
+      <p className="py-3 max-w-prose text-[11px] leading-relaxed text-fog-500">
+        {tr('When a series follows more than one source, a new chapter is taken from the highest one here that has it, after your scanlation group preferences. Chapters you already have are never replaced because of it. A series can have its own order in its Sources & translations.')}
+      </p>
       {rows.length === 0 && (
-        <p className="mt-2 text-[11px] text-fog-500">{tr('No order set: each series prefers the source it was added from.')}</p>
+        <p className="pb-3 text-[11px] text-fog-500">{tr('No order set: each series prefers the source it was added from.')}</p>
       )}
       {rows.length > 0 && (
-        <ol className="mt-2 space-y-1">
+        <ol className="space-y-1 pb-3">
           {rows.map((r, i) => (
             <li key={r.id} className="flex items-center gap-2 rounded-lg bg-ink-900/60 px-3 py-2">
               <span className="w-5 shrink-0 text-[11px] tabular-nums text-fog-500">{i + 1}</span>
@@ -451,7 +418,7 @@ function SourceOrderBlock({ data, save }: { data: any; save: Save }) {
         </ol>
       )}
       {rest.length > 0 && (
-        <div className="mt-3">
+        <div className="pb-3">
           <p className="mb-1.5 text-[11px] text-fog-500">{tr('Add a source to the order')}</p>
           {rest.length >= SOURCE_TOOLS_MIN && (
             <SourceTools className="mb-2" query={tools.query} onQuery={tools.setQuery} sort={tools.sort} onSort={tools.setSort}
@@ -465,7 +432,7 @@ function SourceOrderBlock({ data, save }: { data: any; save: Save }) {
           </div>
         </div>
       )}
-    </Block>
+    </Section>
   );
 }
 
@@ -508,21 +475,7 @@ function SwitchWithMore({ label, help, on, onChange, more }: {
 }
 
 /**
- * General: the server's name. Everything that talks to the network, or decides who may join, is under Privacy & access.
- */
-function ServerSection({ data, save }: { data: any; save: Save }) {
-  return (
-    <Section id="server" title={tr('General')} icon={<IcSettings width={18} height={18} />}>
-      {/* `required`: the server refuses an empty name (zod min(1)) with a bare 400, so an emptied box goes
-          back to the saved name on blur instead of a "Could not save" over nothing. */}
-      <TextRow label={tr('Server name')} value={data.server_name ?? ''} maxLength={64} autoComplete="off" required
-        onSave={(v) => save({ serverName: v })} />
-    </Section>
-  );
-}
-
-/**
- * Privacy & access: who may join, and the two network promises.
+ * Server: the name, who may join, and the two network promises.
  *
  * ⚠️ THE UPDATE CHECK AND THE INSTALL COUNT ARE TWO ROWS BECAUSE THEY ARE TWO DIFFERENT PROMISES. The first
  * reads a public GitHub url and tells nobody anything, which is why it may be on by default. The second
@@ -534,7 +487,7 @@ function ServerSection({ data, save }: { data: any; save: Save }) {
  * this cannot drift into being a flattering summary of something else. Written prose here would have been
  * easier and would have been the wrong shape: what an admin agrees to should be the literal object.
  */
-function PrivacySection({ data, save }: { data: any; save: Save }) {
+function ServerSection({ data, save }: { data: any; save: Save }) {
   const toast = useToast();
   const on = !!data.install_ping;
   // Uchiyomi Desktop has one person and no install count (lib/desktop.ts): no registration switch, and the
@@ -638,14 +591,9 @@ function SchedulesSection({ data, save }: { data: any; save: Save }) {
       <NumberRow label={tr('Backup time (hour, 0–23)')} min={0} max={23} value={data.backup_hour ?? 3}
         help={isDesktop() ? `${nightly} ${tr('If the PC is off then, it runs the next time Uchiyomi opens.')}` : nightly}
         onSave={(n) => save({ backupHour: n })} />
-      {/* The keep count and its link as one divider group (the `pt-2` makes up the difference to a plain row's `py-3`).
-          Running a backup now and restoring one live on Tasks, which is where the link goes. */}
-      <div className="pt-2">
-        <NumberRow label={tr('Backups to keep')} min={1} max={365} value={data.backup_keep ?? 14}
-          help={tr('After each backup, the oldest beyond this number are deleted.')}
-          onSave={(n) => save({ backupKeep: n })} />
-        <Link href="/admin/?tab=Tasks&section=task-backup" className="text-[11px] text-accent underline">{tr('Backups: run now or restore')}</Link>
-      </div>
+      <NumberRow label={tr('Backups to keep')} min={1} max={365} value={data.backup_keep ?? 14}
+        help={tr('After each backup, the oldest beyond this number are deleted.')}
+        onSave={(n) => save({ backupKeep: n })} />
       {data.extensions_configured && (
         <>
           <SwitchRow label={tr('Update extensions automatically')}
@@ -661,17 +609,6 @@ function SchedulesSection({ data, save }: { data: any; save: Save }) {
       <SwitchRow label={tr('Look for failed chapters on other sources')}
         help={tr('When a chapter cannot be saved from the sources this series follows, search the others once a day and follow the one that has it')}
         on={data.auto_follow_on_failure !== false} onChange={(next) => save({ autoFollowOnFailure: next })} />
-      {/* v0.41.0: the nightly repair. ON by default (`repair_enabled NOT NULL DEFAULT true`), which
-          `!== false` reads as: a server that does not send the key yet is a server that repairs.
-          It lives with the schedules because it is a nightly job like the backup, not library housekeeping.
-          v0.55.0: what the nightly runs, the safe repair or a whole Fix everything (NightlyModeRow below). The safe
-          repair's sentence ends "Nothing is deleted or merged without you", which a nightly Fix everything is not. */}
-      <SwitchRow label={tr('Repair the library nightly')}
-        help={nightlyModeOf(data) === 'autofix'
-          ? tr('Once a day, Fix everything runs by itself, as if you had pressed it on Health. What it did is under Health → Recent repairs.')
-          : tr('Once a day: counts pages in files never opened, replaces one- or two-page chapters when a source has a longer copy, searches other sources for missing chapter runs, retries chapters that stopped failing, and resets the Cloudflare solver when sources blame it. Nothing is deleted or merged without you.')}
-        on={data.repair_enabled !== false} onChange={(next) => save({ repairEnabled: next })} />
-      <NightlyModeRow mode={nightlyModeOf(data)} off={data.repair_enabled === false} onPick={(m) => save({ nightlyMode: m })} />
     </Section>
   );
 }
@@ -716,7 +653,7 @@ export function NightlyModeRow({ mode, off, onPick }: { mode: NightlyMode; off: 
 }
 
 /**
- * Library housekeeping: the opt-in read-chapter cleanup and the Mihon reveal. (The nightly repair moved to Updates & schedules.)
+ * Library housekeeping: the opt-in read-chapter cleanup.
  *
  * ⚠️ THE ONLY SWITCH ON THIS TAB THAT DELETES FILES, so it is the only one that does not simply toggle.
  * Turning it ON asks first, and the question carries `cleanup_read_due` from the settings endpoint: the
@@ -779,9 +716,23 @@ function HousekeepingSection({ data, save: patch }: { data: any; save: Save }) {
               : tr('Counted from the moment the last reader finished. Re-opening the chapter starts the wait again.')}
           </p>
           <p className="mt-1 max-w-prose text-[11px] leading-relaxed text-fog-500">
-            {tr('Only chapters Uchiyomi fetched itself are removed. Chapters in a library you built by hand are never touched. The chapter stays listed and everyone keeps their reading history; only the pages go. It is not fetched again automatically. Use Fetch again on the series page to bring it back.')}
+            {tr('Only chapters Uchiyomi downloaded itself are removed. Chapters in a library you built by hand are never touched. The chapter stays listed and everyone keeps their reading history; only the pages go. It is not downloaded again automatically. Use Fetch again on the series page to bring it back.')}
           </p>
         </div>
+        {/* v0.41.0: the nightly repair. ON by default (`repair_enabled NOT NULL DEFAULT true`), which
+            `!== false` reads as: a server that does not send the key yet is a server that repairs.
+            ⚠️ Saved through `patch`, the section's PROP, not through the local `save` above -- that one
+            takes a success sentence as its second argument and a switch has no sentence to give it.
+            It sits in housekeeping rather than under schedules because it is library maintenance, and
+            below the delete switch because it is the one that never deletes anything. */}
+        {/* v0.55.0: what the nightly runs, the safe repair or a whole Fix everything (NightlyModeRow below). The safe
+            repair's sentence ends "Nothing is deleted or merged without you", which a nightly Fix everything is not. */}
+        <SwitchRow label={tr('Repair the library nightly')}
+          help={nightlyModeOf(data) === 'autofix'
+            ? tr('Once a day, Fix everything runs by itself, as if you had pressed it on Health. What it did is under Health → Recent repairs.')
+            : tr('Once a day: counts pages in files never opened, replaces one- or two-page chapters when a source has a longer copy, searches other sources for missing chapter runs, retries chapters that stopped failing, and resets the Cloudflare solver when sources blame it. Nothing is deleted or merged without you.')}
+          on={data.repair_enabled !== false} onChange={(next) => patch({ repairEnabled: next })} />
+        <NightlyModeRow mode={nightlyModeOf(data)} off={data.repair_enabled === false} onPick={(m) => patch({ nightlyMode: m })} />
         {/* The reveal for the cleanup above, and for a followed series nobody has fetched: without it Mihon
             counted a pruned or never-downloaded chapter as zero chapters, and told the trackers so. No
             confirmation — nothing here is deleted or written, and turning it off is exactly as reversible
@@ -932,7 +883,7 @@ function GroupChips({ label, hint, value, ordered, onChange, suggestions }: {
  * ONE write -- a block that saved on its own while the ranking was still half-typed would apply a preference
  * nobody had finished expressing.
  */
-function ScanlatorsBlock({ data, save }: { data: any; save: Save }) {
+function ScanlatorsSection({ data, save }: { data: any; save: Save }) {
   // `null` until the admin touches something, so the section shows what is stored until then. The draft is
   // kept after a save rather than cleared: clearing it would show the old values for the moment between
   // the PATCH and the refetch landing, and the button goes quiet on its own once the two agree.
@@ -953,7 +904,7 @@ function ScanlatorsBlock({ data, save }: { data: any; save: Save }) {
   });
   const suggestions = known?.content ?? [];
   return (
-    <Block id="scanlators" title={tr('Scanlators')}
+    <Section id="scanlators" title={tr('Scanlators')} icon={<IcFilter width={18} height={18} />}
       description={tr('When a source lists the same chapter from more than one group, the updater takes the first group ranked here and never a blocked one. Each series can rank its own on its page; blocks made here apply to every series.')}>
       {/* One child, so the section's divide-y draws no line between the two lists. */}
       <div>
@@ -978,6 +929,21 @@ function ScanlatorsBlock({ data, save }: { data: any; save: Save }) {
             disabled={!dirty} className="btn-accent px-4 py-2 text-sm disabled:opacity-50">{tr('Save scanlator defaults')}</button>
         </div>
       </div>
-    </Block>
+      {/* Group upgrades (#81): the nightly repair's sixth step. Off by default, because it replaces files on
+          disk; the help says every rule it keeps, so switching it on is not a leap in the dark. */}
+      {/* Off by default: outbound traffic to sources that carry nothing else for a series. A series can
+          switch it for itself on its Sources & translations sheet. */}
+      <SwitchRow label={tr('Borrow chapter names from other sources')}
+        help={tr('Off by default. If a series’ own source only says “Chapter 12”, use the chapter name from another source whose numbering matches. A source that numbers chapters differently is never used. Only the displayed name changes, never the file. If the series’ own source names the chapter later, that name wins. Switching this off removes borrowed names.')}
+        on={data.borrow_names === true} onChange={(next) => save({ borrowNames: next })} />
+      {/* v0.56.0: Discover's names looked up on AniList, MangaDex and MangaUpdates, beside the other row that sends titles
+          off the server. ON by default, which `!== false` reads as: a server that does not send the key yet looks them up. */}
+      <SwitchRow label={tr('Match Discover titles online')}
+        help={tr('On by default. Titles shown in Discover are looked up on AniList, MangaDex and MangaUpdates, once each and in the background, so that a series several sources name differently shows as one card and one you already have stays hidden. Off, only the names themselves are compared and nothing is sent anywhere.')}
+        on={data.discover_lookups !== false} onChange={(next) => save({ discoverLookups: next })} />
+      <SwitchRow label={tr('Upgrade chapters to a preferred group')}
+        help={tr('Off by default. Each night, a chapter you have from one group is replaced if a group you rank higher releases it on a source the series follows. Only files Uchiyomi downloaded itself are replaced. A copy with fewer pages never replaces one with more, a chapter you picked a version for by hand is never touched, and at most ten are replaced a night. Reading progress is kept.')}
+        on={data.group_upgrade === true} onChange={(next) => save({ groupUpgrade: next })} />
+    </Section>
   );
 }

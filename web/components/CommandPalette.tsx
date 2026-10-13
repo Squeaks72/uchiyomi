@@ -25,7 +25,7 @@ import { useSeriesMenu } from './SeriesMenu';
 export interface Action { key: string; label: string; hint?: string; icon: React.ReactNode; run: () => void | Promise<void> }
 
 /**
- * The palette's actions (Surprise me, Updates, Moments, Server fetching, Saved on this device, Refresh ...), as a hook so the
+ * The palette's actions (Surprise me, Updates, Moments, Server downloads, Offline downloads, Refresh ...), as a hook so the
  * phone's search page lists the same ones: a phone has no palette hotkey, and these were desktop-only before.
  * `go` navigates (and closes whatever called it); `onClose` closes it before an action that stays on the page.
  */
@@ -52,15 +52,15 @@ export function usePaletteActions(go: (href: string) => void, onClose: () => voi
     { key: 'moments', label: tr('Moments'), hint: tr('pages you saved'), icon: <IcMoments width={16} height={16} />, run: () => go('/moments') },
     // What the SERVER is fetching (v0.49.0), beside this device's copies: two different promises, two entries.
     // Kept on desktop, where it is the only "downloads" there is.
-    ...(mayDownload ? [{ key: 'server-downloads', label: tr('Server fetching'), hint: tr('what the server is fetching'), icon: <IcCloudDownload width={16} height={16} />, run: () => go(downloadsHref()) }] : []),
-    { key: 'downloads', label: tr('Saved on this device'), icon: <IcDownload width={16} height={16} />, run: () => go('/downloads') },
+    ...(mayDownload ? [{ key: 'server-downloads', label: tr('Server downloads'), hint: tr('what the server is fetching'), icon: <IcCloudDownload width={16} height={16} />, run: () => go(downloadsHref()) }] : []),
+    { key: 'downloads', label: tr('Offline downloads'), icon: <IcDownload width={16} height={16} />, run: () => go('/downloads') },
     // Genres are a filter now, not a page. The palette still gets you there in one keystroke.
     { key: 'genres', label: tr('Filter by genre'), icon: <IcGrid width={16} height={16} />, run: () => go('/library') },
     {
       key: 'refresh', label: tr('Refresh library'), hint: tr('scan for new chapters'), icon: <IcRefresh width={16} height={16} />,
       run: async () => { onClose(); toast(tr('Refreshing…'), 'info', { busy: true, key: 'refresh' }); await triggerRefresh(); toast(tr('Refresh started'), 'success', { key: 'refresh' }); },
     },
-  ] as Action[]).filter((a) => !hiddenOnDesktop(DESKTOP_HIDDEN.paletteKeys, a.key)), [go, onClose, toast, mayDownload]); // no Saved on this device on desktop (lib/desktop.ts)
+  ] as Action[]).filter((a) => !hiddenOnDesktop(DESKTOP_HIDDEN.paletteKeys, a.key)), [go, onClose, toast, mayDownload]); // no Offline downloads on desktop (lib/desktop.ts)
   return actions;
 }
 

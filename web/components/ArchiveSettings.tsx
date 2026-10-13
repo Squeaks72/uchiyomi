@@ -31,7 +31,7 @@ export function DownloadsSection({ data, save }: { data: any; save: Save }) {
   const freeGb: number | null = typeof data.archive_free_gb === 'number' ? data.archive_free_gb : null;
   const desktop = isDesktop();
   return (
-    <Section id="downloads" title={tr('Fetching')} icon={<IcHourglass width={18} height={18} />}
+    <Section id="downloads" title={tr('Downloads')} icon={<IcHourglass width={18} height={18} />}
       description={tr('The slow archive fetches whole series a chapter at a time, over nights or days, so a site never sees a burst. Queue a series from the add dialog, its page, or a Library selection.')}>
       {/* On is "not paused": the column is archive_paused, and the switch says what an admin wants to know. */}
       <SwitchRow label={tr('Slow archive')}
@@ -65,10 +65,10 @@ export function DownloadsSection({ data, save }: { data: any; save: Save }) {
       <div className="py-3 last:pb-0">
         <Disclosure label={tr('How the slow archive works')}>
           <ul className="max-w-prose list-disc space-y-1 ps-4 text-[11px] leading-relaxed text-fog-500">
-            <li>{tr('It fetches one chapter at a time per source, with random pauses between pages and chapters. Different sites run side by side.')}</li>
+            <li>{tr('One chapter at a time per source, with a random pause between pages and a random break between chapters, now and then a long one. Several sites are archived side by side.')}</li>
             <li>{tr('It stands aside for the scheduled check, the library repair, the source check and anyone else downloading from the same site.')}</li>
             <li>{tr('A site that refuses is left alone for an hour, then three, then twelve, then a day at a time. The series stays queued.')}</li>
-            <li>{tr('After a restart it carries on where it left off. It only uses sources a series already follows and never searches other sites.')}</li>
+            <li>{tr('After a restart it carries on where it left off, and no break is cut short. It only fetches from the sources a series already follows; it never searches other sites.')}</li>
             <li>{tr('Chapters it brings in do not count as new chapters under Updates, and trigger no notifications.')}</li>
           </ul>
         </Disclosure>
@@ -96,7 +96,7 @@ function limitText(l: Limit): string {
 }
 
 /**
- * Fetching & politeness (fork change): what keeps the server gentle with sites, in one place. The numbers that can only be
+ * Downloads & politeness (fork change): what keeps the server gentle with sites, in one place. The numbers that can only be
  * set by environment variables, shown read-only with the value this server is running on (GET /api/admin/limits, which
  * returns nothing but those numbers); and every source that is blocked right now, with the one control that lifts it.
  *
@@ -124,7 +124,7 @@ export function PolitenessSection() {
     }
   };
   return (
-    <Section id="politeness" title={tr('Fetching & politeness')} icon={<IcClock width={18} height={18} />}
+    <Section id="politeness" title={tr('Downloads & politeness')} icon={<IcClock width={18} height={18} />}
       description={tr('How hard this server leans on sites, and which sources are being left alone right now.')}>
       <div className="py-3 first:pt-1">
         <h3 className="text-sm font-semibold text-fog-100">{tr('Limits set by the server')}</h3>

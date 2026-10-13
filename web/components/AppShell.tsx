@@ -50,7 +50,7 @@ function OfflineLanding() {
   return (
     <div className="flex min-h-screen-d flex-col items-center justify-center gap-4">
       <div className="animate-pulse-soft"><Mark size={56} /></div>
-      <a href="/downloads/" className="text-sm text-fog-400 underline">{tr('Open your saved chapters')}</a>
+      <a href="/downloads/" className="text-sm text-fog-400 underline">{tr('Open your downloads')}</a>
     </div>
   );
 }
@@ -63,7 +63,7 @@ function OfflineBanner({ name }: { name: string }) {
   return (
     <div role="status" className="flex items-center justify-center gap-2 bg-ink-800 px-4 py-1.5 text-[11px] text-fog-300 lg:ps-[calc(var(--rail-w)+1rem)]">
       <IcWifiOff width={12} height={12} />
-      <span>{tr('Offline — showing {name}’s saved chapters', { name })}</span>
+      <span>{tr('Offline — showing {name}’s downloads', { name })}</span>
     </div>
   );
 }

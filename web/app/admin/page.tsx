@@ -69,9 +69,7 @@ const GROUPS = [
   // spot has now shipped an English sidebar twice. See lib/i18n.ts.
   { id: 'server',  label: 'Server',  tabs: keys('Overview', 'Tasks', 'Settings') },
   { id: 'people',  label: 'People',  tabs: keys('Members', 'Sessions', 'Activity') },
-  // Fork change: Import is a page of its own (/admin/import), so it is a link in the group rather than an eleventh tab
-  // (the tab list is pinned at ten). ConsoleNav draws `links` under the tabs.
-  { id: 'content', label: 'Content', tabs: keys('Library', 'Health', 'Art'), links: [{ label: keys('Import')[0], href: '/admin/import/' }] },
+  { id: 'content', label: 'Content', tabs: keys('Library', 'Health', 'Art') },
   // v0.54.0: ONE tab for every source, where Providers and Extensions were two halves of one list (SourcesPanel.tsx).
   // Their old names and links land on it (lib/sourcesPanel.ts SOURCES_TAB_ALIASES).
   { id: 'sources', label: 'Sources', tabs: keys('Sources') },
@@ -2087,7 +2085,7 @@ function LibraryPanel() {
                 </p>
                 {filesGone(r) && (
                   <p className="col-span-2 col-start-1 row-start-3 min-w-0 text-[11px] text-fog-400 lg:col-span-1 lg:col-start-2 lg:row-start-2">
-                    {tr('The chapter files are gone. Put back restores the series with its chapters marked as deleted. Use Fetch again on the series page to fetch them once more.')}
+                    {tr('The chapter files are gone. Put back restores the series with its chapters marked as deleted. Use Fetch again on the series page to download them once more.')}
                   </p>
                 )}
                 <div className="col-start-2 row-span-2 row-start-1 flex shrink-0 gap-1.5 justify-self-end lg:col-start-3 lg:row-span-1">

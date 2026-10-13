@@ -30,7 +30,7 @@ The ones worth knowing:
 ## What leaves your server
 
 Two things can, they are separate switches, and they go to different places. Both live in
-**Admin → Settings → Privacy & access** (`/admin/?tab=Settings`), each with a fold that spells out what it sends.
+**Admin → Settings → Server** (`/admin/?tab=Settings`), each with a fold that spells out what it sends.
 
 **Check for updates** — *on by default.* Once a day the server asks GitHub whether a newer Uchiyomi has been
 released and shows the answer under Admin → Health. It is a `GET` of a public releases page: GitHub sees your
@@ -425,7 +425,7 @@ causes an adult source to be followed. There is intentionally no environment var
 
 Since v0.49.0 a series can be queued to come in a chapter at a time over nights or days
 ([USAGE §4](USAGE.md#fetching-a-whole-series-slowly-the-slow-archive)). Its pace is set in the admin panel, not
-here — **Admin → Settings → Fetching**, and every change reaches the running archive at once, with no restart:
+here — **Admin → Settings → Downloads**, and every change reaches the running archive at once, with no restart:
 
 - *Slow archive* — on unless you pause it; off pauses every archive, and nothing queued is lost.
 - *Chapters an hour, per source* — default `4`, 1–30. A break after each chapter is drawn at random around what is
@@ -455,7 +455,7 @@ break and the scheduler's one-minute look, so a test can watch a chapter land. L
 
 ## The nightly repair
 
-On by default, under **Admin → Settings → Updates & schedules → Repair the library nightly**, and listed as
+On by default, under **Admin → Settings → Library housekeeping → Repair the library nightly**, and listed as
 **Admin → Tasks → Repair library**. Once every `REPAIR_HOURS` it does the six things that are reversible or
 provable on their own, and two more only when you switch them on, in this order:
 
