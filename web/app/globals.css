@@ -375,31 +375,6 @@
     radial-gradient(50% 60% at 90% 10%, rgb(var(--accent) / 0.10), transparent 55%);
 }
 
-/* ============ cinematic FX ============ */
-.fx-grain {
-  position: fixed; inset: 0; z-index: 2; pointer-events: none;
-  opacity: 0.05; mix-blend-mode: overlay;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  background-size: 180px 180px;
-}
-.fx-vignette {
-  position: fixed; inset: 0; z-index: 2; pointer-events: none;
-  background: radial-gradient(125% 100% at 50% 0%, transparent 52%, rgba(0,0,0,0.5) 100%);
-}
-.fx-mesh {
-  position: fixed; inset: -25%; z-index: 0; pointer-events: none;
-  filter: blur(90px) saturate(1.25); opacity: 0.55;
-  background:
-    radial-gradient(38% 40% at 18% 28%, rgb(var(--accent) / 0.20), transparent 70%),
-    radial-gradient(40% 48% at 82% 18%, rgba(34, 211, 238, 0.10), transparent 70%),
-    radial-gradient(52% 52% at 62% 92%, rgb(var(--accent) / 0.14), transparent 70%);
-  animation: mesh-drift 26s ease-in-out infinite alternate;
-}
-@keyframes mesh-drift {
-  0% { transform: translate3d(0, 0, 0) scale(1); }
-  100% { transform: translate3d(2%, -3%, 0) scale(1.14); }
-}
-
 /* ⚠️ Prefixed FIRST, in both. Written the other way round (as they were until v0.43.0), Tailwind's minifier
    read the trailing `-webkit-backdrop-filter` as overriding the unprefixed one and kept only it -- which
    Chrome and Firefox ignore -- so the phone nav, dialogs, the command palette and the sign-in card were
@@ -438,7 +413,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .fx-mesh { animation: none; }
   *, *::before, *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
 }
 
@@ -495,19 +469,11 @@ html[data-tone][dir='rtl'] .rail-scrim {
    headless Chrome at a 4x CPU throttle scrolls it at about 40 fps with the finish above and at 60 with the
    switch on; headless Firefox at 7.6 and 57.9.
 
-   ⚠️ The finish above is the default ON PURPOSE and stays exactly as it is -- the owner's rule for #71 was
-   that the app does not get plainer because one machine is slow. A cheaper grain, an unblurred mesh or a
-   vignette moved under the content all change the look; the answer to a slow machine is this switch.
-   web/test/effects.test.ts pins the three .fx-* rules.
-
    ⚠️ UNLAYERED, like the rules it overrides, and that is load-bearing: Tailwind v4 emits every
    `backdrop-blur-*` utility inside @layer utilities and `.skeleton` inside @layer components, and an
    unlayered rule beats any layered one whatever its specificity -- which is why nothing here needs
    !important. Move this into an @layer and the 56 backdrop-blur utilities win again: the switch would say
    "on" with every blur still running. */
-html.reduce-effects .fx-mesh,
-html.reduce-effects .fx-grain,
-html.reduce-effects .fx-vignette { display: none; }
 /* ⚠️ Prefixed FIRST. Tailwind's minifier (lightningcss) treats a `-webkit-backdrop-filter` that follows
    `backdrop-filter` as overriding it and keeps only the prefixed one -- which Chrome and Firefox both
    ignore. Written the other way round (as .glass above is), this compiled to `-webkit-backdrop-filter:none`
