@@ -105,7 +105,6 @@ function CollectionInner() {
   // Select: tick series to act on several at once. Apart from Edit, which is for ordering.
   const [selecting, setSelecting] = useState(false);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
-  const [startAt, setStartAt] = useState<{ x: number; y: number; id: string } | null>(null);
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [listing, setListing] = useState(false);
   const { data, isLoading } = useQuery({
@@ -279,13 +278,8 @@ function CollectionInner() {
               </div>
             </div>
           ) : (
-            <div key={s.id} className="contents" onContextMenu={(e) => {
-              if (selecting) return;
-              e.preventDefault();
-              setStartAt({ x: e.clientX, y: e.clientY, id: s.id });
-            }}>
-              <SeriesTile series={s} selectable={selecting} selected={picked.has(s.id)} onToggle={() => togglePick(s.id)} />
-            </div>
+            <SeriesTile key={s.id} series={s} selectable={selecting} selected={picked.has(s.id)} onToggle={() => togglePick(s.id)}
+              onStartSelect={() => { setSelecting(true); setPicked(new Set([s.id])); }} />
           ))}
         </div>
       )}
@@ -345,10 +339,6 @@ function CollectionInner() {
             ...(!data?.builtin ? [{ label: tr('Favorite'), run: () => void bulkMark('/api/favorites/bulk', { favorite: true }) }] : []),
             { label: tr('Select all'), run: () => setPicked(new Set(items.map((x) => x.id))) },
           ]} />
-      )}
-      {startAt && (
-        <SelectionMenu at={startAt} title={tr('Select')} onClose={() => setStartAt(null)}
-          items={[{ label: tr('Select'), run: () => { setSelecting(true); setPicked(new Set([startAt.id])); } }]} />
       )}
 
       {sorting && (

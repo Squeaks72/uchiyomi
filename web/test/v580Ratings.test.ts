@@ -66,20 +66,26 @@ test('the Library offers the five new orders after the four it had, each as the 
   // The owner's list, in their order, the four older ones first and unchanged. Reintroduce a typo in a sort string
   // ('popular,desc'): an older server and this one both sort it by title, and nothing on screen says so -- this fails.
   assert.deepEqual(SORTS.map((s) => [s.key, s.label, s.sort]), [
+    // by activity
     ['updated', 'Updated', 'lastModified,desc'],
     ['new', 'Newest', 'createdDate,desc'],
-    ['az', 'A–Z', 'metadata.titleSort,asc'],
+    ['read', 'Recently read', 'lastRead,desc'],
     ['unread', 'Most unread', 'unread,desc'],
+    // then by measure
     ['popular', 'Most popular', 'popularity,desc'],
     ['score', 'Top rated', 'score,desc'],
     ['rating', 'My rating', 'rating,desc'],
     ['chapters', 'Most chapters', 'chapters,desc'],
-    ['read', 'Recently read', 'lastRead,desc'],
+    // then by name ('za' and 'author' are ours)
+    ['az', 'A–Z', 'metadata.titleSort,asc'],
+    ['za', 'Z–A', 'metadata.titleSort,desc'],
+    ['author', 'Author', 'author,asc'],
   ]);
   // The labels reach the extractor (rendered as tr(s.label)), and the page accepts the new ids from the URL and from the
   // saved default because its validSort reads SORTS -- the line v558Preferences.test.ts pins.
+  // 'Z–A' and 'Author' follow upstream's nine: our two extra orders, appended so upstream's label indices keep theirs.
   assert.match(read('components/LibraryFilters.tsx'),
-    /const SORT_LABELS = keys\('Updated', 'Newest', 'A–Z', 'Most unread', 'Most popular', 'Top rated', 'My rating', 'Most chapters', 'Recently read'\);/);
+    /const SORT_LABELS = keys\('Updated', 'Newest', 'A–Z', 'Most unread', 'Most popular', 'Top rated', 'My rating', 'Most chapters', 'Recently read', 'Z–A', 'Author'\);/);
   assert.match(code(read('app/library/page.tsx')), /const validSort = \(v: unknown\): v is string => typeof v === 'string' && SORTS\.some\(\(s\) => s\.key === v\)/);
 });
 
@@ -197,16 +203,21 @@ test('Home: "Most popular in your library" after Recently added, saying AniList\
   // Reintroduce the rail unconditionally (or with a RailSkeleton): a server older than v0.58.0 sends no `popular`, and
   // Home would hold a title over nothing, or a skeleton that never fills -- "the rail shows without a list" fails.
   const home = code(read('app/page.tsx'));
-  const rail = slice(home, '{(data?.popular?.length ?? 0) > 0 && (', '</section>');
+  const rail = slice(home, '(data?.popular?.length ?? 0) > 0 ?', '</section>');
   assert.match(rail, /<SectionTitle action=\{<Link href="\/library\?sort=popular" className="text-xs text-accent">\{tr\('See all'\)\}<\/Link>\}>\{tr\('Most popular in your library'\)\}<\/SectionTitle>/,
     'See all does not open the Library sorted by popularity, as New episodes and Recently added open theirs');
   assert.match(rail, /\{data!\.popular!\.map\(\(s\) => <SeriesCard key=\{s\.id\} series=\{s\} note=\{sortValue\(s, 'score'\)\} \/>\)\}/,
     'the cards are not the other rails\' SeriesCard, or do not say AniList\'s score');
   assert.doesNotMatch(rail, /RailSkeleton|isLoading/, 'the rail shows without a list');
   assert.equal((home.match(/tr\('Most popular in your library'\)/g) ?? []).length, 1);
-  const at = (s: string) => home.indexOf(s);
-  assert.ok(at("tr('Recently added')") > 0 && at("tr('Recently added')") < at('data?.popular') && at('data?.popular') < at("tr('Top 10 in your library')"),
+  // Its place is its place in the row order, which is what Home renders by (and what the Customize Home sheet
+  // reorders). Reintroduce it before 'added' in HOME_ROWS: this fails, as it did when the rail was inline JSX.
+  const rows = code(read('lib/homeRows.ts'));
+  const order = /HOME_ROWS = \[([^\]]*)\]/.exec(rows)![1].split(',').map((x) => x.trim().replace(/'/g, ''));
+  assert.deepEqual(order.slice(order.indexOf('added')), ['added', 'popular', 'top'],
     'the rail is not between Recently added and Top 10 in your library');
+  assert.match(code(read('components/HomeRowsSheet.tsx')), /popular: \(\) => tr\('Most popular in your library'\),/,
+    'the rail cannot be named in Customize Home');
   assert.ok(SORTS.some((s) => s.key === 'popular'), 'See all names an order the Library does not have');
   assert.match(read('lib/types.ts'), /popular\?: Series\[\];/, 'HomePayload has no optional `popular`');
 });
@@ -217,16 +228,20 @@ test('the series page shows AniList\'s line beside the reader\'s own stars, and 
   // unchanged-own-rating assertions fail.
   const page = code(read('app/series/page.tsx'));
   assert.match(page, /const anilist = anilistLine\(series\?\.yomi\?\.anilist\);/);
-  assert.match(page, /<StarRating value=\{rating\} onSet=\{setStars\} \/>\s*<span className="text-xs text-fog-500">\{rating \? `\$\{rating\}\/5` : tr\('Rate this'\)\}<\/span>\s*<\/div>\s*\{anilist && \(\s*<p data-anilist-rating title=\{anilistHint\}[^>]*>\{anilist\}<\/p>\s*\)\}/,
+  assert.match(page, /<StarRating value=\{rating\} onSet=\{setStars\} \/>\s*<\/div>\s*\{anilist && \(\s*<p data-anilist-rating title=\{anilistHint\}[^>]*>\{anilist\}<\/p>\s*\)\}/,
     'the AniList line is not under the reader\'s stars');
-  assert.match(page, /rating \? <span className="text-accent">★ \{rating\}\/5<\/span> : null,\s*anilist \? <span data-anilist-meta title=\{anilistHint\}[^>]*>\{anilist\}<\/span> : null,/,
+  assert.match(page, /rating \? <RatingText rating=\{rating\} \/> : null,\s*anilist \? <span data-anilist-meta title=\{anilistHint\}[^>]*>\{anilist\}<\/span> : null,/,
     'the meta line does not say AniList\'s beside the reader\'s');
   assert.match(page, /\{\(meta\?\.status \|\| rating \|\| anilist\) && \(/, 'the banner\'s chip row is not drawn for AniList alone');
-  assert.match(page, /\{rating \? <span className="chip text-\[11px\] text-accent">★ \{rating\}\/5<\/span> : null\}\s*\{anilist \? <span data-anilist-chip className="chip text-\[11px\] tabular-nums">\{anilist\}<\/span> : null\}/,
+  assert.match(page, /\{rating \? <RatingText rating=\{rating\} chip \/> : null\}\s*\{anilist \? <span data-anilist-chip className="chip text-\[11px\] tabular-nums">\{anilist\}<\/span> : null\}/,
     'the desktop banner has no AniList chip beside the reader\'s');
   assert.match(page, /const anilistHint = tr\('Average score on AniList, and how many people there have it on a list'\);/);
-  // The reader's own, exactly as before.
-  assert.match(page, /const setStars = async \(n: number\) => \{\s*setRating\(n\);\s*try \{ await api\(`\/api\/ratings\/\$\{id\}`, \{ method: 'PUT', json: \{ stars: n \} \}\); \} catch \{\}\s*\};/);
+  // The reader's own, still their own. Ours clears on a re-tap and patches the cache optimistically (its own
+  // feature, not this one's), but the save is the same PUT of the same stars and AniList's numbers are not in it.
+  const stars = slice(page, 'const setStars = async (n: number) => {', '\n  };');
+  assert.match(stars, /await api\(`\/api\/ratings\/\$\{id\}`, \{ method: 'PUT', json: \{ stars: n \} \}\);/,
+    'the reader\'s stars are no longer saved as their own rating');
+  assert.doesNotMatch(stars, /anilist/i, 'the reader\'s own rating writes AniList\'s numbers');
   assert.match(page, /if \(series\?\.yomi\) \{ setFav\(series\.yomi\.favorite\); setRating\(series\.yomi\.rating\); \}/);
   // The two fields arrive inside `yomi`, optional, as an older server sends neither.
   const flags = slice(read('lib/types.ts'), 'export interface UchiyomiFlags', '\n}');

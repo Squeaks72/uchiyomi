@@ -135,7 +135,6 @@ function LibraryInner() {
   const [listing, setListing] = useState(false);
   const [genreEdit, setGenreEdit] = useState(false);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
-  const [startAt, setStartAt] = useState<{ x: number; y: number; id: string } | null>(null);
   // v0.51.0: Find other sources asks first whether to follow automatically or review first.
   const [finding, setFinding] = useState(false);
   // The Fetch newest job as last polled, while it runs: what the bar's label counts up with.
@@ -723,14 +722,9 @@ function LibraryInner() {
               // v0.58.0: under the title, the value the shelf is sorted by ("312K on AniList", "★ 4/5"), for the five
               // orders whose answer is not on the card already; nothing for the four older ones. The `contents`
               // wrapper carries the key and the right-click menu without taking a grid cell of its own.
-              <div key={s.id} className="contents" onContextMenu={(e) => {
-                if (selecting) return;
-                e.preventDefault();
-                setStartAt({ x: e.clientX, y: e.clientY, id: s.id });
-              }}>
-                <SeriesTile series={s} eager={i < 12} note={sortValue(s, active.key)}
-                  selectable={selecting} selected={picked.has(s.id)} onToggle={(e) => togglePick(s.id, e.shiftKey)} />
-              </div>
+              <SeriesTile key={s.id} series={s} eager={i < 12} note={sortValue(s, active.key)}
+                selectable={selecting} selected={picked.has(s.id)} onToggle={(e) => togglePick(s.id, e.shiftKey)}
+                onStartSelect={() => { setSelecting(true); setPicked(new Set([s.id])); anchor.current = s.id; }} />
             ))}
       </div>
 
@@ -854,10 +848,6 @@ function LibraryInner() {
       {listing && <CollectionPickerModal seriesIds={[...picked]} onClose={() => setListing(false)} onDone={settle} />}
       {genreEdit && <BulkGenresModal n={picked.size} seriesIds={[...picked]} onClose={() => setGenreEdit(false)}
         onDone={() => { qc.invalidateQueries({ queryKey: ['genre-names'] }); settle(); }} />}
-      {startAt && (
-        <SelectionMenu at={startAt} title={tr('Select')} onClose={() => setStartAt(null)}
-          items={[{ label: tr('Select'), run: () => { setSelecting(true); setPicked(new Set([startAt.id])); } }]} />
-      )}
       {menu && picked.size > 0 && (
         <SelectionMenu at={menu} onClose={() => setMenu(null)} title={selectedText(picked.size)}
           items={[

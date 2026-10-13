@@ -201,7 +201,7 @@ export function ContinueCard({ book, eager = false }: { book: Book; eager?: bool
 }
 
 /** Grid tile (library / search). */
-export function SeriesTile({ series, eager = false, selectable, selected, onToggle, note }: {
+export function SeriesTile({ series, eager = false, selectable, selected, onToggle, note, onStartSelect }: {
   series: Series; eager?: boolean;
   /** select mode: the tile stops navigating and toggles instead */
   selectable?: boolean; selected?: boolean; onToggle?: (e: { shiftKey: boolean }) => void;
@@ -210,6 +210,8 @@ export function SeriesTile({ series, eager = false, selectable, selected, onTogg
    * "★ 4/5", "Read 3d ago" (lib/sortValue.ts). Nothing when empty.
    */
   note?: string;
+  /** Where Select mode exists (Library, a list): the menu offers Select, starting it with this tile picked. */
+  onStartSelect?: () => void;
 }) {
   // yomi.unread first: it is computed per user in lib/enrich.ts. booksUnreadCount is now corrected there too,
   // but a rail added later that forgets to enrich would fall back to seriesDto's placeholder -- which is the
@@ -220,7 +222,7 @@ export function SeriesTile({ series, eager = false, selectable, selected, onTogg
   const tint = useTileTint(series.color);
   // Not in Select mode: there a press toggles the tile, and the Library's own bar holds the actions (#100).
   const glance = useGlance(glanceOfSeries(series), { cover: img.seriesThumb(series.id, series.artVersion, 800), readSeriesId: series.id, actions: [{ label: tr('Open series'), href: `/series/?id=${series.id}` }] });
-  const menu = useSeriesMenu(series, selectable ? undefined : glance.show);
+  const menu = useSeriesMenu(series, selectable ? undefined : glance.show, { onSelect: onStartSelect });
   const isHidden = useIsHiddenTitle();
   if (isHidden(series.metadata?.title || series.name, series.id)) return null;
   const Wrap: any = selectable ? 'button' : Link;
