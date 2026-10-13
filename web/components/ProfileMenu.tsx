@@ -46,7 +46,7 @@ export function QuickSettings({ onClose }: { onClose: () => void }) {
         <p className="min-w-0 flex-1 truncate font-medium text-fog-50">{user?.displayName}</p>
         <Link href="/profile" onClick={onClose} data-profile-link className={`${link} shrink-0 border border-ink-700`}>{tr('Profile')}</Link>
       </div>
-      <div className="divide-y divide-ink-800/70 border-t border-ink-800/70 [&>*]:py-2.5">
+      <div className="divide-y divide-ink-800/70 border-t border-ink-800/70 [&>*]:py-2.5 [&_[role=status]]:hidden">
         <SwitchRow label={tr(INCOGNITO_TEXT[0])} on={incognito.on} onChange={incognito.set} />
         {showAdult && (
           <Row label={tr('Show 18+')}>
