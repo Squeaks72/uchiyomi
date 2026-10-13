@@ -1472,6 +1472,7 @@ GET    /api/ignored-titles        PUT    /api/ignored-titles
 GET    /api/stats                 GET    /api/stats/day
 GET    /api/wrapped
 GET    /api/stats/time            GET    /api/series/:id/reading-pace
+GET    /api/stats/insights
 GET    /api/settings              PUT    /api/settings
 GET    /api/collections           POST   /api/collections
 GET    /api/collections/:id       PATCH  /api/collections/:id
