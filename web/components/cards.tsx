@@ -337,10 +337,12 @@ function EditionLangs({ series, className }: { series: Series; className: string
 }
 
 /** Grid tile (library / search). */
-export function SeriesTile({ series, eager = false, selectable, selected, onToggle, note, compact = false, onStartSelect }: {
+export function SeriesTile({ series, eager = false, selectable, selected, onToggle, note, compact = false, onStartSelect, onSelectionMenu }: {
   series: Series; eager?: boolean;
   /** select mode: the tile stops navigating and toggles instead */
   selectable?: boolean; selected?: boolean; onToggle?: (e: { shiftKey: boolean }) => void;
+  /** Right-click in Select mode: the page opens the selection's Actions menu there. */
+  onSelectionMenu?: (at: { x: number; y: number }) => void;
   /**
    * One quiet line under the title (v0.58.0): in the Library, the value the shelf is sorted by -- "★ 84", "312K readers",
    * "★ 4/5", "Read 3d ago" (lib/sortValue.ts). Nothing when empty.
@@ -425,7 +427,7 @@ export function SeriesTile({ series, eager = false, selectable, selected, onTogg
     </>
   );
   if (selectable) {
-    return <button type="button" onClick={onToggle} aria-pressed={!!selected} className="group block w-full text-start">{body}</button>;
+    return <button type="button" onClick={onToggle} aria-pressed={!!selected} className="group block w-full text-start" onContextMenu={onSelectionMenu ? (e) => { e.preventDefault(); onSelectionMenu({ x: e.clientX, y: e.clientY }); } : undefined}>{body}</button>;
   }
   return (
     <div className="group relative">
@@ -446,9 +448,11 @@ export function SeriesTile({ series, eager = false, selectable, selected, onTogg
  * shelf is sorted by -- else when it was last read -- and how far in, written out ("41 / 201"), with AniList's score and
  * the unread count at the end. The same link, Select toggle and menu as the tile.
  */
-export function SeriesRow({ series, eager = false, selectable, selected, onToggle, note }: {
+export function SeriesRow({ series, eager = false, selectable, selected, onToggle, note, onSelectionMenu }: {
   series: Series; eager?: boolean;
   selectable?: boolean; selected?: boolean; onToggle?: () => void;
+  /** Right-click in Select mode: the page opens the selection's Actions menu there. */
+  onSelectionMenu?: (at: { x: number; y: number }) => void;
   note?: CardNote;
 }) {
   const unread = series.yomi?.unread ?? series.booksUnreadCount ?? 0;
@@ -519,7 +523,7 @@ export function SeriesRow({ series, eager = false, selectable, selected, onToggl
     </div>
   );
   if (selectable) {
-    return <button type="button" onClick={onToggle} aria-pressed={!!selected} className="group block w-full text-start">{body}</button>;
+    return <button type="button" onClick={onToggle} aria-pressed={!!selected} className="group block w-full text-start" onContextMenu={onSelectionMenu ? (e) => { e.preventDefault(); onSelectionMenu({ x: e.clientX, y: e.clientY }); } : undefined}>{body}</button>;
   }
   return (
     <div className="group relative">

@@ -303,6 +303,7 @@ function CollectionInner() {
             </div>
           ) : (
             <SeriesTile key={s.id} series={s} selectable={selecting} selected={picked.has(s.id)} onToggle={() => togglePick(s.id)}
+              onSelectionMenu={(at) => { setPicked((p) => (p.has(s.id) ? p : new Set(p).add(s.id))); setMenu(at); }}
               onStartSelect={() => { setSelecting(true); setPicked(new Set([s.id])); }} />
           ))}
         </div>

@@ -171,6 +171,12 @@ function LibraryInner() {
     }
     anchor.current = id;
   };
+  // Right-click on a tile in Select mode: an unpicked tile joins the selection first, as in a file explorer.
+  const openSelectionMenu = (id: string, at: { x: number; y: number }) => {
+    setPicked((p) => (p.has(id) ? p : new Set(p).add(id)));
+    anchor.current = id;
+    setMenu(at);
+  };
   // ⚠️ `lib` counts. It used to be left out because it lived in its own tab rail rather than in the sheet,
   // so selecting a library filtered the grid while the badge said nothing was filtered and the "· filtered"
   // hint stayed dark. Now that every way to narrow the shelf is in one panel, every one of them counts.
@@ -776,11 +782,11 @@ function LibraryInner() {
             ))
           : items.map((s, i) => (layout === 'list'
             ? <SeriesRow key={s.id} series={s} eager={i < 12} note={sortValue(s, active.key)}
-                selectable={selecting} selected={picked.has(s.id)} onToggle={() => togglePick(s.id)} />
+                selectable={selecting} selected={picked.has(s.id)} onToggle={() => togglePick(s.id)} onSelectionMenu={(at) => openSelectionMenu(s.id, at)} />
             // v0.58.0: under the title, the value the shelf is sorted by ("★ 84", "312K readers", "★ 4/5"), for the five
             // orders whose answer is not on the card already; nothing for the four older ones.
             : <SeriesTile key={s.id} series={s} eager={i < 12} note={sortValue(s, active.key)} compact={layout === 'compact'}
-                selectable={selecting} selected={picked.has(s.id)} onToggle={(e) => togglePick(s.id, e?.shiftKey)}
+                selectable={selecting} selected={picked.has(s.id)} onToggle={(e) => togglePick(s.id, e?.shiftKey)} onSelectionMenu={(at) => openSelectionMenu(s.id, at)}
                 onStartSelect={() => { setSelecting(true); setPicked(new Set([s.id])); anchor.current = s.id; }} />
             ))}
       </div>
