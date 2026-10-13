@@ -53,16 +53,18 @@ export function useAdultShown(): boolean {
   return on;
 }
 
-/** While 18+ is revealed: a slim row under the header that says so and hides it again in one tap. Nothing renders while it is off. */
+/** While 18+ is revealed: a pill pinned to the screen on every page that says so and hides it again in one tap. Nothing renders while it is off. */
 export function AdultBar() {
   const qc = useQueryClient();
   const on = useAdultShown();
   if (!on) return null;
   return (
-    <div data-adult-bar className="shell flex items-center justify-end gap-3 pt-2 max-lg:pt-[max(0.5rem,env(safe-area-inset-top))]">
-      <span role="status" data-adult-notice className="min-w-0 text-xs text-amber-200">{tr('18+ titles are showing.')}</span>
-      <button type="button" onClick={() => { setAdultShown(false); qc.invalidateQueries(); }}
-        className="chip chip-active shrink-0 whitespace-nowrap text-xs">{tr('Hide 18+')}</button>
+    <div data-adult-bar className="pointer-events-none fixed inset-x-0 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-40 flex justify-center px-3 lg:bottom-5">
+      <div className="pointer-events-auto flex items-center gap-3 rounded-full border border-amber-300/30 bg-ink-950/90 py-1.5 ps-4 pe-1.5 shadow-lg backdrop-blur">
+        <span role="status" data-adult-notice className="min-w-0 text-xs text-amber-200">{tr('18+ titles are showing.')}</span>
+        <button type="button" onClick={() => { setAdultShown(false); qc.invalidateQueries(); }}
+          className="chip chip-active shrink-0 whitespace-nowrap text-xs">{tr('Hide 18+')}</button>
+      </div>
     </div>
   );
 }
