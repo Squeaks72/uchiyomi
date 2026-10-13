@@ -74,7 +74,7 @@ export function SeriesRowTools({ id, title, details, className }: { id: string; 
       <button type="button" className={className} onClick={() => setRemoving(true)}>{tr('Remove from library')}{'\u00a0'}›</button>
       {editing && <EditorHost id={id} onClose={() => setEditing(false)} />}
       {removing && (
-        <ConfirmDialog title={tr('Remove from library?')} danger twoStep busy={busy} confirmLabel={tr('Remove')}
+        <ConfirmDialog title={tr('Remove from library?')} danger busy={busy} confirmLabel={tr('Remove')}
           body={(
             <>
               <p><strong className="text-fog-100">{tr('No files are deleted.')}</strong>{' '}{tr('The chapters stay exactly where they are on disk, and nothing in your library folder is touched.')}</p>

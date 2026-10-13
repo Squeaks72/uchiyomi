@@ -2026,7 +2026,7 @@ function LibraryPanel() {
             </>
           }
           confirmLabel={tr('Delete files')}
-          twoStep
+          confirmText={purge.title}
           danger
           busy={purging}
           onConfirm={() => deleteFiles(purge)}
@@ -2047,7 +2047,7 @@ function LibraryPanel() {
             </>
           }
           confirmLabel={tr('Forget')}
-          twoStep
+          confirmText={forget.title}
           danger
           busy={forgetting}
           onConfirm={() => forgetSeries(forget)}

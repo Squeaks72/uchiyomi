@@ -1,6 +1,6 @@
 'use client';
 // The two-step "Sure?" press: the first press arms the button, a second inside the window confirms, and an armed
-// button that is left alone disarms itself. ConfirmDialog's twoStep and the admin console's Gather use it.
+// button that is left alone disarms itself. the admin console's Gather and Relocate use it.
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { t as tr } from '@/lib/i18n';
 
