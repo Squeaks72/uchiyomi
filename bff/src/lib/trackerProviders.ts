@@ -753,18 +753,42 @@ export const mangaupdatesAdapter: TrackerAdapter = {
     }
     return out;
   },
-  async setProgress(token, externalId, chapters, finished) {
+  async seriesState(token, externalId) {
+    const sid = Number(externalId);
+    if (!Number.isInteger(sid)) throw new Error('mangaupdates: not a series id');
+    // The series is public; the entry is this account's own, and is simply absent (404) until it is on a list.
+    const series = await muCall(token, `/series/${sid}`).catch((e) => { if ((e as any).notFound) return null; throw e; });
+    const ids = await muListIds(token);
+    let current: any = null;
+    try { current = await muCall(token, `/lists/series/${sid}`); }
+    catch (e) { if (!(e as any).notFound) throw e; }
+    // `completed` is the one thing MangaUpdates states outright, and it covers both ways a series stops --
+    // finished or cancelled. Its `status` is free prose ("17 Volumes (Ongoing)"), so only the flag is read.
+    const ended = series?.completed === true;
+    // `latest_chapter` is the newest chapter seen, not a total; it is only the total once nothing more is coming.
+    const total = ended ? positiveInt(series?.latest_chapter) : null;
+    // The bucket is the list the entry sits on. A custom list is none of the five and counts as reading, which is
+    // where setProgress below leaves it; MangaUpdates has no re-read flag, so a re-read cannot be told apart here.
+    const onList = current?.list_id != null ? Number(current.list_id) : null;
+    const status = onList == null ? null : (LIST_STATUSES.find((st) => ids[st] === onList) ?? 'reading');
+    return {
+      ended,
+      total,
+      entry: status ? { status, progress: progressOf(current?.status?.chapter) } : null,
+    };
+  },
+  async setProgress(token, externalId, chapters, status) {
     const sid = Number(externalId);
     if (!Number.isInteger(sid)) throw new Error('mangaupdates: not a series id');
     const ids = await muListIds(token);
     let current: any = null;
     try { current = await muCall(token, `/lists/series/${sid}`); }
     catch (e) { if (!(e as any).notFound) throw e; }
-    // Finished moves it to the complete list. Otherwise it stays where it is, except that a wish, hold or
+    // A completed push moves it to the complete list. Otherwise it stays where it is, except that a wish, hold or
     // unfinished entry being read goes to reading; an entry on a custom list is left on it.
     const onList: number | null = current?.list_id != null ? Number(current.list_id) : null;
     const standard = Object.values(ids);
-    const target = finished ? ids.completed
+    const target = status === 'completed' ? ids.completed
       : onList != null && !standard.includes(onList) ? onList
       : ids.reading;
     const item = { series: { id: sid }, list_id: target, status: { chapter: chapters } };

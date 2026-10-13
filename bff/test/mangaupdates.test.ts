@@ -93,7 +93,7 @@ test('listLibrary asks for nothing when nothing is wanted, and stops at the cap'
 test('setProgress adds a series that is not on any list, to the reading list', async () => {
   const { mangaupdatesAdapter: a } = await mod();
   answer((c) => c.path === '/lists' ? json(LISTS) : c.path === '/lists/series/55' ? json({ status: 'exception' }, 404) : json({ status: 'success' }));
-  await a.setProgress('tok', '55', 12, false);
+  await a.setProgress('tok', '55', 12, 'reading');
   const w = calls.at(-1)!;
   assert.equal(w.path, '/lists/series');
   assert.deepEqual(w.body, [{ series: { id: 55 }, list_id: 0, status: { chapter: 12 } }]);
@@ -102,24 +102,24 @@ test('setProgress adds a series that is not on any list, to the reading list', a
 test('setProgress updates an entry in place, and finishing moves it to the complete list', async () => {
   const { mangaupdatesAdapter: a } = await mod();
   answer((c) => c.path === '/lists' ? json(LISTS) : c.path === '/lists/series/55' ? json({ list_id: 4, status: { chapter: 3 } }) : json({ status: 'success' }));
-  await a.setProgress('tok', '55', 12, false);
+  await a.setProgress('tok', '55', 12, 'reading');
   assert.deepEqual(calls.at(-1)!.body, [{ series: { id: 55 }, list_id: 0, status: { chapter: 12 } }], 'a series being read leaves hold');
   assert.equal(calls.at(-1)!.path, '/lists/series/update');
-  await a.setProgress('tok', '55', 40, true);
+  await a.setProgress('tok', '55', 40, 'completed');
   assert.deepEqual(calls.at(-1)!.body, [{ series: { id: 55 }, list_id: 2, status: { chapter: 40 } }]);
 });
 
 test('setProgress leaves an entry on a custom list where the person put it', async () => {
   const { mangaupdatesAdapter: a } = await mod();
   answer((c) => c.path === '/lists' ? json(LISTS) : c.path === '/lists/series/55' ? json({ list_id: 9, status: { chapter: 3 } }) : json({ status: 'success' }));
-  await a.setProgress('tok', '55', 12, false);
+  await a.setProgress('tok', '55', 12, 'reading');
   assert.equal(calls.at(-1)!.body[0].list_id, 9);
 });
 
 test('setProgress: a 401 is an auth failure, a 400 is a plain error that keeps the connection', async () => {
   const { mangaupdatesAdapter: a } = await mod();
   answer(() => json({ status: 'exception' }, 401));
-  await assert.rejects(() => a.setProgress('tok', '55', 1, false), (e: any) => e.authFailed === true);
+  await assert.rejects(() => a.setProgress('tok', '55', 1, 'reading'), (e: any) => e.authFailed === true);
   answer((c) => c.path === '/lists' ? json(LISTS) : c.path.startsWith('/lists/series/') && c.method === 'GET' ? json({ status: 'x' }, 404) : json({ status: 'exception' }, 400));
-  await assert.rejects(() => a.setProgress('tok', '55', 1, false), (e: any) => !e.authFailed && /mangaupdates 400/.test(e.message));
+  await assert.rejects(() => a.setProgress('tok', '55', 1, 'reading'), (e: any) => !e.authFailed && /mangaupdates 400/.test(e.message));
 });
