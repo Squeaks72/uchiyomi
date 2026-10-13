@@ -1,11 +1,14 @@
 'use client';
 import Link from 'next/link';
+import { useState } from 'react';
 import { Sheet } from './ui';
 import { IcBookmark, IcHeart, IcBell, IcMoments, IcClock, IcSparkle, IcCloudDownload, IcSettings, IcSliders, IcSearch, IcChevronRight } from './icons';
 import { useAuth, canDownload } from '@/lib/auth';
 import { t as tr } from '@/lib/i18n';
 import { moreEntries, type MoreKey } from '@/lib/moreMenu';
 import { openPalette } from '@/lib/palette';
+import { Avatar } from './Avatar';
+import { QuickSettingsSheet } from './ProfileMenu';
 
 const ICONS: Record<MoreKey, (p: { width: number; height: number }) => React.ReactElement> = {
   lists: IcBookmark, favorites: IcHeart, updates: IcBell, moments: IcMoments, history: IcClock, wrapped: IcSparkle,
@@ -22,12 +25,21 @@ const ICONS: Record<MoreKey, (p: { width: number; height: number }) => React.Rea
  */
 export function MoreSheet({ onClose }: { onClose: () => void }) {
   const { user, isAdmin, status } = useAuth();
+  const [quick, setQuick] = useState(false);
   const entries = moreEntries({ admin: isAdmin, mayDownload: status === 'authed' && canDownload(user) });
   const row = 'flex w-full items-center gap-3 rounded-xl px-2 py-3 text-start text-sm text-fog-100 hover:bg-ink-800/70 active:bg-ink-800';
   const chip = 'grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-ink-700 text-fog-300';
+  if (quick) return <QuickSettingsSheet onClose={onClose} />;
   return (
     <Sheet title={tr('More')} onClose={onClose} overBottomNav>
       <ul className="pb-2">
+        <li className="mb-1 border-b border-ink-800/70 pb-1">
+          <button type="button" data-more="quick" aria-haspopup="dialog" onClick={() => setQuick(true)} className={row}>
+            <Avatar avatar={user?.avatar} size={36} />
+            <span className="min-w-0 flex-1 truncate">{user?.displayName}</span>
+            <span className="shrink-0 text-xs text-fog-400">{tr('Quick settings')}</span>
+          </button>
+        </li>
         {entries.map((e) => {
           const Icon = ICONS[e.key];
           return (

@@ -2,7 +2,7 @@
   "_meta": {
     "language": "de",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 4541
+    "strings": 4545
   },
   "1 check found something": "1 Prüfung hat etwas gefunden",
   "1 member": "1 Mitglied",
@@ -4544,5 +4544,9 @@
   "Mixed": "Gemischt",
   "Adult only": "Nur Erwachsene",
   "Rate a whole source. Adult only keeps all of it out of Discover and search while “Show 18+” is off. Mixed judges each title on its own and ignores the extension’s adult flag. Default follows the extension.": "Eine ganze Quelle bewerten. „Nur Erwachsene“ hält sie bei ausgeschaltetem „18+ anzeigen“ ganz aus Entdecken und Suche heraus. „Gemischt“ beurteilt jeden Titel einzeln und ignoriert die Erwachsenen-Markierung der Erweiterung. „Standard“ folgt der Erweiterung.",
-  "A source counts as Adult only when you set it so, or when its extension flags it and you have not set it to Mixed. While “Show 18+” is off it is left out of Discover and search.": "Eine Quelle gilt als „Nur Erwachsene“, wenn du sie so einstellst oder ihre Erweiterung sie markiert und du sie nicht auf „Gemischt“ gesetzt hast. Bei ausgeschaltetem „18+ anzeigen“ bleibt sie aus Entdecken und Suche draußen."
+  "A source counts as Adult only when you set it so, or when its extension flags it and you have not set it to Mixed. While “Show 18+” is off it is left out of Discover and search.": "Eine Quelle gilt als „Nur Erwachsene“, wenn du sie so einstellst oder ihre Erweiterung sie markiert und du sie nicht auf „Gemischt“ gesetzt hast. Bei ausgeschaltetem „18+ anzeigen“ bleibt sie aus Entdecken und Suche draußen.",
+  "A source counts as 18+ when it is rated 18+, or when its extension flags it and it is not rated lower. While “Show 18+” is off it is left out of Discover and search.": "Eine Quelle zählt als 18+, wenn sie mit 18+ bewertet ist oder ihre Erweiterung sie markiert und sie nicht niedriger bewertet ist. Solange „18+ anzeigen“ aus ist, bleibt sie aus Entdecken und Suche heraus.",
+  "Rate a whole source. 18+ keeps it out of Discover and search while “Show 18+” is off. A lower age means only accounts at least that old can see it. All ages ignores the extension’s own adult flag. Default follows the extension.": "Bewerte eine ganze Quelle. 18+ hält sie aus Entdecken und Suche heraus, solange „18+ anzeigen“ aus ist. Bei einem niedrigeren Alter sehen sie nur Konten, die mindestens so alt sind. „Alle Altersstufen“ ignoriert die eigene Erwachsenenmarkierung der Erweiterung. „Standard“ folgt der Erweiterung.",
+  "Quick settings": "Schnelleinstellungen",
+  "Profile settings": "Profileinstellungen"
 }

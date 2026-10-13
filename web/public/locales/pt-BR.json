@@ -2,7 +2,7 @@
   "_meta": {
     "language": "pt-BR",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 4541
+    "strings": 4545
   },
   "1 check found something": "1 verificação encontrou algo",
   "1 member": "1 membro",
@@ -4544,5 +4544,9 @@
   "Mixed": "Misto",
   "Adult only": "Somente adultos",
   "Rate a whole source. Adult only keeps all of it out of Discover and search while “Show 18+” is off. Mixed judges each title on its own and ignores the extension’s adult flag. Default follows the extension.": "Classifique uma fonte inteira. “Somente adultos” a mantém fora de Descobrir e da busca enquanto “Mostrar 18+” estiver desligado. “Misto” avalia cada título separadamente e ignora a marcação de adulto da extensão. “Padrão” segue a extensão.",
-  "A source counts as Adult only when you set it so, or when its extension flags it and you have not set it to Mixed. While “Show 18+” is off it is left out of Discover and search.": "Uma fonte conta como “Somente adultos” quando você a define assim, ou quando a extensão a marca e você não a definiu como “Misto”. Com “Mostrar 18+” desligado, ela fica fora de Descobrir e da busca."
+  "A source counts as Adult only when you set it so, or when its extension flags it and you have not set it to Mixed. While “Show 18+” is off it is left out of Discover and search.": "Uma fonte conta como “Somente adultos” quando você a define assim, ou quando a extensão a marca e você não a definiu como “Misto”. Com “Mostrar 18+” desligado, ela fica fora de Descobrir e da busca.",
+  "A source counts as 18+ when it is rated 18+, or when its extension flags it and it is not rated lower. While “Show 18+” is off it is left out of Discover and search.": "Uma fonte conta como 18+ quando está classificada como 18+, ou quando sua extensão a marca e ela não tem classificação menor. Enquanto “Mostrar 18+” estiver desligado, ela fica fora de Descobrir e da busca.",
+  "Rate a whole source. 18+ keeps it out of Discover and search while “Show 18+” is off. A lower age means only accounts at least that old can see it. All ages ignores the extension’s own adult flag. Default follows the extension.": "Classifique uma fonte inteira. 18+ a mantém fora de Descobrir e da busca enquanto “Mostrar 18+” estiver desativado. Com uma idade menor, só contas com pelo menos essa idade a veem. “Todas as idades” ignora a marcação adulta da própria extensão. “Padrão” segue a extensão.",
+  "Quick settings": "Ajustes rápidos",
+  "Profile settings": "Configurações do perfil"
 }
