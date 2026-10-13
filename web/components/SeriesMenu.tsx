@@ -2,15 +2,13 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { canDownload, useAuth } from '@/lib/auth';
+import { useAuth } from '@/lib/auth';
 import { t as tr } from '@/lib/i18n';
-import { applyFavorite } from '@/lib/favoriteCache';
 import type { Series } from '@/lib/types';
 import { useToast } from './Toast';
 import { useContextMenu, type MenuItem } from './ContextMenu';
-import { useArchiveEnqueue } from './ArchiveQueue';
+import { useSeriesActions } from './SeriesActions';
 import { SeriesPropertiesSheet } from './SeriesPropertiesSheet';
-import { MoveToLibrary } from './MoveToLibrary';
 
 /**
  * A series card's menu (#100): the few things worth doing without opening the series, from wherever it is on
@@ -25,9 +23,9 @@ import { MoveToLibrary } from './MoveToLibrary';
 export function useSeriesMenu(series: Series, onDescribe?: () => void, opts?: { keepReading?: boolean; onSelect?: () => void }) {
   const qc = useQueryClient();
   const toast = useToast();
-  const { isAdmin, status, user } = useAuth();
-  const archive = useArchiveEnqueue();
+  const { status } = useAuth();
   const offline = status === 'offline';
+  const actions = useSeriesActions();
   const href = `/series/?id=${encodeURIComponent(series.id)}`;
   // A card built from a book (Home's Keep reading) carries no `yomi`: its favourite state comes from the id list.
   const favIds = useQuery({
@@ -36,37 +34,6 @@ export function useSeriesMenu(series: Series, onDescribe?: () => void, opts?: { 
   });
   const favourite = series.yomi ? !!series.yomi.favorite : !!favIds.data?.includes(series.id);
   const [properties, setProperties] = useState(false);
-  const [moving, setMoving] = useState(false);
-  const [moveBusy, setMoveBusy] = useState(false);
-
-  // ['collection']: a list's tiles carry the same badges since v0.55.7 (#164), and Mark all read from one of them must
-  // move its count there too, not only on the Library.
-  const settle = () => {
-    for (const key of [['library'], ['home'], ['collection'], ['series', series.id], ['series-books', series.id]]) qc.invalidateQueries({ queryKey: key });
-  };
-  // The Library's bulk routes, for a selection of one: the same permission checks, and the same answer shape.
-  const bulk = async (path: string, extra: Record<string, unknown>, done: string) => {
-    try {
-      const r = await api<{ applied: number }>(path, { json: { seriesIds: [series.id], ...extra } });
-      toast(r.applied ? done : tr('That series is no longer in the library'), r.applied ? 'success' : 'error');
-      if (r.applied && typeof extra.favorite === 'boolean') applyFavorite(qc, series.id, extra.favorite);
-      settle();
-      qc.invalidateQueries({ queryKey: ['favorite-ids'] });
-    } catch { toast(tr('Could not do that'), 'error'); }
-  };
-
-  const moveTo = async (libraryId: string | null) => {
-    setMoveBusy(true);
-    try {
-      const r = await api<{ applied: number; problems?: { reason?: string }[] }>('/api/admin/series/library', { json: { seriesIds: [series.id], libraryId } });
-      if (r.problems?.length) toast(`${tr('1 folder could not be moved')}: ${r.problems[0].reason ?? ''}`, 'error');
-      else toast(r.applied ? tr('1 series updated') : tr('That series is no longer in the library'), r.applied ? 'success' : 'error');
-      settle();
-      qc.invalidateQueries({ queryKey: ['library-sources'] });
-    } catch { toast(tr('Could not do that'), 'error'); }
-    setMoveBusy(false);
-    setMoving(false);
-  };
 
   // Home's Keep reading row only: the series stays in the library and returns to the row when it is read again.
   const leaveKeepReading = async () => {
@@ -88,33 +55,13 @@ export function useSeriesMenu(series: Series, onDescribe?: () => void, opts?: { 
         catch { toast(tr('Could not copy the link'), 'error'); }
       },
     },
-    {
-      label: favourite ? tr('Remove from favorites') : tr('Favorite'), divider: true, disabled: offline,
-      onSelect: () => bulk('/api/favorites/bulk', { favorite: !favourite }, favourite ? tr('Removed from favorites') : tr('Added to favorites')),
-    },
+    ...actions.items([series.id], { favourite }).map((it, k) => (k === 0 ? { ...it, divider: true } : it)),
     ...(opts?.keepReading ? [{ label: tr('Remove from Keep reading'), disabled: offline, hook: 'leave-keep-reading', onSelect: leaveKeepReading }] : []),
-    { label: tr('Mark all read'), disabled: offline, onSelect: () => bulk('/api/library/bulk/read', { completed: true }, tr('Marked read')) },
-    { label: tr('Mark all unread'), disabled: offline, onSelect: () => bulk('/api/library/bulk/read', { completed: false }, tr('Marked unread')) },
-    ...(isAdmin ? [{
-      label: tr('Check for new chapters'), divider: true, disabled: offline,
-      onSelect: async () => {
-        try {
-          await api(`/api/admin/series/${encodeURIComponent(series.id)}/check`, { method: 'POST', json: {} });
-          toast(tr('Checking for new chapters…'), 'info', { busy: true });
-        } catch { toast(tr('Could not do that'), 'error'); }
-      },
-    }] : []),
-    ...(isAdmin ? [{ label: tr('Move library'), disabled: offline, hook: 'move-library', onSelect: () => setMoving(true) }] : []),
-    // What is missing is the server's to work out; the notice says when there was nothing older to fetch.
-    ...(canDownload(user) ? [{
-      label: tr('Archive slowly'), divider: !isAdmin, disabled: offline,
-      onSelect: () => { void archive([series.id], series.metadata?.title || series.name); },
-    }] : []),
     { label: tr('Properties…'), divider: true, onSelect: () => setProperties(true) },
   ];
 
   const menu = useContextMenu(items, { label: series.metadata?.title || series.name });
   // The sheet rides on the menu's `element`, so every card that renders the menu renders it too.
-  const element = <>{menu.element}{properties && <SeriesPropertiesSheet series={series} onClose={() => setProperties(false)} />}{moving && <MoveToLibrary n={1} busy={moveBusy} onClose={() => setMoving(false)} onPick={moveTo} />}</>;
+  const element = <>{menu.element}{actions.element}{properties && <SeriesPropertiesSheet series={series} onClose={() => setProperties(false)} />}</>;
   return { ...menu, element };
 }

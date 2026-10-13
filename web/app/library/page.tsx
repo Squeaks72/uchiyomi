@@ -45,7 +45,8 @@ import { LibraryStart } from '@/components/LibraryStart';
 import { ART } from '@/lib/art';
 import { BulkChapterDeleteRunDialog } from '@/components/BulkChapterDeleteRun';
 import { CollectionPickerModal } from '@/components/CollectionPicker';
-import { SelectionMenu } from '@/components/SelectionMenu';
+import { useContextMenu } from '@/components/ContextMenu';
+import { useSeriesActions } from '@/components/SeriesActions';
 import { BulkGenresModal } from '@/components/BulkGenres';
 import {
   BULK_CHAPTER_DELETE_POLL_MS,
@@ -139,7 +140,6 @@ function LibraryInner() {
   const [more, setMore] = useState(false);
   const [listing, setListing] = useState(false);
   const [genreEdit, setGenreEdit] = useState(false);
-  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   // v0.51.0: Find other sources asks first whether to follow automatically or review first.
   const [finding, setFinding] = useState(false);
   // The Fetch newest job as last polled, while it runs: what the bar's label counts up with.
@@ -175,7 +175,7 @@ function LibraryInner() {
   const openSelectionMenu = (id: string, at: { x: number; y: number }) => {
     setPicked((p) => (p.has(id) ? p : new Set(p).add(id)));
     anchor.current = id;
-    setMenu(at);
+    selMenu.openPoint(at.x, at.y);
   };
   // ⚠️ `lib` counts. It used to be left out because it lived in its own tab rail rather than in the sheet,
   // so selecting a library filtered the grid while the badge said nothing was filtered and the "· filtered"
@@ -358,6 +358,13 @@ function LibraryInner() {
     qc.invalidateQueries({ queryKey: ['library'] });
     qc.invalidateQueries({ queryKey: ['home'] });
   };
+
+  // Right-click in Select mode: every action that fits the selection (components/SeriesActions.tsx), at the pointer.
+  const selActions = useSeriesActions({ onDone: settle });
+  const selMenu = useContextMenu(() => [
+    ...selActions.items([...picked]),
+    { label: tr('Select all loaded'), divider: true, onSelect: () => setPicked(new Set(itemsRef.current.map((x) => x.id))) },
+  ], { label: selectedText(picked.size) });
 
   const bulk = async (path: string, extra: Record<string, unknown>) => {
     setActing(true);
@@ -930,27 +937,8 @@ function LibraryInner() {
       {listing && <CollectionPickerModal seriesIds={[...picked]} onClose={() => setListing(false)} onDone={settle} />}
       {genreEdit && <BulkGenresModal n={picked.size} seriesIds={[...picked]} onClose={() => setGenreEdit(false)}
         onDone={() => { qc.invalidateQueries({ queryKey: ['genre-names'] }); settle(); }} />}
-      {menu && picked.size > 0 && (
-        <SelectionMenu at={menu} onClose={() => setMenu(null)} title={selectedText(picked.size)}
-          items={[
-            { label: tr('Add to list'), run: () => setListing(true) },
-            { label: tr('Download as zip'), run: zipPicked },
-            { label: tr('Mark read'), run: () => void bulk('/api/library/bulk/read', { completed: true }) },
-            { label: tr('Mark unread'), run: () => void bulk('/api/library/bulk/read', { completed: false }) },
-            { label: tr('Favorite'), run: () => void bulk('/api/favorites/bulk', { favorite: true }) },
-            ...(canDownload(user) ? [{ label: tr('Fetch newest'), run: () => void fetchNewest() }] : []),
-            ...(isAdmin ? [
-              { label: tr('Edit genres'), run: () => setGenreEdit(true) },
-              { label: tr('Move to library'), run: () => setMoving(true) },
-              { label: tr('Find other sources'), run: () => setFinding(true) },
-              { label: tr('Monitor'), run: () => void monitorSelected(true) },
-              { label: tr('Unmonitor'), run: () => void monitorSelected(false) },
-              { label: tr('Delete chapters'), run: () => { setAlsoPause(true); setDeletingChapters(true); }, danger: true },
-              { label: tr('Remove from library'), run: () => setRemoving(true), danger: true },
-            ] : []),
-            { label: tr('Select all loaded'), run: () => setPicked(new Set(items.map((x) => x.id))) },
-          ]} />
-      )}
+      {selMenu.element}
+      {selActions.element}
       {finding && <FindStartDialog onClose={() => setFinding(false)} onStart={(review) => { setFinding(false); void findSelected(review); }} />}
       {removing && (
         <ConfirmDialog

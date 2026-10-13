@@ -187,5 +187,7 @@ export function useContextMenu(getItems: () => MenuItem[], { label }: { label: s
   };
 
   const element = at ? <Menu items={getItems()} at={at} label={label} onClose={close} /> : null;
-  return { bind, openFrom, open: !!at, close: () => close(false), element };
+  /** Open at a screen point, for a menu with no element of its own to bind (a selection's). */
+  const openPoint = (x: number, y: number) => openAt({ x, y }, null);
+  return { bind, openFrom, openPoint, open: !!at, close: () => close(false), element };
 }

@@ -36,6 +36,8 @@ test('it never leaves the screen or touches its edge, even when it cannot fit ei
 
 test('the series menu offers Move library to admins only, through the shared picker', () => {
   const src = readFileSync(join(process.cwd(), 'components/SeriesMenu.tsx'), 'utf8');
-  assert.match(src, /\.\.\.\(isAdmin \? \[\{ label: tr\('Move library'\)/, 'Move library is not admin-gated');
-  assert.match(src, /<MoveToLibrary n=\{1\}/, 'the menu does not open the library picker');
+  const actions = readFileSync(join(process.cwd(), 'components/SeriesActions.tsx'), 'utf8');
+  assert.match(actions, /isAdmin \? \[[\s\S]*label: tr\('Move library'\)/, 'Move library is not admin-gated');
+  assert.match(src, /useSeriesActions\(/, 'the series menu does not share the actions');
+  assert.match(actions, /<MoveToLibrary n=\{n\}/, 'the menu does not open the library picker');
 });

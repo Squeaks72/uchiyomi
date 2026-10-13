@@ -103,7 +103,7 @@ test("a list's page shows the Library's tile, sorts with the chips, and saves th
   assert.match(page, /const chosen = listSortOf\(user\?\.settings, id\);/, 'the order is not read from the account');
   assert.match(page, /api\('\/api\/settings', \{ method: 'PUT', json: \{ listSorts: map \} \}\)/, 'the order is not saved to the account');
   // A menu action on a list's tile (Mark all read) moves the list's badge too.
-  assert.match(code(read('components/SeriesMenu.tsx')), /\['library'\], \['home'\], \['collection'\]/, "Mark all read from a list's tile leaves its badge stale");
+  assert.match(code(read('components/SeriesActions.tsx')), /\['library'\], \['home'\], \['collection'\]/, "Mark all read from a list's tile leaves its badge stale");
 });
 
 test('the Lists pages say nothing in English only: every toast, question and label goes through tr()', () => {
