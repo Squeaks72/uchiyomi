@@ -8,7 +8,7 @@
 // doing precisely what it did before. Every guard names the edit that makes it fail again.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, existsSync } from 'fs';
+import { readFileSync } from 'fs';
 import { join } from 'path';
 import {
   applyReduceEffects, effectsReduced, readReduceEffectsMirror, restoreReduceEffects,
@@ -76,12 +76,58 @@ const CSS = () => cssRules(read('app/globals.css'));
 
 /* ================================================================ the default look, pinned */
 
-test('the global cinematic layers (mesh, grain, vignette) are gone', () => {
-  // The owner asked for the page-wide shading removed so the cover art reads clearly. Reintroduce by
-  // rendering a CinematicFX or adding any .fx-* rule back: this fails.
-  assert.ok(!existsSync(join(ROOT, 'components/CinematicFX.tsx')), 'CinematicFX is back');
-  assert.doesNotMatch(code(read('components/AppShell.tsx')), /CinematicFX/, 'the app shell mounts CinematicFX again');
-  assert.doesNotMatch(read('app/globals.css'), /\.fx-(grain|mesh|vignette)\b|mesh-drift/, 'a cinematic layer rule is back in globals.css');
+// Exactly the v0.42.0 declarations. A change here is a change to how the app looks for everyone, and #71's
+// answer to a slow machine is the switch, not this.
+const GRAIN_URL = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`;
+const PINNED: Record<string, string[]> = {
+  '.fx-grain': [
+    'position: fixed', 'inset: 0', 'z-index: 2', 'pointer-events: none',
+    'opacity: 0.05', 'mix-blend-mode: overlay',
+    `background-image: ${GRAIN_URL}`,
+    'background-size: 180px 180px',
+  ],
+  '.fx-vignette': [
+    'position: fixed', 'inset: 0', 'z-index: 2', 'pointer-events: none',
+    'background: radial-gradient(125% 100% at 50% 0%, transparent 52%, rgba(0,0,0,0.5) 100%)',
+  ],
+  '.fx-mesh': [
+    'position: fixed', 'inset: -25%', 'z-index: 0', 'pointer-events: none',
+    'filter: blur(90px) saturate(1.25)', 'opacity: 0.55',
+    'background: radial-gradient(38% 40% at 18% 28%, rgb(var(--accent) / 0.20), transparent 70%), radial-gradient(40% 48% at 82% 18%, rgba(34, 211, 238, 0.10), transparent 70%), radial-gradient(52% 52% at 62% 92%, rgb(var(--accent) / 0.14), transparent 70%)',
+    'animation: mesh-drift 26s ease-in-out infinite alternate',
+  ],
+};
+const MESH_DRIFT = '0% { transform: translate3d(0, 0, 0) scale(1); } 100% { transform: translate3d(2%, -3%, 0) scale(1.14); }';
+
+test('the cinematic layers keep their v0.42.0 look by default', () => {
+  // Reintroduce by the "cheap default" #71 was first going to ship -- `mix-blend-mode: normal` on the grain,
+  // `filter: none` on the mesh, `z-index: 0` on the vignette: "the default .fx-grain changed" (or the mesh,
+  // or the vignette) fails.
+  const rules = CSS();
+  for (const [sel, want] of Object.entries(PINNED)) {
+    const found = rules.filter((r) => r.sel === sel && r.ctx.length === 0);
+    assert.equal(found.length, 1, `expected exactly one unconditional ${sel} rule, found ${found.length}`);
+    assert.deepEqual(decls(found[0].body), want, `the default ${sel} changed`);
+  }
+  const drift = rules.filter((r) => r.sel === '@keyframes mesh-drift');
+  assert.equal(drift.length, 1, 'the mesh drift keyframes are gone');
+  assert.equal(flat(drift[0].body), MESH_DRIFT, 'the mesh drifts differently');
+});
+
+test('nothing outside the pinned rules restyles a cinematic layer, except the switch and reduced motion', () => {
+  // A second rule is the quiet way to change the look without touching the pinned three: a more specific
+  // `html .fx-grain { mix-blend-mode: normal }` wins and the pin above still passes (a second plain
+  // `.fx-grain` rule is caught there, by its count). The only rules allowed to name an fx layer are the
+  // pinned three, the Reduce effects block, and the prefers-reduced-motion line that has stopped the drift
+  // since before #71. Reintroduce by appending `html .fx-grain { opacity: .03; }` to globals.css: "a rule
+  // outside the pinned three restyles .fx-grain" fails.
+  for (const r of CSS()) {
+    if (!/\.fx-(grain|mesh|vignette)\b/.test(r.sel)) continue;
+    if (r.ctx.length === 0 && r.sel in PINNED) continue;
+    if (r.ctx.length === 0 && r.sel.split(',').every((s) => s.trim().startsWith('html.reduce-effects '))) continue;
+    if (r.ctx.join('|') === '@media (prefers-reduced-motion: reduce)' && r.sel === '.fx-mesh' && flat(r.body) === 'animation: none;') continue;
+    assert.fail(`a rule outside the pinned three restyles ${r.sel.match(/\.fx-\w+/)![0]}: ${r.ctx.join(' ')} ${r.sel} { ${flat(r.body)} }`);
+  }
 });
 
 test('prefers-reduced-motion does exactly what it did before the switch existed', () => {
@@ -91,8 +137,20 @@ test('prefers-reduced-motion does exactly what it did before the switch existed'
   // under the media query): "the reduced-motion block changed" fails.
   const inPrm = CSS().filter((r) => r.ctx.join('|') === '@media (prefers-reduced-motion: reduce)');
   assert.deepEqual(inPrm.map((r) => `${r.sel} { ${flat(r.body)} }`), [
+    '.fx-mesh { animation: none; }',
     '*, *::before, *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }',
   ], 'the reduced-motion block changed');
+});
+
+test('the app shell still mounts all three layers, and only the switch removes them', () => {
+  // Reintroduce by returning null from CinematicFX on a slow-machine guess, or dropping one layer:
+  // "CinematicFX no longer renders the three layers" / "CinematicFX has a second way to render nothing" fails.
+  const fx = code(read('components/CinematicFX.tsx'));
+  assert.match(fx, /<>\s*<div className="fx-mesh" \/>\s*<div className="fx-grain" \/>\s*<div className="fx-vignette" \/>\s*<\/>/,
+    'CinematicFX no longer renders the three layers, in order');
+  assert.match(fx, /const reduced = useReduceEffects\(\);\s*if \(reduced\) return null;/, 'CinematicFX does not step aside for the switch');
+  assert.equal((fx.match(/return null/g) || []).length, 1, 'CinematicFX has a second way to render nothing');
+  assert.match(code(read('components/AppShell.tsx')), /<CinematicFX \/>/, 'the app shell no longer mounts CinematicFX');
 });
 
 test("the reader's cover washes are its look by default, and only their own switch takes them away (#170)", () => {
@@ -157,6 +215,9 @@ test('the Reduce effects rules are unlayered and turn off the fx layers, every b
   assert.ok(all.length >= 4, `only ${all.length} Reduce effects rules found -- the block is gone or the reader is broken`);
   for (const r of all) assert.deepEqual(r.ctx, [], `a Reduce effects rule sits inside ${r.ctx.join(' ')}: ${r.sel}`);
   const sels = (r: Rule) => r.sel.split(',').map((s) => s.trim());
+  const hides = all.find((r) => ['.fx-mesh', '.fx-grain', '.fx-vignette'].every((c) => sels(r).includes(`html.reduce-effects ${c}`)));
+  assert.ok(hides, 'the switch does not hide all three fx layers');
+  assert.ok(decls(hides!.body).includes('display: none'), 'the switch does not hide all three fx layers');
   const blur = all.find((r) => ['*', '*::before', '*::after'].every((c) => sels(r).includes(`html.reduce-effects ${c}`)));
   assert.ok(blur, 'the switch leaves backdrop-filter on');
   for (const d of ['backdrop-filter: none', '-webkit-backdrop-filter: none']) {
