@@ -236,7 +236,7 @@ export function SeriesCard({ series, w = CARD_W, eager = false, note }: {
         {(series.yomi?.newCount ?? 0) > 0 && (
           <span className="absolute bottom-2 start-2 z-10 rounded-[4px] bg-accent px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-black shadow-glow rtl:tracking-normal">{tr('New')}</span>
         )}
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-linear-to-t from-black/85 to-transparent" />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-linear-to-t from-black/85 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
         <CoverReadBar series={series} />
       </div>
       <p className="mt-2 line-clamp-2 px-0.5 text-[13px] font-medium leading-tight text-fog-200 transition group-hover:text-fog-50">
