@@ -10,7 +10,7 @@ import { t as tr } from '@/lib/i18n';
 import { checkTitle } from '@/lib/healthCopy';
 import { itemDetail } from '@/lib/said';
 import { seriesHref } from '@/lib/healthLinks';
-import { FindSourceLink, SeriesRowTools } from '@/components/FindSourceLink';
+import { FindMissingLink, FindSourceLink, SeriesRowTools } from '@/components/FindSourceLink';
 import { ConfirmDialog, msgOf } from '@/components/ConfirmDialog';
 import { useToast } from '@/components/Toast';
 import { HealthRow } from '@/components/HealthActions';
@@ -89,6 +89,7 @@ export function HealthBySeries({ checks }: { checks: HealthCheck[] }) {
               </div>
               <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
                 <Link href={seriesHref(r.id)} className={KEY}>{tr('Open')}{' '}›</Link>
+                {r.checks.has('chapter-gaps') && <FindMissingLink id={r.id} className={KEY} />}
                 {!offers('find_sources') && <FindSourceLink id={r.id} className={KEY} />}
                 <SeriesRowTools id={r.id} title={r.title} details={r.checks.has('details') || r.checks.has('covers')} remove={!offers('remove_series')} className={KEY} />
               </div>

@@ -45,7 +45,7 @@ import { TONE_SURFACE, healthMark } from '@/lib/status';
 import Link from 'next/link';
 import { healthLinks } from '@/lib/healthLinks';
 import { HealthBySeries } from '@/components/HealthBySeries';
-import { FindSourceLink, SeriesRowTools } from '@/components/FindSourceLink';
+import { FindMissingLink, FindSourceLink, SeriesRowTools } from '@/components/FindSourceLink';
 import { useLayer } from '@/lib/layers';
 import { SourceHealthBody } from '@/components/SourceHealthBody';
 import { releaseHref, shownVersion, updateState, type UpdateState } from '@/lib/versionLine';
@@ -2251,7 +2251,10 @@ function Health() {
                             {...(/^https?:\/\//.test(l.href) ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>
                             {l.label ? `${tr('Open')} · ${l.label}` : tr('Open')}{'\u00a0'}›
                           </Link>
-                        )).concat(it.seriesId && c.id !== 'duplicates' ? [
+                        )).concat(it.seriesId && c.id === 'chapter-gaps' ? [
+                          <FindMissingLink key="find-missing" id={it.seriesId}
+                            className="line-clamp-2 max-w-[11rem] break-words text-end text-xs text-accent hover:underline" />,
+                        ] : []).concat(it.seriesId && c.id !== 'duplicates' ? [
                           <SeriesRowTools key="tools" id={it.seriesId} title={it.title} details={c.id === 'details'} remove={!it.actions?.includes('remove_series')}
                             className="line-clamp-2 max-w-[11rem] break-words text-end text-xs text-accent hover:underline" />,
                         ] : [])}>

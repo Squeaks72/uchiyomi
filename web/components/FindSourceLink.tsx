@@ -9,6 +9,7 @@ import type { Series } from '@/lib/types';
 import { t as tr } from '@/lib/i18n';
 import { seriesHref } from '@/lib/healthLinks';
 import { SourcesSheet, useSeriesGroups } from '@/components/SourcesSheet';
+import { FindMissingDialog } from '@/components/FindMissingDialog';
 import { SeriesEditor } from '@/components/SeriesEditor';
 import { ConfirmDialog, msgOf } from '@/components/ConfirmDialog';
 import { useToast } from '@/components/Toast';
@@ -39,6 +40,22 @@ export function FindSourceLink({ id, className }: { id: string; className?: stri
         {tr('Open')} · {tr('Find a source')}{' '}›
       </button>
       {open && <Host id={id} onClose={() => setOpen(false)} />}
+    </>
+  );
+}
+
+/** Health's "Find missing chapters": the series page's dialog, opened on the Health page. */
+export function FindMissingLink({ id, className }: { id: string; className?: string }) {
+  const [open, setOpen] = useState(false);
+  const qc = useQueryClient();
+  const close = () => {
+    setOpen(false);
+    for (const k of [['series', id], ['series-books', id], ['series-listing', id], ['health']]) qc.invalidateQueries({ queryKey: k });
+  };
+  return (
+    <>
+      <button type="button" className={className} onClick={() => setOpen(true)}>{tr('Find missing chapters')}{'\u00a0'}›</button>
+      {open && <FindMissingDialog seriesId={id} onClose={close} />}
     </>
   );
 }
