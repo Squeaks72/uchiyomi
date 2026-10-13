@@ -15,6 +15,9 @@ import { bookCountText } from '@/lib/format';
 import { hoursText, perChapterText, readerTz } from '@/lib/readingTime';
 import { shownDeviceName } from '@/lib/device';
 
+// The insight cards that follow the Reading studio on the You tab (components/you/).
+export { YouInsights } from '@/components/you/YouInsights';
+
 /**
  * The You tab of the profile: what you have earned, what you have read, and your lists.
  *
