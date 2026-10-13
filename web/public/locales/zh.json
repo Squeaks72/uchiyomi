@@ -2,7 +2,7 @@
   "_meta": {
     "language": "zh",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 4221
+    "strings": 4240
   },
   "1 check found something": "1 项检查发现问题",
   "1 member": "1 位成员",
@@ -252,6 +252,7 @@
   "Most unread": "未读最多",
   "Mount a source pack at SOURCES_DIR, or switch on an extension source, then reload from the Providers tab.": "在 SOURCES_DIR 挂载来源包，或启用一个扩展来源，然后在“提供方”标签页重新加载。",
   "Move to library": "移动到库",
+  "Move library": "移动到库",
   "Name": "名称",
   "Needs attention": "需要关注",
   "New account": "新建账号",
@@ -3489,8 +3490,6 @@
   "Most popular": "最热门",
   "Top rated": "评分最高",
   "My rating": "我的评分",
-  "Most chapters": "章节最多",
-  "Recently read": "最近阅读",
   "{count} on AniList": "AniList 上 {count}人收藏",
   "{score}% on AniList": "AniList 评分 {score}%",
   "Read {when}": "{when}读过",

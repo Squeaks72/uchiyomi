@@ -10,6 +10,7 @@ import { useToast } from './Toast';
 import { useContextMenu, type MenuItem } from './ContextMenu';
 import { useArchiveEnqueue } from './ArchiveQueue';
 import { SeriesPropertiesSheet } from './SeriesPropertiesSheet';
+import { MoveToLibrary } from './MoveToLibrary';
 import { useAdultMark, useAlwaysShow } from './useAdultMark';
 
 /**
@@ -36,6 +37,8 @@ export function useSeriesMenu(series: Series, onDescribe?: () => void, opts?: { 
   });
   const favourite = series.yomi ? !!series.yomi.favorite : !!favIds.data?.includes(series.id);
   const [properties, setProperties] = useState(false);
+  const [moving, setMoving] = useState(false);
+  const [moveBusy, setMoveBusy] = useState(false);
   const adultItem = useAdultMark(series.metadata?.title || series.name, series.id, series.metadata?.ageRating);
   const showItem = useAlwaysShow(series.id, series.overrides?.adultExempt);
 
@@ -53,6 +56,19 @@ export function useSeriesMenu(series: Series, onDescribe?: () => void, opts?: { 
       settle();
       qc.invalidateQueries({ queryKey: ['favorite-ids'] });
     } catch { toast(tr('Could not do that'), 'error'); }
+  };
+
+  const moveTo = async (libraryId: string | null) => {
+    setMoveBusy(true);
+    try {
+      const r = await api<{ applied: number; problems?: { reason?: string }[] }>('/api/admin/series/library', { json: { seriesIds: [series.id], libraryId } });
+      if (r.problems?.length) toast(`${tr('1 folder could not be moved')}: ${r.problems[0].reason ?? ''}`, 'error');
+      else toast(r.applied ? tr('1 series updated') : tr('That series is no longer in the library'), r.applied ? 'success' : 'error');
+      settle();
+      qc.invalidateQueries({ queryKey: ['library-sources'] });
+    } catch { toast(tr('Could not do that'), 'error'); }
+    setMoveBusy(false);
+    setMoving(false);
   };
 
   // Home's Keep reading row only: the series stays in the library and returns to the row when it is read again.
@@ -91,6 +107,7 @@ export function useSeriesMenu(series: Series, onDescribe?: () => void, opts?: { 
         } catch { toast(tr('Could not do that'), 'error'); }
       },
     }] : []),
+    ...(isAdmin ? [{ label: tr('Move library'), disabled: offline, hook: 'move-library', onSelect: () => setMoving(true) }] : []),
     // What is missing is the server's to work out; the notice says when there was nothing older to fetch.
     ...(canDownload(user) ? [{
       label: tr('Archive slowly'), divider: !isAdmin, disabled: offline,
@@ -103,6 +120,6 @@ export function useSeriesMenu(series: Series, onDescribe?: () => void, opts?: { 
 
   const menu = useContextMenu(items, { label: series.metadata?.title || series.name });
   // The sheet rides on the menu's `element`, so every card that renders the menu renders it too.
-  const element = <>{menu.element}{properties && <SeriesPropertiesSheet series={series} onClose={() => setProperties(false)} />}</>;
+  const element = <>{menu.element}{properties && <SeriesPropertiesSheet series={series} onClose={() => setProperties(false)} />}{moving && <MoveToLibrary n={1} busy={moveBusy} onClose={() => setMoving(false)} onPick={moveTo} />}</>;
   return { ...menu, element };
 }

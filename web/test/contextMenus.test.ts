@@ -2,6 +2,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { placeMenu, wantsOwnMenu } from '../lib/contextMenus';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 const click = (o: Partial<{ shiftKey: boolean; editable: boolean; selection: string; inSelection: boolean }> = {}) =>
   ({ shiftKey: false, editable: false, selection: '', inSelection: false, ...o });
@@ -30,4 +32,10 @@ test('it never leaves the screen or touches its edge, even when it cannot fit ei
   assert.equal(r.top, 8, 'a menu taller than the screen starts at the margin');
   const l = placeMenu({ x: -50, y: 10 }, { w: 208, h: 100 }, { w: 400, h: 800 });
   assert.equal(l.left, 8, 'a ⋯ button near the left edge anchors the menu at the margin, not off screen');
+});
+
+test('the series menu offers Move library to admins only, through the shared picker', () => {
+  const src = readFileSync(join(process.cwd(), 'components/SeriesMenu.tsx'), 'utf8');
+  assert.match(src, /\.\.\.\(isAdmin \? \[\{ label: tr\('Move library'\)/, 'Move library is not admin-gated');
+  assert.match(src, /<MoveToLibrary n=\{1\}/, 'the menu does not open the library picker');
 });

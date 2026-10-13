@@ -98,7 +98,7 @@ const SLICES: [string, string, string, string][] = [
   ['app/admin/page.tsx', 'Overview: Needs attention', 'function NeedsAttention(', 'function TabTile('],
   // Step 5: the Library's Series | Downloads switch (its count is a squared tag), and the header's two counts
   // side by side on a desktop -- the downloads ring's and the Updates bell's, a capsule at "9+" until v0.49.0.
-  ['app/library/page.tsx', 'Library: the Series | Downloads switch', 'function ViewSwitch(', 'function MoveToLibrary('],
+  ['app/library/page.tsx', 'Library: the Series | Downloads switch', 'function ViewSwitch(', 'export default function LibraryPage('],
   ['components/TopNav.tsx', 'TopNav: the downloads ring and the Updates count', '<DownloadsNavIcon />', '<button onClick={refresh}'],
   // Step 8: Health's body -- the verdict marks that replaced the HEALTH_LABEL capsules, Re-check as a key, Open
   // as a text link -- and the Tasks rows' Run now.
@@ -262,7 +262,7 @@ test('the downloads counts are squared tags: the switch\'s, the ring\'s and the 
   assert.ok(count, 'the Updates count is not where this test looks');
   assert.match(count![1], /rounded-\[4px\]/, 'the Updates count is not squared');
   assert.doesNotMatch(count![1], /rounded-full/, 'the Updates count is a capsule');
-  const sw = slice(code(read('app/library/page.tsx')), 'function ViewSwitch(', 'function MoveToLibrary(', 'ViewSwitch');
+  const sw = slice(code(read('app/library/page.tsx')), 'function ViewSwitch(', 'export default function LibraryPage(', 'ViewSwitch');
   assert.match(sw, /role="tablist"/, 'the switch slice does not hold the switch');
   assert.match(sw, /rounded-\[4px\][^"]*tabular-nums/, 'the switch\'s count is not a squared tag');
 });

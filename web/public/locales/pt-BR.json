@@ -2,7 +2,7 @@
   "_meta": {
     "language": "pt-BR",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 4221
+    "strings": 4240
   },
   "1 check found something": "1 verificação encontrou algo",
   "1 member": "1 membro",
@@ -252,6 +252,7 @@
   "Most unread": "Mais não lidos",
   "Mount a source pack at SOURCES_DIR, or switch on an extension source, then reload from the Providers tab.": "Monte um pacote de fontes em SOURCES_DIR, ou ative uma fonte de extensão, e recarregue na aba Provedores.",
   "Move to library": "Mover para biblioteca",
+  "Move library": "Mover para biblioteca",
   "Name": "Nome",
   "Needs attention": "Precisa de atenção",
   "New account": "Nova conta",
@@ -3489,8 +3490,6 @@
   "Most popular": "Mais popular",
   "Top rated": "Mais bem avaliado",
   "My rating": "Minha avaliação",
-  "Most chapters": "Mais capítulos",
-  "Recently read": "Lido recentemente",
   "{count} on AniList": "{count} no AniList",
   "{score}% on AniList": "{score}% no AniList",
   "Read {when}": "Lido {when}",
