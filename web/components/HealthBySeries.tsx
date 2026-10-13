@@ -70,7 +70,10 @@ export function HealthBySeries({ checks }: { checks: HealthCheck[] }) {
         </button>
         {picked.size > 0 && <button type="button" className="btn-key" onClick={() => setAsking(true)}>{tr('Remove {n} from library', { n: picked.size })}</button>}
       </div>
-      {rows.map((r) => (
+      {rows.map((r) => {
+        // The rows' own keys already say these; a second link to the same thing underneath is noise.
+        const offers = (a: string) => r.problems.some((p) => p.item.actions?.includes(a as never));
+        return (
         <div key={r.id} className="rounded-xl border border-ink-700 bg-ink-900/40 p-3">
           <div className="flex items-start gap-2.5">
             <input type="checkbox" checked={picked.has(r.id)} onChange={() => toggle(r.id)} aria-label={r.title} className="mt-1 size-4 accent-accent" />
@@ -86,13 +89,14 @@ export function HealthBySeries({ checks }: { checks: HealthCheck[] }) {
               </div>
               <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
                 <Link href={seriesHref(r.id)} className={KEY}>{tr('Open')}{' '}›</Link>
-                <FindSourceLink id={r.id} className={KEY} />
-                <SeriesRowTools id={r.id} title={r.title} details={r.checks.has('details') || r.checks.has('covers')} className={KEY} />
+                {!offers('find_sources') && <FindSourceLink id={r.id} className={KEY} />}
+                <SeriesRowTools id={r.id} title={r.title} details={r.checks.has('details') || r.checks.has('covers')} remove={!offers('remove_series')} className={KEY} />
               </div>
             </div>
           </div>
         </div>
-      ))}
+        );
+      })}
       {asking && (
         <ConfirmDialog title={tr('Remove from library?')} danger busy={busy} confirmLabel={tr('Remove')}
           body={(

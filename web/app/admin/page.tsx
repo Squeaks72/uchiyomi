@@ -2244,7 +2244,7 @@ function Health() {
                         // arrow is held to the last word by a no-break space).
                         links={healthLinks(c.id, it).map((l) => (
                           it.seriesId && l.href.endsWith('&attach=1')
-                            ? <FindSourceLink key={l.href} id={it.seriesId} className="line-clamp-2 max-w-[11rem] break-words text-end text-xs text-accent hover:underline" />
+                            ? (it.actions?.includes('find_sources') ? null : <FindSourceLink key={l.href} id={it.seriesId} className="line-clamp-2 max-w-[11rem] break-words text-end text-xs text-accent hover:underline" />)
                             : <Link key={l.href} href={l.href} className="line-clamp-2 max-w-[11rem] break-words text-end text-xs text-accent hover:underline"
                             title={l.label} aria-label={l.label ? `${tr('Open')}: ${l.label}` : undefined}
                             // A page off the app (the install guide, v0.52.0) opens beside it, never in place of it.
@@ -2252,7 +2252,7 @@ function Health() {
                             {l.label ? `${tr('Open')} · ${l.label}` : tr('Open')}{'\u00a0'}›
                           </Link>
                         )).concat(it.seriesId && c.id !== 'duplicates' ? [
-                          <SeriesRowTools key="tools" id={it.seriesId} title={it.title} details={c.id === 'details'}
+                          <SeriesRowTools key="tools" id={it.seriesId} title={it.title} details={c.id === 'details'} remove={!it.actions?.includes('remove_series')}
                             className="line-clamp-2 max-w-[11rem] break-words text-end text-xs text-accent hover:underline" />,
                         ] : [])}>
                         {/* The server's words, in the reader's language where it sent their codes (lib/said.ts) and

@@ -53,8 +53,8 @@ function EditorHost({ id, onClose }: { id: string; onClose: () => void }) {
   );
 }
 
-/** Health's "Add details" (a series missing its description or genres: write them by hand) and "Remove" (hide it from the library; no files are deleted). */
-export function SeriesRowTools({ id, title, details, className }: { id: string; title: string; details?: boolean; className?: string }) {
+/** `remove`: false where the row already has its own Remove from library key. Health's "Add details" (a series missing its description or genres: write them by hand) and "Remove" (hide it from the library; no files are deleted). */
+export function SeriesRowTools({ id, title, details, remove: canRemove = true, className }: { id: string; title: string; details?: boolean; remove?: boolean; className?: string }) {
   const [editing, setEditing] = useState(false);
   const [removing, setRemoving] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -73,7 +73,7 @@ export function SeriesRowTools({ id, title, details, className }: { id: string; 
   return (
     <>
       {details && <button type="button" className={className} onClick={() => setEditing(true)}>{tr('Add details by hand')}{'\u00a0'}›</button>}
-      <button type="button" className={className} onClick={() => setRemoving(true)}>{tr('Remove from library')}{'\u00a0'}›</button>
+      {canRemove && <button type="button" className={className} onClick={() => setRemoving(true)}>{tr('Remove from library')}{'\u00a0'}›</button>}
       {editing && <EditorHost id={id} onClose={() => setEditing(false)} />}
       {removing && (
         <ConfirmDialog title={tr('Remove from library?')} danger busy={busy} confirmLabel={tr('Remove')}
