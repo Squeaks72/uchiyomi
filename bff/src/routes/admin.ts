@@ -1940,6 +1940,19 @@ export default async function adminRoutes(app: FastifyInstance) {
     return { ok: true, from: out.from, to: out.to, old: out.old, ...(out.langPinned ? { langPinned: out.langPinned } : {}), sources: list };
   });
 
+  /** The web page of this series on one source it follows, as the source itself reports it. `{url}`, or 404 when it has none. */
+  app.get('/api/admin/series/:id/sources/:sourceId/url', async (req, reply) => {
+    const { id, sourceId } = req.params as { id: string; sourceId: string };
+    const follow = (await seriesSourcesFor(id)).find((x) => x.sourceId === sourceId);
+    const src = follow ? getSource(follow.sourceId) : null;
+    if (!follow || !src) return reply.code(404).send({ error: 'not_found', message: 'That source does not follow this series.' });
+    try {
+      const sr = await withTimeout(src.getSeries(follow.sourceSeriesId), 20_000);
+      if (!sr?.url || !/^https?:\/\//i.test(sr.url)) return reply.code(404).send({ error: 'no_url', message: 'That source gave no web address for this series.' });
+      return { url: sr.url };
+    } catch { return reply.code(502).send({ error: 'unavailable', message: 'The source did not answer.' }); }
+  });
+
   /**
    * Attach a source a person picked by hand (lib/manualAttach.ts): none of the chapter-overlap gates apply, so a series with
    * one chapter or none can take a source. Body `{source, sourceSeriesId, title?, as: 'follower'|'main', old?}`. 200

@@ -347,8 +347,28 @@ function Languages({ series, onAdd, onChange, onUnlink, onOpen }: {
  * × that stops following it and (v0.54.0) Make main on a follower that works: it asks first, in one line, what becomes
  * of the main source it replaces (lib/mainSource.ts).
  */
-export function SourceRow({ s, onUnfollow, unfollowing, makeMain }: {
-  s: SeriesSource; onUnfollow?: () => void; unfollowing?: boolean;
+/** The source's name, as a link to this series' own page on that source (an admin read; the address comes from the source). */
+function SourcePageLink({ seriesId, s }: { seriesId: string; s: SeriesSource }) {
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+  const go = async () => {
+    // Opened at once, on the click, so a popup blocker allows it; pointed at the page when the source has answered.
+    const w = window.open('about:blank', '_blank');
+    setBusy(true);
+    try {
+      const r = await api<{ url: string }>(`/api/admin/series/${encodeURIComponent(seriesId)}/sources/${encodeURIComponent(s.sourceId)}/url`);
+      if (w) { w.opener = null; w.location.href = r.url; } else window.open(r.url, '_blank', 'noopener');
+    } catch (e) { w?.close(); toast(msgOf(e, tr('Could not find that page')), 'error'); }
+    setBusy(false);
+  };
+  return (
+    <button type="button" onClick={go} disabled={busy} aria-busy={busy} title={tr('Open on {s}', { s: s.name })}
+      className="truncate text-fog-100 hover:text-accent hover:underline disabled:opacity-60">{s.name}</button>
+  );
+}
+
+export function SourceRow({ s, seriesId, onUnfollow, unfollowing, makeMain }: {
+  s: SeriesSource; seriesId?: string; onUnfollow?: () => void; unfollowing?: boolean;
   makeMain?: { question: string; busy: boolean; refusal: string | null; asking: boolean; onAsk: () => void; onCancel: () => void; onConfirm: () => void };
 }) {
   // ⚠️ The server names an adapter it no longer loads by its id, and an extension's id is nineteen digits
@@ -360,7 +380,9 @@ export function SourceRow({ s, onUnfollow, unfollowing, makeMain }: {
       <SourceIcon id={s.sourceId} name={unknown ? '?' : s.name} size={24} registered={s.registered} />
       <span className="min-w-0 flex-1">
         <span className="flex min-w-0 items-center gap-1.5">
-          <span className={`truncate ${s.registered ? 'text-fog-100' : 'text-fog-500'}`}>{unknown ? tr('Source not installed') : s.name}</span>
+          {seriesId && s.registered
+            ? <SourcePageLink seriesId={seriesId} s={s} />
+            : <span className={`truncate ${s.registered ? 'text-fog-100' : 'text-fog-500'}`}>{unknown ? tr('Source not installed') : s.name}</span>}
           {/* ONE chip carries the role. A follower the add itself judged in (v0.36.0, `auto`) reads
               "followed for you" in the same chip, never as a third span: at 390 px the name line is ~316 px,
               and "also checked" + "followed automatically" + × left ~90 px for the name -- "MangaKakalot"
@@ -766,7 +788,7 @@ export function SourcesSheet({ id, title: seriesTitle, series, groups, admin, er
         {sources.length > 0
           ? <div className="divide-y divide-ink-800/70">
               {sources.map((s) => (
-                <SourceRow key={s.sourceId} s={{ ...s, checkedAt: s.checkedAt ?? (s.primary ? checkedAt : null) }}
+                <SourceRow key={s.sourceId} seriesId={isAdmin ? id : undefined} s={{ ...s, checkedAt: s.checkedAt ?? (s.primary ? checkedAt : null) }}
                   onUnfollow={isAdmin ? (s.primary ? () => setDetachAsk(true) : () => unfollow(s)) : undefined} unfollowing={unfollowing === s.sourceId}
                   makeMain={adminAccount && mayMakeMain(s) ? {
                     question: makeMainQuestion(s, main?.primary ? main : null),
