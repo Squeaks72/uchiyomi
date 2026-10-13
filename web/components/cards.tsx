@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { useCallback, useId, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { img } from '@/lib/api';
 import { Book, Series } from '@/lib/types';
 import { chapterLabel, languageName, numberText, progressOf, relativeTime } from '@/lib/format';
@@ -49,23 +49,41 @@ function useTilt() {
         !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     return ok.current;
   };
+  // At most one update per frame, and none while the page is scrolling under a still pointer: the browser
+  // re-dispatches pointermove as content slides beneath the cursor, and each one was a layout read plus two
+  // state updates (a re-render of the card) in the middle of a scroll frame.
+  const raf = useRef(0);
+  const lastScroll = useRef({ y: 0, at: 0 });
+  useEffect(() => () => cancelAnimationFrame(raf.current), []);
   const onPointerMove = useCallback((e: React.PointerEvent<HTMLElement>) => {
     // Reduce effects is read on every move, not cached with the media queries above: it can be switched on
     // while the page is open, and a tilt that kept going until the next reload would be the switch lying.
     if (!enabled() || effectsReduced()) return;
-    const r = e.currentTarget.getBoundingClientRect();
-    const px = (e.clientX - r.left) / r.width - 0.5;   // -0.5 .. 0.5
-    const py = (e.clientY - r.top) / r.height - 0.5;
-    setStyle({
-      transform: `perspective(700px) rotateX(${(-py * 8).toFixed(2)}deg) rotateY(${(px * 10).toFixed(2)}deg) translateY(-6px) scale(1.03)`,
-      transition: 'transform 120ms ease-out',
-    });
-    setGlare({
-      opacity: 1,
-      background: `radial-gradient(220px circle at ${((px + 0.5) * 100).toFixed(1)}% ${((py + 0.5) * 100).toFixed(1)}%, rgba(255,255,255,0.18), transparent 60%)`,
+    const now = performance.now();
+    if (window.scrollY !== lastScroll.current.y) lastScroll.current = { y: window.scrollY, at: now };
+    if (now - lastScroll.current.at < 150) return;
+    const el = e.currentTarget;
+    const cx = e.clientX;
+    const cy = e.clientY;
+    if (raf.current) return;
+    raf.current = requestAnimationFrame(() => {
+      raf.current = 0;
+      const r = el.getBoundingClientRect();
+      const px = (cx - r.left) / r.width - 0.5;   // -0.5 .. 0.5
+      const py = (cy - r.top) / r.height - 0.5;
+      setStyle({
+        transform: `perspective(700px) rotateX(${(-py * 8).toFixed(2)}deg) rotateY(${(px * 10).toFixed(2)}deg) translateY(-6px) scale(1.03)`,
+        transition: 'transform 120ms ease-out',
+      });
+      setGlare({
+        opacity: 1,
+        background: `radial-gradient(220px circle at ${((px + 0.5) * 100).toFixed(1)}% ${((py + 0.5) * 100).toFixed(1)}%, rgba(255,255,255,0.18), transparent 60%)`,
+      });
     });
   }, []);
   const onPointerLeave = useCallback(() => {
+    cancelAnimationFrame(raf.current);
+    raf.current = 0;
     setStyle({ transform: 'perspective(700px) rotateX(0deg) rotateY(0deg)', transition: 'transform 320ms ease' });
     setGlare({ opacity: 0, transition: 'opacity 320ms ease' });
   }, []);

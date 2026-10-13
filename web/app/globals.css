@@ -362,6 +362,12 @@
   .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 }
 
+/* Below-the-fold home rails are not laid out or painted until they near the viewport (scroll jank: a long page of
+   rails otherwise restyles/paints every card on each hover and image landing). `auto` in contain-intrinsic-size
+   remembers the real height once seen, so the scrollbar does not jump. Paint containment clips at the section box,
+   which the rail's own overflow already did. */
+.rail-section { content-visibility: auto; contain-intrinsic-size: auto 340px; }
+
 /* aurora the home hero with a soft accent bloom */
 .aurora {
   background:

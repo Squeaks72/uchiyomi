@@ -61,8 +61,8 @@ function CollectionRail({ col }: { col: CollectionRow }) {
   const items = data?.items ?? [];
   if (!items.length) return null;
   return (
-    <section className="pt-8">
-      <SectionTitle action={<Link href={`/collection/?id=${col.id}`} className="text-xs text-accent">{tr('See all')}</Link>}>
+    <section className="rail-section pt-8">
+      <SectionTitle action={<Link href={`/collection/?id=${col.id}`} aria-label={tr('See all {title}', { title: col.name })} className="text-xs text-accent">{tr('See all')}</Link>}>
         <span className="inline-flex items-center gap-2">
           <span aria-hidden className="h-4 w-1.5 rounded-full" style={{ background: col.accent || 'rgb(var(--accent))' }} />
           {col.name}
