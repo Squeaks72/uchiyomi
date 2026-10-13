@@ -14,7 +14,7 @@ environment variables see [CONFIGURATION.md](CONFIGURATION.md).
 - [7. Sources: extensions, add-a-site and MangaDex](#7-sources-extensions-add-a-site-and-mangadex)
 - [8. The admin panel](#8-the-admin-panel)
 - [9. Security: 2FA, sessions, password](#9-security-2fa-sessions-password)
-- [10. Tracking: AniList, MyAnimeList and Kitsu](#10-tracking-anilist-myanimelist-and-kitsu)
+- [10. Tracking: AniList, MyAnimeList, Kitsu and MangaUpdates](#10-tracking-anilist-myanimelist-kitsu-and-mangaupdates)
 - [11. Install as an app & offline](#11-install-as-an-app--offline)
 - [12. Backups & restore](#12-backups--restore)
 - [13. Troubleshooting & FAQ](#13-troubleshooting--faq)
@@ -204,7 +204,7 @@ Appearance → Type anywhere to search** switches the typing, and the **/** shor
 
 **Search finds pages and settings too** (since v0.55.4). Type two letters or more and, under the series, **Pages and
 settings** lists what the words name: every admin tab, each section of **Admin → Settings**, the profile's tabs and
-cards, the import, and settings by name — *Notice chapters*, *18+ filter*, *Source order*, *Slow archive*, *Backup
+cards, the import, and settings by name — *Notice chapters*, *Content ratings*, *Source order*, *Slow archive*, *Backup
 time*, *Delete read chapters*, *Scanlators*, *Check for updates*, the *Cloudflare solver* and the *Version* on Health,
 *Rescan everything* on Tasks, *Language*, *API tokens*, *Two-factor authentication* and more. A name works in your
 language and in English, and so do a few words people type instead (*flaresolverr*, *mihon*, *2fa*). Each row says
@@ -385,7 +385,7 @@ says how many are in hand. The chips:
   separate, per-title step on **Content → Library** — see section 8.
 - **Find other sources** (since v0.49.1) — admins only, behind **More**. It searches the other sources for every
   selected series and follows the ones whose title and chapter numbers match (section 4, *Find other sources*); the
-  message says where to watch it, *Library → Downloads*.
+  message says where to watch it, *Library → Fetching*.
 - **Monitor** and **Unmonitor** — admins only, behind **More**. They switch each selected series' *Auto-update
   new chapters* (**Edit details → New chapters**) on or off. An unmonitored series gets no new chapter searched
   for or downloaded by anything that runs by itself: the hourly check, its pass over chapters saved with pages
@@ -750,7 +750,7 @@ once, calmly. The idea is @TIGamingTV's ([#119](https://github.com/AngeloSha/uch
   numbered by posting order is skipped: it follows no other source.
 - **Afterwards**, each series that gained a source has its chapter list read again, 1.5 seconds apart, so the next
   scheduled check fetches its new chapters without a burst, and Health checks itself again.
-- **Watching it.** **Library → Downloads** lists the run under *Server tasks* as *Other-source search*: how many
+- **Watching it.** **Library → Fetching** lists the run under *Server tasks* as *Other-source search*: how many
   series of how many, how many sources it has followed, the series it is on or what it is waiting for (*Waiting for
   the scheduled check to finish*), and **Stop**, which stops it at once. Health's row, and a card under the checks,
   show the same. It never turns the Library ring: it downloads nothing itself.
@@ -814,7 +814,7 @@ chapter at a time, and the current chapter waits and resumes from its remaining 
 waits as long. Since v0.55.3 the slower pace is kept: at least an hour, and it comes back up a step at a time only
 after ten chapters in a row came down whole at it — a site that kept refusing used to be asked at full speed again
 ten minutes later. Two sources whose pages come from the same image server share one pace (Natomanga and
-Mangakakalot do), and **Admin → Health** says *Downloading slowly: the site asked for fewer requests* on the
+Mangakakalot do), and **Admin → Health** says *Fetching slowly: the site asked for fewer requests* on the
 source's row under *Source health* while it lasts. If a normal failure still wins, Uchiyomi
 tries the same chapter on at most two sources the series already follows; the download card says which
 source it switched from and to. It does not switch a version you explicitly picked, and a 403 or 429 is a
@@ -846,7 +846,7 @@ not hunt behind the person's back.
 
 ### What is downloading, and stopping it
 
-Everything the server is fetching, whoever started it, is under **Library → Downloads** (since v0.49.0; it used
+Everything the server is fetching, whoever started it, is under **Library → Fetching** (since v0.49.0; it used
 to be a small pill in the bottom corner). While something comes in, the **Library** tab's icon on a phone wears
 a thin ring that fills as the chapters land, with a small count of the series being fetched; on a computer the
 same ring sits on the sidebar's **Library** icon, and the open sidebar has a **Downloads** link under it. An amber dot on it
@@ -885,7 +885,7 @@ set aside and not yet replaced. A server task has a Cancel too, for an admin and
 *Fetch newest*.
 
 Each series page shows its own downloads in a slim band above the chapter list, whoever started them, with a
-Cancel when it is yours to stop and **See all** into Library → Downloads; grey chapters turn into chapters as
+Cancel when it is yours to stop and **See all** into Library → Fetching; grey chapters turn into chapters as
 they land. Discover's strip still shows the last few minutes of adds, each leading to its series or its cover
 in the view.
 
@@ -895,7 +895,7 @@ and only they can dismiss it. Server tasks are an admin's, plus a bulk *Fetch ne
 Members who may not add series see none of this: no ring, no switch.
 
 The **Offline** tab is something else: only the copies saved **on this device** for reading offline. It no
-longer lists what the server fetches; one line there points to Library → Downloads.
+longer lists what the server fetches; one line there points to Library → Fetching.
 
 ### Fetching a whole series slowly: the slow archive
 
@@ -947,7 +947,7 @@ the daily source check (or *Test all*) runs; while anyone else downloads from th
 series; while the site is cooling down, switched off or not installed; outside the hours it may run; and while the
 download disk has less free space than its floor. A site that refuses a chapter (403 or 429) is left alone for an
 hour, then three, then twelve, then a day at a time, and the series stays queued; a chapter that keeps failing is
-given up after three tries like any other, and shows on Health's *Chapters that would not download*. A series whose
+given up after three tries like any other, and shows on Health's *Chapters that could not be fetched*. A series whose
 chapter list cannot be read is asked again on the same ladder, never every minute. A restart keeps its place and
 its breaks: the next start on each site is written down before a chapter begins, so nothing goes sooner than it
 would have. After a restart the archive waits ten minutes before its first look.
@@ -957,13 +957,13 @@ sites or follows a new one — and what it brings in is not news: nothing under 
 nothing in the digests. (A series being archived does rise on Home's *New episodes* rail, which follows the newest
 chapter file.)
 
-**Watching it.** In **Library → Downloads**, under **Queued**, each archived series is its cover under a still
+**Watching it.** In **Library → Fetching**, under **Queued**, each archived series is its cover under a still
 amber ring with an hourglass — it fills as chapters land and never turns — with *120 of 900* under it and about how
 long is left, or why the whole archive is waiting (*Only runs between 01:00 and 07:00*, in the server's hours;
 *Waiting for the scheduled check to finish*). A line above the covers gives the pace (*Slow archive: 4 chapters an
 hour per source*), and an admin's **Pause all** / **Resume all** and **Settings**. Tapping a cover says what this
 one is doing — *Fetching Ch. 121 now*, *Next chapter in 12 minutes*, *A chapter failed on its site; trying again in
-2 hours*, *Waiting for another download from the same site* — which way it fills, about how much more space it
+2 hours*, *Waiting for another fetch from the same site* — which way it fills, about how much more space it
 will take, what failed so far and when it started, with **Pause**, **Resume**, **Stop archiving** and **Open
 series**. Only whoever queued it and admins get the keys; everyone else who can open the series sees the progress.
 The Library ring never turns for an archive (see *What is downloading*, above).
@@ -987,7 +987,7 @@ The rest goes back to where it was before: under a *Latest N* or *Nothing yet* f
 *Find missing chapters*), otherwise the scheduled check fetches it at its own pace. A series' floor is never
 changed while an archive runs; one that finishes lifts it, unless somebody changed it meanwhile.
 
-**Admin → Settings → Downloads** (admins) holds the pace for the whole server, and every change applies at once:
+**Admin → Settings → Fetching** (admins) holds the pace for the whole server, and every change applies at once:
 
 - **Slow archive** — off pauses every archive; nothing queued is lost, and switching it on carries on.
 - **Chapters an hour, per source** — 1 to 30, 4 by default, with what that comes to a day and how long 1,000
@@ -1498,7 +1498,7 @@ again.
   - Admin → Settings → *Match Discover titles online* switches the lookups off; cards then fold by their names alone.
 - **Hide 18+ and 18+ only** (since v0.55.4, [#158](https://github.com/AngeloSha/uchiyomi/discussions/158)): with
   **Show 18+** on, three chips under *Results across your sources* — **All**, **Hide 18+**, **18+ only** — filter the
-  results by what is known of each. A result is 18+ when its provider is ticked in **Admin → Settings → 18+ filter**,
+  results by what is known of each. A result is 18+ when its provider is ticked in **Admin → Settings → Content ratings**,
   when MangaDex rates the title erotica, or when it carries one of the 18+ filter's genres, and such a card wears a small
   **18+** mark; a MangaDex title rated safe or suggestive is not, nor one whose genres the filter's list does not name.
   A site whose extension calls itself 18+ makes a title 18+ only when no other site carries it (since v0.55.5): the
@@ -1530,7 +1530,7 @@ again.
   how long — *300 more chapters come in slowly in the background. Oldest first. About 3 days at the current pace.*
   (*older chapters … Newest first* with *Latest N*). It is off until you switch it on, and not there for *All*,
   which leaves nothing over. The chapters you picked come first; the archive starts on the rest once they are in,
-  and the done step says *The rest comes in slowly in the background. Library → Downloads shows how far it has
+  and the done step says *The rest comes in slowly in the background. Library → Fetching shows how far it has
   got.*
 - **Before you add:** under the chapter count, the add dialog shows *Translated by* — the five busiest
   groups for the title, with how many chapters each released and a twelve-week activity strip (or, with
@@ -1681,6 +1681,10 @@ sheet, or for every extension at once with **Languages**) and they fold away.
 
 - a source that is offline, failing or switched off and still the **main source** of some series, with how many,
   and how many of those already follow a working source: **Replace** ([below](#replace-a-source));
+  **Add backups** sits beside it: it never replaces anything or turns the source off, it only adds
+  redundancy. It runs *Find other sources* over every series that source is the main source of and, by default,
+  shows what it found before anything is followed: for each series **Follow**, **Follow and make main** (the failing
+  source stays on as a backup, so a temporary outage costs nothing) or **Skip**;
 - the failing sources nothing uses, by name, with **Turn off all**, which asks first;
 - an extension update, with **Update** (**Update all** for several).
 
@@ -1741,7 +1745,7 @@ moves nothing: each series' match waits in the results, with **Make main** on it
 every good match at once. **Start**, and the dialog becomes the run: how far it has got (*184 of 195 series · Now:
 …*), three counts — *Moved*, *New source found*, *No replacement* — and each series as it lands, *Example Manga →
 Sample Comics* or why not. **Stop** stops it; **Run in background** closes the dialog and the run goes on, on
-**Library → Downloads** (*Server tasks*) and on Health's card, which open its results. One such run, Replace or *Find
+**Library → Fetching** (*Server tasks*) and on Health's card, which open its results. One such run, Replace or *Find
 other sources*, goes at a time. Health offers **Replace** too, as the key of a source row that series depend on, and
 on *Series that can no longer update*.
 
@@ -1863,7 +1867,7 @@ read in Mihon stays marked in Mihon. Needs Uchiyomi v0.29.0 or newer.
 to the *Komga* extension and speaks a small set of Komga's endpoints, and Uchiyomi now answers
 them. Mint a token with **read + write** (tick *Allow changes*; a read-only token browses and reads, but
 nothing syncs in either direction: Mihon retries a failed push a few times with backoff, then gives up
-quietly until the next chapter read), tick **Include 18+ content** on it if 18+ libraries and series should show
+quietly until the next chapter read), tick **Show 18+ content (this token only)** on it if 18+ libraries and series should show
 on the phone, then in Mihon install the **Komga** extension, set its **Address** to your
 Uchiyomi URL exactly as you reach it (no trailing slash) and its **API key** to the token, and switch the
 Komga tracker on under **Settings → Tracking** *before* adding series — a series added earlier has no link
@@ -1906,7 +1910,8 @@ version alone. In the desktop app it is the app's own version.
 ### Health
 
 **Content → Health** audits your library and tells you what is wrong before you run into it: series with missing
-chapters, chapters that downloaded as one or two images, the same title sitting in the library twice, chapter
+chapters, chapters that downloaded as one or two images (not a manhwa, manhua or webtoon whose pages are all very tall, which is
+just how a strip is cut), the same title sitting in the library twice, chapter
 numbers that can't be real, series waiting for a renumbering review, any source that is failing or blocked, and the
 extension engine. Each check says what it found and what it cannot see. Hit **Re-check** to run them again. Since
 v0.49.1 the page says the server's findings in your language, with dates and times in your own time zone.
@@ -1940,7 +1945,7 @@ without you pressing anything. Since v0.48.3:
     Merges and deletes cannot be undone. While it
     runs you see its step (ten of them), a bar and what it is on, with **Stop** — it stops at the next safe point,
     never in the middle of a merge, a delete or a renumbering — and **Run in background**; the key then says
-    *Fixing everything*, and so does its card under Library → Downloads → *Server tasks*. At the end it says how
+    *Fixing everything*, and so does its card under Library → Fetching → *Server tasks*. At the end it says how
     many things need you (with *Everything else is green* under it when nothing else is left), or **All green** when
     nothing does, then up to six lines of what it did (*Moved 184 series off Aqua Manga*, *Fetched 37 missing
     chapters*…). What a stopped run did not reach is never something that needs you: the next run continues it. Each thing that needs you has its one key — the page it is about, its
@@ -1984,7 +1989,7 @@ another tab.
   repair stored: *No source has a longer copy*, *Followed {source}*, *No other source lists them*, *Failing since
   {date}* (which a Retry now no longer resets to today).
 - **Chapters a site refused only for room are waiting, not failing** (v0.55.1). When every failing chapter of a source
-  was refused with HTTP 429 (*too many requests*), *Chapters that would not download* lists that source greyed and
+  was refused with HTTP 429 (*too many requests*), *Chapters that could not be fetched* lists that source greyed and
   says *2 chapters wait for a site that asked for a pause, and are tried again by themselves*; the card stays green
   for it. One chapter failing any other way keeps the source a finding.
 - **Failed chapters follow the series** (v0.55.3). A chapter that failed on a source the series no longer uses — moved
@@ -2030,7 +2035,7 @@ subfolder of a series — is listed dimmed and never turns the check red. It rea
 what it left out. An add or a *Fetch* whose chapters land on disk but not in the library also ends as an error
 on its card that says so.
 
-**What fixes itself.** Once a day — **Admin → Settings → Library housekeeping → Repair the library nightly**,
+**What fixes itself.** Once a day — **Admin → Settings → Updates & schedules → Repair the library nightly**,
 on by default, and **Admin → Tasks → Repair library** with a *Run now* — Uchiyomi does the six things that
 are reversible or provable on their own, and two more only when you switch them on, in this order. Since v0.55.0,
 **Every night**, just under that switch, chooses what runs: this **Safe repair** (the default), or a whole **Fix
@@ -2490,7 +2495,7 @@ what makes an exception possible. Unrated stays visible to everyone on purpose.
 everybody, until somebody asks for it. It stays out of the home rails, the library grid, search, browse,
 your collections, updates, history, bookmarks and the OPDS feeds, and its tab does not appear on the Library
 page. (An OPDS reader has no button to press, so for it the choice sits on its own credential:
-**Profile → Connections → External readers → Include 18+ content in this reader**, off by default.) A **Show 18+** button sits beside the sorts on the Library page and brings it all back; the reveal
+**Profile → Connections → External readers → Show 18+ content in this reader (this link only)**, off by default.) A **Show 18+ content** button sits beside the sorts on the Library page and brings it all back; the reveal
 lasts until you close the browser and then it hides itself again. The button only appears for accounts that
 actually have such a library, and never for one whose age limit is below 18.
 
@@ -2516,7 +2521,7 @@ limit below 18 is the other thing entirely: those sources are refused by name wh
 **The reveal can also cover genres and named sources.** Rating a whole library 18+ is the only thing the
 switch knew about, so keeping, say, *Ecchi* off the shelf meant moving those series into an 18+ library — a
 filing decision made to get a display outcome, and one the scanner argues with on the next rescan.
-**Admin → Settings → 18+ filter** says it directly instead: tick the genres (the list is the genres your
+**Admin → Settings → Content ratings** says it directly instead: tick the genres (the list is the genres your
 library actually has) and, separately, any source that should count as adult although its extension does not
 say so. With **Show 18+** off, a series carrying one of those genres leaves the same places an 18+ library
 does, and a ticked source leaves Discover the way a self-declared adult one does. Nothing is refiled and
@@ -2707,7 +2712,7 @@ source's own cover are never touched. Its line says how many it checked and how 
 
 **Repair library** is the nightly that fixes what Health used to only report (the Health section above lists
 what it does and the two things it never does). Its schedule reads *every 24h · never during a chapter
-sweep*, or *switched off · on demand* when the switch under **Admin → Settings → Library housekeeping** is
+sweep*, or *switched off · on demand* when the switch under **Admin → Settings → Updates & schedules** is
 off — and *Run now* works either way, because nothing it does deletes, merges or renumbers anything. Like
 the sweep it is detached, so the message only says it started; its line shows what it did when it is done and
 keeps it across restarts, for example: *2000 page counts stamped, 28625 still to count · short: 3 replaced,
@@ -2841,7 +2846,7 @@ this server, the Cloudflare solver, extensions: the notices admins also get as w
 when web push is not configured) — and **who it is for**: the whole server, or one person, who then hears
 only about their own favourites, and about server problems only if they are an admin. **Include 18+ series**
 is off by default: titles from libraries rated 18+ are left out of the digest unless you tick it, the way an
-OPDS link and an API token have their own *Include 18+ content* (the web app's *Show 18+* button lives in
+OPDS link and an API token have their own *Show 18+ content* (the web app's *Show 18+* button lives in
 the browser, so a target carries its own choice). A target aimed at a person is bounded by that person's own
 libraries and age limit whatever the box says — those are permissions, not a reveal — so it never names a
 series they could not open themselves.
@@ -2961,7 +2966,7 @@ chapter) as plain numbers, which Homepage's **Custom API** widget can show:
 
 Uchiyomi does not record volumes, so there is no volume count.
 
-## 10. Tracking: AniList, MyAnimeList and Kitsu
+## 10. Tracking: AniList, MyAnimeList, Kitsu and MangaUpdates
 
 Connect your AniList account once under **Profile → Connections → Progress tracking** (tap **Connect** on the
 AniList row and the token field opens under it) and finishing a chapter here updates your AniList list on its own.
@@ -2985,7 +2990,8 @@ your reading. If the service rejects your token, Uchiyomi disables the connectio
 rather than failing silently; a token that has lapsed is noted on the row too, but the connection is left
 in place until you paste a new one. A service that is blocking or rate-limiting the server is a sync
 error to retry on the next chapter, never a verdict on the token, so it does not disconnect anything.
-Disconnect at any time. MyAnimeList and Kitsu connect the same way, each on its own row, and more than one can
+Disconnect at any time. MyAnimeList, Kitsu and MangaUpdates connect the same way, each on its own row (Kitsu and
+MangaUpdates take your username and password, used once to get a token and not kept), and more than one can
 be connected at once; each syncs on its own.
 
 **Reading or Completed** (since v0.61.2, [#201](https://github.com/AngeloSha/uchiyomi/issues/201)). Before each
@@ -3023,6 +3029,25 @@ Completed when the series has ended, and only a series still coming out goes bac
 admin has switched on **Show missing chapters in Mihon**, and only as part of an unbroken run of read chapters
 from the start: chapters read to 12 plus a mark on chapter 1000 still send 12, because a number sent to a
 tracker cannot be taken back there. Section 4, *Marking chapters you don't have as read*, has the whole rule.
+
+**Recommended for you.** With AniList or MyAnimeList connected, **Discover** shows a *Recommended for you* row above
+the wall. It is built from the series you rated 7 or higher (or, unrated, finished or are reading), up to eight from
+AniList and five from MyAnimeList: for each, the service's own readers' "if you liked this" suggestions. Every card
+says which service it came from and, under the title, *Because you read …*; a title both services suggest is one card
+naming both. Left out: everything on any of your connected lists under any status (read, reading, on hold, dropped or
+planned) and anything the library already holds. Light novels are never suggested, and neither is adult work while
+18+ is hidden or your account is capped below 18 (a MyAnimeList suggestion whose age rating AniList cannot confirm
+counts as adult). Nothing is shown until a tracker is connected, and the row is empty when nothing is left to suggest.
+Tapping a card opens the same add dialog as Trending.
+
+The services are asked as little as possible. Your list is read at most every 12 hours (one request per 500 AniList
+entries, one per 1,000 MyAnimeList entries); what readers suggest after a title is asked once per title for the whole
+server and kept for two weeks, so two people who both love Berserk cost one question; AniList is asked for all of a
+person's seeds in one request; MyAnimeList is asked one title at a time, at most one every 1.5 seconds server-wide, with
+a ceiling per hour. A service that refuses (a rate limit, an outage) is left alone for 10 to 45 minutes while the last
+answer keeps showing. Reopening Discover, or several people opening it together, adds no requests. Disconnecting a
+tracker, or signing in to a different account, forgets that list. Kitsu's list is read for the exclusion, but Kitsu
+offers no suggestions.
 
 ![AniList sync](shots/crop-anilist.webp)
 
@@ -3080,7 +3105,7 @@ steps for the browser you are in.
 
 **Offline:** favorite a series (or use the series page's **Offline** key, *Save all offline*, or a chapter's ⬇), and those chapters are stored on the
 device for reading with no connection. The **Offline** tab shows what's saved and a **Sync now** button;
-with **Keep favorites offline** on (**Profile → Settings → Offline downloads**), your favorites' next unread chapters
+with **Keep favorites offline** on (**Profile → Settings → Saved on this device**), your favorites' next unread chapters
 auto-download while you're online. A cover with a
 small ⌁ badge has something saved on this device.
 
@@ -3360,11 +3385,11 @@ carry the source's old numbers, and a chapter fetched now would land under a num
 admin opens **Review renumbering** on the series page, checks the plan and applies it, or presses **Keep the
 source's numbers**; either way the series updates again.
 
-**The slow archive is not fetching anything.** Library → Downloads says why — under the covers when the whole
+**The slow archive is not fetching anything.** Library → Fetching says why — under the covers when the whole
 archive is waiting, and on a series' own sheet (tap its cover) otherwise: it is between chapters (at the default
 pace about a quarter of an hour, now and then much longer), another download is using the same site, the site is
 cooling down, asked for a slower pace within the hour or refused a chapter, a check or a repair is running, it is outside the hours
-it may run (the server's local time), or the download disk is below its floor (**Admin → Settings → Downloads**).
+it may run (the server's local time), or the download disk is below its floor (**Admin → Settings → Fetching**).
 After a restart its first look waits ten minutes.
 
 **An extension source says `Cloudflare bypass currently disabled`.** The extension engine has no browser of its own

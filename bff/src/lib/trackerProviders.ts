@@ -6,14 +6,14 @@
 // push progress and, since v0.36.0, read the account's list -- so those live here and the sync path and the
 // import intake pick an adapter instead of hardcoding AniList.
 //
-// All three connect by PASTING A TOKEN, which is the same honest, dependency-free path AniList already used:
-// no client registration, no redirect URLs to configure, nothing to keep secret server-side. A full OAuth
-// dance would need every self-hoster to register an application with each service and put the secret in
-// their compose file, which is a worse trade for a household app than copying a token once. Since v0.61.0
-// the AniList token comes from the project's own public client, whose page shows it (ANILIST_CLIENT_ID below):
-// still a paste, and still nothing secret anywhere.
+// People connect by signing in (lib/trackerOauth.ts: AniList and MyAnimeList through a redirect back to the app,
+// Kitsu and MangaUpdates with a username and password). Pasting an access token still works for each, for anyone who already
+// has one and for installs where no admin has registered an application. Either way the token ends up in
+// the same place, so everything below this comment neither knows nor cares which way it arrived.
+// Since v0.61.0 the AniList token can also come from the project's own public client, whose page shows it
+// (ANILIST_CLIENT_ID below): still a paste, and still nothing secret anywhere.
 
-export type Provider = 'anilist' | 'myanimelist' | 'kitsu';
+export type Provider = 'anilist' | 'myanimelist' | 'kitsu' | 'mangaupdates';
 
 /** The reading-list buckets every tracker has, in the app's own words; each adapter maps its service's names. */
 export const LIST_STATUSES = ['reading', 'plan_to_read', 'completed', 'on_hold', 'dropped'] as const;
@@ -57,6 +57,12 @@ export interface LibraryEntry {
   status: ListStatus;
   progress: number;
   format: 'manga' | 'novel' | 'other';
+  /** The person's own rating on a 0-10 scale; absent when they have not rated it (both services use 0 for that). */
+  score?: number;
+  /** Chapters in the library for this series, when Uchiyomi holds it: lets a few chapters of a long series count for little. */
+  total?: number;
+  /** When the person last read a chapter of it in Uchiyomi (epoch ms); absent when never read here. */
+  lastRead?: number;
 }
 /** How many entries one intake reads at most: the review batch keeps 500, one more says "truncated". */
 export const TRACKER_LIST_MAX = 501;
@@ -250,7 +256,7 @@ async function anilistCall(token: string, query: string, variables: Record<strin
 const ANILIST_LIST = `query($userId:Int,$statuses:[MediaListStatus],$chunk:Int,$perChunk:Int){
   MediaListCollection(userId:$userId,type:MANGA,status_in:$statuses,chunk:$chunk,perChunk:$perChunk,forceSingleCompletedList:true){
     hasNextChunk
-    lists{ isCustomList entries{ mediaId status progress media{ id format title{ romaji english } synonyms } } }
+    lists{ isCustomList entries{ mediaId status progress score(format:POINT_10_DECIMAL) media{ id format title{ romaji english } synonyms } } }
   }
 }`;
 const ANILIST_PER_CHUNK = 500;
@@ -282,10 +288,8 @@ const ANILIST_PUSH: Record<PushStatus, string> = { reading: 'CURRENT', completed
 export const anilistAdapter: TrackerAdapter = {
   id: 'anilist',
   label: 'AniList',
-  // It said "anilist.co → Settings → Developer → create a client, then copy the access token" until v0.61.0 (#190):
-  // that page shows a client ID and a secret, never a token, so the one instruction led to a paste AniList refused.
-  // Reintroduce it: "the AniList adapter offers the token page …" in trackerVerdicts.int.test.ts fails.
-  tokenHelp: `Open ${ANILIST_TOKEN_URL}, approve Uchiyomi, and paste the token AniList shows.`,
+  // Upstream (v0.61.0, #190) fixed the old instruction (a client page shows no token); the token page is offered here.
+  tokenHelp: `Sign in with AniList, or open ${ANILIST_TOKEN_URL}, approve Uchiyomi, and paste the token AniList shows.`,
   authorizeUrl: ANILIST_TOKEN_URL,
   tokenDays: 365,
   async whoAmI(token) {
@@ -323,6 +327,7 @@ export const anilistAdapter: TrackerAdapter = {
             externalId: String(mediaId), ...t, status,
             progress: Math.max(0, Math.floor(Number(e.progress) || 0)),
             format: anilistFormat(e.media?.format),
+            ...(Number(e.score) > 0 ? { score: Number(e.score) } : {}),
           });
           if (out.length >= max) return out;
         }
@@ -387,24 +392,28 @@ async function malCall(token: string, path: string, init?: RequestInit): Promise
 export const malAdapter: TrackerAdapter = {
   id: 'myanimelist',
   label: 'MyAnimeList',
-  // MAL issues tokens through OAuth2 with PKCE (`plain` only) and no page shows one, so the practical path for a
-  // self-hoster is to obtain one once with an app of their own and paste it. docs/USAGE.md has the recipe (v0.61.0).
-  tokenHelp: 'MyAnimeList shows no token on any page: create an API app at https://myanimelist.net/apiconfig and '
-    + 'exchange a code for a token (docs/USAGE.md, "Getting a MyAnimeList token"), then paste its access_token.',
+  // MAL issues tokens through OAuth2 with PKCE; the practical path for a self-hoster is to obtain one once
+  // and paste it, exactly as with AniList.
+  tokenHelp: 'Sign in with MyAnimeList, or paste an access token (MyAnimeList shows no token on any page: docs/USAGE.md, "Getting a MyAnimeList token").',
   tokenDays: 31,   // MAL access tokens are short-lived; surfacing that is the whole point of storing it
   async listLibrary(token, { statuses, max }) {
     if (!statuses.length || !(max > 0)) return [];
     const out: LibraryEntry[] = [];
     const seen = new Set<string>();
-    // `status` takes ONE value ("to return all manga, don't specify"), so it is one paged loop per bucket.
+    // `status` takes ONE value ("to return all manga, don't specify"), so a subset is one paged loop per bucket.
     // `nsfw=true` is not optional: without it the gray and black entries are silently left out of the
     // answer, and a list that "imported fine" is missing titles nobody can account for.
-    for (const st of statuses) {
+    // Every bucket asked for is ONE paged read with no `status` (the row says which bucket it is in), not
+    // five: a full-list read for recommendations costs a call per thousand entries instead of a call per bucket.
+    const everything = LIST_STATUSES.every((s) => statuses.includes(s));
+    const wanted = new Set<string>(statuses);
+    for (const pass of everything ? [null] : statuses) {
       for (let offset = 0, more = true; more; ) {
         const qs = new URLSearchParams({
-          status: MAL_STATUS[st], fields: 'list_status,alternative_titles,media_type',
+          fields: 'list_status,alternative_titles,media_type',
           limit: String(MAL_PAGE), offset: String(offset), nsfw: 'true',
         });
+        if (pass) qs.set('status', MAL_STATUS[pass]);
         const d = await malCall(token, `/users/@me/mangalist?${qs}`);
         const rows: any[] = Array.isArray(d?.data) ? d.data : [];
         // `paging.next` is only a signal that there is more. It is a URL the service composed, and this
@@ -416,6 +425,8 @@ export const malAdapter: TrackerAdapter = {
         for (const row of rows) {
           const node = row?.node;
           if (node?.id == null || seen.has(String(node.id))) continue;
+          const st = (pass ?? row?.list_status?.status) as ListStatus | undefined;
+          if (!st || !wanted.has(st) || !(LIST_STATUSES as readonly string[]).includes(st)) continue;
           // `title` is the romaji; the English title lives under alternative_titles.en and is "" when there
           // is none, so the trim rule in titlesOf is what makes the romaji the search title in that case.
           const alt = node.alternative_titles ?? {};
@@ -426,6 +437,7 @@ export const malAdapter: TrackerAdapter = {
             externalId: String(node.id), ...t, status: st,
             progress: Math.max(0, Math.floor(Number(row?.list_status?.num_chapters_read) || 0)),
             format: malFormat(node.media_type),
+            ...(Number(row?.list_status?.score) > 0 ? { score: Number(row.list_status.score) } : {}),
           });
           if (out.length >= max) return out;
         }
@@ -504,10 +516,7 @@ async function kitsuCall(token: string, path: string, init?: RequestInit): Promi
 export const kitsuAdapter: TrackerAdapter = {
   id: 'kitsu',
   label: 'Kitsu',
-  // Kitsu's documented way (its API docs, "Password Grant") is a POST to https://kitsu.io/api/oauth/token with your
-  // email or slug and password; no page shows a token. docs/USAGE.md has the command (v0.61.0).
-  tokenHelp: 'Kitsu shows no token on any page: ask https://kitsu.io/api/oauth/token for one with your email and '
-    + 'password (docs/USAGE.md, "Getting a Kitsu token"), then paste its access_token.',
+  tokenHelp: 'Sign in with your Kitsu username and password, or paste an access token (https://kitsu.io/api/oauth/token with your email and password; docs/USAGE.md, "Getting a Kitsu token").',
   tokenDays: 30,
   async listLibrary(token, { statuses, max }) {
     if (!statuses.length || !(max > 0)) return []; // an empty filter[status] would page the whole library
@@ -644,12 +653,274 @@ export const kitsuAdapter: TrackerAdapter = {
   },
 };
 
+// ---------------------------------------------------------------------------- MangaUpdates
+
+const MU_API = apiUrl('MANGAUPDATES_API_URL', 'https://api.mangaupdates.com/v1');
+const MU_PAGE = 100;
+/** MangaUpdates' five standard lists, by the `type` /lists names them with; a custom list has none of these. */
+const MU_LIST_TYPE: Record<ListStatus, string> = {
+  reading: 'read', plan_to_read: 'wish', completed: 'complete', on_hold: 'hold', dropped: 'unfinished',
+};
+/** The standard lists' fixed ids, used when /lists does not answer for one (a brand-new account lists them all). */
+const MU_LIST_ID: Record<ListStatus, number> = { reading: 0, plan_to_read: 1, completed: 2, dropped: 3, on_hold: 4 };
+const muFormat = (t: unknown): LibraryEntry['format'] => {
+  const s = String(t ?? '');
+  if (s === 'Novel') return 'novel';
+  return ['Manga', 'Manhwa', 'Manhua', 'OEL', 'Doujinshi', 'Filipino', 'Indonesian', 'Thai', 'Vietnamese', 'Malaysian', 'Nordic', 'French', 'Spanish', 'German'].includes(s) ? 'manga' : 'other';
+};
+
+async function muCall(token: string, path: string, init?: RequestInit): Promise<any> {
+  const r = await fetch(`${MU_API}${path}`, {
+    ...init,
+    headers: { authorization: `Bearer ${token}`, accept: 'application/json', ...(init?.headers as any) },
+    signal: AbortSignal.timeout(15000),
+  });
+  // A 401 is a session that is gone or never was ("This action requires a user account"). Writes are refused with a
+  // 412 when two come within five seconds of each other; that is the service asking us to wait, not a verdict on the
+  // token, so it travels as a plain error (`throttled`) for the caller to wait out.
+  if (r.status === 401) throw authFail('MangaUpdates rejected the token');
+  if (r.status === 412) throw Object.assign(new Error('mangaupdates 412'), { throttled: true });
+  if (r.status === 404) throw Object.assign(new Error('mangaupdates 404'), { notFound: true });
+  if (!r.ok) throw new Error(`mangaupdates ${r.status}`);
+  return r.json().catch(() => null);
+}
+
+/** The id each standard list has on this account, by bucket; falls back to the fixed ids. */
+async function muListIds(token: string): Promise<Record<ListStatus, number>> {
+  const out = { ...MU_LIST_ID };
+  const lists = await muCall(token, '/lists').catch((e) => { if ((e as any).authFailed) throw e; return null; });
+  for (const l of Array.isArray(lists) ? lists : []) {
+    if (l?.custom || l?.list_id == null) continue;
+    for (const st of LIST_STATUSES) if (MU_LIST_TYPE[st] === l.type) out[st] = Number(l.list_id);
+  }
+  return out;
+}
+
+/** Log in with a username and password; the session token is all that is kept. */
+export async function mangaupdatesLogin(username: string, password: string): Promise<{ token: string }> {
+  const r = await fetch(`${MU_API}/account/login`, {
+    method: 'PUT', headers: { 'content-type': 'application/json', accept: 'application/json' },
+    body: JSON.stringify({ username, password }), signal: AbortSignal.timeout(15000),
+  });
+  const j: any = await r.json().catch(() => null);
+  const token = j?.context?.session_token;
+  if (!r.ok || typeof token !== 'string' || !token) {
+    const why = typeof j?.reason === 'string' ? j.reason : '';
+    throw Object.assign(new Error(why ? `MangaUpdates: ${why}` : `MangaUpdates did not give a token (${r.status})`), { rejected: r.status === 400 || r.status === 401 });
+  }
+  return { token };
+}
+
+export const mangaupdatesAdapter: TrackerAdapter = {
+  id: 'mangaupdates',
+  label: 'MangaUpdates',
+  tokenHelp: 'Sign in with your MangaUpdates username and password, or paste a session token you already have.',
+  tokenDays: null,
+  async whoAmI(token) {
+    const d = await muCall(token, '/account/profile');
+    return d?.user_id != null ? { id: String(d.user_id), name: String(d.username ?? d.user_id) } : null;
+  },
+  async listLibrary(token, { statuses, max }) {
+    if (!statuses.length || !(max > 0)) return [];
+    const ids = await muListIds(token);
+    const out: LibraryEntry[] = [];
+    const seen = new Set<string>();
+    // One paged read per bucket asked for: a list is its own endpoint, and the page is our own number.
+    for (const status of statuses) {
+      for (let page = 1; ; page++) {
+        const d = await muCall(token, `/lists/${ids[status]}/search`, {
+          method: 'POST', headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ page, perpage: MU_PAGE }),
+        });
+        const rows: any[] = Array.isArray(d?.results) ? d.results : [];
+        for (const row of rows) {
+          const sid = row?.record?.series?.id ?? row?.metadata?.series?.series_id;
+          if (sid == null || seen.has(String(sid))) continue;
+          const t = titlesOf([row?.record?.series?.title, row?.metadata?.series?.title]);
+          if (!t) continue;
+          seen.add(String(sid));
+          out.push({
+            externalId: String(sid), ...t, status,
+            progress: Math.max(0, Math.floor(Number(row?.record?.status?.chapter) || 0)),
+            format: muFormat(row?.metadata?.series?.type),
+            ...(Number(row?.metadata?.user_rating) > 0 ? { score: Number(row.metadata.user_rating) } : {}),
+          });
+          if (out.length >= max) return out;
+        }
+        const total = Number(d?.total_hits) || 0;
+        if (!rows.length || page * MU_PAGE >= total) break;
+      }
+    }
+    return out;
+  },
+  async setProgress(token, externalId, chapters, finished) {
+    const sid = Number(externalId);
+    if (!Number.isInteger(sid)) throw new Error('mangaupdates: not a series id');
+    const ids = await muListIds(token);
+    let current: any = null;
+    try { current = await muCall(token, `/lists/series/${sid}`); }
+    catch (e) { if (!(e as any).notFound) throw e; }
+    // Finished moves it to the complete list. Otherwise it stays where it is, except that a wish, hold or
+    // unfinished entry being read goes to reading; an entry on a custom list is left on it.
+    const onList: number | null = current?.list_id != null ? Number(current.list_id) : null;
+    const standard = Object.values(ids);
+    const target = finished ? ids.completed
+      : onList != null && !standard.includes(onList) ? onList
+      : ids.reading;
+    const item = { series: { id: sid }, list_id: target, status: { chapter: chapters } };
+    const write = () => muCall(token, current ? '/lists/series/update' : '/lists/series', {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify([item]),
+    });
+    try { await write(); }
+    catch (e) {
+      if (!(e as any).throttled) throw e;
+      await new Promise((r) => setTimeout(r, 5500));
+      await write();
+    }
+  },
+};
+
+// ---------------------------------------------------------------------------- Recommendations
+
+/**
+ * One title another reader suggested, in the shape lib/trackerRecs.ts caches. `votes` is how strongly the
+ * community stands behind the pairing (AniList's net rating, MyAnimeList's `num_recommendations`).
+ * `adult` is null when the service did not say, which only MyAnimeList's own answer ever leaves.
+ */
+export interface RecItem {
+  id: string;
+  title: string;
+  altTitles: string[];
+  cover: string | null;
+  url: string | null;
+  /** 0-100, the community's score; null when there is none. */
+  score: number | null;
+  adult: boolean | null;
+  format: LibraryEntry['format'];
+  votes: number;
+  /** AniList genre names; absent on answers cached before genres were asked for. */
+  genres?: string[];
+}
+
+const ANILIST_MEDIA = 'id idMal type format isAdult averageScore siteUrl genres title{ romaji english } synonyms coverImage{ large medium }';
+
+function anilistItem(m: any, votes: number): RecItem | null {
+  if (!m || m.id == null || (m.type && m.type !== 'MANGA')) return null;
+  const t = titlesOf([m.title?.english, m.title?.romaji, ...(Array.isArray(m.synonyms) ? m.synonyms : [])]);
+  if (!t) return null;
+  return {
+    id: String(m.id), ...t,
+    cover: nonEmpty(m.coverImage?.large) ?? nonEmpty(m.coverImage?.medium),
+    url: nonEmpty(m.siteUrl),
+    score: Number(m.averageScore) > 0 ? Math.round(Number(m.averageScore)) : null,
+    adult: typeof m.isAdult === 'boolean' ? m.isAdult : null,
+    format: anilistFormat(m.format),
+    votes,
+    genres: Array.isArray(m.genres) ? m.genres.filter((g: unknown) => typeof g === 'string') : [],
+  };
+}
+
+/**
+ * What AniList readers recommend after each of these series, as ONE request: the ids are aliases of a single
+ * query rather than a call each. The query is public, so no token is sent -- a recommendation is the same
+ * for everyone and need not carry anyone's credentials. Only pairings the community voted up (net rating
+ * above zero) are kept, best first. An id AniList does not know simply has no entry in the answer.
+ */
+export async function anilistRecommendations(ids: string[], perSeed = 12): Promise<Map<string, RecItem[]>> {
+  const out = new Map<string, RecItem[]>();
+  const wanted = ids.filter((i) => /^\d+$/.test(i));
+  if (!wanted.length) return out;
+  const body = wanted.map((id, n) =>
+    `m${n}: Media(id:${Number(id)}, type:MANGA){ id recommendations(sort:RATING_DESC, perPage:${perSeed}){ nodes{ rating mediaRecommendation{ ${ANILIST_MEDIA} } } } }`,
+  ).join('\n');
+  const r = await fetch(ANILIST_API, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', accept: 'application/json' },
+    body: JSON.stringify({ query: `query{ ${body} }` }),
+    signal: AbortSignal.timeout(20000),
+  });
+  if (!r.ok && r.status !== 404) throw new Error(`anilist ${r.status}`);
+  const j: any = await r.json().catch(() => null);
+  // A seed that no longer exists answers a per-alias "Not Found" error next to the aliases that worked; only
+  // an answer with no data at all is a failure.
+  if (!j?.data) throw new Error(`anilist ${j?.errors?.[0]?.message || 'no data'}`);
+  wanted.forEach((id, n) => {
+    const nodes: any[] = j.data[`m${n}`]?.recommendations?.nodes ?? [];
+    const items: RecItem[] = [];
+    for (const node of nodes) {
+      const votes = Number(node?.rating) || 0;
+      if (votes <= 0) continue;
+      const item = anilistItem(node?.mediaRecommendation, votes);
+      if (item) items.push(item);
+    }
+    out.set(id, items);
+  });
+  return out;
+}
+
+/**
+ * What MyAnimeList readers recommend after one series. One call, the person's own token (the endpoint needs
+ * a client id or a bearer and the token is the one already held). MyAnimeList says nothing about age rating
+ * here, so `adult` is null until lib/trackerRecs.ts asks AniList about the whole batch at once.
+ */
+export async function malRecommendations(token: string, malId: string): Promise<RecItem[]> {
+  if (!/^\d+$/.test(malId)) return [];
+  let d: any;
+  try {
+    d = await malCall(token, `/manga/${malId}?fields=recommendations`);
+  } catch (e) {
+    if (/ 404$/.test((e as Error).message)) return []; // gone from MyAnimeList: nothing to recommend, and no use asking again
+    throw e;
+  }
+  const out: RecItem[] = [];
+  for (const rec of Array.isArray(d?.recommendations) ? d.recommendations : []) {
+    const node = rec?.node;
+    const title = nonEmpty(node?.title);
+    if (node?.id == null || !title) continue;
+    out.push({
+      id: String(node.id), title, altTitles: [],
+      cover: nonEmpty(node.main_picture?.large) ?? nonEmpty(node.main_picture?.medium),
+      url: `https://myanimelist.net/manga/${node.id}`,
+      score: null, adult: null, format: 'other',
+      votes: Math.max(1, Math.floor(Number(rec?.num_recommendations) || 1)),
+    });
+  }
+  return out;
+}
+
+/**
+ * AniList's record for a batch of MyAnimeList ids, in one request (`idMal_in`): the age rating, format,
+ * English title and score MyAnimeList's recommendations lack. Up to 50 ids, which is one page. Public, no token.
+ */
+export async function anilistByMalIds(malIds: string[]): Promise<Map<string, RecItem>> {
+  const out = new Map<string, RecItem>();
+  const ids = malIds.filter((i) => /^\d+$/.test(i)).slice(0, 50).map(Number);
+  if (!ids.length) return out;
+  const r = await fetch(ANILIST_API, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', accept: 'application/json' },
+    body: JSON.stringify({
+      query: `query($ids:[Int]){ Page(perPage:50){ media(idMal_in:$ids, type:MANGA){ ${ANILIST_MEDIA} } } }`,
+      variables: { ids },
+    }),
+    signal: AbortSignal.timeout(20000),
+  });
+  if (!r.ok) throw new Error(`anilist ${r.status}`);
+  const j: any = await r.json().catch(() => null);
+  for (const m of j?.data?.Page?.media ?? []) {
+    const item = anilistItem(m, 0);
+    if (item && m.idMal != null) out.set(String(m.idMal), item);
+  }
+  return out;
+}
+
 // ----------------------------------------------------------------------------
 
 export const ADAPTERS: Record<Provider, TrackerAdapter> = {
   anilist: anilistAdapter,
   myanimelist: malAdapter,
   kitsu: kitsuAdapter,
+  mangaupdates: mangaupdatesAdapter,
 };
 
 export const PROVIDERS = Object.keys(ADAPTERS) as Provider[];

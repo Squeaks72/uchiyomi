@@ -1,11 +1,13 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { useAuth } from '@/lib/auth';
+import { canDownload, useAuth } from '@/lib/auth';
+import { PALETTE_EVENT } from '@/lib/palette';
 import { runSmartOffline } from '@/lib/offlineSync';
 import { BottomNav } from './BottomNav';
 import { TopNav } from './TopNav';
 import { Sidebar } from './Sidebar';
+import { AdultBar } from './AdultToggle';
 import { HealthBanner } from './HealthAlert';
 import { LoginScreen } from './LoginScreen';
 import { DesktopReconnect } from './DesktopReconnect';
@@ -13,6 +15,8 @@ import { CinematicFX } from './CinematicFX';
 import { PageTransition } from './PageTransition';
 import { CommandPalette, usePaletteHotkeys } from './CommandPalette';
 import { useWideViewport } from './ui';
+import { ExportTray } from './ExportTray';
+import { ShortcutsDialog, useGoShortcuts } from './Shortcuts';
 import { Mark } from './Brand';
 import { IcWifiOff } from './icons';
 import { t as tr } from '@/lib/i18n';
@@ -24,10 +28,11 @@ import { scrollMemory } from '@/lib/scrollMemory';
 
 function Splash() {
   return (
-    <div className="flex min-h-screen-d items-center justify-center">
+    <div role="status" className="flex min-h-screen-d items-center justify-center">
       <div className="animate-pulse-soft">
         <Mark size={56} />
       </div>
+      <span className="sr-only">{tr('Loading…')}</span>
     </div>
   );
 }
@@ -45,7 +50,7 @@ function OfflineLanding() {
   return (
     <div className="flex min-h-screen-d flex-col items-center justify-center gap-4">
       <div className="animate-pulse-soft"><Mark size={56} /></div>
-      <a href="/downloads/" className="text-sm text-fog-400 underline">{tr('Open your downloads')}</a>
+      <a href="/downloads/" className="text-sm text-fog-400 underline">{tr('Open your saved chapters')}</a>
     </div>
   );
 }
@@ -56,21 +61,22 @@ function OfflineLanding() {
  */
 function OfflineBanner({ name }: { name: string }) {
   return (
-    <div className="flex items-center justify-center gap-2 bg-ink-800 px-4 py-1.5 text-[11px] text-fog-300 lg:ps-[calc(var(--rail-w)+1rem)]">
+    <div role="status" className="flex items-center justify-center gap-2 bg-ink-800 px-4 py-1.5 text-[11px] text-fog-300 lg:ps-[calc(var(--rail-w)+1rem)]">
       <IcWifiOff width={12} height={12} />
-      <span>{tr('Offline — showing {name}’s downloads', { name })}</span>
+      <span>{tr('Offline — showing {name}’s saved chapters', { name })}</span>
     </div>
   );
 }
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const { status, user } = useAuth();
+  const { status, user, isAdmin } = useAuth();
   const path = usePathname();
   const router = useRouter();
   const [palette, setPalette] = useState(false);
   const [paletteSeed, setPaletteSeed] = useState('');
   // The desktop's sidebar is mounted from lg up only: on a phone none of it is in the document (components/Sidebar.tsx).
   const wide = useWideViewport();
+  const [help, setHelp] = useState(false);
 
   /**
    * An offline launch arrives at `/` -- the manifest's `start_url` -- which is a home screen assembled
@@ -100,6 +106,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // Where each page was left, for Back and Forward to put back (lib/scrollMemory.ts) -- from the first page on, the reader
   // included, which is not inside the page fade that otherwise installs it.
   useEffect(() => { scrollMemory(); }, []);
+  // The phone's way in: a button (search page, More sheet) asks through lib/palette.ts, since it has no hotkey.
+  useEffect(() => {
+    if (status !== 'authed') return;
+    const on = (e: Event) => { setPaletteSeed(String((e as CustomEvent<string>).detail ?? '')); setPalette(true); };
+    window.addEventListener(PALETTE_EVENT, on);
+    return () => window.removeEventListener(PALETTE_EVENT, on);
+  }, [status]);
+  // "g" then h / l / s ... goes there; "?" lists them. Same gate as the palette's hotkeys: signed in, not in the reader.
+  const shortcutCtx = useMemo(() => ({ admin: isAdmin, mayDownload: status === 'authed' && canDownload(user), desktop: isDesktop() }), [isAdmin, status, user]);
+  useGoShortcuts({
+    enabled: status === 'authed' && !path.startsWith('/reader'),
+    ctx: shortcutCtx,
+    onHelp: () => setHelp(true),
+    onSearch: (seed) => { setPaletteSeed(seed); setPalette(true); },
+  });
 
   // smart offline: keep favorites' latest unread chapters downloaded. Never on desktop, where "Save offline"
   // is hidden: it would copy chapters already on this disk into the window's storage (lib/desktop.ts).
@@ -133,6 +154,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <>
+      <a href="#main" className="skip-link btn-key btn-key-primary">{tr('Skip to content')}</a>
       <CinematicFX />
       {status === 'offline' && <OfflineBanner name={user?.displayName || ''} />}
       {status === 'authed' && <IncognitoBanner />}
@@ -140,10 +162,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {status === 'authed' && <HealthBanner />}
       <TopNav onSearchFocus={() => { setPaletteSeed(''); setPalette(true); }} />
       {wide && <Sidebar />}
-      <main className="shell relative z-[1] pb-28 lg:pb-12">
+      {status === 'authed' && !immersive && <AdultBar />}
+      <main id="main" tabIndex={-1} className="outline-none shell relative z-[1] pb-28 lg:pb-12">
         <PageTransition>{children}</PageTransition>
       </main>
       <BottomNav />
+      {status === 'authed' && <ExportTray />}
+      {status === 'authed' && help && <ShortcutsDialog ctx={shortcutCtx} onClose={() => setHelp(false)} />}
       {status === 'authed' && <CommandPalette open={palette} seed={paletteSeed} onClose={() => setPalette(false)} />}
     </>
   );

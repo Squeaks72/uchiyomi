@@ -16,6 +16,10 @@ import { useOfflineSeries } from '@/lib/useOfflineSeries';
 import { effectsReduced, useReduceEffects } from '@/lib/effects';
 import { t as tr } from '@/lib/i18n';
 import { useSeriesMenu } from './SeriesMenu';
+import { useDiscoverMenu } from './DiscoverMenu';
+import { useIsHiddenTitle, useIsMarkedTitle } from '@/lib/hiddenTitles';
+import { useGlance } from './GlanceCard';
+import { glanceOfSeries, glanceOfSource } from '@/lib/glance';
 import { publicCoverFallback } from '@/lib/coverFallback';
 import { anilistNumbers, type SortValue } from '@/lib/sortValue';
 import { coverProgress, seriesProgress } from '@/lib/seriesProgress';
@@ -170,8 +174,12 @@ export function SeriesCard({ series, w = CARD_W, eager = false, note }: {
   const tilt = useTilt();
   const tint = useTileTint(series.color);
   // Right-click, press-and-hold or Shift+F10 (#100, components/SeriesMenu.tsx), and the ⋯ on a computer (v0.60.0).
-  const menu = useSeriesMenu(series);
+  const glance = useGlance(glanceOfSeries(series), { cover: img.seriesThumb(series.id, series.artVersion, 800), readSeriesId: series.id, actions: [{ label: tr('Open series'), href: `/series/?id=${series.id}` }] });
+  const menu = useSeriesMenu(series, glance.show);
   const title = series.metadata?.title || series.name;
+  // Marked 18+ from its menu: gone at once, before the lists are asked again (lib/hiddenTitles.ts).
+  const isHidden = useIsHiddenTitle();
+  if (isHidden(title, series.id)) return null;
   return (
     <div className={`group relative shrink-0 ${w} [scroll-snap-align:start]`}>
     <Link href={`/series/?id=${series.id}`} className="block" {...menu.bind}>
@@ -181,11 +189,13 @@ export function SeriesCard({ series, w = CARD_W, eager = false, note }: {
         style={{ ...tilt.style, ...tint }}
         className="grad-border relative aspect-[2/3] overflow-hidden rounded-2xl border border-ink-700/60 shadow-lift transition-all duration-300 group-hover:-translate-y-1.5 group-hover:shadow-glow group-active:scale-[0.97]"
       >
-        <Img src={img.seriesThumb(series.id)} alt={title} eager={eager} className="h-full w-full transition-transform duration-500 group-hover:scale-[1.07]" />
+        <Img src={img.seriesThumb(series.id)} alt="" eager={eager} className="h-full w-full transition-transform duration-500 group-hover:scale-[1.07]" />
         <div aria-hidden className="pointer-events-none absolute inset-0 z-10" style={tilt.glare} />
+        {glance.overlay}
         {series.yomi?.favorite && (
           <span className="absolute start-2 top-2 z-10 rounded-full bg-black/55 p-1.5 text-accent backdrop-blur">
-            <IcHeart width={14} height={14} fill="currentColor" stroke="none" />
+            <IcHeart width={14} height={14} fill="currentColor" stroke="none" data-favorite-star />
+            <span className="sr-only">{tr('Favorite')}</span>
           </span>
         )}
         {/* dir="ltr" (UnreadCount): "99+" was a number and a sign, and in Arabic the paragraph's direction put the sign
@@ -203,6 +213,7 @@ export function SeriesCard({ series, w = CARD_W, eager = false, note }: {
           <span title={tr('Saved for offline')} aria-label={tr('Saved for offline')}
             className="absolute bottom-1.5 end-1.5 z-10 rounded-full bg-black/60 p-1 text-fog-200 backdrop-blur">
             <IcWifiOff width={11} height={11} />
+            <span className="sr-only">{tr('Saved for offline')}</span>
           </span>
         )}
         {(series.yomi?.newCount ?? 0) > 0 && (
@@ -222,6 +233,7 @@ export function SeriesCard({ series, w = CARD_W, eager = false, note }: {
       <MoreKey menu={menu} title={title} className="absolute bottom-2 end-1.5 grid" />
     </div>
     {menu.element}
+    {glance.modal}
     </div>
   );
 }
@@ -242,16 +254,28 @@ export function ContinueCard({ book, eager = false, note }: { book: Book; eager?
   // A platform ("iPhone"), or "another device" in the reader's words -- never the English "Browser" an older sign-in
   // stored for a platform it did not know, nor a sign-in method ("SSO") as if it were a place.
   const where = elsewhere ? shownDeviceName(elsewhere.name, { device: true }) || tr('another device') : '';
+  // The card opens the chapter; the title opens the series. Two links, so neither sits inside the other: the chapter link is
+  // stretched over the card and the title link sits above it. The menu is the series' own (SeriesMenu.tsx), from the
+  // little a book knows of it -- the Properties sheet and the favourite mark read the rest themselves.
+  const menu = useSeriesMenu({ id: book.seriesId, name: book.seriesTitle, metadata: { title: book.seriesTitle } } as unknown as Series, undefined, { keepReading: true });
+  const isHidden = useIsHiddenTitle();
+  if (isHidden(book.seriesTitle, book.seriesId)) return null;
   return (
-    <Link
-      href={`/reader/?book=${book.id}`}
+    <>
+    <div
+      {...menu.bind}
       className="group relative h-44 w-72 shrink-0 overflow-hidden rounded-3xl border border-ink-700/60 shadow-lift transition-all duration-300 hover:-translate-y-1 hover:shadow-glow [scroll-snap-align:start]"
     >
-      <Img src={img.bookThumb(book.id)} alt={book.seriesTitle} eager={eager} className="absolute inset-0 h-full w-full transition-transform duration-500 group-hover:scale-105" />
+      <Img src={img.bookThumb(book.id)} alt="" eager={eager} className="absolute inset-0 h-full w-full transition-transform duration-500 group-hover:scale-105" />
       <div className="absolute inset-0 bg-linear-to-t from-black via-black/45 to-black/10" />
-      <div className="absolute inset-x-0 bottom-0 p-4">
-        <p className="line-clamp-1 font-display text-base font-semibold text-white">{book.seriesTitle}</p>
-        <p className="text-xs text-fog-300">
+      <Link href={`/reader/?book=${book.id}`} aria-label={`${book.seriesTitle}, ${chapterLabel(book)}`} data-continue-chapter
+        className="absolute inset-0 z-10 rounded-3xl" />
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 p-4">
+        <p className="line-clamp-1 font-display text-base font-semibold text-white">
+          <Link href={`/series/?id=${encodeURIComponent(book.seriesId)}`} data-continue-series
+            className="pointer-events-auto relative z-20 rounded-sm hover:underline focus-visible:underline">{book.seriesTitle}</Link>
+        </p>
+        <p className="mb-2 text-xs text-fog-300">
           {chapterLabel(book)}
           {page > 0 && pages > 0 && <span className="tabular-nums text-fog-400" data-continue-page> · {tr('page {page}/{pages}', { page, pages })}</span>}
           {note && <span className="text-fog-500" data-continue-note> · {note}</span>}
@@ -271,7 +295,9 @@ export function ContinueCard({ book, eager = false, note }: { book: Book; eager?
       <span className="absolute end-3 top-3 grid h-10 w-10 place-items-center rounded-full bg-accent text-black shadow-glow transition group-hover:scale-110 group-active:scale-90">
         <IcPlay width={18} height={18} />
       </span>
-    </Link>
+    </div>
+    {menu.element}
+    </>
   );
 }
 
@@ -294,10 +320,10 @@ function EditionLangs({ series, className }: { series: Series; className: string
 }
 
 /** Grid tile (library / search). */
-export function SeriesTile({ series, eager = false, selectable, selected, onToggle, note, compact = false }: {
+export function SeriesTile({ series, eager = false, selectable, selected, onToggle, note, compact = false, onStartSelect }: {
   series: Series; eager?: boolean;
   /** select mode: the tile stops navigating and toggles instead */
-  selectable?: boolean; selected?: boolean; onToggle?: () => void;
+  selectable?: boolean; selected?: boolean; onToggle?: (e: { shiftKey: boolean }) => void;
   /**
    * One quiet line under the title (v0.58.0): in the Library, the value the shelf is sorted by -- "★ 84", "312K readers",
    * "★ 4/5", "Read 3d ago" (lib/sortValue.ts). Nothing when empty.
@@ -305,6 +331,8 @@ export function SeriesTile({ series, eager = false, selectable, selected, onTogg
   note?: CardNote;
   /** The Library's Compact layout (v0.60.0): one-line titles and smaller badges, so more fit across. */
   compact?: boolean;
+  /** Where Select mode exists (Library, a list): the menu offers Select, starting it with this tile picked. */
+  onStartSelect?: () => void;
 }) {
   // yomi.unread first: it is computed per user in lib/enrich.ts. booksUnreadCount is now corrected there too,
   // but a rail added later that forgets to enrich would fall back to seriesDto's placeholder -- which is the
@@ -318,8 +346,11 @@ export function SeriesTile({ series, eager = false, selectable, selected, onTogg
   const tilt = useTilt();
   const tilts = !selectable;
   // Not in Select mode: there a press toggles the tile, and the Library's own bar holds the actions (#100).
-  const menu = useSeriesMenu(series);
+  const glance = useGlance(glanceOfSeries(series), { cover: img.seriesThumb(series.id, series.artVersion, 800), readSeriesId: series.id, actions: [{ label: tr('Open series'), href: `/series/?id=${series.id}` }] });
+  const menu = useSeriesMenu(series, selectable ? undefined : glance.show, { onSelect: onStartSelect });
   const title = series.metadata?.title || series.name;
+  const isHidden = useIsHiddenTitle();
+  if (isHidden(title, series.id)) return null;
   const corner = compact ? 'rounded-xl' : 'rounded-2xl';
   const body = (
     <>
@@ -328,10 +359,11 @@ export function SeriesTile({ series, eager = false, selectable, selected, onTogg
         className={`grad-border relative aspect-[2/3] overflow-hidden ${corner} border border-ink-700/60 transition-all duration-300 group-hover:-translate-y-1 group-hover:shadow-glow group-active:scale-[0.97]`}>
         <Img src={img.seriesThumb(series.id)} alt={title} eager={eager} className="h-full w-full transition-transform duration-500 group-hover:scale-[1.07]" />
         {tilts && <div aria-hidden className="pointer-events-none absolute inset-0 z-10" style={tilt.glare} />}
+        {!selectable && glance.overlay}
         {selectable && (
           <>
-            {selected && <span className={`absolute inset-0 z-10 ${corner} border-2 border-accent bg-accent/20`} />}
-            <span className={`absolute start-1.5 top-1.5 z-20 grid h-6 w-6 place-items-center rounded-full border text-[11px] font-bold ${
+            {selected && <span aria-hidden className={`absolute inset-0 z-10 ${corner} border-2 border-accent bg-accent/20`} />}
+            <span aria-hidden className={`absolute start-1.5 top-1.5 z-20 grid h-6 w-6 place-items-center rounded-full border text-[11px] font-bold ${
               selected ? 'border-accent bg-accent text-black' : 'border-white/50 bg-black/50 text-transparent'}`}>✓</span>
           </>
         )}
@@ -339,7 +371,8 @@ export function SeriesTile({ series, eager = false, selectable, selected, onTogg
             like any other series exactly while choosing which to Favourite. */}
         {series.yomi?.favorite && (
           <span className={`absolute start-1.5 ${selectable ? 'top-9' : 'top-1.5'} z-10 rounded-full bg-black/55 ${compact ? 'p-0.5' : 'p-1'} text-accent backdrop-blur`}>
-            <IcHeart width={compact ? 10 : 12} height={compact ? 10 : 12} fill="currentColor" stroke="none" />
+            <IcHeart width={compact ? 10 : 12} height={compact ? 10 : 12} fill="currentColor" stroke="none" data-favorite-star />
+            <span className="sr-only">{tr('Favorite')}</span>
           </span>
         )}
         {/* Bottom-end: NEW owns bottom-start, the unread count owns top-end, favourite owns top-start -- logical sides, so
@@ -348,6 +381,7 @@ export function SeriesTile({ series, eager = false, selectable, selected, onTogg
           <span title={tr('Saved for offline')} aria-label={tr('Saved for offline')}
             className="absolute bottom-1.5 end-1.5 z-10 rounded-full bg-black/60 p-1 text-fog-200 backdrop-blur">
             <IcWifiOff width={11} height={11} />
+            <span className="sr-only">{tr('Saved for offline')}</span>
           </span>
         )}
         {/* dir="ltr" on the text (UnreadCount), as SeriesCard's: "99+" read "+99" in Arabic, and on the box it put the box top-right there.
@@ -385,6 +419,7 @@ export function SeriesTile({ series, eager = false, selectable, selected, onTogg
         <MoreKey menu={menu} title={title} className="absolute bottom-2 end-1.5 grid" />
       </div>
       {menu.element}
+      {glance.modal}
     </div>
   );
 }
@@ -512,6 +547,12 @@ export interface SourceItem {
   libraryLangs?: string[];
   /** The language the source declares, null when it says nothing (v0.52.0): the add dialog's language chip. */
   lang?: string | null;
+  /** Held, but not in every provider's language: a click opens the entry, the menu still offers another edition. */
+  moreEditions?: boolean;
+  /** Every source behind a folded search hit, by name: the details card's "Sources". */
+  providerNames?: string[];
+  /** What the other sources call the same title (a search folds them into this card): the at-a-glance card's other names. */
+  altTitles?: string[];
   /** A search result known to be 18+ (v0.55.4, #158): the small "18+" mark on its cover. */
   rating?: 'adult' | 'safe';
   /**
@@ -521,6 +562,8 @@ export interface SourceItem {
   work?: string;
   /** The library holds this work in any language (v0.56.0): the wall does not show it; search does, with its marks. */
   owned?: boolean;
+  /** The source's own description, when its listing carries one (MangaDex and most Suwayomi sources do). */
+  summary?: string;
 }
 
 /**
@@ -533,7 +576,7 @@ export interface SourceItem {
  * Chrome is `SeriesTile`'s, deliberately, so the things you own and the things you could own read as one
  * system rather than as two grids that happen to be adjacent.
  */
-export function SourceCard({ item, providers, onAdd, eager }: {
+export function SourceCard({ item, providers, onAdd, onOpenAdded, onSearch, eager }: {
   item: SourceItem;
   /**
    * Every place the card can be added from (v0.56.0), drawn as up to three overlapping favicons in a corner box and a
@@ -545,27 +588,55 @@ export function SourceCard({ item, providers, onAdd, eager }: {
    */
   providers?: StackSource[];
   onAdd: () => void;
+  /** Just added, and the library row is not known yet: tapping the card finds it and opens it. */
+  onOpenAdded?: () => void;
+  /** Search every source for this title: the card's menu offers it when the page can. */
+  onSearch?: (title: string) => void;
   eager?: boolean;
 }) {
   const owned = !!item.inLibrary;
   const stack = providers?.length ? iconStack(providers) : null;
   const stackId = useId();
+  const libraryHref = owned && item.librarySeriesId ? `/series/?id=${encodeURIComponent(item.librarySeriesId)}` : undefined;
+  // Right-click, press-and-hold or Shift+F10, as on a library card (components/DiscoverMenu.tsx).
+  // Every source behind the card names itself in the glance's Sources fact: the names a folded search hit carries,
+  // else the icon stack's own list (v0.56.0), where this read the one source name the card used to be labelled with.
+  const glance = useGlance(
+    glanceOfSource({ ...item, providerNames: item.providerNames?.length ? item.providerNames : providers?.map((p) => p.name) ?? [], providerTitles: item.altTitles }),
+    {
+      cover: sourceCover(item.source, item.coverUrl, 800), fallbackCover: item.coverUrl || undefined,
+      readSeriesId: owned ? item.librarySeriesId : undefined,
+      actions: [
+        ...(libraryHref ? [{ label: tr('Open in library'), href: libraryHref }] : []),
+        ...(!owned || item.moreEditions ? [{ label: owned ? tr('Add another edition') : tr('Add to library'), primary: !owned, onClick: onAdd }] : []),
+      ],
+    });
+  const menu = useDiscoverMenu({ title: item.title, libraryHref, librarySeriesId: owned ? item.librarySeriesId : undefined, onAdd: !owned || item.moreEditions ? onAdd : undefined, addLabel: owned ? tr('Add another edition') : undefined, onSearch, onDescribe: glance.show });
+  const isHidden = useIsHiddenTitle();
+  const isMarked = useIsMarkedTitle();
+  if (isHidden(item.title, owned ? item.librarySeriesId : undefined)) return null;
   // An owned title opens its entry in the library; adding it again would only say "already there".
   const rootCls = 'group block w-full text-start disabled:cursor-default';
   const body = (
     <>
       <div className={`grad-border relative aspect-[2/3] overflow-hidden rounded-2xl border border-ink-700/60 transition-all duration-300
                        ${owned ? 'opacity-55' : 'group-hover:-translate-y-1 group-hover:shadow-glow group-active:scale-[0.97]'}`}>
-        <Img src={sourceCover(item.source, item.coverUrl)} alt={item.title} eager={eager}
+        {/* alt="" on purpose: the title is right there as text, so naming the cover too makes a screen reader say it twice. */}
+        <Img src={sourceCover(item.source, item.coverUrl)} alt="" eager={eager}
           fallbackSrc={publicCoverFallback(item.coverUrl)}
           className="h-full w-full" imgClassName="transition-transform duration-500 group-hover:scale-[1.07]" />
+        {glance.overlay}
 
         {/* The icons overlap the way the source chip's do (SourcePicker), each ringed in the box's own ground so the
             overlap reads. One box, one row: with "+2" it is about 60 px on a 110-px phone tile. The "+2" is isolated left to
             right like the 18+ mark below, or an Arabic line reads it "2+". */}
         {stack && (
+          // Pressable, as the "{n} sources" badge it replaced was: it opens the details card, which names every source
+          // in words. Not in the tab order and not announced as a control -- it is inside the card's own button, and a
+          // keyboard or screen reader reaches the same card through the menu's "Description and details".
           <span id={stackId} role="img" aria-label={stack.names} title={stack.names} data-source-stack={stack.icons.length + stack.more}
-            className="absolute end-1.5 top-1.5 z-10 flex items-center gap-1 rounded-md bg-ink-950/80 p-1 backdrop-blur">
+            onClick={(ev) => { if (!glance.show) return; ev.preventDefault(); ev.stopPropagation(); glance.show(); }}
+            className="absolute end-1.5 top-1.5 z-10 flex items-center gap-1 rounded-md bg-ink-950/80 p-1 backdrop-blur hover:bg-ink-950 cursor-pointer">
             <span className="inline-flex items-center">
               {stack.icons.map((s, i) => (
                 <span key={s.id} className={`inline-flex ${i > 0 ? '-ms-1.5' : ''}`}>
@@ -580,9 +651,9 @@ export function SourceCard({ item, providers, onAdd, eager }: {
             says so before it is opened. Below the source icons. The text is isolated left to right, so the "+" stays
             where the translation puts it in an Arabic line -- on the text, not on the box: the box's `end` would follow
             its own direction and land at the other corner, away from the icons it sits under. */}
-        {item.rating === 'adult' && (
+        {(item.rating === 'adult' || isMarked(item.title, owned ? item.librarySeriesId : undefined)) && (
           <span data-rating-mark
-            className={`absolute end-1.5 ${stack ? 'top-9' : 'top-1.5'} z-10 rounded-md bg-ink-950/80 px-1.5 py-0.5 text-[10px] font-semibold text-red-300 backdrop-blur`}>
+            className={`absolute end-1.5 ${stack ? 'top-9' : 'top-1.5'} z-10 rounded-md bg-ink-950/80 px-1.5 py-0.5 text-[11px] font-semibold text-red-300 backdrop-blur`}>
             <bdi dir="ltr">{tr('18+')}</bdi>
           </span>
         )}
@@ -591,7 +662,7 @@ export function SourceCard({ item, providers, onAdd, eager }: {
             here, in the bottom-start corner, across from the add button. Codes, never names: "EN · ES" fits a 110-px
             tile. */}
         {!owned && !!item.libraryLangs?.length && (
-          <span data-library-langs className="absolute bottom-1.5 start-1.5 z-10 max-w-[70%] truncate rounded-md bg-ink-950/80 px-1.5 py-0.5 text-[10px] font-semibold text-fog-200 backdrop-blur">
+          <span data-library-langs className="absolute bottom-1.5 start-1.5 z-10 max-w-[70%] truncate rounded-md bg-ink-950/80 px-1.5 py-0.5 text-[11px] font-semibold text-fog-200 backdrop-blur">
             {tr('{langs} in library', { langs: item.libraryLangs.map(codeLabel).join(' · ') })}
           </span>
         )}
@@ -616,9 +687,15 @@ export function SourceCard({ item, providers, onAdd, eager }: {
   // The sources are the card's description: the name says what pressing it does, and a button's own content is not
   // read out (its children are presentational), so a role="img" inside it needs pointing at to be heard at all.
   const described = stack ? stackId : undefined;
-  return owned && item.librarySeriesId
-    ? <Link href={`/series/?id=${encodeURIComponent(item.librarySeriesId)}`} aria-label={item.title} aria-describedby={described} className={rootCls}>{body}</Link>
-    : <button type="button" onClick={onAdd} disabled={owned} aria-label={owned ? item.title : tr('Add to library')} aria-describedby={described} className={rootCls}>{body}</button>;
+  return (
+    <>
+      {libraryHref
+        ? <Link href={libraryHref} aria-label={item.title} aria-describedby={described} className={rootCls} {...menu.bind}>{body}</Link>
+        : <button type="button" onClick={onOpenAdded ?? onAdd} disabled={owned && !onOpenAdded} aria-label={owned ? item.title : `${item.title} · ${tr('Add to library')}`} aria-describedby={described} className={rootCls} {...menu.bind}>{body}</button>}
+      {menu.element}
+      {glance.modal}
+    </>
+  );
 }
 
 /**

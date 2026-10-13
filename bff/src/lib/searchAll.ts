@@ -22,6 +22,8 @@ import { SOLVER_CONCURRENCY } from './sources/flaresolverr';
 import { scanOrder } from './scanOrder';
 import { classify, noteStage, reportFail, reportSlow, reportTimely, type SourceHealth } from './sourceHealth';
 import { canonLang } from './lang';
+import { adultSourceName, explicitGenre, explicitTitle } from './adultSignals';
+import { titleKey } from './adultTitles';
 
 /** An env knob: a finite number at or above `min`, else the default. An empty string is unset. */
 const knob = (name: string, def: number, min = 0): number => {
@@ -338,8 +340,18 @@ export type Rating = 'adult' | 'safe';
 export type Judged = Rating | 'flagged';
 /** What a search shows: everything, everything not known to be 18+ (`safe`), or only what is (`adult`). */
 export type RatingFilter = 'all' | 'safe' | 'adult';
+/**
+ * The ids of a `sources` query value (comma-separated), or null when it names none -- the search then asks every source.
+ * At most 200 ids, so a hostile value costs nothing; the caller still intersects it with the sources the viewer may reach.
+ */
+export function narrowTo(raw: unknown): Set<string> | null {
+  if (typeof raw !== 'string') return null;
+  const ids = raw.split(',').map((s) => s.trim()).filter(Boolean).slice(0, 200);
+  return ids.length ? new Set(ids) : null;
+}
+
 /** The admin's 18+ filter lists (lib/visibility.ts adultFilter): genres as typed, source ids lowercased. */
-export interface AdultLists { genres: readonly string[]; sources: readonly string[] }
+export interface AdultLists { genres: readonly string[]; sources: readonly string[]; /** Sources the admin rated below 18: their extension's flag does not count. */ cleared?: readonly string[]; /** Titles an admin marked 18+ (lib/adultTitles.ts titleKey). */ titles?: ReadonlySet<string> }
 
 /**
  * Whether a search result is 18+, by every signal it carries.
@@ -352,17 +364,26 @@ export interface AdultLists { genres: readonly string[]; sources: readonly strin
  * match. Anything else is unknown: most extensions name no genres in a search, and an unknown result is shown under All
  * and Hide 18+, never under 18+ only. Reintroduce by matching genres without the fold: "a genre is matched as the
  * library matches it" in adultFilter.int.test.ts keeps the 18+ result under Hide 18+.
+ *
+ * `trustFlag` false ignores the extension's declaration, for a viewer who is hiding 18+: Suwayomi flags whole extensions, so
+ * most mainstream sites carry it, and the question there is whether THIS title is 18+, which the title's own signals
+ * (and the admin's source list) answer. A title nothing speaks for is then unknown, and shown.
  */
 export function ratingOf(
-  item: Pick<SourceSeries, 'genres' | 'contentRating'>, src: { id?: string; isNsfw?: boolean } | null | undefined, lists: AdultLists,
+  item: Pick<SourceSeries, 'genres' | 'contentRating'> & { title?: string }, src: { id?: string; name?: string; isNsfw?: boolean } | null | undefined, lists: AdultLists,
+  trustFlag = true,
 ): Judged | undefined {
   if (src?.id && lists.sources.includes(String(src.id).toLowerCase())) return 'adult';
+  // A source whose name says it is adult (lib/adultSignals.ts), unless the admin rated it below 18.
+  if (adultSourceName(src?.name) && !(src?.id && lists.cleared?.includes(String(src.id).toLowerCase()))) return 'adult';
   if (item.contentRating === 'erotica' || item.contentRating === 'pornographic') return 'adult';
   const fold = (g: string) => g.trim().toLowerCase();
   const adult = new Set(lists.genres.map(fold).filter(Boolean));
   const genres = (Array.isArray(item.genres) ? item.genres : []).filter((g): g is string => typeof g === 'string').map(fold).filter(Boolean);
-  if (genres.some((g) => adult.has(g))) return 'adult';
-  if (src?.isNsfw) return 'flagged';
+  if (genres.some((g) => adult.has(g) || explicitGenre(g))) return 'adult';
+  if (explicitTitle(item.title)) return 'adult';
+  if (item.title && lists.titles?.size && lists.titles.has(titleKey(item.title))) return 'adult';
+  if (trustFlag && src?.isNsfw && !(src.id && lists.cleared?.includes(String(src.id).toLowerCase()))) return 'flagged';
   if (item.contentRating === 'safe' || item.contentRating === 'suggestive') return 'safe';
   if (genres.length && adult.size) return 'safe';
   return undefined;
@@ -401,7 +422,12 @@ export interface Provider { source: string; name: string; sourceId: string; cove
  * `rating` (v0.55.4; weighed by cardRating since v0.55.5): 18+, safe, or absent when nothing says. `work` (v0.56.0): the
  * key the card was folded by, when the caller gave one (groupByTitle's keyOf).
  */
-export interface TitleGroup { title: string; coverUrl?: string; updatedAt?: string; providers: Provider[]; rating?: Rating; work?: string }
+export interface TitleGroup {
+  title: string; coverUrl?: string; updatedAt?: string;
+  /** The first description any provider gave, cut short: the card shows its first lines. */
+  summary?: string;
+  providers: Provider[]; rating?: Rating; work?: string;
+}
 export interface SourceRail { source: string; name: string; lang: string | null; results: Array<SourceSeries & { name: string; rating?: Rating }> }
 
 /**
@@ -434,6 +460,7 @@ export function groupByTitle(
       }
       if (!g.coverUrl && r.coverUrl) g.coverUrl = r.coverUrl;
       if (!g.updatedAt && r.updatedAt) g.updatedAt = r.updatedAt;
+      if (!g.summary && r.summary?.trim()) g.summary = r.summary.trim().slice(0, 400);
       if (!g.providers.some((p) => p.source === r.source)) {
         const j = rated?.of(r, src);
         const rating = answered(j);

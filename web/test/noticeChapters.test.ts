@@ -30,7 +30,7 @@ test('both switches say what they hide: the short x.y chapters, not every fracti
   // The owner's rule (v0.55.2): only a chapter numbered like 12.5 with 3 pages or fewer is a notice. Reintroduce the
   // PR's text ("every chapter numbered with a fraction"): neither matches.
   const settings = read('components/AdminSettings.tsx');
-  const section = settings.slice(settings.indexOf('function NoticeChaptersSection('));
+  const section = settings.slice(settings.indexOf('function NoticeChaptersBlock('));
   assert.match(section, /chapters numbered like 12\.5 with 3 pages or fewer are hidden/, 'the Settings text does not say what it hides');
   assert.match(read('components/SourcesSheet.tsx'), /numbered like 12\.5, with 3 pages or fewer/, 'the series switch does not say what it hides');
 });
@@ -40,7 +40,7 @@ test('"Only hide short ones": a switch of its own, on unless the server says off
   // split into parts included, so its help says so before it is flipped, and the section's sentence and the series'
   // switch say which rule is in force. Reintroduce the sheet's one sentence: "the series switch says the off rule" fails.
   const settings = read('components/AdminSettings.tsx');
-  const section = settings.slice(settings.indexOf('function NoticeChaptersSection('));
+  const section = settings.slice(settings.indexOf('function NoticeChaptersBlock('));
   assert.match(section, /const shortOnly = data\.hideNoticeShortOnly !== false;/, 'on unless the server says off');
   assert.match(section, /<SwitchRow label=\{tr\('Only hide short ones \(3 pages or fewer\)'\)\}/);
   assert.match(section, /help=\{tr\('Off hides every chapter numbered like 12\.5 of the types switched on, including real chapters a site split into parts\.'\)\}/,
@@ -81,7 +81,7 @@ test('the Settings page is called by its own name in every language', () => {
     const settings: string = loc['Settings'];
     const stem = settings.slice(0, Math.max(2, settings.length - 1));
     for (const key of ['Following the switch for {type} in Settings.',
-      'What the notice-chapter switches in Settings go by. Automatic takes it from the genres, then the source, then AniList.']) {
+      'Sets what the notice-chapter switches in Settings use. Automatic checks the genres, then the source, then AniList.']) {
       assert.ok(loc[key]?.includes(stem), `${lang}: "${loc[key]}" does not name the Settings page ("${settings}")`);
     }
   }

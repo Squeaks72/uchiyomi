@@ -108,6 +108,26 @@ export function tapZone(x: number, y: number, width: number, height: number, lay
   return col === 0 ? 'prev' : 'next';
 }
 
+/**
+ * A webtoon's tap zones, laid out the way Mihon's default does: the top third and the left of the middle band
+ * scroll back, the bottom third and the right of the middle band scroll on, the centre is the controls.
+ */
+export function scrollZone(x: number, y: number, width: number, height: number): TapZone {
+  const fx = x / Math.max(1, width);
+  const fy = y / Math.max(1, height);
+  if (fy < 0.33) return 'back';
+  if (fy >= 0.66) return 'forward';
+  if (fx < 0.33) return 'back';
+  if (fx >= 0.66) return 'forward';
+  return 'chrome';
+}
+
+/** How far a tap on a scroll zone moves the page: three quarters of the screen, as Mihon does. */
+export const TAP_SCROLL_FRACTION = 0.75;
+
+/** How far the page must move under the controls before they put themselves away (Mihon's default). */
+export const CHROME_HIDE_SCROLL_PX = 31;
+
 /** The delay before a single tap may act. Equal to the double window, which is the point of this module. */
 export function singleTapDelay(): number {
   return TAP_WINDOW_MS;
@@ -132,15 +152,17 @@ export function readTap(args: {
   doubleDetect: boolean;
   /** When the last double (touch or mouse) was recognised; 0 when there is none. */
   lastDoubleAt?: number;
+  /** Decides the zone from where the press ended; the default is the pager's thirds across the width. */
+  zoneOf?: (x: number, y: number) => TapZone;
 }): TapAction {
-  const { from, to, width, height = 0, layout = 'auto', mode = 'paged', lastTapAt, doubleDetect, lastDoubleAt = 0 } = args;
+  const { from, to, width, height = 0, layout = 'auto', mode = 'paged', lastTapAt, doubleDetect, lastDoubleAt = 0, zoneOf } = args;
   if (!isTap(from, to)) return { kind: 'none' };
   // ⚠️ A third press right behind a double is the tail of the same flurry, not a new single. Without this a
   // triple-click (or a triple-tap) zoomed and then, 300 ms later, turned a page: the double reset the pairing
   // state, so the third press looked like the first of a fresh gesture.
   if (lastDoubleAt > 0 && to.t - lastDoubleAt < TAP_WINDOW_MS) return { kind: 'none' };
   if (doubleDetect && lastTapAt > 0 && to.t - lastTapAt < TAP_WINDOW_MS) return { kind: 'double' };
-  return { kind: 'single', zone: tapZone(to.x, to.y, width, height, layout, mode), after: singleTapDelay() };
+  return { kind: 'single', zone: zoneOf ? zoneOf(to.x, to.y) : tapZone(to.x, to.y, width, height, layout, mode), after: singleTapDelay() };
 }
 
 /** Whether a `dblclick` arriving at `now` should take back a single click's action from `at`. */
@@ -156,3 +178,25 @@ export function undoWindow(at: number | null, now: number): boolean {
 export function undoLeft(at: number | null, now: number): number {
   return at == null ? 0 : Math.max(0, UNDO_WINDOW_MS + 1 - (now - at));
 }
+
+/**
+ * A press that lands while the track is still moving is the reader stopping a fling, not asking for anything.
+ * On a phone, catching a webtoon mid-scroll is the most common touch there is, and it used to toggle the
+ * interface every time.
+ */
+export const CATCH_MS = 160;
+export function isCatch(lastMovedAt: number, now: number): boolean {
+  return lastMovedAt > 0 && now - lastMovedAt < CATCH_MS;
+}
+
+/**
+ * Whether a tap in `zone` may bring the interface up or put it away. A finger only does it from the middle
+ * of the screen: where a thumb rests on the edges while swiping must stay inert. A mouse or pen still
+ * toggles from anywhere in vertical mode (paged mode already keeps the edges for turning pages).
+ */
+export function tapMayToggleChrome(pointerType: string, zone: TapZone): boolean {
+  return pointerType !== 'touch' || zone === 'chrome';
+}
+
+/** The interface should get out of the way once the page starts moving under it, after it has had a moment. */
+export const CHROME_GRACE_MS = 500;

@@ -61,7 +61,7 @@ test('only a direct sort click saves the default, without undoing the current UR
   assert.match(toolbar, /const pickSort = \(key: string\) => \{ if \(key !== active\.key\) onSort\(key\); \};/, 'the menu saves the order already in force');
   assert.match(toolbar, /const pickSort = \(key: string\) => \{ onClose\(\); if \(key !== active\.key\) onSort\(key\); \};/, 'the sheet saves the order already in force');
   assert.match(page, /onSort=\{\(k\) => setParam\('sort', k\)\} onDir=\{\(d\) => setParam\('dir', d\)\}/, 'the toolbar\'s picks do not reach setParam');
-  assert.match(setParam, /router\.replace\(`\/library\?\$\{next\.toString\(\)\}`\);\s*if \(k === 'sort' && validSort\(v\)\)/,
+  assert.match(setParam, /router\.replace\(`\/library\/\?\$\{next\.toString\(\)\}`\);\s*if \(k === 'sort' && validSort\(v\)\)/,
     'the URL must update first and non-sort controls must not save a default');
   // A new order drops the old one's direction from the URL, and is saved with its own natural one; a direction is saved
   // with the order it was picked for. Nothing else saves.

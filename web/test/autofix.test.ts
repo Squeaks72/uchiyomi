@@ -19,7 +19,7 @@ import { setActiveLocale } from '../lib/format';
 import {
   AUTOFIX_PHASES, AUTOFIX_POLL_MS, DONE_SHOWN, autofixEndedIds, autofixHeadline, autofixOfRecord, autofixPhaseLabel, autofixPollMs,
   autofixProgress, autofixStepLine, canRunAgain, cardsToLook, clearsLines, doneLines, fixView, needsYouKey, needsYouLines,
-  nightlyModeOf, showFixEverything,
+  lastFixLine, nightlyModeOf, showFixEverything,
   type AutofixRun, type AutofixStatus, type AutofixSummary,
 } from '../lib/autofix';
 import { pageBody, pagePlan } from '../lib/repairRun';
@@ -316,9 +316,9 @@ test('each Needs-you item has its one key: its page, its card, or Admin → Sett
   const keyOf = (body: string) => /data-fix-key="([a-z]+)"/.exec(body)?.[1] ?? null;
   assert.deepEqual(items.map((m) => [m[1], keyOf(m[2])]), [['chapter-gaps', 'open'], ['solver', 'health'], ['extension-cap', 'settings']], 'an item has no key');
   // A page of the app's own is a client-side link (Next's Link, which writes the address without the slash).
-  assert.match(items[0][2], /<a class="btn-key shrink-0" data-fix-key="open" href="\/series\/?\?id=s6">Open<\/a>/);
-  assert.match(items[2][2], /<a href="\/admin\/\?tab=Settings" class="btn-key shrink-0" data-fix-key="settings">Settings<\/a>/, 'Admin → Settings is not a whole page load');
-  assert.match(items[1][2], /<button type="button" class="btn-key shrink-0" data-fix-key="health">Show the card<\/button>/);
+  assert.match(items[0][2], /<a aria-label="Open: [^"]+" class="btn-key shrink-0" data-fix-key="open" href="\/series\/?\?id=s6">Open<\/a>/);
+  assert.match(items[2][2], /<a href="\/admin\/\?tab=Settings" aria-label="Settings: [^"]+" class="btn-key shrink-0" data-fix-key="settings">Settings<\/a>/, 'Admin → Settings is not a whole page load');
+  assert.match(items[1][2], /<button type="button" aria-label="Show the card: [^"]+" class="btn-key shrink-0" data-fix-key="health">Show the card<\/button>/);
   // Sentences in the reader's language take the page's direction: `dir="auto"` read an Arabic sentence opening on a name
   // ("Omniscient Reader، الفصول 12–14…") left-to-right, the name at its far end (the Arabic 390 screenshot). Reintroduce
   // `dir="auto"` on the item's text: this fails.
@@ -359,7 +359,7 @@ test('Run again only while something a run could still change is left: the serve
 test('the nightly choice: Safe repair or Fix everything, saved as it is picked', () => {
   // Reintroduce `patch({ nightly: m })` (or drop the row): "the nightly choice is not saved as nightlyMode" fails.
   const settings = code('components/AdminSettings.tsx');
-  assert.match(settings, /<NightlyModeRow mode=\{nightlyModeOf\(data\)\} off=\{data\.repair_enabled === false\} onPick=\{\(m\) => patch\(\{ nightlyMode: m \}\)\} \/>/,
+  assert.match(settings, /<NightlyModeRow mode=\{nightlyModeOf\(data\)\} off=\{data\.repair_enabled === false\} onPick=\{\(m\) => save\(\{ nightlyMode: m \}\)\} \/>/,
     'the nightly choice is not saved as nightlyMode');
   const row = slice(settings, 'export function NightlyModeRow(', 'function HousekeepingSection(');
   assert.match(row, /if \(!\(await run\(\(\) => onPick\(m\)\)\)\) setLocal\(mode\);/, 'a refused save leaves the choice where it was not saved');
@@ -449,4 +449,26 @@ test('Recent repairs lists a Fix everything run with its headline and its first 
   assert.doesNotMatch(lines, /useQuery|AUTOFIX_URL|api</, 'Recent repairs asks for nothing per row');
   assert.match(lines, /if \(!run\) return r\.status === 'running' \? null : <p className="[^"]*">\{runStatusWord\(r\.status\)\}<\/p>;/,
     'a run that ended before its summary says nothing');
+});
+
+test('Needs you: what a person decides comes first, the cards no run can change last, each keeping its order', () => {
+  const lines = needsYouLines(summary({
+    needsYou: [
+      { check: 'covers', said: said('3 covers need a look') },
+      { check: 'duplicates', said: said('1 duplicate needs your decision') },
+      { check: 'disk', said: said('Low on space') },
+      { check: 'short-chapters', said: said('2 short chapters need your decision') },
+    ],
+  }));
+  assert.deepEqual(lines.map((l) => l.check), ['duplicates', 'short-chapters', 'covers', 'disk']);
+});
+
+test('the last-run line: the nightly says so, a live run or no run says nothing', () => {
+  const done = run({ origin: 'nightly', summary: summary({ needsYou: [{ check: 'covers', said: said('x') }] }) });
+  const nightly = lastFixLine({ run: null, last: done } as AutofixStatus);
+  assert.match(nightly ?? '', /^Last nightly Fix everything .+: 1 needs you$/);
+  assert.match(lastFixLine({ run: null, last: run({ origin: 'manual', summary: summary({ green: true }) }) } as AutofixStatus) ?? '', /^Last Fix everything .+: All green$/);
+  assert.equal(lastFixLine({ run: run({ status: 'running' }), last: done } as AutofixStatus), null);
+  assert.equal(lastFixLine({ run: null, last: null } as AutofixStatus), null);
+  assert.equal(lastFixLine(undefined), null);
 });

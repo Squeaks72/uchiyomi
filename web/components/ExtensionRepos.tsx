@@ -124,7 +124,7 @@ export function ReposSheet({ repos, onClose }: { repos: string[]; onClose: () =>
             {repos.map((u) => (
               <li key={u} className="flex min-w-0 items-center gap-3 px-3 py-2.5" data-repo={u}>
                 <span dir="ltr" className="min-w-0 flex-1 truncate text-start font-mono text-[12px] text-fog-300" title={u}>{u}</span>
-                <button type="button" onClick={() => void removeRepo(u)} disabled={removing === u} className="btn-key btn-key-danger">
+                <button type="button" onClick={() => void removeRepo(u)} disabled={removing === u} aria-label={`${tr('Remove')}: ${u}`} className="btn-key btn-key-danger">
                   {removing === u ? <Busy tone="muted">{tr('Remove')}</Busy> : tr('Remove')}
                 </button>
               </li>

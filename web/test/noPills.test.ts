@@ -163,7 +163,7 @@ const SLICES: [string, string, string, string][] = [
   ['app/admin/page.tsx', 'Tasks: Run now', 'function Tasks()', 'function DesktopBackups()'],
   // Step 14 (#117): where the slow archive is turned on -- keys, never chips, beside chips that stay.
   ['components/AddSeriesDialog.tsx', 'Add dialog: Archive the rest slowly', '{archiveRest > 0 && (', '</>)}'],
-  ['app/library/page.tsx', 'Library: the Archive slowly key', 'onClick={archiveSelected}', "{(isAdmin || canDownload(user))"],
+  ['app/library/page.tsx', 'Library: the Archive slowly key', 'onClick={archiveSelected}', '{tr(\'Archive slowly\')}</button>}'],
   // v0.60.0: the whole select bar -- Mark read, Mark unread, Favourite, Fetch newest, More and Cancel became keys -- and
   // the filter sheet's pinned Clear all and Done.
   ['app/library/page.tsx', 'Library: the select bar', '<div ref={toolbarRef}', '{more && ('],
@@ -348,7 +348,7 @@ test('the downloads counts are squared tags: the switch\'s, the ring\'s and the 
   assert.ok(count, 'the Updates count is not where this test looks');
   assert.match(count![1], /rounded-\[4px\]/, 'the Updates count is not squared');
   assert.doesNotMatch(count![1], /rounded-full/, 'the Updates count is a capsule');
-  const sw = slice(code(read('app/library/page.tsx')), 'function ViewSwitch(', 'function MoveToLibrary(', 'ViewSwitch');
+  const sw = slice(code(read('app/library/page.tsx')), 'function ViewSwitch(', 'export default function LibraryPage(', 'ViewSwitch');
   assert.match(sw, /role="tablist"/, 'the switch slice does not hold the switch');
   assert.match(sw, /rounded-\[4px\][^"]*tabular-nums/, 'the switch\'s count is not a squared tag');
 });

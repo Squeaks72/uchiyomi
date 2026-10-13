@@ -18,7 +18,7 @@ test('one of a count is said with its own key, wherever it is counted', () => {
   // The singular's stand-in is a word, never what the plural's says at 1, or a plural answered for one would pass.
   setActiveDict({
     '1 selected': 'S-one', '{n} selected': 'S{n}', '1 deleted': 'D-one', '{n} deleted': 'D{n}',
-    '1 skipped: not downloaded by Uchiyomi': 'N-one', '{n} skipped: not downloaded by Uchiyomi': 'N{n}',
+    '1 skipped: not fetched by Uchiyomi': 'N-one', '{n} skipped: not fetched by Uchiyomi': 'N{n}',
     '1 skipped: bookmarked by a reader': 'B-one', '{n} skipped: bookmarked by a reader': 'B{n}',
   });
   try {

@@ -154,7 +154,7 @@ test('a Modal keeps clear of the phone bottom nav', () => {
   // Reintroduce by dropping the `pb-[calc(5.5rem+…)]` from the backdrop or restoring a plain
   // `max-h-[88vh]` on the panel: the matching assertion fails.
   const modal = code(read('components/ConfirmDialog.tsx'));
-  assert.match(modal, /pb-\[calc\(5\.5rem\+env\(safe-area-inset-bottom\)\)\] backdrop-blur-xs lg:pb-4/, 'the backdrop leaves the bar\'s band free below lg');
+  assert.match(modal, /pb-\[calc\(5\.5rem\+env\(safe-area-inset-bottom\)\)\] lg:pb-4/, 'the backdrop leaves the bar\'s band free below lg');
   assert.match(modal, /max-h-\[calc\(100dvh-7\.5rem-env\(safe-area-inset-bottom\)\)\] w-full lg:max-h-\[88vh\]/, 'the panel is capped under that band, 88vh from lg up');
 });
 
@@ -344,7 +344,7 @@ test('Mark caught up floors the series where Auto-update is, and its Undo puts t
   assert.match(page, /onClick=\{\(\) => void floorTo\(caught\.previous\)\}/, 'Undo does not put back the floor the answer reported');
   // Asked first, in place, saying what it does.
   assert.match(page, /caught === 'asking' && \(/);
-  assert.match(page, /tr\('Chapters already out are not fetched; only new ones are, from the next check\./);
+  assert.match(page, /tr\('Only chapters released after the next check are fetched\./);
 });
 
 test('an admin copies a chapter\'s file path and the series\' folder with one tap (#136)', () => {
@@ -415,4 +415,73 @@ test('an admin fetches one chapter again, or deletes it from the server, from it
   // with the selection (`deletable`): the row's Delete deletes nothing, or what is ticked.
   assert.match(page, /onConfirm=\{\(\) => deleteBooks\(confirming\.books\)\}/);
   assert.match(page, /onConfirm=\{\(\) => refetchBooks\(confirming\.books\)\}/);
+});
+
+test('the series page offers a Check for new chapters button to an admin, through the shared check hook', () => {
+  const src = readFileSync(new URL('../app/series/page.tsx', import.meta.url), 'utf8');
+  assert.match(src, /useCheckNow\(id,/);
+  assert.match(src, /data-check-new/);
+  assert.match(src, /onClick=\{checkNow\}/);
+});
+
+test('an admin can change the cover from the series page and replace one chapter from another source after a side-by-side compare', () => {
+  const src = readFileSync(new URL('../app/series/page.tsx', import.meta.url), 'utf8');
+  assert.match(src, /data-cover-button/, 'the cover is a button for an admin');
+  assert.match(src, /<CoverPickerSheet seriesId=\{id\}/);
+  assert.match(src, /onReplaceFrom=\{isAdmin && b\.owned !== false && versionsOf\.get\(b\.number\)\?\.some\(\(c\) => !c\.onDisk\)/,
+    'the row offers it to an admin, on an owned chapter another source has');
+  assert.match(src, /Replace from another source…/);
+  assert.match(src, /<CompareCopiesDialog [^>]*seriesId=\{id\}/);
+  assert.match(src, /setComparing\(null\); setReplacing\(\{ book: b, copy \}\)/, 'the compare closes, then the existing confirm opens');
+  const picker = readFileSync(new URL('../components/CoverPickerSheet.tsx', import.meta.url), 'utf8');
+  assert.match(picker, /mode: 'source'/);
+  assert.match(picker, /data-cover-use/);
+  const cmp = readFileSync(new URL('../components/CompareCopiesDialog.tsx', import.meta.url), 'utf8');
+  assert.match(cmp, /copy-page\?source=/);
+  assert.match(cmp, /data-compare-replace/);
+});
+
+test('the saved-offline check on a chapter row is a status; removing the device copy is a menu item', () => {
+  const src = readFileSync(new URL('../app/series/page.tsx', import.meta.url), 'utf8');
+  assert.match(src, /disabled=\{pruned \|\| downloaded\}/);
+  assert.match(src, /label: tr\('Remove from this device'\)/);
+  assert.match(src, /downloaded \? tr\('Saved on this device'\) : tr\('Save offline'\)/);
+});
+
+test('a chapter not yet in the library can be fetched and then opened in the reader', () => {
+  const src = readFileSync(new URL('../app/series/page.tsx', import.meta.url), 'utf8');
+  assert.match(src, /onFetchRead=\{/);
+  assert.match(src, /router\.push\(`\/reader\/\?book=\$\{book\.id\}`\)/);
+  const sheet = readFileSync(new URL('../components/ChapterVersionsSheet.tsx', import.meta.url), 'utf8');
+  assert.match(sheet, /data-fetch-read/);
+});
+
+test("the phone title block paints above the banner, so a long title's first lines are not hidden behind it", () => {
+  // The banner is `relative` and the title block rises over it when the title wraps; unpositioned, the banner painted
+  // over the first lines ("Chainsaw Man" showed as "Man"). Reintroduce by dropping `relative z-10`: this fails.
+  const src = readFileSync(join(__dirname, '..', 'app/series/page.tsx'), 'utf8');
+  assert.match(src, /<div className="relative z-10 min-w-0 pb-1 lg:hidden">/, 'the phone title block can slide under the banner');
+});
+
+test("an admin's unreadable-chapter card offers Redownload, which refetches that one chapter onto its own row", () => {
+  // Reintroduce by deleting the button or posting another route: this fails.
+  const src = readFileSync(join(__dirname, '..', 'app/reader/page.tsx'), 'utf8');
+  assert.match(src, /\/api\/admin\/series\/\$\{c\.seriesId\}\/chapters\/refetch`, \{ method: 'POST', json: \{ bookIds: \[c\.id\] \} \}/, 'Redownload does not refetch the one chapter');
+  assert.match(src, /\{isAdmin && !activeChapter\?\.offline && <button onClick=\{redownload\}/, 'Redownload is not an admin-only button on the card');
+});
+
+test("a rating tap cancels in-flight series fetches and is written to the cache, so a refetch cannot reset the stars", () => {
+  // Reintroduce by dropping the cancelQueries/setQueryData: a stale refetch landing after the tap puts the stars back to 0.
+  // v0.60.0: the stars moved to components/RatingsPanel.tsx (useSeriesRating); the page just calls it.
+  const fn = readFileSync(join(__dirname, '..', 'components/RatingsPanel.tsx'), 'utf8');
+  assert.match(fn, /void qc\.cancelQueries\(\{ queryKey: key \}\)/, 'an in-flight refetch can overwrite the tap');
+  assert.match(fn, /qc\.setQueryData<Series>\(key/, 'the cached series keeps the old rating');
+  assert.match(fn, /put\(before\);\s*toast\(tr\('Could not save your rating'\), 'error'\)/, 'a failed save reverts silently');
+});
+
+test('library reading defaults sit between the global default and the source in the reader', () => {
+  const reader = read('app/reader/page.tsx');
+  assert.match(reader, /titleLook\(loadPrefs\(\), \{ \.\.\.\(libLook \?\? \{\}\), \.\.\.\(src \? loadSourcePrefs\(src\.id\) : \{\}\) \}, memory/, 'library look is not under source and series');
+  assert.match(reader, /libLook = s\?\.libraryReader \?\? null;\s*setLibraryLook\(libLook\);/);
+  assert.match(read('app/admin/page.tsx'), /data-library-look=\{k\}/, 'the library modal has no reading defaults');
 });

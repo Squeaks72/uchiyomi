@@ -71,6 +71,8 @@ export interface ReaderPrefs {
    * title whose own memory and source default hold no mode. Off by default; synced, not a look.
    */
   autoMode: boolean;
+  /** Touch: a tap on the top or bottom of a webtoon scrolls it three quarters of a screen, the middle brings up the controls. */
+  tapScroll: boolean;
 }
 
 const WIDE_PAGES: readonly WidePages[] = ['whole', 'split', 'rotate'];
@@ -89,7 +91,8 @@ export const DEFAULT_PREFS: ReaderPrefs = {
   coverEdges: true,
   widePages: 'whole',
   cropBorders: false,
-  autoMode: false,
+  autoMode: true,
+  tapScroll: true,
 };
 
 const KEY = 'yomi_reader_prefs';
@@ -137,7 +140,8 @@ export function migratePrefs(raw: unknown): ReaderPrefs {
   if (!WIDE_PAGES.includes(p.widePages)) p.widePages = DEFAULT_PREFS.widePages;
   // Only a real `true` crops: an older row, or junk, reads as the default -- off.
   if (p.cropBorders !== true) p.cropBorders = false;
-  if (p.autoMode !== true) p.autoMode = false;
+  if (typeof p.autoMode !== 'boolean') p.autoMode = DEFAULT_PREFS.autoMode;
+  if (typeof p.tapScroll !== 'boolean') p.tapScroll = DEFAULT_PREFS.tapScroll;
   p.skipJunk = p.junkPages !== 'show';
   return p;
 }
@@ -394,6 +398,38 @@ export function saveSeriesPrefs(seriesId: string, partial: SeriesPrefs) {
     localStorage.setItem(`yomi_rs_${seriesId}`, JSON.stringify({ ...cur, ...partial }));
   } catch {}
   queueSync();
+}
+
+/** Whether this series holds a look of its own (mode, theme, spread or direction) that a reset would clear. */
+export function hasSeriesLook(seriesId: string): boolean {
+  const sp = loadSeriesPrefs(seriesId);
+  return !!(sp.mode || sp.theme || sp.spread !== undefined || sp.pagedDirection);
+}
+
+/**
+ * Forget a series' own look so it follows its source's default and the profile's again: the reader sheet's
+ * "Reset this series to my defaults".
+ *
+ * Only the look is cleared (mode, theme, spread, direction and the mark on it). The zoom stays: it is a view
+ * of the page rather than a reading setup, and the sheet's help says "mode, page tone, pages per view and
+ * direction". An entry left empty is removed, and the account hears of it through the usual debounced push:
+ * the server replaces `readerSeries` as a whole, so the omitted id is gone there too.
+ * Returns the reader's settings as they now stand: the stored global default with the source's look laid over.
+ * Reintroduce by leaving the keys in place: readerSeriesReset.test.ts finds them still stored.
+ */
+export function resetSeriesLook(seriesId: string, cur: ReaderPrefs, sourceId = '', libraryLook: SeriesPrefs | null = null): ReaderPrefs {
+  if (seriesId) {
+    try {
+      const sp = { ...loadSeriesPrefs(seriesId) };
+      delete sp.mode; delete sp.theme; delete sp.spread; delete sp.pagedDirection; delete sp.directionChosen;
+      if (Object.keys(sp).length) localStorage.setItem(`yomi_rs_${seriesId}`, JSON.stringify(sp));
+      else localStorage.removeItem(`yomi_rs_${seriesId}`);
+    } catch {}
+    queueSync();
+  }
+  const g = loadPrefs();
+  const base: ReaderPrefs = withTitleLook({ ...cur, mode: g.mode, theme: g.theme, spread: g.spread, pagedDirection: g.pagedDirection }, libraryLook ?? {});
+  return sourceId ? withTitleLook(base, loadSourcePrefs(sourceId)) : base;
 }
 
 // ---- per-source memory (the source is the best proxy the app has for the FORMAT) ----

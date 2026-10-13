@@ -1,13 +1,13 @@
 'use client';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { api, img } from '@/lib/api';
 import { relativeTime } from '@/lib/format';
 import { Img } from '@/components/ui';
 import { EmptyState } from '@/components/EmptyState';
 import { ART } from '@/lib/art';
-import { IcChevronLeft, IcCheck, IcPlay } from '@/components/icons';
+import { IcCheck, IcPlay, IcChevronLeft } from '@/components/icons';
 import { keys, t as tr } from '@/lib/i18n';
 
 interface HistoryRow {
@@ -57,7 +57,7 @@ export default function HistoryPage() {
         </div>
       ) : rows.length === 0 ? (
         <EmptyState art={ART.emptyUpdates} title={tr('Nothing here yet')}
-          sub={tr('Chapters you read will show up here, newest first.')} cta={{ href: '/library', label: tr('Browse library') }} />
+          sub={tr('Chapters you read show up here, newest first.')} cta={{ href: '/library', label: tr('Browse library') }} />
       ) : (
         // The page's width, in columns (UI refresh: it was a 672 px column in the middle of a wide screen). Each day's
         // heading sticks under the top bar on a desktop, not behind it.
@@ -82,7 +82,7 @@ export default function HistoryPage() {
                         <span className="text-fog-600"> · {relativeTime(r.created_at)}</span>
                         {r.completed
                           ? <span className="ms-1.5 inline-flex items-center gap-0.5 text-emerald-400"><IcCheck width={11} height={11} /> {tr('finished')}</span>
-                          : <span className="ms-1.5 text-accent">{tr('page {n}', { n: r.page })}</span>}
+                          : <span className="ms-1.5 text-accent">{tr('Page {n}', { n: r.page })}</span>}
                       </p>
                     </div>
                     <Link href={`/reader/?book=${r.book_id}`} aria-label={tr('Open in reader')}

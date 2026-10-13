@@ -1,9 +1,9 @@
 'use client';
-import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useTabParam } from '@/lib/useTabParam';
 import { AdminSettings } from '@/components/AdminSettings';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError, img } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { triggerRefresh } from '@/lib/refresh';
@@ -12,12 +12,13 @@ import { bytes, numberText, relativeTime } from '@/lib/format';
 import { shownDeviceName } from '@/lib/device';
 import { useToast } from '@/components/Toast';
 import { ConfirmDialog, Modal, msgOf } from '@/components/ConfirmDialog';
+import { ArmButton, useArmed } from '@/components/ArmButton';
 import { Avatar } from '@/components/Avatar';
 import { IcChevronLeft, IcChevronRight, IcTrash, IcPlus, IcRefresh, IcX } from '@/components/icons';
 import { LibraryFolders } from '@/components/LibraryFolders';
 import { addFolder, foldersOf, heldByOthers, heldByText, previewQuery, previewText, sameFolders, toggleFolder, typedFolder } from '@/lib/libraryFolders';
 import { CardProgress, HealthCardActions, HealthRow, hasCardActions, scanState, scanWorking } from '@/components/HealthActions';
-import { FixEverythingDialog, FixEverythingKey, SafeRepairLine } from '@/components/FixEverythingDialog';
+import { FixEverythingDialog, FixEverythingKey, LastFixLine, SafeRepairLine } from '@/components/FixEverythingDialog';
 import { AutofixRunProvider } from '@/lib/useAutofixRun';
 import { RepairHistory, RepairLiveStrip, RepairTaskLines } from '@/components/RepairLive';
 import { RESCAN_KEY, RescanPanel } from '@/components/RescanTask';
@@ -29,11 +30,12 @@ import { checkTitle } from '@/lib/healthCopy';
 import { checkNote, checkSummary, itemDetail, itemTitle } from '@/lib/said';
 import { keysFor } from '@/lib/healthKeys';
 import type { ActionState } from '@/lib/actionState';
-import { Backdrop, Img, OnBody } from '@/components/ui';
+import { Backdrop, Img, OnBody, ToggleChip } from '@/components/ui';
 import { SeriesCard } from '@/components/cards';
 import { ConsoleNav } from '@/components/ConsoleNav';
 import { motion, useReducedMotion } from 'framer-motion';
 import { t as tr, keys } from '@/lib/i18n';
+import { bustCover } from '@/lib/coverBust';
 import type { HealthCheck, Series } from '@/lib/types';
 import { bridge, hiddenOnDesktop, isDesktop, visibleGroups, DESKTOP_HIDDEN, type UpdateStatus } from '@/lib/desktop';
 import { SourcesPanel } from '@/components/SourcesPanel';
@@ -42,6 +44,8 @@ import { StatusEdge, StatusMark } from '@/components/StatusMark';
 import { TONE_SURFACE, healthMark } from '@/lib/status';
 import Link from 'next/link';
 import { healthLinks } from '@/lib/healthLinks';
+import { HealthBySeries } from '@/components/HealthBySeries';
+import { FindSourceLink, SeriesRowTools } from '@/components/FindSourceLink';
 import { useLayer } from '@/lib/layers';
 import { SourceHealthBody } from '@/components/SourceHealthBody';
 import { releaseHref, shownVersion, updateState, type UpdateState } from '@/lib/versionLine';
@@ -65,7 +69,9 @@ const GROUPS = [
   // spot has now shipped an English sidebar twice. See lib/i18n.ts.
   { id: 'server',  label: 'Server',  tabs: keys('Overview', 'Tasks', 'Settings') },
   { id: 'people',  label: 'People',  tabs: keys('Members', 'Sessions', 'Activity') },
-  { id: 'content', label: 'Content', tabs: keys('Library', 'Health', 'Art') },
+  // Fork change: Import is a page of its own (/admin/import), so it is a link in the group rather than an eleventh tab
+  // (the tab list is pinned at ten). ConsoleNav draws `links` under the tabs.
+  { id: 'content', label: 'Content', tabs: keys('Library', 'Health', 'Art'), links: [{ label: keys('Import')[0], href: '/admin/import/' }] },
   // v0.54.0: ONE tab for every source, where Providers and Extensions were two halves of one list (SourcesPanel.tsx).
   // Their old names and links land on it (lib/sourcesPanel.ts SOURCES_TAB_ALIASES).
   { id: 'sources', label: 'Sources', tabs: keys('Sources') },
@@ -90,8 +96,8 @@ export default function AdminPage() {
 }
 
 function AdminInner() {
-  const { isAdmin } = useAuth();
   const router = useRouter();
+  const { isAdmin } = useAuth();
   // In the URL rather than in state: a refresh, the back button and every deep link used to land on
   // Overview, and `/admin/?tab=Settings` is the address the docs can now give (lib/useTabParam.ts).
   const [tab, setTab] = useTabParam<Tab>(TABS, 'Overview', SOURCES_TAB_ALIASES);
@@ -372,7 +378,7 @@ function Overview({ onTab }: { onTab: (t: Tab) => void }) {
                   </div>
                   <span className="ms-auto shrink-0 text-end">
                     <span className="font-display text-xl font-bold tabular-nums text-accent">{m.week}</span>
-                    <span className="block text-[10px] tabular-nums text-fog-500">{m.total}</span>
+                    <span className="block text-[11px] tabular-nums text-fog-500">{m.total}</span>
                   </span>
                 </div>
               </motion.div>
@@ -538,10 +544,10 @@ function Members() {
       <form onSubmit={create} className="card grad-border p-4">
         <h2 className="mb-3 font-display text-base font-semibold">{tr('New account')}</h2>
         <div className="space-y-2">
-          <input value={username} onChange={(e) => setUsername(e.target.value)} placeholder={tr('username')} autoCapitalize="none" autoCorrect="off" className="field" />
-          <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder={tr('display name (optional)')} className="field" />
-          <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" placeholder={tr('password (min 8)')} className="field" />
-          <div className="flex gap-2">{(['user', 'admin'] as const).map((r) => <button key={r} type="button" onClick={() => setRole(r)} className={`flex-1 rounded-xl border py-2 text-sm capitalize ${role === r ? 'border-accent bg-accent-soft text-accent' : 'border-ink-700 text-fog-300'}`}>{roleText(r)}</button>)}</div>
+          <input value={username} onChange={(e) => setUsername(e.target.value)} placeholder={tr('username')} aria-label={tr('username')} autoComplete="off" autoCapitalize="none" autoCorrect="off" className="field" />
+          <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder={tr('display name (optional)')} aria-label={tr('display name (optional)')} autoComplete="off" className="field" />
+          <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" autoComplete="new-password" placeholder={tr('password (min 8)')} aria-label={tr('password (min 8)')} className="field" />
+          <div role="group" aria-label={tr('Role')} className="flex gap-2">{(['user', 'admin'] as const).map((r) => <ToggleChip key={r} variant="box" on={role === r} onClick={() => setRole(r)} className="flex-1 rounded-xl py-2 text-sm capitalize">{roleText(r)}</ToggleChip>)}</div>
         </div>
         <button type="submit" disabled={busy || !username.trim() || password.length < 8} className="btn-accent mt-3 w-full disabled:opacity-50"><IcPlus width={18} height={18} /> {busy ? tr('Creating…') : tr('Create account')}</button>
       </form>
@@ -599,7 +605,7 @@ function Members() {
         <Modal title={tr('Change password')} onClose={closeReset}>
           <p className="mb-3 text-sm text-fog-400">@{resetting.username}</p>
           <input type="password" value={pw} onChange={(e) => setPw(e.target.value)} autoComplete="new-password"
-            placeholder={tr('New password (min 8 characters)')} className="field" />
+            placeholder={tr('New password (min 8 characters)')} aria-label={tr('New password (min 8 characters)')} className="field" />
           <div className="mt-4 flex gap-2">
             <button onClick={closeReset} className="btn-ghost flex-1 py-2 text-sm">{tr('Cancel')}</button>
             <button disabled={pw.length < 8}
@@ -754,7 +760,7 @@ function ArtReview() {
       </div>
       <div className="hide-scrollbar full flex gap-1.5 overflow-x-auto pb-1">
         {([['nobanner', tr('Missing banner')], ['nocover', tr('Missing cover')], ['fixed', tr('Overridden')], ['all', tr('All')]] as const).map(([k, label]) => (
-          <button key={k} onClick={() => setFilter(k)} className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium ${filter === k ? 'bg-accent text-white' : 'bg-ink-800 text-fog-300'}`}>
+          <button key={k} onClick={() => setFilter(k)} aria-pressed={filter === k} className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium ${filter === k ? 'bg-accent text-black' : 'bg-ink-800 text-fog-300'}`}>
             {label}{k !== 'all' ? ` (${(data?.content ?? []).filter((r) => (k === 'nobanner' ? !r.has_banner && !r.override_banner : k === 'nocover' ? !r.has_cover && !r.override_cover : r.override_banner || r.override_cover)).length})` : ''}
           </button>
         ))}
@@ -766,14 +772,14 @@ function ArtReview() {
               {/* eslint-disable-next-line @next/next/no-img-element */}
               {/* As the series page shows it (v0.53.0): a banner sharp, a stand-in cover blurred -- the art being judged. */}
               <img src={`/img/series/${encodeURIComponent(r.id)}/backdrop?style=banner&rv=${bust[r.id] || 0}`} alt="" className="h-full w-full object-cover" loading="lazy" />
-              {!r.has_banner && !r.override_banner && <span className="absolute end-1 top-1 rounded bg-red-600/80 px-1.5 py-0.5 text-[9px] font-bold uppercase text-white">{tr('No banner')}</span>}
+              {!r.has_banner && !r.override_banner && <span className="absolute end-1 top-1 rounded bg-red-600/80 px-1.5 py-0.5 text-[11px] font-bold uppercase text-white">{tr('No banner')}</span>}
             </div>
             <div className="flex items-center gap-2 p-2">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={`${img.seriesThumb(r.id)}&rv=${bust[r.id] || 0}`} alt="" className="h-12 w-8 shrink-0 rounded object-cover" loading="lazy" />
               <div className="min-w-0">
                 <p className="truncate text-xs font-medium text-fog-100">{r.title}</p>
-                <p className="text-[10px] text-fog-500">{artCaption(r)}</p>
+                <p className="text-[11px] text-fog-500">{artCaption(r)}</p>
               </div>
             </div>
           </button>
@@ -782,14 +788,12 @@ function ArtReview() {
       {/* The row as the gallery has it now, not as it was when the picker opened: after Use the first page or a reset the
           picker's keys follow what the series has. */}
       {open && <ArtPicker row={(data?.content ?? []).find((r) => r.id === open.id) ?? open} onClose={() => setOpen(null)}
-        onApplied={() => { setBust((b) => ({ ...b, [open.id]: Date.now() })); qc.invalidateQueries({ queryKey: ['admin-art'] }); }} />}
+        onApplied={() => { bustCover(open.id); setBust((b) => ({ ...b, [open.id]: Date.now() })); qc.invalidateQueries({ queryKey: ['admin-art'] }); }} />}
     </div>
   );
 }
 
 function ArtPicker({ row, onClose, onApplied }: { row: ArtRow; onClose: () => void; onApplied: () => void }) {
-  // A dialog on the notices' layer stack (lib/layers.ts): it toasts while open ("Failed to apply").
-  useLayer('dialog');
   const toast = useToast();
   const [busy, setBusy] = useState(false);
   const { data, isLoading } = useQuery({
@@ -823,43 +827,35 @@ function ArtPicker({ row, onClose, onApplied }: { row: ArtRow; onClose: () => vo
     setBusy(false);
   };
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-ink-950/70 p-4 backdrop-blur-xs" onClick={onClose}>
-      {/* max-w-xl, the widest a centred panel may be: from lg up the notices' column beside it is sized to clear
-          36 rem (lib/notices.ts WIDE_BESIDE_DIALOG), and at 42 rem this one's corner sat under it. */}
-      <div role="dialog" aria-modal="true" aria-label={row.title} data-lenis-prevent className="glass max-h-[88vh] w-full max-w-xl overflow-y-auto rounded-2xl border border-ink-700 p-5" onClick={(e) => e.stopPropagation()}>
-        <div className="mb-3 flex items-start justify-between gap-3">
-          <h3 className="font-display text-lg font-semibold leading-tight">{row.title}</h3>
-          <button onClick={onClose} aria-label={tr('Close')} className="shrink-0 text-fog-500 hover:text-fog-200">✕</button>
-        </div>
-        <div className="mb-3 flex flex-wrap gap-2">
-          <button data-art-first-page onClick={() => firstPage()} disabled={busy || row.first_page} className="btn-key">{tr('Use the first page')}</button>
-          {row.override_cover && <button onClick={() => reset('cover')} disabled={busy} className="btn-key">{tr('Reset cover to auto')}</button>}
-          {row.override_banner && <button onClick={() => reset('banner')} disabled={busy} className="btn-key">{tr('Reset banner to auto')}</button>}
-        </div>
-        {isLoading ? (
-          <p className="py-8 text-center text-sm text-fog-500">{tr('Searching AniList + MangaDex…')}</p>
-        ) : !(data?.content?.length) ? (
-          <p className="py-8 text-center text-sm text-fog-500">{tr('No candidates found — use Edit details on the series page to paste a URL.')}</p>
-        ) : (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {data!.content.map((c, i) => (
-              <div key={i} className="card overflow-hidden p-0">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={c.banner || c.cover || ''} alt="" className="h-28 w-full object-cover" loading="lazy" />
-                <div className="p-2">
-                  <p className="truncate text-[11px] text-fog-300">{c.title}</p>
-                  <p className="text-[10px] uppercase tracking-wide text-fog-500">{c.origin}</p>
-                  <div className="mt-1.5 flex gap-1.5">
-                    {c.banner && <button onClick={() => apply('banner', c.banner!)} disabled={busy} className="btn-accent flex-1 px-2 py-1 text-[11px] disabled:opacity-50">{tr('Use as banner')}</button>}
-                    {c.cover && <button onClick={() => apply('cover', c.cover!)} disabled={busy} className="btn-ghost flex-1 px-2 py-1 text-[11px] disabled:opacity-50">{tr('Use as cover')}</button>}
-                  </div>
+    <Modal title={row.title} onClose={onClose} xwide>
+      <div className="mb-3 flex flex-wrap gap-2">
+        <button data-art-first-page onClick={() => firstPage()} disabled={busy || row.first_page} className="btn-key">{tr('Use the first page')}</button>
+        {row.override_cover && <button onClick={() => reset('cover')} disabled={busy} className="btn-key">{tr('Reset cover to auto')}</button>}
+        {row.override_banner && <button onClick={() => reset('banner')} disabled={busy} className="btn-key">{tr('Reset banner to auto')}</button>}
+      </div>
+      {isLoading ? (
+        <p className="py-8 text-center text-sm text-fog-500">{tr('Searching AniList + MangaDex…')}</p>
+      ) : !(data?.content?.length) ? (
+        <p className="py-8 text-center text-sm text-fog-500">{tr('No candidates found — use Edit details on the series page to paste a URL.')}</p>
+      ) : (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          {data!.content.map((c, i) => (
+            <div key={i} className="card overflow-hidden p-0">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={c.banner || c.cover || ''} alt="" className="h-28 w-full object-cover" loading="lazy" />
+              <div className="p-2">
+                <p id={`art-cand-${i}`} className="truncate text-[11px] text-fog-300">{c.title}</p>
+                <p className="text-[11px] uppercase tracking-wide text-fog-500">{c.origin}</p>
+                <div className="mt-1.5 flex gap-1.5">
+                  {c.banner && <button onClick={() => apply('banner', c.banner!)} aria-describedby={`art-cand-${i}`} disabled={busy} className="btn-accent flex-1 px-2 py-1 text-[11px] disabled:opacity-50">{tr('Use as banner')}</button>}
+                  {c.cover && <button onClick={() => apply('cover', c.cover!)} aria-describedby={`art-cand-${i}`} disabled={busy} className="btn-ghost flex-1 px-2 py-1 text-[11px] disabled:opacity-50">{tr('Use as cover')}</button>}
                 </div>
               </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </Modal>
   );
 }
 
@@ -996,7 +992,7 @@ function DesktopBackups() {
       {asking && (
         <ConfirmDialog
           title={tr('Restore a backup?')}
-          body={tr('Uchiyomi closes your library, replaces its database and settings with the backup you choose, and opens again. Everything since that backup — reading progress, new series, settings — is replaced. The manga files themselves are not touched.')}
+          body={tr('Uchiyomi will close, restore the backup you pick, and open again. Anything changed since that backup (reading progress, new series, settings) is lost. Your manga files are not touched.')}
           confirmLabel={tr('Choose a backup…')}
           danger
           busy={busy}
@@ -1064,7 +1060,8 @@ function Sessions() {
                   <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-accent" />{tr('You')}
                 </span>
               ) : (
-                <button onClick={() => revoke(s.id)} className="text-xs text-red-300 hover:underline">{tr('Revoke')}</button>
+                <button onClick={() => revoke(s.id)} aria-label={`${tr('Revoke')}: ${s.display_name || s.username} · ${shownDeviceName(s.device_name) || tr('Device')}`}
+                  className="-m-1.5 p-1.5 text-xs text-red-300 hover:underline">{tr('Revoke')}</button>
               )}
             </div>
           </div>
@@ -1098,6 +1095,9 @@ interface LibraryRow {
   age_rating: number | null;
   /** Automatic, implicit title/id lookups may contact AniList for series currently filed here. */
   anilist_lookup: boolean;
+  /** The library view starts with it selected. */
+  default_visible?: boolean;
+  reader_prefs?: { mode?: string; theme?: string; spread?: boolean; pagedDirection?: string } | null;
   /** How many of its series were placed here by hand rather than by the folder rule. */
   pinned: number;
   /** Who can open it. Includes members with no restriction at all, who see every library. */
@@ -1167,7 +1167,7 @@ function AgeCap({ cap, save: store, onSaved }: { cap: number | null; save: (next
           {cap !== null && (
             <div className="mt-2 flex flex-wrap gap-1.5 border-t border-ink-800 pt-2">
               {AGE_CAPS.map((v) => (
-                <button key={v} disabled={busy} onClick={() => save(v)}
+                <button key={v} disabled={busy} onClick={() => save(v)} aria-pressed={cap === v}
                   className={`chip text-xs disabled:opacity-50 ${cap === v ? 'chip-active' : ''}`}>
                   {v}+
                 </button>
@@ -1237,7 +1237,7 @@ function LibraryAccess({ granted, save: store, onSaved, nothing }: {
           {granted && (
             <div className="mt-2 flex flex-wrap gap-1.5 border-t border-ink-800 pt-2">
               {libs.map((l) => (
-                <button key={l.id} disabled={busy} onClick={() => toggle(l.id)}
+                <button key={l.id} disabled={busy} onClick={() => toggle(l.id)} aria-pressed={granted.includes(l.id)}
                   className={`chip text-xs disabled:opacity-50 ${granted.includes(l.id) ? 'chip-active' : ''}`}>
                   {l.name}
                 </button>
@@ -1282,7 +1282,7 @@ function FolderPicker({ chosen, held, onToggle }: {
       </div>
       <div data-lenis-prevent className="max-h-52 overflow-y-auto p-1.5">
         {isFetching && !data ? (
-          <p className="px-2 py-3 text-center text-[11px] text-fog-600">{tr('Loading…')}</p>
+          <p role="status" className="px-2 py-3 text-center text-[11px] text-fog-600">{tr('Loading…')}</p>
         ) : !data?.folders.length ? (
           <p className="px-2 py-3 text-center text-[11px] text-fog-600">{tr('No folders here')}</p>
         ) : data.folders.map((f) => {
@@ -1302,7 +1302,7 @@ function FolderPicker({ chosen, held, onToggle }: {
                     <span className="shrink-0 text-fog-600">· {f.series}</span>
                   </span>
                   {/* Under the name, not beside it: a library's name is as long as anyone made it. */}
-                  {holder && <span className="block truncate text-[10px] text-fog-500" data-folder-held>{heldByText(holder)}</span>}
+                  {holder && <span className="block truncate text-[11px] text-fog-500" data-folder-held>{heldByText(holder)}</span>}
                 </span>
                 <IcChevronRight width={12} height={12} aria-hidden className="shrink-0 text-fog-600 rtl:-scale-x-100" />
               </button>
@@ -1335,6 +1335,19 @@ function LibraryDialog({ editing, start, libs, onClose, onSaved }: {
   const [typed, setTyped] = useState('');
   const [age, setAge] = useState<string>(editing?.age_rating == null ? '' : String(editing.age_rating));
   const [anilistLookup, setAniListLookup] = useState(editing?.anilist_lookup ?? true);
+  const [defaultVisible, setDefaultVisible] = useState(editing?.default_visible ?? true);
+  const [look, setLook] = useState<Record<string, string>>(() => {
+    const r = editing?.reader_prefs;
+    return { mode: r?.mode ?? '', theme: r?.theme ?? '', spread: r?.spread === undefined ? '' : String(r.spread), pagedDirection: r?.pagedDirection ?? '' };
+  });
+  const readerPrefs = () => {
+    const o: Record<string, unknown> = {};
+    if (look.mode) o.mode = look.mode;
+    if (look.theme) o.theme = look.theme;
+    if (look.spread) o.spread = look.spread === 'true';
+    if (look.pagedDirection) o.pagedDirection = look.pagedDirection;
+    return Object.keys(o).length ? o : null;
+  };
   const [preview, setPreview] = useState<{ series: number; sample: string[] } | null>(null);
   const [busy, setBusy] = useState(false);
   const isLib = editing?.id === 'lib';
@@ -1374,12 +1387,27 @@ function LibraryDialog({ editing, start, libs, onClose, onSaved }: {
     setTyped('');
   };
 
+  const [asking, setAsking] = useState<string[] | null>(null);
+  // Folders taken out of the list: ask first whether the series in them should go somewhere, since otherwise the
+  // next scan hands them to whichever library holds the old place.
   const save = async () => {
+    const removed = editing && !isLib && !unchanged ? foldersOf(editing).filter((p) => !folders.includes(p)) : [];
+    if (removed.length) {
+      setBusy(true);
+      try {
+        const r = await api<{ total: number }>(`/api/admin/libraries/${editing!.id}/relocate`, { method: 'POST', json: { folders: removed, keep: folders, target: 'moved', dryRun: true } });
+        if (r.total > 0) { setAsking(removed); setBusy(false); return; }
+      } catch { /* the question is a courtesy: if it cannot be asked the save goes ahead as it always did */ }
+      setBusy(false);
+    }
+    await commit();
+  };
+  const commit = async () => {
     setBusy(true);
     try {
       const ageRating = age === '' ? null : Number(age);
       if (editing) {
-        const body: Record<string, unknown> = { name: name.trim(), ageRating, anilistLookup };
+        const body: Record<string, unknown> = { name: name.trim(), ageRating, anilistLookup, defaultVisible, readerPrefs: readerPrefs() };
         if (!isLib && !unchanged) body.paths = folders;
         await api(`/api/admin/libraries/${editing.id}`, { method: 'PATCH', json: body });
         toast(tr('Saved'), 'success');
@@ -1387,7 +1415,7 @@ function LibraryDialog({ editing, start, libs, onClose, onSaved }: {
         // One request. This used to POST the library and then PATCH the rating separately, and skip the
         // PATCH entirely when the rating was null -- so a failed second call created an unrated library
         // under a "Created" toast, which is the one outcome nobody would check for.
-        await api('/api/admin/libraries', { method: 'POST', json: { name: name.trim(), paths: folders, ageRating, anilistLookup } });
+        await api('/api/admin/libraries', { method: 'POST', json: { name: name.trim(), paths: folders, ageRating, anilistLookup, defaultVisible, readerPrefs: readerPrefs() } });
         toast(tr('Created'), 'success');
       }
       onSaved();
@@ -1402,14 +1430,20 @@ function LibraryDialog({ editing, start, libs, onClose, onSaved }: {
   return (
     <Modal title={editing ? tr('Edit library') : tr('New library')} onClose={onClose}>
       <div data-library-dialog={editing?.id ?? 'new'}>
-        <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-fog-500">{tr('Name')}</label>
-        <input value={name} onChange={(e) => setName(e.target.value)} className="field" />
+        {asking && editing && (
+          <RemovedFoldersPrompt lib={editing} removed={asking} keep={folders}
+            onSkip={() => { setAsking(null); void commit(); }}
+            onMoved={() => { setAsking(null); void commit(); }}
+            onCancel={() => setAsking(null)} />
+        )}
+        <label htmlFor="library-name" className="mb-1 block text-xs font-semibold uppercase tracking-wider text-fog-500">{tr('Name')}</label>
+        <input id="library-name" value={name} onChange={(e) => setName(e.target.value)} className="field" />
 
         {!isLib && (
           <>
-            <label className="mb-1 mt-3 block text-xs font-semibold uppercase tracking-wider text-fog-500">{tr('Folders')}</label>
+            <label htmlFor="library-folder" className="mb-1 mt-3 block text-xs font-semibold uppercase tracking-wider text-fog-500">{tr('Folders')}</label>
             {paths.length > 0 && (
-              <ul className="mb-2 max-w-md space-y-1" data-library-folders-chosen>
+              <ul className="mb-2 max-w-md space-y-1" aria-label={tr('Folders')} data-library-folders-chosen>
                 {paths.map((p) => {
                   const holder = held.get(p);
                   return (
@@ -1417,7 +1451,7 @@ function LibraryDialog({ editing, start, libs, onClose, onSaved }: {
                       className={`flex min-w-0 items-center gap-2 rounded-lg border py-1 ps-2.5 pe-1 ${holder ? 'border-amber-500/40' : 'border-ink-700'} bg-ink-900/40`}>
                       <span className="min-w-0 flex-1">
                         <span className="block truncate font-mono text-xs text-fog-200" title={p}><bdi>{p}</bdi></span>
-                        {holder && <span className="block truncate text-[10px] text-amber-300">{heldByText(holder)}</span>}
+                        {holder && <span className="block truncate text-[11px] text-amber-300">{heldByText(holder)}</span>}
                       </span>
                       <button type="button" onClick={() => setPaths((cur) => cur.filter((x) => x !== p))}
                         aria-label={tr('Remove {name}', { name: p })} className="btn-key h-7 w-7 px-0" data-library-folder-remove>
@@ -1429,41 +1463,80 @@ function LibraryDialog({ editing, start, libs, onClose, onSaved }: {
               </ul>
             )}
             <div className="flex max-w-md gap-2">
-              <input value={typed} onChange={(e) => setTyped(e.target.value)} spellCheck={false} dir="auto"
+              <input id="library-folder" aria-describedby="library-folder-help" value={typed} onChange={(e) => setTyped(e.target.value)} spellCheck={false} dir="auto" autoComplete="off"
                 onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add(); } }}
                 placeholder={tr('e.g. Manga/Seinen')} className="field min-w-0 flex-1 font-mono" data-library-folder-input />
               <button type="button" onClick={add} disabled={!typedFolder(typed)} className="btn-key h-auto self-stretch">{tr('Add')}</button>
             </div>
             {typedHeld && <p className="mt-1 text-[11px] text-amber-300">{heldByText(typedHeld)}</p>}
-            <p className="mb-2 mt-1 max-w-md text-[11px] text-fog-600">
-              {tr('Type a folder under your library root, or tick folders below. A library can hold several, and libraries may sit inside one another — the most specific folder wins.')}
+            <p id="library-folder-help" className="mb-2 mt-1 max-w-md text-[11px] text-fog-600">
+              {tr('Type a folder under your library root, or tick folders below. A library can hold several folders. If libraries overlap, the more specific folder wins.')}
             </p>
             <FolderPicker chosen={paths} held={held} onToggle={toggle} />
           </>
         )}
 
-        <label className="mb-1 mt-3 block text-xs font-semibold uppercase tracking-wider text-fog-500">{tr('Age rating')}</label>
-        <select value={age} onChange={(e) => setAge(e.target.value)} className="field">
+        <label htmlFor="library-age" className="mb-1 mt-3 block text-xs font-semibold uppercase tracking-wider text-fog-500">{tr('Age rating')}</label>
+        <select id="library-age" aria-describedby="library-age-help" value={age} onChange={(e) => setAge(e.target.value)} className="field">
           <option value="">{tr('Not rated — visible to everyone')}</option>
           {[6, 10, 13, 15, 17, 18].map((v) => <option key={v} value={String(v)}>{v}+</option>)}
         </select>
-        <p className="mt-1 text-[11px] text-fog-600">
-          {tr('Everything in this library inherits it. A single series can still be rated differently from its own page.')}
+        <p id="library-age-help" className="mt-1 text-[11px] text-fog-600">
+          {tr('Every series here gets this rating. You can still rate one series differently from its own page.')}
         </p>
 
         <label className="mt-3 flex max-w-md cursor-pointer items-start justify-between gap-4 rounded-lg border border-ink-700 bg-ink-900/40 p-3">
           <span className="min-w-0">
-            <span className="block text-xs font-medium text-fog-200">{tr('Look up art and metadata on AniList automatically')}</span>
+            <span className="block text-xs font-medium text-fog-200">{tr('Visible by default in the library')}</span>
             <span className="mt-1 block text-[11px] leading-relaxed text-fog-500">
-              {tr("When off, automatic lookups do not send this library's titles to AniList. Existing art and matches stay, and manual AniList actions can still connect.")}
+              {isLib
+                ? tr('The default library is always visible.')
+                : tr("When on, the library view starts with this library selected. When off, its series show only once someone picks it in the Library filter.")}
+            </span>
+          </span>
+          <input type="checkbox" checked={isLib || defaultVisible} disabled={isLib} onChange={(e) => setDefaultVisible(e.target.checked)}
+            className="mt-0.5 size-4 shrink-0 accent-accent" data-library-default-visible />
+        </label>
+
+        <label className="mt-3 flex max-w-md cursor-pointer items-start justify-between gap-4 rounded-lg border border-ink-700 bg-ink-900/40 p-3">
+          <span className="min-w-0">
+            <span className="block text-xs font-medium text-fog-200">{tr('Look up art and metadata on AniList, Kitsu and MangaUpdates automatically')}</span>
+            <span className="mt-1 block text-[11px] leading-relaxed text-fog-500">
+              {tr("When off, automatic lookups do not send this library's titles to AniList, Kitsu or MangaUpdates. Existing art and matches stay, and manual actions can still connect.")}
             </span>
           </span>
           <input type="checkbox" checked={anilistLookup} onChange={(e) => setAniListLookup(e.target.checked)}
             className="mt-0.5 size-4 shrink-0 accent-accent" data-library-anilist-lookup />
         </label>
 
+        <div className="mt-3 max-w-md rounded-lg border border-ink-700 bg-ink-900/40 p-3" data-library-reader>
+          <span className="block text-xs font-medium text-fog-200">{tr('Reading defaults')}</span>
+          <span className="mt-1 block text-[11px] leading-relaxed text-fog-500">
+            {tr("Used for every series in this library, unless the series or its source has its own.")}
+          </span>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            {([
+              ['mode', tr('Reading mode'), [['vertical', tr('Webtoon (scroll)')], ['paged', tr('Paged (swipe)')]]],
+              ['theme', tr('Page tone'), [['amoled', tr('AMOLED')], ['sepia', tr('Sepia')], ['gray', tr('Gray')]]],
+              ['spread', tr('Pages per view'), [['false', tr('Single')], ['true', tr('Double spread')]]],
+              ['pagedDirection', tr('Reading direction'), [['series', tr('Follow the series')], ['ltr', tr('Left to right')], ['rtl', tr('Right to left')]]],
+            ] as const).map(([k, label, opts]) => (
+              <label key={k} className="block text-[11px] text-fog-400">
+                {label}
+                <select value={look[k]} onChange={(e) => setLook({ ...look, [k]: e.target.value })}
+                  className="mt-1 w-full rounded-md border border-ink-700 bg-ink-900 px-2 py-1.5 text-xs text-fog-200" data-library-look={k}>
+                  <option value="">{tr('Use user default')}</option>
+                  {opts.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                </select>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        {editing && <GatherSeries lib={editing} onDone={onSaved} pending={!unchanged} />}
+
         {preview && (
-          <p className="mt-3 text-[11px] leading-relaxed text-fog-500" data-library-preview={preview.series}>
+          <p role="status" className="mt-3 text-[11px] leading-relaxed text-fog-500" data-library-preview={preview.series}>
             {previewText(preview.series, preview.sample)}
           </p>
         )}
@@ -1476,6 +1549,210 @@ function LibraryDialog({ editing, start, libs, onClose, onSaved }: {
         </div>
       </div>
     </Modal>
+  );
+}
+
+type GatherAnswer = {
+  dryRun: boolean; target: string; planned: number; moved: number; same: number;
+  problems: { id: string; title: string; from: string; to: string; status: string; reason?: string; fix?: string }[];
+  sample: { from: string; to: string }[];
+};
+
+/** The state of a folder browser that picks one destination: where it is, whether it is still at the top, a name being typed. */
+function useTargetFolder(roots: string[], initial: string, onNavigate?: () => void) {
+  const [target, setTarget] = useState(initial);
+  const [top, setTop] = useState(false);
+  const [fresh, setFresh] = useState('');
+  const listed = useQuery({
+    queryKey: ['admin-library-subfolders', target],
+    queryFn: () => api<{ folders: { path: string }[] }>(`/api/admin/libraries/folders?path=${encodeURIComponent(target)}`),
+    enabled: !top,
+    staleTime: 15_000,
+    retry: false,
+  });
+  const children = top ? roots.filter((r) => r) : (listed.data?.folders.map((f) => f.path) ?? []);
+  const inRoots = roots.includes(target);
+  const parentOf = target.includes('/') ? target.slice(0, target.lastIndexOf('/')) : '';
+  const canUp = !top && (inRoots ? roots.length > 1 : true);
+  const goUp = () => { onNavigate?.(); if (inRoots) setTop(true); else setTarget(parentOf); };
+  const enter = (p: string) => { onNavigate?.(); setTop(false); setTarget(p); };
+  const makeNew = () => {
+    const name = fresh.trim().replace(/[\\/]+/g, ' ').trim();
+    if (!name) return;
+    enter(target ? `${target}/${name}` : name);
+    setFresh('');
+  };
+  const isNew = !top && !!target && !listed.isLoading && listed.isError;
+  return { target, top, fresh, setFresh, listed, children, canUp, goUp, enter, makeNew, isNew };
+}
+
+function TargetFolderPicker({ pick, label }: { pick: ReturnType<typeof useTargetFolder>; roots?: string[]; label: string }) {
+  const { target, top, fresh, setFresh, listed, children, canUp, goUp, enter, makeNew, isNew } = pick;
+  const leaf = (p: string) => p.slice(p.lastIndexOf('/') + 1) || p;
+  return (
+    <>
+        <p className="text-[11px] text-fog-500">{label}</p>
+        <p className="mt-0.5 break-all font-mono text-sm text-fog-50" dir="ltr" data-gather-target>
+          {top ? tr('Choose a folder below') : target || tr('(library root)')}
+          {isNew && <span className="ms-2 font-sans text-[11px] text-emerald-300">{tr('new, created when you move')}</span>}
+        </p>
+        <ul data-lenis-prevent data-gather-folders className="mt-2 max-h-44 overflow-y-auto rounded-md border border-ink-700 bg-ink-950/50 p-1">
+          {canUp && (
+            <li><button type="button" onClick={goUp} className="block w-full rounded px-2 py-1.5 text-start text-sm text-fog-300 hover:bg-ink-800/60">↑ {tr('Up one level')}</button></li>
+          )}
+          {children.map((c) => (
+            <li key={c}><button type="button" onClick={() => enter(c)} dir="ltr" title={c}
+              className="block w-full truncate rounded px-2 py-1.5 text-start font-mono text-sm text-fog-100 hover:bg-ink-800/60">{leaf(c)}</button></li>
+          ))}
+          {!top && !listed.isLoading && !children.length && <li className="px-2 py-1.5 text-xs text-fog-500">{tr('No folders inside this one.')}</li>}
+        </ul>
+        <div className="mt-2 flex gap-2">
+          <input value={fresh} onChange={(e) => setFresh(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); makeNew(); } }}
+            disabled={top} aria-label={tr('New folder name')} placeholder={tr('New folder name')} autoComplete="off" dir="auto" className="field min-w-0 flex-1" />
+          <button type="button" onClick={makeNew} disabled={top || !fresh.trim()} className="btn-key h-auto self-stretch">{tr('New folder here')}</button>
+        </div>
+    </>
+  );
+}
+
+/** Asked when Save would take folders out of a library: move the series in them into a new folder first, or leave them. */
+function RemovedFoldersPrompt({ lib, removed, keep, onSkip, onMoved, onCancel }: {
+  lib: LibraryRow; removed: string[]; keep: string[]; onSkip: () => void; onMoved: () => void; onCancel: () => void;
+}) {
+  const toast = useToast();
+  const [plan, setPlan] = useState<(GatherAnswer & { total: number }) | null>(null);
+  const pick = useTargetFolder([''], '', () => setPlan(null));
+  const [busy, setBusy] = useState(false);
+  const { armed, arm, disarm } = useArmed();
+  const ask = async (dryRun: boolean) => {
+    setBusy(true);
+    try {
+      const r = await api<GatherAnswer & { total: number }>(`/api/admin/libraries/${lib.id}/relocate`, {
+        method: 'POST', json: { folders: removed, keep, target: pick.target.trim(), dryRun } });
+      setPlan(r);
+      if (!dryRun) {
+        toast(tr('{n} series moved', { n: r.moved }), r.moved > 0 || !r.problems.length ? 'success' : 'error');
+        if (!r.problems.length) onMoved();
+      }
+    } catch (e) { toast(msgOf(e, tr('Could not move the series')), 'error'); }
+    setBusy(false);
+    disarm();
+  };
+  const ready = !!pick.target.trim() && !pick.top;
+  return (
+    <Modal title={tr('Move the series first?')} onClose={onCancel}>
+      <div data-library-removed-prompt>
+        <p className="text-sm text-fog-300">{tr('You are taking these folders out of the library:')}</p>
+        <ul className="mt-1 space-y-0.5 font-mono text-xs text-fog-200" dir="ltr">
+          {removed.map((p) => <li key={p} className="truncate">{p}</li>)}
+        </ul>
+        <p className="mt-2 text-xs text-fog-500">{tr('The series in them would stay where they are on disk and move to whichever library holds that place. Or move them into a new folder now, which keeps them together.')}</p>
+        <div className="mt-3 rounded-lg border border-ink-700 bg-ink-900/40 p-3">
+          <TargetFolderPicker pick={pick} label={tr('Move them into')} />
+          <button type="button" onClick={() => ask(true)} disabled={busy || !ready} className="btn-key mt-2 w-full">{tr('Preview')}</button>
+          {plan && (
+            <div role="status" className="mt-2 text-[11px] leading-relaxed text-fog-400">
+              {plan.planned === 1 ? tr('1 series would move.') : tr('{n} series would move.', { n: plan.planned })}
+              {plan.sample.length > 0 && (
+                <ul className="mt-1 space-y-0.5 font-mono text-fog-500">
+                  {plan.sample.map((m) => <li key={m.from} className="truncate" dir="ltr">{m.from} → {m.to}</li>)}
+                </ul>
+              )}
+              {plan.problems.length > 0 && (
+                <ul className="mt-2 max-h-48 space-y-2 overflow-y-auto text-amber-300" data-lenis-prevent>
+                  {plan.problems.map((m) => (
+                    <li key={m.id} className="rounded-md border border-amber-500/30 bg-ink-950/50 p-2 text-fog-300">
+                      <span className="block break-words font-medium text-amber-200">{m.title}</span>
+                      {m.reason && <span className="block break-words">{m.reason}</span>}
+                      {m.fix && <span className="block break-words text-fog-400">{m.fix}</span>}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+          {plan && plan.planned > 0 && (
+            <ArmButton type="button" armed={armed} arm={arm} onConfirm={() => void ask(false)} busy={busy} disabled={busy} className="btn-key mt-2">
+              {plan.planned === 1 ? tr('Move 1 series, then save') : tr('Move {n} series, then save', { n: plan.planned })}
+            </ArmButton>
+          )}
+        </div>
+        <div className="mt-4 flex justify-end gap-2">
+          <button type="button" onClick={onCancel} className="btn-key">{tr('Back')}</button>
+          <button type="button" onClick={onSkip} className="btn-key">{tr('Save without moving')}</button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+/** Move every series of a library under one folder, dropping the source-name level. Previewed first, then confirmed with a second press. */
+function GatherSeries({ lib, onDone, pending }: { lib: LibraryRow; onDone: () => void; pending: boolean }) {
+  const toast = useToast();
+  const roots = lib.id === 'lib' && !foldersOf(lib).length ? [''] : foldersOf(lib);
+  const [plan, setPlan] = useState<GatherAnswer | null>(null);
+  const pick = useTargetFolder(roots, roots[0] ?? '', () => setPlan(null));
+  const { target, top } = pick;
+  const [busy, setBusy] = useState(false);
+  const { armed, arm, disarm } = useArmed();
+  const ask = async (dryRun: boolean) => {
+    setBusy(true);
+    try {
+      const r = await api<GatherAnswer>(`/api/admin/libraries/${lib.id}/consolidate`, { method: 'POST', json: { target: target.trim(), dryRun } });
+      setPlan(r);
+      if (!dryRun) {
+        toast(tr('{n} series moved', { n: r.moved }), r.moved > 0 || !r.problems.length ? 'success' : 'error');
+        onDone();
+      }
+    } catch (e) { toast(msgOf(e, tr('Could not gather the series')), 'error'); }
+    setBusy(false);
+    disarm();
+  };
+  return (
+    <div className="mt-4 max-w-md rounded-lg border border-ink-700 bg-ink-900/40 p-3">
+      <p id="library-gather" className="block text-xs font-semibold uppercase tracking-wider text-fog-500">{tr('Gather every series into one folder')}</p>
+      <p className="mb-2 mt-1 text-[11px] leading-relaxed text-fog-600">
+        {tr('Moves each series folder to <folder>/<series name> on disk, in every root it lives in, so source-name folders disappear. Progress is kept.')}
+      </p>
+      {pending && <p role="status" className="mb-2 text-[11px] text-amber-300">{tr('Save your folder changes first. This works on the folders as saved.')}</p>}
+      <fieldset disabled={pending} className="min-w-0 border-0 p-0">
+        <TargetFolderPicker pick={pick} roots={roots} label={tr('Gather into')} />
+        <button type="button" onClick={() => ask(true)} disabled={busy || pending || top} className="btn-key mt-2 w-full">{tr('Preview')}</button>
+      </fieldset>
+      {plan && (
+        <div role="status" className="mt-2 text-[11px] leading-relaxed text-fog-400">
+          {plan.dryRun
+            ? (plan.planned === 1 ? tr('1 series would move, {same} already there.', { same: plan.same }) : tr('{n} series would move, {same} already there.', { n: plan.planned, same: plan.same }))
+            : (plan.moved === 1 ? tr('1 series moved, {same} already there.', { same: plan.same }) : tr('{n} series moved, {same} already there.', { n: plan.moved, same: plan.same }))}
+          {plan.sample.length > 0 && (
+            <ul className="mt-1 space-y-0.5 font-mono text-fog-500">
+              {plan.sample.map((m) => <li key={m.from} className="truncate" dir="ltr">{m.from} → {m.to}</li>)}
+            </ul>
+          )}
+          {plan.problems.length > 0 && (
+            <div className="mt-2 text-amber-300" ref={(el) => { if (el && plan.dryRun === false) el.scrollIntoView({ block: 'nearest' }); }}>
+              {plan.problems.length === 1 ? tr('1 will be left alone:') : tr('{n} will be left alone:', { n: plan.problems.length })}
+              <ul className="mt-1 max-h-64 space-y-2 overflow-y-auto pe-1" data-lenis-prevent data-gather-problems>
+                {plan.problems.map((m) => (
+                  <li key={m.id} className="rounded-md border border-amber-500/30 bg-ink-950/50 p-2 text-fog-300">
+                    <span className="block break-words font-medium text-amber-200">{m.title}</span>
+                    <span className="block break-words font-mono text-[10px] text-fog-500" dir="ltr">{m.from} → {m.to}</span>
+                    {m.reason && <span className="mt-0.5 block break-words">{m.reason}</span>}
+                    {m.fix && <span className="mt-0.5 block break-words text-fog-400">{m.fix}</span>}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+      {plan?.dryRun && plan.planned > 0 && (
+        <ArmButton type="button" armed={armed} arm={arm} onConfirm={() => void ask(false)} busy={busy} disabled={busy}
+          className="btn-key mt-2">
+          {plan.planned === 1 ? tr('Move 1 series') : tr('Move {n} series', { n: plan.planned })}
+        </ArmButton>
+      )}
+    </div>
   );
 }
 
@@ -1528,13 +1805,13 @@ function LibrariesSection() {
   return (
     <section className="full">
       <div className="mb-1 flex items-center justify-between gap-3">
-        <h3 className="font-display text-base font-semibold">{tr('Libraries')}</h3>
-        <button onClick={() => openNew()} className="chip shrink-0 text-xs"><IcPlus width={13} height={13} />{tr('New library')}</button>
+        <h2 className="font-display text-base font-semibold">{tr('Libraries')}</h2>
+        <button onClick={() => openNew()} className="chip shrink-0 text-xs"><IcPlus aria-hidden width={13} height={13} />{tr('New library')}</button>
       </div>
       <p className="mb-3 max-w-prose text-xs leading-relaxed text-fog-500">
         {desktopLibs
-          ? tr('A library is one or more folders, plus any series you file into it by hand. Give it an age rating and everything in it inherits that.')
-          : tr('A library is one or more folders, plus any series you file into it by hand. Give it an age rating and everything in it inherits that, and choose who can open it.')}
+          ? tr('A library is one or more folders, plus any series you add to it by hand. Give it an age rating.')
+          : tr('A library is one or more folders, plus any series you add to it by hand. Give it an age rating and choose who can open it.')}
       </p>
 
       {/* Cards rather than one divided list: at 1592px a row left a lake between a library's path and the
@@ -1543,7 +1820,7 @@ function LibrariesSection() {
         {libs.map((l) => (
           <div key={l.id} className="card grad-border min-w-0 p-3" data-library-card={l.id}>
             <div className="min-w-0">
-              <p className="truncate text-sm text-fog-100">{l.name}</p>
+              <p id={`library-name-${l.id}`} className="truncate text-sm text-fog-100">{l.name}</p>
               {/* Its folders: the first, then how many more (v0.55.1, #148). */}
               <LibraryFolders paths={foldersOf(l)} className="text-[11px] text-fog-500" />
               <p className="truncate text-[11px] text-fog-600">
@@ -1559,14 +1836,14 @@ function LibrariesSection() {
                   ratings were in there -- so a rating that had never been set looked like a feature that
                   did not exist. Showing the UNRATED state is the point: no badge used to mean both
                   "everyone can see this" and "I never looked". */}
-              <button onClick={() => openEdit(l)}
+              <button onClick={() => openEdit(l)} aria-describedby={`library-name-${l.id}`}
                 className={`chip text-xs ${l.age_rating != null ? 'border-amber-500/40 text-amber-300' : ''}`}>
                 {l.age_rating != null ? tr('{n}+', { n: l.age_rating }) : tr('Not rated')}
               </button>
-              {!desktopLibs && <button onClick={() => setAccess(l)} className="chip text-xs">{tr('Access')}</button>}
-              <button onClick={() => openEdit(l)} className="chip text-xs">{tr('Settings')}</button>
+              {!desktopLibs && <button onClick={() => setAccess(l)} aria-describedby={`library-name-${l.id}`} className="chip text-xs">{tr('Access')}</button>}
+              <button onClick={() => openEdit(l)} aria-describedby={`library-name-${l.id}`} className="chip text-xs">{tr('Settings')}</button>
               {l.id !== 'lib' && (
-                <button onClick={() => setConfirmDel(l)} className="chip text-xs hover:border-rose-500/50 hover:text-rose-400">{tr('Remove')}</button>
+                <button onClick={() => setConfirmDel(l)} aria-describedby={`library-name-${l.id}`} className="chip text-xs hover:border-rose-500/50 hover:text-rose-400">{tr('Remove')}</button>
               )}
             </div>
           </div>
@@ -1597,7 +1874,7 @@ function LibrariesSection() {
       {confirmDel && (
         <ConfirmDialog
           title={tr('Remove “{name}”?', { name: confirmDel.name })}
-          body={<>{tr('Its series go back to whichever library still covers their folder, or to the default. Nothing is deleted, no files are touched, and no reading progress changes.')}</>}
+          body={<>{tr('Its series move to another library that covers their folder, or to the default one. Nothing is deleted and no reading progress changes.')}</>}
           confirmLabel={tr('Remove library')}
           danger
           busy={busy}
@@ -1652,7 +1929,7 @@ function LibraryAccessDialog({ lib, onClose, onSaved }: { lib: LibraryRow; onClo
         </div>
       )}
       <p className="mt-3 text-[11px] leading-relaxed text-fog-600">
-        {tr('Admins can always see everything. A member with no limits set can open every library, including ones added later — unticking them here is what turns that into an explicit list.')}
+        {tr('Admins can open every library. Members with no limits can open all of them, including new ones. Untick a member to stop them opening this one.')}
       </p>
       <div className="mt-4 flex gap-2">
         <button onClick={onClose} className="btn-ghost flex-1 py-2 text-sm">{tr('Cancel')}</button>
@@ -1752,7 +2029,7 @@ function LibraryPanel() {
             </>
           }
           confirmLabel={tr('Delete files')}
-          confirmText={purge.title}
+          twoStep
           danger
           busy={purging}
           onConfirm={() => deleteFiles(purge)}
@@ -1773,7 +2050,7 @@ function LibraryPanel() {
             </>
           }
           confirmLabel={tr('Forget')}
-          confirmText={forget.title}
+          twoStep
           danger
           busy={forgetting}
           onConfirm={() => forgetSeries(forget)}
@@ -1782,10 +2059,10 @@ function LibraryPanel() {
       )}
       <div className="full space-y-3">
         <p className="max-w-prose text-xs text-fog-500">
-          {tr('Removing a series hides it from the library, search and the updater. Its files are left exactly where they are, and everyone’s reading progress is kept, so putting it back changes nothing else.')}
+          {tr('Removing a series hides it from the library, search and updates. Its files stay where they are and everyone’s progress is kept, so you can put it back any time.')}
         </p>
         {isLoading ? (
-          <div className="card grad-border p-4 text-sm text-fog-500">{tr('Loading…')}</div>
+          <div role="status" className="card grad-border p-4 text-sm text-fog-500">{tr('Loading…')}</div>
         ) : !rows.length ? (
           <div className="card grad-border p-6 text-center text-sm text-fog-500">{tr('Nothing has been removed.')}</div>
         ) : (
@@ -1797,7 +2074,7 @@ function LibraryPanel() {
                     168 px column at 390, and two long-prefix titles were indistinguishable in the list. The
                     typed step in the dialog carries the full title either way. `lg:block` first, so the
                     -webkit-box the clamp needs gives way to the nowrap ellipsis. */}
-                <p className="col-start-1 row-start-1 min-w-0 line-clamp-2 text-sm text-fog-100 lg:block lg:truncate" title={r.title}>{r.title}</p>
+                <p id={`removed-${r.id}`} className="col-start-1 row-start-1 min-w-0 line-clamp-2 text-sm text-fog-100 lg:block lg:truncate" title={r.title}>{r.title}</p>
                 {/* The state LEADS the caption: at 390 px the caption truncates after ~130 px, and "files
                     deleted" at its end was exactly the part cut off. The explanation is a visible second
                     line, not a title= tooltip -- a phone never shows one. The button stays "Put back": a
@@ -1811,7 +2088,7 @@ function LibraryPanel() {
                 </p>
                 {filesGone(r) && (
                   <p className="col-span-2 col-start-1 row-start-3 min-w-0 text-[11px] text-fog-400 lg:col-span-1 lg:col-start-2 lg:row-start-2">
-                    {tr('The chapter files are gone. Put back lists them as deleted from the server; Fetch again on the series page brings back the ones Uchiyomi downloaded.')}
+                    {tr('The chapter files are gone. Put back restores the series with its chapters marked as deleted. Use Fetch again on the series page to fetch them once more.')}
                   </p>
                 )}
                 <div className="col-start-2 row-span-2 row-start-1 flex shrink-0 gap-1.5 justify-self-end lg:col-start-3 lg:row-span-1">
@@ -1819,7 +2096,7 @@ function LibraryPanel() {
                       marked "Deleted from the server", which is where Fetch again lives -- and the caption
                       above says so: an unmarked "Put back" here used to restore a series whose chapters all
                       404'd. */}
-                  <button onClick={() => restore(r)} disabled={busy === r.id} className="chip shrink-0 text-xs disabled:opacity-50">
+                  <button onClick={() => restore(r)} aria-describedby={`removed-${r.id}`} disabled={busy === r.id} className="chip shrink-0 text-xs disabled:opacity-50">
                     {busy === r.id ? tr('Restoring…') : tr('Put back')}
                   </button>
                   {/* The escalation, and only ever after the reversible step. Hiding is undoable; this is not.
@@ -1829,7 +2106,7 @@ function LibraryPanel() {
                       row never carries both and never a third chip: at 390 px three chips squeezed "Never
                       Had Chapters" to 21 px of title. */}
                   {r.live_books > 0 && (
-                    <button onClick={() => setPurge(r)} className="chip shrink-0 text-xs hover:border-rose-500/50 hover:text-rose-400">{tr('Delete files')}</button>
+                    <button onClick={() => setPurge(r)} aria-describedby={`removed-${r.id}`} className="chip shrink-0 text-xs hover:border-rose-500/50 hover:text-rose-400">{tr('Delete files')}</button>
                   )}
                   {/* The third step, and only once nothing is left on disk to bring the series back: the
                       files-gone row, or a row that never had a chapter. Painted rose outright rather than
@@ -1837,7 +2114,7 @@ function LibraryPanel() {
                       on its own if a folder still holds chapters or a root is not there, and the toast
                       carries its fix. */}
                   {r.live_books === 0 && (
-                    <button onClick={() => setForget(r)} className="chip shrink-0 border-rose-500/40 text-xs text-rose-300 hover:border-rose-500/70 hover:text-rose-200">{tr('Forget')}</button>
+                    <button onClick={() => setForget(r)} aria-describedby={`removed-${r.id}`} className="chip shrink-0 border-rose-500/40 text-xs text-rose-300 hover:border-rose-500/70 hover:text-rose-200">{tr('Forget')}</button>
                   )}
                 </div>
               </div>
@@ -1851,6 +2128,7 @@ function LibraryPanel() {
 
 function Health() {
   const [open, setOpen] = useState<string | null>(null);
+  const [bySeries, setBySeries] = useState(false);
   // v0.55.0: Fix everything's dialog -- the question, the run, or how the run ended.
   const [fixing, setFixing] = useState(false);
   const { data, isFetching, refetch } = useQuery({
@@ -1882,7 +2160,7 @@ function Health() {
       <div className="board">
         {/* Wraps: at phone width the sentence and the keys do not fit on one line (v0.48.3). */}
         <div className="full flex flex-wrap items-center justify-between gap-3">
-          <p className="text-xs text-fog-500">
+          <p role="status" className="text-xs text-fog-500">
             {!data ? tr('Checking your library…')
               : bad ? tr('Checks that found something: {n} of {m}', { n: bad, m: checks.length })
               : tr('Everything looks healthy')}
@@ -1895,13 +2173,17 @@ function Health() {
             {/* v0.55.0: whenever any card has a finding -- where Fix all issues' row was, which only the repair's four
                 steps could summon. */}
             <FixEverythingKey checks={checks} onOpen={() => setFixing(true)} />
+            <button type="button" onClick={() => setBySeries((v) => !v)} aria-pressed={bySeries} className="btn-key" data-health-view>
+              {bySeries ? tr('By check') : tr('By series')}
+            </button>
           </div>
         </div>
 
+        <LastFixLine />
         <SafeRepairLine checks={checks} />
         <RepairLiveStrip />
 
-        {checks.map((c) => {
+        {bySeries ? <HealthBySeries checks={checks} /> : checks.map((c) => {
           const isOpen = open === c.id;
           // Notes explain important states that are deliberately not findings. A readable partial chapter, for
           // example, is absent from the active failure ledger but this note is the only place Health says where
@@ -1964,13 +2246,18 @@ function Health() {
                         // Two lines, never cut: "Öffnen · Einstellungen der Q…" hid which settings it opens (the
                         // arrow is held to the last word by a no-break space).
                         links={healthLinks(c.id, it).map((l) => (
-                          <Link key={l.href} href={l.href} className="line-clamp-2 max-w-[11rem] break-words text-end text-xs text-accent hover:underline"
+                          it.seriesId && l.href.endsWith('&attach=1')
+                            ? <FindSourceLink key={l.href} id={it.seriesId} className="line-clamp-2 max-w-[11rem] break-words text-end text-xs text-accent hover:underline" />
+                            : <Link key={l.href} href={l.href} className="line-clamp-2 max-w-[11rem] break-words text-end text-xs text-accent hover:underline"
                             title={l.label} aria-label={l.label ? `${tr('Open')}: ${l.label}` : undefined}
                             // A page off the app (the install guide, v0.52.0) opens beside it, never in place of it.
                             {...(/^https?:\/\//.test(l.href) ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>
                             {l.label ? `${tr('Open')} · ${l.label}` : tr('Open')}{'\u00a0'}›
                           </Link>
-                        ))}>
+                        )).concat(it.seriesId && c.id !== 'duplicates' ? [
+                          <SeriesRowTools key="tools" id={it.seriesId} title={it.title} details={c.id === 'details'}
+                            className="line-clamp-2 max-w-[11rem] break-words text-end text-xs text-accent hover:underline" />,
+                        ] : [])}>
                         {/* The server's words, in the reader's language where it sent their codes (lib/said.ts) and
                             in English where it could not (a folder's own error); a title in any script: `dir="auto"`,
                             or in an Arabic page a sentence's full stop and closing bracket land at its start. */}

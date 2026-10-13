@@ -30,7 +30,7 @@ The ones worth knowing:
 ## What leaves your server
 
 Two things can, they are separate switches, and they go to different places. Both live in
-**Admin → Settings → Server** (`/admin/?tab=Settings`), each with a fold that spells out what it sends.
+**Admin → Settings → Privacy & access** (`/admin/?tab=Settings`), each with a fold that spells out what it sends.
 
 **Check for updates** — *on by default.* Once a day the server asks GitHub whether a newer Uchiyomi has been
 released and shows the answer under Admin → Health. It is a `GET` of a public releases page: GitHub sees your
@@ -79,9 +79,21 @@ an empty string to make sure it can never send anything regardless of the settin
 
 ### Progress trackers
 
-The tracker calls are the only ones this server makes **with your token**: AniList, MyAnimeList and Kitsu,
+The tracker calls are the only ones this server makes **with your token**: AniList, MyAnimeList, Kitsu and MangaUpdates,
 each connected by you under **Profile → Connections → Progress tracking**, and only for reading your list (the
 import) and reporting what you finished. Nothing carrying a token goes to a tracker you have not connected.
+
+**One-time setup, by an admin.** AniList and MyAnimeList sign people in through an application registered with
+them, so someone registers one each and gives its client ID to Uchiyomi once, under **Profile → Connections →
+Progress tracking** (admins see a *Set up sign-in* card; the redirect URL to register is shown there with a copy
+button, and is `<your Uchiyomi address>/tracker-callback/`). AniList: *Settings → Developer → Create new client*,
+paste that redirect URL, and copy the client ID. MyAnimeList: *Account settings → API → Create ID*, app type *web*,
+the same redirect URL, and copy the client ID (and the secret, if it shows one). After that every member just clicks
+**Connect**. Kitsu and MangaUpdates need no setup: members sign in with their username and password, which is used once to get a token
+and not kept. The same IDs can come from the environment instead (`ANILIST_CLIENT_ID`, `MYANIMELIST_CLIENT_ID`,
+`MYANIMELIST_CLIENT_SECRET`); an ID saved in the app wins. The redirect address has to be the one people open
+Uchiyomi at, so a server reached by two names needs the sign-in done at the registered one. MyAnimeList tokens last
+about a month and are not refreshed yet, so MyAnimeList asks to be reconnected monthly.
 
 Two of those services are also asked **without** any token, by title, whether or not anyone has connected
 them. By default, every series added gets its title sent to AniList (`graphql.anilist.co`) once, for banner and cover
@@ -115,9 +127,9 @@ off with **Match Discover titles online** under Admin → Settings; cards then f
 `MANGADEX_API_URL` and `MANGAUPDATES_API_URL` are test knobs like the ones below (defaults `https://api.mangadex.org`
 and `https://api.mangaupdates.com/v1`); `MANGADEX_API_URL` moves every MangaDex request, the MangaDex sources' included.
 
-`ANILIST_API_URL`, `MYANIMELIST_API_URL` and `KITSU_API_URL` are **test knobs**: they point an adapter at a
+`ANILIST_API_URL`, `MYANIMELIST_API_URL`, `KITSU_API_URL` and `MANGAUPDATES_API_URL` are **test knobs**: they point an adapter at a
 stand-in server instead of the real service (the defaults are `https://graphql.anilist.co`,
-`https://api.myanimelist.net/v2` and `https://kitsu.app/api/edge`). They exist so the browser tests can
+`https://api.myanimelist.net/v2`, `https://kitsu.app/api/edge` and `https://api.mangaupdates.com/v1`). They exist so the browser tests can
 drive a tracker import without a real account — and, `ANILIST_API_URL` since v0.55.7, check online matches
 against a fake AniList, so it moves every AniList call, the title lookups above included. There is no reason to
 set them on an install you read on — a wrong value here makes every tracker call fail, or worse, sends your token
@@ -413,7 +425,7 @@ causes an adult source to be followed. There is intentionally no environment var
 
 Since v0.49.0 a series can be queued to come in a chapter at a time over nights or days
 ([USAGE §4](USAGE.md#fetching-a-whole-series-slowly-the-slow-archive)). Its pace is set in the admin panel, not
-here — **Admin → Settings → Downloads**, and every change reaches the running archive at once, with no restart:
+here — **Admin → Settings → Fetching**, and every change reaches the running archive at once, with no restart:
 
 - *Slow archive* — on unless you pause it; off pauses every archive, and nothing queued is lost.
 - *Chapters an hour, per source* — default `4`, 1–30. A break after each chapter is drawn at random around what is
@@ -443,7 +455,7 @@ break and the scheduler's one-minute look, so a test can watch a chapter land. L
 
 ## The nightly repair
 
-On by default, under **Admin → Settings → Library housekeeping → Repair the library nightly**, and listed as
+On by default, under **Admin → Settings → Updates & schedules → Repair the library nightly**, and listed as
 **Admin → Tasks → Repair library**. Once every `REPAIR_HOURS` it does the six things that are reversible or
 provable on their own, and two more only when you switch them on, in this order:
 

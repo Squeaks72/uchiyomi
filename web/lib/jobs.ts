@@ -105,17 +105,6 @@ export interface RunCard {
   seriesId?: string;
 }
 
-/**
- * How long a finished job stays on Discover's strip: the five minutes the server used to keep it for. The
- * server keeps it a day now, for Library -> Downloads, and a day of green "Fetched" cards between the hero
- * and the wall is a log nobody asked Discover to be. A failed one stays until dismissed, as before.
- */
-export const STRIP_DONE_MS = 5 * 60_000;
-
-export function forStrip<J extends JobCard>(jobs: readonly J[], now = Date.now()): J[] {
-  return jobs.filter((j) => j.status !== 'done' || !j.finishedAt || now - j.finishedAt <= STRIP_DONE_MS);
-}
-
 /** Jobs that ended well or were cancelled, newest first. Failed ones go to Needs attention. */
 export function finished<J extends JobCard>(jobs: readonly J[]): J[] {
   return jobs.filter((j) => j.status === 'done' && j.total > 0).sort((a, b) => (b.finishedAt ?? 0) - (a.finishedAt ?? 0));

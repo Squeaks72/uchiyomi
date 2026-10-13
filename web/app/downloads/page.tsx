@@ -28,7 +28,7 @@ export default function DownloadsPage() {
   const router = useRouter();
   const { user, status } = useAuth();
   // Desktop hides the Offline tab and "Save offline" (the chapters are on this disk already), so this page there
-  // is an empty "No downloads yet" pointing at controls the app does not show. A deep link to it -- the reader's
+  // is an empty "Nothing saved yet" pointing at controls the app does not show. A deep link to it -- the reader's
   // end-of-downloads button, an old bookmark -- goes to what "downloads" means on a desktop: what the app
   // fetched onto this PC, Library -> Downloads (v0.49.0; the library itself before there was such a view).
   const desktop = isDesktop();
@@ -78,7 +78,7 @@ export default function DownloadsPage() {
     // One card, in one language: the result takes the busy card's place (the same key).
     toast(tr('Syncing favorites…'), 'info', { busy: true, key: 'sync' });
     const n = await runSmartOffline(5);
-    toast(!n ? tr('Already up to date') : n === 1 ? tr('Downloaded 1 chapter') : tr('Downloaded {n} chapters', { n }), 'success', { key: 'sync' });
+    toast(!n ? tr('Already up to date') : n === 1 ? tr('Fetched 1 chapter') : tr('Fetched {n} chapters', { n }), 'success', { key: 'sync' });
     await refresh();
     setSyncing(false);
   };
@@ -124,17 +124,20 @@ export default function DownloadsPage() {
           signed in, since offline there is no server to show, and it asks the server nothing itself. */}
       {online && status === 'authed' && canDownload(user) && (
         <p data-server-downloads-pointer className="px-5 pt-3 text-xs text-fog-500 lg:px-0">
-          <Link href={downloadsHref()} className="hover:text-fog-200 hover:underline">{tr('What the server fetches is under Library → Downloads.')}</Link>
+          <Link href={downloadsHref()} className="hover:text-fog-200 hover:underline">{tr('What the server fetches is under Library → Fetching.')}</Link>
         </p>
       )}
 
       {loaded && items.length === 0 ? (
-        <EmptyState art={ART.emptyDownloads} title={tr('No downloads yet')}
+        <EmptyState art={ART.emptyDownloads} title={tr('Nothing saved yet')}
           sub={online
-            ? tr('Tap the download icon on any chapter — or turn on Keep favorites offline under Profile → Settings → Downloads — to read offline. Perfect for flights and commutes.')
-            : tr('Nothing is saved on this device, and there is no connection to fetch anything with. Reconnect and download a chapter to read it here.')}
+            ? tr('Tap the Save offline icon on any chapter — or turn on Keep favorites offline under Profile → Settings → Saved on this device — to read offline. Perfect for flights and commutes.')
+            : tr('Nothing is saved on this device, and there is no connection to fetch anything with. Reconnect and save a chapter to read it here.')}
           cta={/* no cta offline: it points at the library, which is built entirely from the server */
-            online ? { href: '/library', label: tr('Browse library') } : undefined} />
+            online ? { href: '/library', label: tr('Browse library') } : undefined}>
+          {/* The switch the sentence above names is one tap away rather than a path to remember. */}
+          <Link href="/profile/?tab=Settings&section=downloads" className="btn-key text-sm">{tr('Open Settings')}</Link>
+        </EmptyState>
       ) : (
         // One card per series, side by side on a wide screen (.board), each with its cover. Every chapter is ONE link to
         // the reader: the browser walk counts them and clicks one by its address offline (e2e/run.mjs).
