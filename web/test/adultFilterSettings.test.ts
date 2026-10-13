@@ -132,10 +132,8 @@ test('the 18+ reveal still renders on Library and Home when only the 18+ filter 
   const hook = code(read('components/AdultToggle.tsx'));
   assert.match(hook, /export function useAdultFilterConfigured\(\): boolean \{[\s\S]*?queryKey: \['adult-filter'\][\s\S]*?api<\{ configured: boolean \}>\('\/api\/adult-filter'\)[\s\S]*?return data\?\.configured === true;/,
     'the hook no longer asks /api/adult-filter');
-  // The reveal now lives once, in AdultBar (rendered by AppShell on every page), and is always offered.
-  const bar = code(read('components/AdultToggle.tsx'));
-  assert.ok(bar.includes('<AdultToggle alsoWhen className="shrink-0 text-xs" />'), 'AdultBar no longer offers the reveal unconditionally');
-  assert.ok(code(read('components/AppShell.tsx')).includes('<AdultBar />'), 'AppShell no longer renders the AdultBar');
+  // The reveal lives only in the avatar popup (ProfileMenu): no button or bar on any page, so nothing on screen hints at it.
+  assert.ok(!code(read('components/AppShell.tsx')).includes('AdultBar'), 'the page carries an 18+ bar again');
   // A save that changes the lists must refresh the answer, or the switch appears (or goes) only after
   // five minutes.
   assert.match(section(), /qc\.invalidateQueries\(\{ queryKey: \['adult-filter'\] \}\)/, 'a save does not refresh the reveal');

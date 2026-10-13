@@ -14,8 +14,7 @@ import { Img, ProgressBar, RailSkeleton, SectionTitle, Reveal } from '@/componen
 import { SeriesCard, ContinueCard } from '@/components/cards';
 import { HeroCarousel } from '@/components/HeroCarousel';
 import { useArtUnderChrome } from '@/lib/overArt';
-import { AdultToggle, useAdultFilterConfigured } from '@/components/AdultToggle';
-import { IcPlay, IcSparkle, IcRefresh, IcBell } from '@/components/icons';
+import { IcPlay, IcSparkle, IcRefresh, IcBell, IcSliders } from '@/components/icons';
 import { PullToRefresh } from '@/components/PullToRefresh';
 import { Avatar } from '@/components/Avatar';
 import { Lockup } from '@/components/Brand';
@@ -92,7 +91,6 @@ export default function HomePage() {
   const { user } = useAuth();
   const qc = useQueryClient();
   // A second reason for the 18+ reveal to render: a genre or source on the admin's 18+ filter.
-  const adultFilter = useAdultFilterConfigured();
   // The reader's rails, in their order (lib/homeRails.ts; Customize below the hero). A hidden rail is not drawn, and the
   // three that have a request of their own do not ask it.
   const shown = shownRails(user?.settings?.homeRails, HOME_RAIL_KEYS);
@@ -312,7 +310,6 @@ export default function HomePage() {
           {greeting(user?.displayName && user.displayName !== 'me' ? user.displayName : undefined)}
         </p>
         <div className="flex shrink-0 items-center gap-2">
-          <AdultToggle className="shrink-0" alsoWhen={adultFilter} />
           <HomeCustomize />
         </div>
       </div>

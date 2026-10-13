@@ -17,7 +17,7 @@ import { startExport } from '@/lib/exports';
 import { Modal, ConfirmDialog, msgOf } from '@/components/ConfirmDialog';
 import { MoveToLibrary } from '@/components/MoveToLibrary';
 import { useAuth, canDownload } from '@/lib/auth';
-import { AdultToggle, useAdultFilterConfigured, useAdultShown, useLibraries } from '@/components/AdultToggle';
+import { useAdultShown, useLibraries } from '@/components/AdultToggle';
 import { LibraryFilters, NO_SOURCE, READ_STATES, STATUSES, useLibrarySources } from '@/components/LibraryFilters';
 import { LibrarySortSheet, LibraryToolbar } from '@/components/LibraryToolbar';
 import { SORTS, dirLabel, naturalDir, sortDirOf, sortString, validDir, type SortDir } from '@/lib/librarySort';
@@ -91,7 +91,6 @@ function LibraryInner() {
   const sourceName = (id: string) => (id === NO_SOURCE ? tr('No source') : libSources?.sources.find((x) => x.id === id)?.name || id);
   const { data: allLibs } = useLibraries();
   // The 18+ filter can hide series by genre on an install with no 18+ library; the reveal must still render.
-  const adultFilter = useAdultFilterConfigured();
   const adultOn = useAdultShown();
   // An 18+ library's own tab goes with its contents: leaving it there while the grid it opens is empty is
   // worse than not offering it, and the toggle beside the sorts is what brings both back.
@@ -674,7 +673,6 @@ function LibraryInner() {
           selecting={selecting} onSelecting={() => { setSelecting((v) => !v); setPicked(new Set()); }}
           onSelectAll={() => setPicked(new Set(items.map((s) => s.id)))}
           onSurprise={surprise}
-          adult={<AdultToggle alsoWhen={adultFilter} />}
           className="mt-3 lg:sticky lg:top-[var(--topbar-h)] lg:z-20 lg:mt-4 lg:border-b lg:border-ink-800/60 lg:bg-ink-950/80 lg:py-3 lg:backdrop-blur-xl"
         />
         {/* What narrows the shelf is always visible, so a short library is never mysterious -- the search and an order

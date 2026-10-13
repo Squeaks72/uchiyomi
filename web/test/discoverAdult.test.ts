@@ -51,16 +51,7 @@ test('the chip is anchored where a search cannot unmount it', () => {
   assert.doesNotMatch(page, /mode === '(?:newest|search)'[^\n]*&& \(\s*<SourcePicker/,
     'SourcePicker is gated on the mode, so a search hides the source filter it is narrowed to');
   assert.ok(!page.includes('<AdultToggle'), 'Discover has its own reveal again, so the control bounces between pages');
-  assert.ok(code(read('components/AppShell.tsx')).includes('<AdultBar />'), 'AppShell no longer renders the AdultBar');
-});
-
-test('AdultToggle renders for a second reason, and still for its first', () => {
-  // Reintroduce by restoring `if (!(libs ?? []).some((l) => l.adult)) return null;`: an install with adult
-  // sources and no 18+ library gets a filter with no off switch anywhere.
-  const c = code(read('components/AdultToggle.tsx'));
-  assert.match(c, /if \(!alsoWhen && !\(libs \?\? \[\]\)\.some\(\(l\) => l\.adult\)\) return null;/,
-    'the toggle ignores alsoWhen, so Discover cannot offer the reveal without an 18+ library');
-  assert.match(c, /alsoWhen = false/, 'alsoWhen no longer defaults to false, so every other render site changed meaning');
+  assert.ok(!code(read('components/AppShell.tsx')).includes('AdultBar'), 'the page carries an 18+ bar again');
 });
 
 test('the admin console lists every source, including the ones Discover hides', () => {

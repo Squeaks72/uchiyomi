@@ -10,7 +10,7 @@ import Link from 'next/link';
 import { PlaceRow, usePaletteActions } from '@/components/CommandPalette';
 import { openPalette } from '@/lib/palette';
 import { t as tr } from '@/lib/i18n';
-import { AdultToggle, useAdultFilterConfigured, useAdultShown, useLibraries } from '@/components/AdultToggle';
+import { useAdultFilterConfigured, useAdultShown, useLibraries } from '@/components/AdultToggle';
 import { canDownload, useAuth } from '@/lib/auth';
 import { isDesktop } from '@/lib/desktop';
 import { findDestinations } from '@/lib/destinations';

@@ -24,7 +24,7 @@ import { normTitle } from '@/lib/normTitle';
 import { applyWorks, foldByWork, followWorks, mergeGroups, sortWall, unknownWorks, WALL_SORTS, workKey, type WallProvider, type WallSort } from '@/lib/wall';
 import { useLiveWorks } from '@/lib/useLiveWorks';
 import { AddSeriesDialog, AddSeed } from '@/components/AddSeriesDialog';
-import { AdultToggle, useAdultShown } from '@/components/AdultToggle';
+import { useAdultShown } from '@/components/AdultToggle';
 import { IcSearch, IcSparkle, IcX } from '@/components/icons';
 import { downloadsHref } from '@/lib/libraryView';
 import { waitForSeries } from '@/lib/waitForSeries';
@@ -167,7 +167,7 @@ function DiscoverInner() {
    *
    * ⚠️ The `adultOn ||` is load-bearing, not defensive. With the reveal ON the server hides nothing, so
    * `hiddenAdult` is 0 — and a chip that vanishes the moment it is pressed strands the session with no way
-   * back. `AdultToggle` still renders on its own wherever an 18+ library exists.
+   * back.
    */
   const adultOn = useAdultShown();
   const showAdultChip = adultOn || (sourcesData?.hiddenAdult ?? 0) > 0;
