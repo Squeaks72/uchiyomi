@@ -1730,6 +1730,7 @@ GET    /api/admin/series/bulk/chapters/delete
 POST   /api/admin/series/bulk/chapters/delete/cancel
 GET    /api/admin/series/:id/scanlators GET    /api/admin/scanlators
 POST   /api/admin/series/:id/sources DELETE /api/admin/series/:id/sources/:sourceId
+GET    /api/admin/series/:id/sources/:sourceId/url
 POST   /api/admin/series/:id/main-source
 POST   /api/admin/series/:id/attach-source
 GET    /api/admin/series/:id/alt-titles POST   /api/admin/series/:id/alt-titles
@@ -2465,6 +2466,13 @@ attaches a source a person picked (`as`: `follower` or `main`) without the chapt
 chapter or none can take a source; the language, posting-order, renumber, busy and age-reach refusals stay, and a follower
 is still capped. `DELETE /api/admin/series/:id/sources/:sourceId` on the main source detaches it: a follower takes over, or
 the series is left with no source.
+
+**Fork change. Opening a series on its source.** `GET /api/admin/series/:id/sources/:sourceId/url` (admin) answers
+`{url}`, the source's own page for this series -- what the Sources sheet opens when an admin clicks a source's name.
+It is read from the source each time rather than stored, so a source that renumbers or rehosts cannot leave a dead
+link behind. **404** when the series does not follow that source (`not_found`) or the source has no address of its own
+(`no_url`, which is ordinary for an extension source); **502** when it does not answer within 20 seconds
+(`unavailable`).
 
 **Making a follower the main source** (since v0.54.0). `POST /api/admin/series/:id/main-source {sourceId, old?}`
 makes a source the series already follows its main source -- only a followed one: its follow is the "same series?"

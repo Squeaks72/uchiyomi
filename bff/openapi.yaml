@@ -9289,6 +9289,52 @@ paths:
           description: "Forbidden: token scope, account permission or age limit"
         "404":
           description: The series was not following that source
+  /api/admin/series/{id}/sources/{sourceId}/url:
+    get:
+      tags:
+        - admin
+      summary: "**Fork change.** The source's own web page for this series."
+      operationId: getApiAdminSeriesIdSourcesSourceIdUrl
+      description: >-
+        Requires an admin account and a token carrying the admin scope. Scopes only ever restrict. The address
+        is the source's own, read from it live (the Sources sheet opens a source's name with it), never stored:
+        a source that renumbers or rehosts its series would otherwise hand out a dead link forever. The source
+        must be one this series already follows, and it is asked under the id the follow stored, within 20
+        seconds. Only `http`/`https` is answered; an extension source that gives no address of its own is a
+        404, not an error, because many simply have none.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: sourceId
+          in: path
+          required: true
+          schema:
+            type: string
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: The source's page for this series.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [url]
+                properties:
+                  url:
+                    type: string
+                    description: An absolute http(s) address on the source itself.
+        "401":
+          description: Not authenticated
+        "403":
+          description: "Forbidden: token scope, account permission or age limit"
+        "404":
+          description: The series does not follow that source (`not_found`), or the source gave no address (`no_url`)
+        "502":
+          description: The source did not answer (`unavailable`)
   /api/admin/series/{id}/check:
     post:
       tags:
