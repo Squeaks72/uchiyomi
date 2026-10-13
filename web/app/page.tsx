@@ -139,7 +139,7 @@ export default function HomePage() {
           <section className="pt-8">
             <SectionTitle>{tr('Keep reading')}</SectionTitle>
             <ScrollRail label={tr('Keep reading')} className={CARD_RAIL}>
-              {data!.onDeck.map((b, i) => <ContinueCard key={b.id} book={b} eager={i < 4} />)}
+              {data!.onDeck.map((b, i) => <ContinueCard key={b.id} book={b} eager={i < 4} keepReading />)}
             </ScrollRail>
           </section>
         );

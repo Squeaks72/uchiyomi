@@ -260,7 +260,7 @@ export function SeriesCard({ series, w = CARD_W, eager = false, note }: {
  * A chapter to go on with: Keep reading's card, and Pick back up's (v0.61.0), whose `note` says when the reading stopped
  * ("Read 3 months ago") where Keep reading names the other device it was on.
  */
-export function ContinueCard({ book, eager = false, note }: { book: Book; eager?: boolean; note?: string }) {
+export function ContinueCard({ book, eager = false, note, keepReading = false }: { book: Book; eager?: boolean; note?: string; keepReading?: boolean }) {
   const pct = progressOf(book);
   // Where in the chapter, said as well as drawn (UI refresh): "page 12/40" beside the chapter, the bar along the edge.
   const pages = book.media?.pagesCount || 0;
@@ -274,7 +274,7 @@ export function ContinueCard({ book, eager = false, note }: { book: Book; eager?
   // The card opens the chapter; the title opens the series. Two links, so neither sits inside the other: the chapter link is
   // stretched over the card and the title link sits above it. The menu is the series' own (SeriesMenu.tsx), from the
   // little a book knows of it -- the Properties sheet and the favourite mark read the rest themselves.
-  const menu = useSeriesMenu({ id: book.seriesId, name: book.seriesTitle, metadata: { title: book.seriesTitle } } as unknown as Series, undefined, { keepReading: true });
+  const menu = useSeriesMenu({ id: book.seriesId, name: book.seriesTitle, metadata: { title: book.seriesTitle } } as unknown as Series, undefined, { keepReading });
   const isHidden = useIsHiddenTitle();
   if (isHidden(book.seriesTitle, book.seriesId)) return null;
   return (

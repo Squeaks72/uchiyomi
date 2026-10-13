@@ -8,7 +8,7 @@ const cards = readFileSync(new URL('../components/cards.tsx', import.meta.url), 
 test('only the Keep reading card offers "Remove from Keep reading"', () => {
   assert.match(menu, /opts\?\.keepReading \? \[\{ label: tr\('Remove from Keep reading'\)/);
   assert.match(menu, /\/api\/keep-reading\/\$\{encodeURIComponent\(series\.id\)\}[\s\S]{0,80}hidden: true/);
-  const uses = cards.match(/keepReading: true/g) ?? [];
-  assert.equal(uses.length, 1);
-  assert.match(cards, /book\.seriesTitle \} \} as unknown as Series, undefined, \{ keepReading: true \}/);
+  assert.match(cards, /undefined, \{ keepReading \}\)/);
+  const page = readFileSync(new URL('../app/page.tsx', import.meta.url), 'utf8');
+  assert.equal((page.match(/<ContinueCard[^>]*keepReading/g) ?? []).length, 1, 'only the Keep reading row passes it');
 });
