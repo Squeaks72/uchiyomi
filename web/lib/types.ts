@@ -175,8 +175,6 @@ export interface SeriesEdition {
 }
 
 export interface Series {
-  /** What kind of comic it is (manga, manhwa, ...), for every viewer; null when nothing has said. The reader guesses its mode from it. */
-  looksLike?: string | null;
   /** Admins only: the library it is in. */
   library?: { id: string; name: string };
   /** The reading defaults of the library the series is in; null when it has none. */

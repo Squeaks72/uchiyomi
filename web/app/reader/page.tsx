@@ -13,7 +13,7 @@ import { chapterOutcome } from '@/lib/readerState';
 import { openableChapters } from '@/lib/chapterRows';
 import { buildFlow, startIndex, renderWindow, pageWidthBucket } from '@/lib/readerFlow';
 import { AHEAD_SCREENS, APPEND_SCREENS, BEHIND_SCREENS, KEEP_SCREENS, MAX_WINDOW_PAGES, anchorAt, nearEnd, prefetchList, screenRange, scrollTopFor, windowSet, type IndexRange } from '@/lib/readerWindow';
-import { CHROME_GRACE_MS, CHROME_HIDE_SCROLL_PX, TAP_SCROLL_FRACTION, isCatch, readTap, scrollZone, tapMayToggleChrome, undoLeft, undoWindow, type TapZone } from '@/lib/readerGesture';
+import { CHROME_GRACE_MS, isCatch, readTap, tapMayToggleChrome, undoLeft, undoWindow, type TapZone } from '@/lib/readerGesture';
 import { PAGE_ACTIONS, actionForKey, keyMapFor, type ReaderAction } from '@/lib/readerKeys';
 import { padMapFor } from '@/lib/readerPad';
 import { useGamepad } from '@/lib/useGamepad';
@@ -88,10 +88,6 @@ async function untilStill(lastMoved: { current: number }, rtl: boolean): Promise
   if (!rtl) return;
   for (let i = 0; i < 40 && Date.now() - lastMoved.current < STILL_MS; i++) await new Promise((r) => setTimeout(r, 100));
 }
-
-/** Smooth page turns, unless the reader has asked their system for less motion. */
-const turnBehavior = (): ScrollBehavior =>
-  typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
 
 /** True while keyboard focus is inside the reader's toolbars, which must not hide out from under it. */
 const focusInChrome = () => {
@@ -225,7 +221,7 @@ function ReaderInner() {
       else sessionStorage.setItem('reader-chrome-seen', '1');
     } catch { /* storage blocked: keep the introduction */ }
   }, []);
-  const chromeRef = useRef({ on: true, since: 0, top: 0 });
+  const chromeRef = useRef({ on: true, since: 0 });
   /** True when this press began while the track was still moving: a catch, not a tap. */
   const caught = useRef(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -239,8 +235,6 @@ function ReaderInner() {
   // The series' PRIMARY source, which keys the per-source reader default (lib/readerPrefs.ts seriesSourceOf).
   const [seriesSource, setSeriesSource] = useState<{ id: string; name: string } | null>(null);
   const [seriesLibrary, setSeriesLibrary] = useState<{ id: string; name: string } | null>(null);
-  const [guessedMode, setGuessedMode] = useState(false);
-  const [seriesKind, setSeriesKind] = useState<string | null>(null);
   const [libraryLook, setLibraryLook] = useState<NonNullable<Series['libraryReader']> | null>(null);
   // The work's language editions (v0.52.0, #72), for the chapter sheet's chips, and each chapter's number, which a
   // switch to another edition opens there. Both from requests the page makes anyway.
@@ -271,8 +265,6 @@ function ReaderInner() {
    * that far: the OS decides how long a double-click may take (Windows defaults to 500 ms), so the single
    * click of a slow double-click has already acted by the time the browser says the two were one gesture.
    */
-  /** Where the last tap-scroll is heading, so a second tap mid-glide goes on from there rather than from wherever the glide has reached. */
-  const tapScrollTo = useRef<{ top: number; at: number } | null>(null);
   const acted = useRef<{ kind: 'turn'; slide: number; at: number } | { kind: 'scroll'; top: number; at: number } | { kind: 'chrome'; at: number } | null>(null);
   /** When the pointer path handled a double-tap itself. A touch double-tap also raises `dblclick`, and
    *  zooming for both halves of the same gesture would put the zoom straight back where it started. */
@@ -420,7 +412,6 @@ function ReaderInner() {
           setRtl(s?.metadata?.readingDirection === 'RIGHT_TO_LEFT');
           libLook = s?.libraryReader ?? null;
           setLibraryLook(libLook);
-          setSeriesKind(s?.looksLike ?? null);
           setSeriesLibrary(s?.library ?? null);
           readsRtl = s?.metadata?.readingDirection === 'RIGHT_TO_LEFT';
           seriesType = s?.seriesType ?? null;
@@ -910,10 +901,7 @@ function ReaderInner() {
     // The page is moving under the interface, so the reader is reading: put it away. The grace period lets a
     // tap's own page turn, and the first moments after it opens, pass without dismissing it.
     const c = chromeRef.current;
-    // A webtoon must also have travelled a few pixels, so the tremor of a finger resting on the glass does not
-    // dismiss it (Mihon's threshold); a paged track moves a whole page at a time, so any movement counts.
-    const moved = prefs.mode === 'paged' || Math.abs(el.scrollTop - c.top) > CHROME_HIDE_SCROLL_PX;
-    if (c.on && moved && Date.now() - c.since > CHROME_GRACE_MS && !scrubbingRef.current && !focusInChrome()) setChrome(false);
+    if (c.on && Date.now() - c.since > CHROME_GRACE_MS && !scrubbingRef.current && !focusInChrome()) setChrome(false);
     if (prefs.mode === 'paged') {
       // Math.abs: an RTL track scrolls from 0 into NEGATIVE scrollLeft (the spec'd behaviour every current
       // engine follows), so page n sits at -n × width.
@@ -1208,7 +1196,7 @@ function ReaderInner() {
 
   // ---- auto-hide chrome ----
   useEffect(() => {
-    chromeRef.current = { on: chrome, since: Date.now(), top: scrollRef.current?.scrollTop ?? 0 };
+    chromeRef.current = { on: chrome, since: Date.now() };
     if (!chrome || showSettings) return;
     const t = setTimeout(() => { if (!focusInChrome()) setChrome(false); }, 3800);
     return () => clearTimeout(t);
@@ -1297,10 +1285,7 @@ function ReaderInner() {
   // ---- tap / double-tap / pinch (no overlay -> native scroll works) ----
   const onPointerDown = (e: React.PointerEvent) => {
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    const now = Date.now();
-    // A tap's own glide is not a fling: tapping again while it runs scrolls on, as Mihon does.
-    const tapGlide = !!tapScrollTo.current && now - tapScrollTo.current.at < 450;
-    caught.current = prefs.mode !== 'paged' && pointers.current.size === 1 && !tapGlide && isCatch(lastMoved.current, now);
+    caught.current = prefs.mode !== 'paged' && pointers.current.size === 1 && isCatch(lastMoved.current, Date.now());
     if (pointers.current.size === 2) {
       const p = [...pointers.current.values()];
       pinch.current = { dist: Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y), zoom };
@@ -1345,9 +1330,6 @@ function ReaderInner() {
       lastTapAt: lastTapAt.current,
       doubleDetect: e.pointerType !== 'mouse',
       lastDoubleAt: lastDoubleAt.current,
-      zoneOf: tapScrolls(e.pointerType)
-        ? (x, y) => { const r = scrollRef.current?.getBoundingClientRect(); return scrollZone(x - (r?.left ?? 0), y - (r?.top ?? 0), r?.width || window.innerWidth, r?.height || window.innerHeight); }
-        : undefined,
     });
     if (act.kind === 'none') return; // a scroll, or a press held long enough to be something else
     // Stopping a fling is not a tap. Nothing happens: no page turn, no interface.
@@ -1365,14 +1347,10 @@ function ReaderInner() {
     cancelPendingTap();
     lastTapAt.current = now;
     const zone = act.zone;
-    // A thumb on the edge of a webtoon is not asking for the interface -- unless the edges scroll.
-    if (prefs.mode !== 'paged' && !tapScrolls(e.pointerType) && !tapMayToggleChrome(e.pointerType, zone)) return;
-    const scrolls = tapScrolls(e.pointerType);
-    tapTimer.current = setTimeout(() => { tapTimer.current = null; runTap(zone, scrolls); }, act.after);
+    // A thumb on the edge of a webtoon is not asking for the interface.
+    if (prefs.mode !== 'paged' && !tapMayToggleChrome(e.pointerType, zone)) return;
+    tapTimer.current = setTimeout(() => { tapTimer.current = null; runTap(zone); }, act.after);
   };
-
-  /** Whether a press of this kind scrolls a webtoon from its top and bottom zones. A mouse has the wheel and the keys. */
-  const tapScrolls = (pointerType: string) => prefs.mode === 'vertical' && prefs.tapScroll && pointerType !== 'mouse';
 
   const cancelPendingTap = () => {
     if (tapTimer.current) { clearTimeout(tapTimer.current); tapTimer.current = null; }
@@ -1391,24 +1369,10 @@ function ReaderInner() {
    * and the Kindle map's zones are reading order. Through `perform`, so a tap turns exactly as a key does: an absolute
    * target, one slide from the one on screen.
    */
-  const runTap = (zone: TapZone, scrolls = false) => {
+  const runTap = (zone: TapZone) => {
     if (zone === 'chrome') {
       acted.current = { kind: 'chrome', at: Date.now() };
       setChrome((c) => !c);
-      return;
-    }
-    // Reader → Tap the top and bottom to scroll (a touch in the webtoon column): a fixed fraction of the screen, carried on
-    // from where a glide in flight is heading. With the controls up, a tap anywhere puts them away instead.
-    const el = scrollRef.current;
-    if (scrolls && el && prefs.mode === 'vertical' && !chromeRef.current.on) {
-      const now = Date.now();
-      const gliding = tapScrollTo.current && now - tapScrollTo.current.at < 450;
-      const from = gliding ? tapScrollTo.current!.top : el.scrollTop;
-      const to = Math.max(0, Math.min(el.scrollHeight - el.clientHeight, from + (zone === 'back' || zone === 'prev' ? -1 : 1) * el.clientHeight * TAP_SCROLL_FRACTION));
-      tapScrollTo.current = { top: to, at: now };
-      acted.current = { kind: 'scroll', top: el.scrollTop, at: now };
-      lastMoved.current = now;
-      el.scrollTo({ top: to, behavior: turnBehavior() });
       return;
     }
     perform(zone === 'back' ? 'pageLeft' : zone === 'forward' ? 'pageRight' : zone, { tap: true });
@@ -1889,7 +1853,6 @@ function ReaderInner() {
               seriesId0 && loadSeriesPrefs(seriesId0).mode ? tr('Saved for this series.')
               : libraryLook?.mode ? tr("From this library's reading defaults.")
               : seriesSource && loadSourcePrefs(seriesSource.id).mode ? tr("From this source's default.")
-              : guessedMode ? tr('Chosen for you from the pages. Change it and it is kept for this series.')
               : undefined
             }
             libraryName={seriesLibrary?.name}

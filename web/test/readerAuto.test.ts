@@ -120,14 +120,11 @@ test('the automatic pick, case by case', () => {
 test('the automatic mode sits between the source default and the global one, and is off by default', () => {
   const auto: AutoGuess = { mode: 'paged', reason: 'manga' };
   const on = { ...base, autoMode: true };
-  const off = { ...base, autoMode: false };
-  // Fork: the automatic pick is ON by default (upstream ships it off); a stored boolean is kept, junk reads as the default.
-  assert.equal(DEFAULT_PREFS.autoMode, true, 'the automatic pick is off for every install');
-  assert.equal(migratePrefs({}).autoMode, true);
-  assert.equal(migratePrefs({ autoMode: 'yes' }).autoMode, true);
-  assert.equal(migratePrefs({ autoMode: false }).autoMode, false);
+  assert.equal(DEFAULT_PREFS.autoMode, false, 'the automatic pick is on for every install');
+  assert.equal(migratePrefs({}).autoMode, false);
+  assert.equal(migratePrefs({ autoMode: 'yes' }).autoMode, false);
   assert.ok(!(LOOK_KEYS as readonly string[]).includes('autoMode'));
-  assert.deepEqual(titleLook(off, {}, {}, auto), { prefs: off, autoApplied: null }, 'the guess applied with the switch off');
+  assert.deepEqual(titleLook(base, {}, {}, auto), { prefs: base, autoApplied: null }, 'the guess applied with the switch off');
   const picked = titleLook(on, {}, {}, auto);
   assert.equal(picked.prefs.mode, 'paged');
   assert.deepEqual(picked.autoApplied, auto, 'the reader is not told the mode was the pick\'s');

@@ -179,7 +179,7 @@ export function ReaderSettings({
           {modeNote && <p className="mt-1.5 text-[11px] leading-snug text-fog-500" data-mode-note>{modeNote}</p>}
         </Row>
 
-        <Row label={tr('Page tone')}>
+        <Row label={tr('Theme')}>
           <div className="grid grid-cols-3 gap-2">
             {(['amoled', 'sepia', 'gray'] as const).map((t) => (
               <Choice key={t} on={prefs.theme === t} onClick={() => set({ theme: t })}>
@@ -273,12 +273,6 @@ export function ReaderSettings({
           <span className="text-sm font-medium text-fog-200">{tr('Cover colour at the edges')}</span>
           <Switch on={prefs.coverEdges} onChange={(coverEdges) => set({ coverEdges })} label={tr('Cover colour at the edges')} />
         </div>
-        {prefs.mode === 'vertical' && (
-          <div className="flex items-center justify-between gap-3 py-3">
-            <span className="text-sm font-medium text-fog-200">{tr('Tap the top or bottom to scroll')}</span>
-            <Switch on={prefs.tapScroll} onChange={(tapScroll) => set({ tapScroll })} label={tr('Tap the top or bottom to scroll')} />
-          </div>
-        )}
         <div className="py-3" data-reader-incognito>
           <div className="flex items-center justify-between gap-3">
             <span className="text-sm font-medium text-fog-200">{tr(INCOGNITO_TEXT[0])}</span>

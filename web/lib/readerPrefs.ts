@@ -71,8 +71,6 @@ export interface ReaderPrefs {
    * title whose own memory and source default hold no mode. Off by default; synced, not a look.
    */
   autoMode: boolean;
-  /** Touch: a tap on the top or bottom of a webtoon scrolls it three quarters of a screen, the middle brings up the controls. */
-  tapScroll: boolean;
 }
 
 const WIDE_PAGES: readonly WidePages[] = ['whole', 'split', 'rotate'];
@@ -91,8 +89,7 @@ export const DEFAULT_PREFS: ReaderPrefs = {
   coverEdges: true,
   widePages: 'whole',
   cropBorders: false,
-  autoMode: true,
-  tapScroll: true,
+  autoMode: false,
 };
 
 const KEY = 'yomi_reader_prefs';
@@ -140,8 +137,7 @@ export function migratePrefs(raw: unknown): ReaderPrefs {
   if (!WIDE_PAGES.includes(p.widePages)) p.widePages = DEFAULT_PREFS.widePages;
   // Only a real `true` crops: an older row, or junk, reads as the default -- off.
   if (p.cropBorders !== true) p.cropBorders = false;
-  if (typeof p.autoMode !== 'boolean') p.autoMode = DEFAULT_PREFS.autoMode;
-  if (typeof p.tapScroll !== 'boolean') p.tapScroll = DEFAULT_PREFS.tapScroll;
+  if (p.autoMode !== true) p.autoMode = false;
   p.skipJunk = p.junkPages !== 'show';
   return p;
 }

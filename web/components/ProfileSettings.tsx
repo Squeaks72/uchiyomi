@@ -330,7 +330,7 @@ function ReadingSection({ weeklyGoal }: { weeklyGoal: number }) {
       <SwitchRow label={tr('Pick the mode for each series')}
         help={tr('Long strips and webtoons open in Webtoon mode, manga and right-to-left series in Paged. A series or a source you have set yourself keeps its own.')}
         on={prefs.autoMode} onChange={(autoMode) => set({ autoMode })} />
-      <Choice label={tr('Page tone')} value={prefs.theme}
+      <Choice label={tr('Theme')} value={prefs.theme}
         options={[{ value: 'amoled', label: tr('AMOLED') }, { value: 'sepia', label: tr('Sepia') }, { value: 'gray', label: tr('Gray') }]}
         onChange={(theme) => set({ theme })} />
       {/* #170. On by default, because it is the reader's look; this is how someone who wants the page's own edges
@@ -338,9 +338,6 @@ function ReadingSection({ weeklyGoal }: { weeklyGoal: number }) {
       <SwitchRow label={tr('Cover colour at the edges')}
         help={tr('A soft wash of the cover’s colour across the top and bottom of the reader.')}
         on={prefs.coverEdges} onChange={(coverEdges) => set({ coverEdges })} />
-      <SwitchRow label={tr('Tap the top or bottom to scroll')}
-        help={tr('On a touch screen, a tap near the top or bottom of a webtoon scrolls it three quarters of a screen; the middle brings up the controls.')}
-        on={prefs.tapScroll} onChange={(tapScroll) => set({ tapScroll })} />
       {/* v0.61.0: the account's, not this device's (lib/incognito.ts); the reader's sheet has the same switch. */}
       <SwitchRow label={tr(INCOGNITO_TEXT[0])} help={tr(INCOGNITO_TEXT[1])} on={incognito.on} onChange={incognito.set} />
       {prefs.mode === 'paged' && (
