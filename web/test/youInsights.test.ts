@@ -133,7 +133,7 @@ const read = (p: string) => readFileSync(join(__dirname, '..', p), 'utf8');
 test('the You tab renders the seven cards from one request, keyed on the 18+ switch', () => {
   const page = read('app/profile/page.tsx');
   assert.match(page, /<YouInsights \/>/);
-  assert.match(read('components/ProfileYou.tsx'), /export \{ YouInsights \} from '@\/components\/you\/YouInsights'/);
+  assert.match(page, /import \{ YouInsights \} from '@\/components\/you\/YouInsights'/);
   const y = read('components/you/YouInsights.tsx');
   assert.match(y, /\/api\/stats\/insights/);
   assert.match(y, /adultShown\(\)/);

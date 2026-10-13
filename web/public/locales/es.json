@@ -4561,9 +4561,6 @@
   "Start a series and it will be counted here.": "Empieza una serie y se contará aquí.",
   "Still reading": "Siguen en curso",
   "Nothing dropped yet.": "Todavía no has abandonado ninguna.",
-  "You usually stop after about {n} chapters, around {pct}% of the way through.": "Sueles parar tras unos {n} capítulos, hacia el {pct}% de la serie.",
-  "You usually stop after about {n} chapters.": "Sueles parar tras unos {n} capítulos.",
-  "Dropped means chapters left and nothing read for {n} days.": "Abandonada significa con capítulos pendientes y sin leer nada desde hace {n} días.",
   "new": "nuevo",
   "Genre and source mix": "Mezcla de géneros y fuentes",
   "Group by": "Agrupar por",
@@ -4571,7 +4568,6 @@
   "Nothing finished this month yet.": "Aún no has terminado nada este mes.",
   "Share of this month’s chapters; the number after it is the change in points since last month.": "Porcentaje de los capítulos de este mes; el número que sigue es el cambio en puntos desde el mes pasado.",
   "A chapter counts toward each genre of its series.": "Un capítulo cuenta para cada género de su serie.",
-  "{n} chapters this month": "{n} capítulos este mes",
   "Reading pace": "Ritmo de lectura",
   "Finish a few chapters and your weekly pace shows up here.": "Termina unos capítulos y tu ritmo semanal aparecerá aquí.",
   "Your weekly average": "Tu media semanal",
@@ -4604,5 +4600,9 @@
   "Finish a few chapters and your pace, streaks and habits will appear here.": "Termina unos capítulos y aquí aparecerán tu ritmo, tus rachas y tus hábitos.",
   "Same as usual": "Como siempre",
   "{n}% above": "{n}% por encima",
-  "{n}% below": "{n}% por debajo"
+  "{n}% below": "{n}% por debajo",
+  "1 day ago": "hace 1 día",
+  "You usually stop around chapter {n}, about {pct}% of the way through.": "Sueles parar hacia el capítulo {n}, en torno al {pct}% de la serie.",
+  "You usually stop around chapter {n}.": "Sueles parar hacia el capítulo {n}.",
+  "Dropped means chapters left and no reading for {n}+ days.": "Abandonada significa con capítulos pendientes y sin leer nada desde hace {n}+ días."
 }

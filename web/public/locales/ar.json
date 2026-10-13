@@ -4568,9 +4568,6 @@
   "Start a series and it will be counted here.": "ابدأ سلسلة وستُحتسب هنا.",
   "Still reading": "ما زلت تقرؤها",
   "Nothing dropped yet.": "لم تتوقف عن قراءة أي سلسلة بعد.",
-  "You usually stop after about {n} chapters, around {pct}% of the way through.": "تتوقف عادةً بعد نحو {n} فصلًا، أي عند حوالي {pct}% من السلسلة.",
-  "You usually stop after about {n} chapters.": "تتوقف عادةً بعد نحو {n} فصلًا.",
-  "Dropped means chapters left and nothing read for {n} days.": "المتروكة تعني بقاء فصول دون قراءة أي شيء منذ {n} يومًا.",
   "new": "جديد",
   "Genre and source mix": "مزيج الأنواع والمصادر",
   "Group by": "تجميع حسب",
@@ -4578,7 +4575,6 @@
   "Nothing finished this month yet.": "لم تُنهِ أي فصل هذا الشهر بعد.",
   "Share of this month’s chapters; the number after it is the change in points since last month.": "نسبة فصول هذا الشهر؛ الرقم التالي هو التغيّر بالنقاط منذ الشهر الماضي.",
   "A chapter counts toward each genre of its series.": "يُحتسب الفصل لكل نوع من أنواع سلسلته.",
-  "{n} chapters this month": "{n} فصلًا هذا الشهر",
   "Reading pace": "وتيرة القراءة",
   "Finish a few chapters and your weekly pace shows up here.": "أنهِ بضعة فصول وستظهر وتيرتك الأسبوعية هنا.",
   "Your weekly average": "متوسطك الأسبوعي",
@@ -4611,5 +4607,9 @@
   "Finish a few chapters and your pace, streaks and habits will appear here.": "أنهِ بضعة فصول وستظهر هنا وتيرتك وسلاسلك وعاداتك.",
   "Same as usual": "كالمعتاد",
   "{n}% above": "أعلى بنسبة {n}%",
-  "{n}% below": "أقل بنسبة {n}%"
+  "{n}% below": "أقل بنسبة {n}%",
+  "1 day ago": "قبل يوم واحد",
+  "You usually stop around chapter {n}, about {pct}% of the way through.": "تتوقف عادةً عند الفصل {n} تقريبًا، أي عند حوالي {pct}% من السلسلة.",
+  "You usually stop around chapter {n}.": "تتوقف عادةً عند الفصل {n} تقريبًا.",
+  "Dropped means chapters left and no reading for {n}+ days.": "المتروكة تعني بقاء فصول دون قراءة أي شيء منذ {n}+ يومًا."
 }

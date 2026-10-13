@@ -4561,9 +4561,6 @@
   "Start a series and it will be counted here.": "シリーズを読み始めると、ここに数えられます。",
   "Still reading": "読書中",
   "Nothing dropped yet.": "中断したものはまだありません。",
-  "You usually stop after about {n} chapters, around {pct}% of the way through.": "たいてい {n} 章ほど読んだところ（全体の約 {pct}%）で止まります。",
-  "You usually stop after about {n} chapters.": "たいてい {n} 章ほど読んだところで止まります。",
-  "Dropped means chapters left and nothing read for {n} days.": "中断とは、未読の章が残り、{n} 日間読んでいない状態です。",
   "new": "新規",
   "Genre and source mix": "ジャンルと配信元の内訳",
   "Group by": "グループ化",
@@ -4571,7 +4568,6 @@
   "Nothing finished this month yet.": "今月はまだ読了した章がありません。",
   "Share of this month’s chapters; the number after it is the change in points since last month.": "今月の章の割合です。続く数字は先月からの変化（ポイント）です。",
   "A chapter counts toward each genre of its series.": "章は、そのシリーズのすべてのジャンルに数えられます。",
-  "{n} chapters this month": "今月 {n} 章",
   "Reading pace": "読書ペース",
   "Finish a few chapters and your weekly pace shows up here.": "数章読み終えると、週ごとのペースがここに表示されます。",
   "Your weekly average": "週の平均",
@@ -4604,5 +4600,9 @@
   "Finish a few chapters and your pace, streaks and habits will appear here.": "数章読み終えると、ペース、連続記録、読書の傾向がここに表示されます。",
   "Same as usual": "いつも通り",
   "{n}% above": "{n}% 多い",
-  "{n}% below": "{n}% 少ない"
+  "{n}% below": "{n}% 少ない",
+  "1 day ago": "1 日前",
+  "You usually stop around chapter {n}, about {pct}% of the way through.": "たいてい第 {n} 章あたり（全体の約 {pct}%）で止まります。",
+  "You usually stop around chapter {n}.": "たいてい第 {n} 章あたりで止まります。",
+  "Dropped means chapters left and no reading for {n}+ days.": "中断とは、未読の章が残り、{n} 日以上読んでいない状態です。"
 }

@@ -21,10 +21,10 @@ export function CompletionFunnel({ data, span }: { data: InsightsPayload; span?:
             {f.dropMedian == null
               ? tr('Nothing dropped yet.')
               : f.dropPct != null
-                ? tr('You usually stop after about {n} chapters, around {pct}% of the way through.', { n: f.dropMedian, pct: f.dropPct })
-                : tr('You usually stop after about {n} chapters.', { n: f.dropMedian })}
+                ? tr('You usually stop around chapter {n}, about {pct}% of the way through.', { n: f.dropMedian, pct: f.dropPct })
+                : tr('You usually stop around chapter {n}.', { n: f.dropMedian })}
           </p>
-          <p className="text-[11px] text-fog-500">{tr('Dropped means chapters left and nothing read for {n} days.', { n: DROP_AFTER_DAYS })}</p>
+          <p className="text-[11px] text-fog-500">{tr('Dropped means chapters left and no reading for {n}+ days.', { n: DROP_AFTER_DAYS })}</p>
         </div>
       )}
     </Card>

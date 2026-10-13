@@ -4561,9 +4561,6 @@
   "Start a series and it will be counted here.": "Начните серию, и она будет учтена здесь.",
   "Still reading": "Читаются сейчас",
   "Nothing dropped yet.": "Пока ничего не брошено.",
-  "You usually stop after about {n} chapters, around {pct}% of the way through.": "Обычно вы останавливаетесь примерно после {n} глав, около {pct}% серии.",
-  "You usually stop after about {n} chapters.": "Обычно вы останавливаетесь примерно после {n} глав.",
-  "Dropped means chapters left and nothing read for {n} days.": "Брошенная: остались главы, и {n} дн. ничего не прочитано.",
   "new": "новое",
   "Genre and source mix": "Жанры и источники",
   "Group by": "Группировать по",
@@ -4571,7 +4568,6 @@
   "Nothing finished this month yet.": "В этом месяце пока ничего не дочитано.",
   "Share of this month’s chapters; the number after it is the change in points since last month.": "Доля глав этого месяца; число после неё показывает изменение в пунктах с прошлого месяца.",
   "A chapter counts toward each genre of its series.": "Глава учитывается в каждом жанре своей серии.",
-  "{n} chapters this month": "Глав в этом месяце: {n}",
   "Reading pace": "Темп чтения",
   "Finish a few chapters and your weekly pace shows up here.": "Дочитайте несколько глав, и здесь появится ваш недельный темп.",
   "Your weekly average": "Ваше среднее за неделю",
@@ -4604,5 +4600,9 @@
   "Finish a few chapters and your pace, streaks and habits will appear here.": "Дочитайте несколько глав, и здесь появятся ваш темп, серии и привычки.",
   "Same as usual": "Как обычно",
   "{n}% above": "на {n}% выше",
-  "{n}% below": "на {n}% ниже"
+  "{n}% below": "на {n}% ниже",
+  "1 day ago": "1 дн. назад",
+  "You usually stop around chapter {n}, about {pct}% of the way through.": "Обычно вы останавливаетесь около главы {n}, примерно на {pct}% серии.",
+  "You usually stop around chapter {n}.": "Обычно вы останавливаетесь около главы {n}.",
+  "Dropped means chapters left and no reading for {n}+ days.": "Брошенная: остались главы, и {n}+ дн. ничего не прочитано."
 }

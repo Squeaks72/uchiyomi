@@ -4561,9 +4561,6 @@
   "Start a series and it will be counted here.": "开始阅读一个系列后，它会在这里计数。",
   "Still reading": "仍在阅读",
   "Nothing dropped yet.": "目前还没有弃读的系列。",
-  "You usually stop after about {n} chapters, around {pct}% of the way through.": "你通常读到约 {n} 章就停下，大约在全书的 {pct}% 处。",
-  "You usually stop after about {n} chapters.": "你通常读到约 {n} 章就停下。",
-  "Dropped means chapters left and nothing read for {n} days.": "弃读指仍有章节未读，且已 {n} 天没有阅读。",
   "new": "新增",
   "Genre and source mix": "类型与来源构成",
   "Group by": "分组方式",
@@ -4571,7 +4568,6 @@
   "Nothing finished this month yet.": "本月还没有读完任何章节。",
   "Share of this month’s chapters; the number after it is the change in points since last month.": "本月章节的占比；后面的数字是相比上月的变化（百分点）。",
   "A chapter counts toward each genre of its series.": "一章会计入其所属系列的每个类型。",
-  "{n} chapters this month": "本月 {n} 章",
   "Reading pace": "阅读节奏",
   "Finish a few chapters and your weekly pace shows up here.": "读完几章后，每周的节奏会显示在这里。",
   "Your weekly average": "你的每周平均",
@@ -4604,5 +4600,9 @@
   "Finish a few chapters and your pace, streaks and habits will appear here.": "读完几章后，你的节奏、连续记录和习惯会显示在这里。",
   "Same as usual": "与平时持平",
   "{n}% above": "高出 {n}%",
-  "{n}% below": "低于 {n}%"
+  "{n}% below": "低于 {n}%",
+  "1 day ago": "1 天前",
+  "You usually stop around chapter {n}, about {pct}% of the way through.": "你通常读到第 {n} 章左右就停下，大约在全书的 {pct}% 处。",
+  "You usually stop around chapter {n}.": "你通常读到第 {n} 章左右就停下。",
+  "Dropped means chapters left and no reading for {n}+ days.": "弃读指仍有章节未读，且已 {n} 天以上没有阅读。"
 }

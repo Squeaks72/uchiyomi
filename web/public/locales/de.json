@@ -4561,9 +4561,6 @@
   "Start a series and it will be counted here.": "Fang eine Serie an, dann wird sie hier gezählt.",
   "Still reading": "Liest du noch",
   "Nothing dropped yet.": "Noch nichts abgebrochen.",
-  "You usually stop after about {n} chapters, around {pct}% of the way through.": "Du hörst meist nach etwa {n} Kapiteln auf, ungefähr bei {pct}% der Serie.",
-  "You usually stop after about {n} chapters.": "Du hörst meist nach etwa {n} Kapiteln auf.",
-  "Dropped means chapters left and nothing read for {n} days.": "Abgebrochen heißt: Kapitel übrig und seit {n} Tagen nichts gelesen.",
   "new": "neu",
   "Genre and source mix": "Genre- und Quellenmix",
   "Group by": "Gruppieren nach",
@@ -4571,7 +4568,6 @@
   "Nothing finished this month yet.": "Diesen Monat noch nichts beendet.",
   "Share of this month’s chapters; the number after it is the change in points since last month.": "Anteil der Kapitel dieses Monats; die Zahl danach ist die Veränderung in Punkten seit dem Vormonat.",
   "A chapter counts toward each genre of its series.": "Ein Kapitel zählt für jedes Genre seiner Serie.",
-  "{n} chapters this month": "{n} Kapitel diesen Monat",
   "Reading pace": "Lesetempo",
   "Finish a few chapters and your weekly pace shows up here.": "Beende ein paar Kapitel, dann erscheint hier dein Wochentempo.",
   "Your weekly average": "Dein Wochendurchschnitt",
@@ -4604,5 +4600,9 @@
   "Finish a few chapters and your pace, streaks and habits will appear here.": "Beende ein paar Kapitel, dann erscheinen hier dein Tempo, deine Serien und Gewohnheiten.",
   "Same as usual": "Wie üblich",
   "{n}% above": "{n}% darüber",
-  "{n}% below": "{n}% darunter"
+  "{n}% below": "{n}% darunter",
+  "1 day ago": "vor 1 Tag",
+  "You usually stop around chapter {n}, about {pct}% of the way through.": "Du hörst meist etwa bei Kapitel {n} auf, ungefähr bei {pct}% der Serie.",
+  "You usually stop around chapter {n}.": "Du hörst meist etwa bei Kapitel {n} auf.",
+  "Dropped means chapters left and no reading for {n}+ days.": "Abgebrochen heißt: Kapitel übrig und seit {n}+ Tagen nichts gelesen."
 }

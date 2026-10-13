@@ -4561,9 +4561,6 @@
   "Start a series and it will be counted here.": "Commencez une série et elle sera comptée ici.",
   "Still reading": "Toujours en cours",
   "Nothing dropped yet.": "Rien d’abandonné pour l’instant.",
-  "You usually stop after about {n} chapters, around {pct}% of the way through.": "Vous vous arrêtez en général après environ {n} chapitres, vers {pct} % de la série.",
-  "You usually stop after about {n} chapters.": "Vous vous arrêtez en général après environ {n} chapitres.",
-  "Dropped means chapters left and nothing read for {n} days.": "Abandonnée : il reste des chapitres et rien n’a été lu depuis {n} jours.",
   "new": "nouveau",
   "Genre and source mix": "Répartition par genre et par source",
   "Group by": "Regrouper par",
@@ -4571,7 +4568,6 @@
   "Nothing finished this month yet.": "Rien de terminé ce mois-ci pour l’instant.",
   "Share of this month’s chapters; the number after it is the change in points since last month.": "Part des chapitres de ce mois ; le nombre qui suit est l’évolution en points depuis le mois dernier.",
   "A chapter counts toward each genre of its series.": "Un chapitre compte pour chaque genre de sa série.",
-  "{n} chapters this month": "{n} chapitres ce mois-ci",
   "Reading pace": "Rythme de lecture",
   "Finish a few chapters and your weekly pace shows up here.": "Terminez quelques chapitres et votre rythme hebdomadaire apparaîtra ici.",
   "Your weekly average": "Votre moyenne hebdomadaire",
@@ -4604,5 +4600,9 @@
   "Finish a few chapters and your pace, streaks and habits will appear here.": "Terminez quelques chapitres et votre rythme, vos séries et vos habitudes apparaîtront ici.",
   "Same as usual": "Comme d’habitude",
   "{n}% above": "{n} % au-dessus",
-  "{n}% below": "{n} % en dessous"
+  "{n}% below": "{n} % en dessous",
+  "1 day ago": "il y a 1 jour",
+  "You usually stop around chapter {n}, about {pct}% of the way through.": "Vous vous arrêtez en général vers le chapitre {n}, à environ {pct} % de la série.",
+  "You usually stop around chapter {n}.": "Vous vous arrêtez en général vers le chapitre {n}.",
+  "Dropped means chapters left and no reading for {n}+ days.": "Abandonnée : il reste des chapitres et rien n’a été lu depuis {n}+ jours."
 }

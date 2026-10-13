@@ -8,7 +8,7 @@ import { Card, Empty } from './shared';
 /** Share of this month's finished chapters by genre or by source, with the change against last month. Names are the browsable series' own. */
 export function MixShare({ data, span }: { data: InsightsPayload; span?: string }) {
   const [by, setBy] = useState<MixField>('genre');
-  const { rows, total } = mixRows(data.series, by);
+  const { rows } = mixRows(data.series, by);
   const change = (d: number | null) => (d == null ? tr('new') : d === 0 ? '=' : d > 0 ? `+${d}` : `${d}`);
   return (
     <Card id="you-mix" title={tr('Genre and source mix')} span={span}>
@@ -26,7 +26,6 @@ export function MixShare({ data, span }: { data: InsightsPayload; span?: string 
             {tr('Share of this month’s chapters; the number after it is the change in points since last month.')}
             {by === 'genre' ? ` ${tr('A chapter counts toward each genre of its series.')}` : ''}
           </p>
-          <span className="sr-only">{tr('{n} chapters this month', { n: total })}</span>
         </>
       )}
     </Card>

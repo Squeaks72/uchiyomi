@@ -9,7 +9,7 @@ export function BacklogHealth({ data, span }: { data: InsightsPayload; span?: st
   const now = Date.parse(data.now);
   const b = backlogRows(data.series, now);
   const old = neglectedRows(data.series, now);
-  const idle = (d: number | null) => (d == null ? '' : d === 0 ? tr('today') : tr('{n} days ago', { n: d }));
+  const idle = (d: number | null) => (d == null ? '' : d === 0 ? tr('today') : d === 1 ? tr('1 day ago') : tr('{n} days ago', { n: d }));
   const row = (r: { id: string; title: string; unread: number; idleDays: number | null }, hint: string) => (
     <li key={r.id}>
       <Link href={`/series/?id=${encodeURIComponent(r.id)}`} className="flex items-center justify-between gap-3 rounded-xl border border-ink-700/70 bg-ink-850/50 px-3 py-2">

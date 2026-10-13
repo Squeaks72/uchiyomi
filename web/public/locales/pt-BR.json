@@ -4561,9 +4561,6 @@
   "Start a series and it will be counted here.": "Comece uma série e ela será contada aqui.",
   "Still reading": "Ainda lendo",
   "Nothing dropped yet.": "Nada abandonado até agora.",
-  "You usually stop after about {n} chapters, around {pct}% of the way through.": "Você costuma parar após cerca de {n} capítulos, perto de {pct}% da série.",
-  "You usually stop after about {n} chapters.": "Você costuma parar após cerca de {n} capítulos.",
-  "Dropped means chapters left and nothing read for {n} days.": "Abandonada significa com capítulos restantes e nada lido há {n} dias.",
   "new": "novo",
   "Genre and source mix": "Mistura de gêneros e fontes",
   "Group by": "Agrupar por",
@@ -4571,7 +4568,6 @@
   "Nothing finished this month yet.": "Nada concluído neste mês ainda.",
   "Share of this month’s chapters; the number after it is the change in points since last month.": "Parcela dos capítulos deste mês; o número seguinte é a mudança em pontos desde o mês passado.",
   "A chapter counts toward each genre of its series.": "Um capítulo conta para cada gênero da sua série.",
-  "{n} chapters this month": "{n} capítulos neste mês",
   "Reading pace": "Ritmo de leitura",
   "Finish a few chapters and your weekly pace shows up here.": "Conclua alguns capítulos e seu ritmo semanal aparecerá aqui.",
   "Your weekly average": "Sua média semanal",
@@ -4604,5 +4600,9 @@
   "Finish a few chapters and your pace, streaks and habits will appear here.": "Conclua alguns capítulos e seu ritmo, suas sequências e seus hábitos aparecerão aqui.",
   "Same as usual": "Igual ao normal",
   "{n}% above": "{n}% acima",
-  "{n}% below": "{n}% abaixo"
+  "{n}% below": "{n}% abaixo",
+  "1 day ago": "há 1 dia",
+  "You usually stop around chapter {n}, about {pct}% of the way through.": "Você costuma parar por volta do capítulo {n}, perto de {pct}% da série.",
+  "You usually stop around chapter {n}.": "Você costuma parar por volta do capítulo {n}.",
+  "Dropped means chapters left and no reading for {n}+ days.": "Abandonada significa com capítulos restantes e nada lido há {n}+ dias."
 }
