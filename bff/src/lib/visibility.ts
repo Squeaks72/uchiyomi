@@ -11,8 +11,7 @@
 // one more clause on `visible()`, and every caller inherits it because they all go through here.
 import { q, one } from './db';
 import { noticeBook } from './noticeChapters';
-import { applySourceRatings, clearedIds, effectiveAgeRating, ratedAdultIds, sourceRatingOverride } from './sourceRatings';
-import { adultSourceName } from './adultSignals';
+import { applySourceRatings, clearedIds, effectiveAgeRating, isAdultSource, ratedAdultIds } from './sourceRatings';
 
 export interface ViewCtx {
   /** null only for background work that legitimately sees everything: the scanner, the hero pre-warmer. */
@@ -172,24 +171,22 @@ export function sanitiseSourceIds(values: unknown): string[] {
  * the failure mode of showing something that would have been tidied away is the right one -- the
  * permission (`maxAgeRating`) is a different field and is never sourced from here.
  */
-let adultCache: { at: number; genres: string[]; sources: string[]; cleared: string[]; titles: ReadonlySet<string> } | null = null;
+let adultCache: { at: number; genres: string[]; sources: string[]; cleared: string[] } | null = null;
 const ADULT_CACHE_MS = 15_000;
 export function invalidateAdultFilter(): void { adultCache = null; }
-export async function adultFilter(): Promise<{ genres: string[]; sources: string[]; cleared: string[]; titles: ReadonlySet<string> }> {
+export async function adultFilter(): Promise<{ genres: string[]; sources: string[]; cleared: string[] }> {
   if (adultCache && Date.now() - adultCache.at < ADULT_CACHE_MS) return adultCache;
   const row = await one<{ adult_genres: unknown; adult_sources: unknown; source_ratings: unknown }>(
     'SELECT adult_genres, adult_sources, source_ratings FROM server_settings WHERE id = 1').catch(() => null);
   // The same row carries the admin's per-source ratings: re-reading them here keeps the in-memory copy that
   // `sourceAllowedFor` uses from drifting. A source rated 18 is adult exactly as one named on the list is, and one
-  // rated below 18 is `cleared`: its extension's own flag no longer condemns it (searchAll.ratingOf).
+  // rated mixed (0) is `cleared`: its extension's own flag no longer condemns it (searchAll.ratingOf).
   if (row) applySourceRatings(row.source_ratings);
   adultCache = {
     at: Date.now(),
     genres: sanitiseAdultList(row?.adult_genres),
     sources: [...new Set([...sanitiseSourceIds(row?.adult_sources), ...ratedAdultIds()])],
     cleared: clearedIds(),
-    // Titles an admin marked 18+ from Discover (lib/adultTitles.ts); a failed read is none, as for the lists.
-    titles: new Set((await q<{ key: string }>('SELECT key FROM adult_titles').catch(() => [])).map((r) => r.key)),
   };
   return adultCache;
 }
@@ -375,20 +372,14 @@ export function adultFilterConfigured(ctx: ViewCtx): boolean {
  * gets: a link, a bookmark and a download already running all keep working while the switch is off. Hiding
  * is tidying. Refusing something explicitly asked for is a permission, and the permission is the age cap.
  */
-export function sourceBrowsableFor(src: { id?: string; name?: string; isNsfw?: boolean } | null | undefined, ctx: ViewCtx): boolean {
+export function sourceBrowsableFor(src: { id?: string; isNsfw?: boolean } | null | undefined, ctx: ViewCtx): boolean {
   if (!sourceAllowedFor(src, ctx.maxAgeRating)) return false;
   if (!ctx.hideAdultLibraries) return true;
-  // The extension's own `isNsfw` is deliberately NOT a reason to hide a source here. Suwayomi sets it per
-  // EXTENSION, so it is on every site that CAN carry adult titles -- MangaDex, MangaFire, Toonily, Tapas --
-  // and hiding them wholesale left Show 18+ off with a handful of sources and no good results. Those sources
-  // stay in the fan-out and each title is judged on its own (lib/searchAll.ts ratingOf, routes/sources.ts).
-  // A site that is adult through and through is the admin's call: name it in adult_sources and it drops out
-  // here, whatever its extension says. The age cap above is unaffected: it still walls off every flagged source.
-  // The list is lowercased on the way in, so the comparison is too.
+  // Adult through and through: the admin's "Adult only" (or the adult_sources list, lowercased on the way in), else the
+  // extension's own flag when the admin has not said "Mixed". A mixed source stays, and each of its titles is judged
+  // (lib/searchAll.ts ratingOf, routes/sources.ts).
   if (src?.id && (ctx.adultSources ?? []).includes(String(src.id).toLowerCase())) return false;
-  // …or one whose own name says so (lib/adultSignals.ts), unless the admin rated it below 18.
-  const rated = sourceRatingOverride(src?.id);
-  return !(adultSourceName(src?.name) && !(rated !== undefined && rated < ADULT_RATING));
+  return !isAdultSource(src);
 }
 
 /**

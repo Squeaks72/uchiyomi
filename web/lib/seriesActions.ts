@@ -18,7 +18,7 @@ export type SeriesActionId =
   | 'copyLink' | 'openTab'
   | 'edit' | 'newBanner' | 'rename' | 'remove'
   // The fork's (kept through the v0.62 merge): zip of the series, the 18+ exemption, removed chapters, other sources' cull.
-  | 'zip' | 'alwaysShow' | 'removed' | 'cull';
+  | 'zip' | 'removed' | 'cull';
 
 export type SeriesActionGroupId = 'reading' | 'chapters' | 'share' | 'admin';
 
@@ -57,8 +57,6 @@ export interface SeriesActionsInput {
   /** `series.folder`, sent to admins only: Rename folder. */
   hasFolder: boolean;
   offline?: boolean;
-  /** Fork: the series is exempt from the 18+ filter (`series.overrides.adultExempt`). */
-  adultExempt?: boolean;
   /** Fork: chapters removed from this series (Removed chapters dialog). */
   removedCount?: number;
   /** Fork: chapters from sources other than the primary one exist (Remove chapters from other sources). */
@@ -113,7 +111,6 @@ export function seriesActionGroups(x: SeriesActionsInput): SeriesActionGroup[] {
     // Only while the hero is an automatic one: a real banner is changed in Edit details, and Shuffle answers 409 for it.
     ...(x.autoHero ? [{ id: 'newBanner' as const, label: tr('New banner'), hook: 'new-banner', disabled: offline }] : []),
     ...(x.hasFolder ? [{ id: 'rename' as const, label: tr('Rename folder'), disabled: offline }] : []),
-    { id: 'alwaysShow' as const, label: x.adultExempt ? tr('Always shown (tap to undo)') : tr('Always show (ignore 18+ filter)'), hook: 'always-show', disabled: offline },
     ...(x.hasForeign ? [{ id: 'cull' as const, label: tr('Remove chapters from other sources…'), hook: 'cull-sources-open', danger: true, disabled: offline }] : []),
     { id: 'remove', label: tr('Remove from library'), danger: true, hook: 'remove-series', disabled: offline },
   ] : [];

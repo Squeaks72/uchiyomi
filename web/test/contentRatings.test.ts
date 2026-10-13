@@ -21,11 +21,10 @@ test('the summary counts what an admin rated and what is held to 18+ either way'
   const s = ratingSummary([
     { ageRating: 18, defaultAgeRating: null },   // rated adult by the admin
     { ageRating: null, defaultAgeRating: 18 },   // adult by its extension, not rated
-    { ageRating: 0, defaultAgeRating: 18 },      // admin said all ages: rated, and not adult
-    { ageRating: 13, defaultAgeRating: null },   // rated, below 18
+    { ageRating: 0, defaultAgeRating: 18 },      // admin said Mixed: rated, and not adult
     { ageRating: null, defaultAgeRating: null }, // nothing
   ]);
-  assert.deepEqual(s, { rated: 3, adult: 2 });
+  assert.deepEqual(s, { rated: 2, adult: 2 });
   assert.deepEqual(ratingSummary(undefined), { rated: 0, adult: 0 });
 });
 
@@ -33,7 +32,7 @@ test('the list puts the admin-rated sources first, then the extension-flagged, t
   const rows = [
     { id: 'c', name: 'Charlie', ageRating: null, defaultAgeRating: null },
     { id: 'b', name: 'Bravo', ageRating: null, defaultAgeRating: 18 },
-    { id: 'z', name: 'Zulu', ageRating: 13, defaultAgeRating: null },
+    { id: 'z', name: 'Zulu', ageRating: 18, defaultAgeRating: null },
     { id: 'a', name: 'Alpha', ageRating: null, defaultAgeRating: null },
     { id: 'y', name: 'Yankee', ageRating: 0, defaultAgeRating: 18 },
   ];

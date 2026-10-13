@@ -17,7 +17,7 @@ test('the content rating, library and source fields are the admin half; the read
   const sheet = read('components/SeriesPropertiesSheet.tsx');
   assert.match(sheet, /isAdmin && data && <AdminFields/);
   assert.match(sheet, /<Mine /);
-  for (const f of ['Age rating', 'Always show', 'Reading direction', 'Series type']) assert.ok(sheet.includes(`tr('${f}')`), f);
+  for (const f of ['Age rating', 'Reading direction', 'Series type']) assert.ok(sheet.includes(`tr('${f}')`), f);
   assert.match(sheet, /LibraryRow/);
   assert.match(sheet, /MigrateSourceSheet/);
   assert.match(sheet, /\/api\/admin\/series\/\$\{id\}\/meta/);

@@ -15,7 +15,7 @@ import { EmptyState } from '@/components/EmptyState';
 import { Reveal } from '@/components/ui';
 import { SourceCard, SourceItem, StillLoadingCard } from '@/components/cards';
 import { ScrollRail } from '@/components/ScrollRail';
-import { useIsHiddenTitle } from '@/lib/hiddenTitles';
+import { useIsHiddenTitle } from '@/lib/ignoredTitles';
 import { DiscoverHero, TrendingCard, Trending } from '@/components/DiscoverHero';
 import { RecommendationRail } from '@/components/RecommendationRail';
 import { SourcePicker, SourceLatest, Src, SrcState } from '@/components/SourcePicker';

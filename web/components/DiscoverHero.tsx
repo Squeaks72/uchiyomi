@@ -7,7 +7,7 @@ import { t as tr } from '@/lib/i18n';
 import { dotWindow } from '@/lib/carousel';
 import { useArtUnderChrome } from '@/lib/overArt';
 import { useDiscoverMenu } from '@/components/DiscoverMenu';
-import { useIsHiddenTitle } from '@/lib/hiddenTitles';
+import { useIsHiddenTitle } from '@/lib/ignoredTitles';
 import { useGlance } from '@/components/GlanceCard';
 import { glanceOfTrending } from '@/lib/glance';
 

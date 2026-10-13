@@ -2,8 +2,7 @@
  * Admin → Settings → Content ratings (fork change), the part with no React in it so a test can hold the rules: the counts
  * the "Who may open it" group quotes, the source list's order and filter, and the numbers under "Downloads & politeness".
  *
- * The rating itself is lib/sourceAge.ts's (null = the extension's own flag, 0 = all ages, 10-17 = youngest account in, 18 =
- * adult); this only reads it.
+ * The rating itself is lib/sourceAge.ts's (null = the extension's own flag, 0 = Mixed, 18 = Adult only); this only reads it.
  */
 import { effectiveAge, type AgeFacts } from './sourceAge';
 
@@ -18,7 +17,7 @@ export function ratedLibraries(libs: ReadonlyArray<{ age_rating?: number | null 
 }
 
 /**
- * "{rated} sources rated, {adult} count as 18+": `rated` is the sources an admin has rated (0 = all ages included, since
+ * "{rated} sources rated, {adult} count as 18+": `rated` is the sources an admin has rated (Mixed included, since
  * that is a choice too), `adult` is every source held to 18 now, whether by a rating or by its extension's flag.
  */
 export function ratingSummary(sources: ReadonlyArray<AgeFacts> | undefined): { rated: number; adult: number } {

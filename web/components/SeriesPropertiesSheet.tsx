@@ -1,6 +1,6 @@
 'use client';
 // "Properties…" on a series' right-click menu: the settings people reach for most, in one place, without opening
-// the series page first -- content rating, Always show, library, reading direction, series type, the sources it
+// the series page first -- content rating, library, reading direction, series type, the sources it
 // follows (add one, move to another, detach) and a check for new chapters. Anything bigger is the series page.
 // Everyone gets the short view (what it is, their own reader look for it); the rest is the admin's.
 import { useState } from 'react';
@@ -108,9 +108,6 @@ function AdminFields({ series, onAddSource }: { series: Series; onAddSource: () 
         help={tr('Members with an age limit below this will not see the series anywhere: not in the library, search, the reader, or an external OPDS app.')}
         options={[{ value: '', label: tr('Not rated') }, ...ages(meta.ageRating).map((a) => ({ value: String(a), label: `${a}+` }))]}
         onPick={(ageRating) => save({ ageRating })} />
-      <SwitchRow label={tr('Always show')} on={meta.adultExempt}
-        help={tr('Keep this series on the shelf while “Show 18+” is off, even if it or one of its genres is 18+.')}
-        onChange={(adultExempt) => save({ adultExempt })} />
       <LibraryRow id={id} series={series} onSaved={settle} />
       <ChoiceRow narrow label={tr('Reading direction')} value={meta.readingDirection}
         options={[{ value: '', label: autoDirectionChoice(series.detectedDirection) }, ...DIRECTIONS.map(([v, label]) => ({ value: v as string, label: tr(label) }))]}

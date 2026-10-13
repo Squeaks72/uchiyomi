@@ -259,12 +259,12 @@ extension (`done: switched_off`; the extension stays installed), and only turns 
 turned_off`). It answers `{ok, done, followsDropped}`, audited `source.retire`. `DELETE /api/admin/sources/custom/:id`
 answers the same **409** `in_use` while the site is some series' main source.
 
-**Fork change.** `PUT /api/admin/sources/:id/age-rating {ageRating: 0-18 | null}` (admin) sets an age rating on a whole
-source; `GET /api/admin/sources/overview` reports it as `ageRating` (null when none) beside `defaultAgeRating` (18 for an
-extension that declares itself adult). 0 is all ages and cancels an extension's adult flag; 1-17 is the youngest account
-allowed in; 18 is adult, which also hides the source from Discover and search while "Show 18+" is off, exactly as naming it
-on the 18+ source list does. `null` goes back to the extension's flag. Library series keep their own ratings. Audited
-`source.age_rating`.
+**Fork change.** `PUT /api/admin/sources/:id/age-rating {ageRating: 0 | 18 | null}` (admin) sets what a whole source is;
+`GET /api/admin/sources/overview` reports it as `ageRating` (null when none) beside `defaultAgeRating` (18 for an
+extension that declares itself adult). 0 is *Mixed*: each title is judged and the extension's adult flag no longer counts.
+18 is *Adult only*, which also hides the source from Discover and search while "Show 18+" is off, exactly as naming it
+on the 18+ source list does. A value of 1-17 is read as 0. `null` goes back to the extension's flag. Library series keep
+their own ratings. Audited `source.age_rating`.
 
 **Fork change.** `GET /api/admin/limits` (admin) is read-only: `{limits: [{key, value, unit}], note}` for the knobs that only
 environment variables set (`SUWAYOMI_PAGE_CONCURRENCY`, `SOURCE_LATEST_TIMEOUT_MS`, `SOURCE_TEST_TIMEOUT_MS`,
@@ -571,11 +571,9 @@ term alone, so a narrowed search reads whatever a full one already heard, and th
 Since v0.55.4 ([#158](https://github.com/AngeloSha/uchiyomi/discussions/158)) `&rating=all|safe|adult` filters the
 answer for 18+: `safe` (Discover's *Hide 18+*) leaves out every result known to be 18+, `adult` (*18+ only*) keeps only
 those, and `all` (the default; anything else reads as it) keeps everything. A result is 18+ when its source is (an
-extension that declares itself adult -- except under `safe`, see below -- or one on the source list of Admin → Settings → Content ratings), when MangaDex rates
+extension that declares itself adult -- unless the admin set it to *Mixed* -- or one on the source list of Admin → Settings → Content ratings), when MangaDex rates
 the title erotica or pornographic, or when one of its genres is on the 18+ filter's genre list (trimmed and case-blind,
-as the library compares them). Built in as well (lib/adultSignals.ts), unless the admin rated the source below 18: a source whose own
-name says it is adult (Hentai, Porn, Doujin, 18, Adult, Lust ...), a set of explicit genres (Blowjob, Creampie, Anal ...) and an explicit word in the
-title. Such a source also drops out of the fan-out while *Show 18+* is off. It is not 18+ when MangaDex rates it safe or suggestive, or when it names genres, the
+as the library compares them). A source the admin set to *Mixed* is not made 18+ by its extension's flag. It is not 18+ when MangaDex rates it safe or suggestive, or when it names genres, the
 genre list has some, and none of them match; otherwise it is unknown — kept under `all` and `safe`, left out of
 `adult`. A card is 18+ when any of its providers is — except that, since v0.55.5, a provider that is 18+ only because
 its extension declares itself adult counts only when every provider of the card is such a one (the flag covers a whole
@@ -584,8 +582,7 @@ site, and general sites carry it too) — else safe when any is. Each card, each
 caller's own answer before the 30-card cap, never on the shared entry. An account whose age limit is below 18 is held
 to `safe` whatever it asks, and so is every request without `adult=1`: with Show 18+ off the search hides 18+ titles
 from sources that are not adult themselves too (MangaDex's erotica, a genre on the list), which it did not before
-v0.55.4. Under `safe` an extension's declaration is not a verdict (fork change, above): such a title is left out only
-for its own genres, rating or a named source, and one nothing speaks for is shown. The answer's top-level `rating` says which filter it applied.
+v0.55.4. The answer's top-level `rating` says which filter it applied.
 
 `GET /api/sources/detail` is cached for ten minutes per source and series (it was ninety seconds), and
 concurrent requests for the same pair — the add dialog's pre-warm and the pick that follows it — collapse
@@ -1734,9 +1731,6 @@ GET    /api/admin/series/:id/scanlators GET    /api/admin/scanlators
 POST   /api/admin/series/:id/sources DELETE /api/admin/series/:id/sources/:sourceId
 POST   /api/admin/series/:id/main-source
 POST   /api/admin/series/:id/attach-source
-POST   /api/admin/series/:id/adult
-POST   /api/admin/series/:id/always-show
-GET    /api/admin/adult-titles   POST   /api/admin/adult-titles
 GET    /api/admin/series/:id/alt-titles POST   /api/admin/series/:id/alt-titles
 DELETE /api/admin/series/:id/alt-titles/:norm
 GET    /api/admin/libraries       POST   /api/admin/libraries

@@ -1223,7 +1223,7 @@ END $$;
 ALTER TABLE server_settings ADD COLUMN IF NOT EXISTS adult_genres  jsonb NOT NULL DEFAULT '[]'::jsonb;
 ALTER TABLE server_settings ADD COLUMN IF NOT EXISTS adult_sources jsonb NOT NULL DEFAULT '[]'::jsonb;
 
--- The admin's own age rating for a whole source (lib/sourceRatings.ts): {"sw:123": 13}, 0 = all ages. Absent = the default.
+-- The admin's own age rating for a whole source (lib/sourceRatings.ts): {"sw:123": 18}: 0 = Mixed (judge each title), 18 = Adult only. Absent = the default.
 ALTER TABLE server_settings ADD COLUMN IF NOT EXISTS source_ratings jsonb NOT NULL DEFAULT '{}'::jsonb;
 -- "Hide everything tagged Mature, except this one." Without it the genre list is all-or-nothing, and one
 -- wrongly-tagged classic is enough to make somebody turn the whole filter off.
@@ -1757,8 +1757,8 @@ CREATE TABLE IF NOT EXISTS anilist_scores (
   fetched_at  timestamptz NOT NULL DEFAULT now()
 );
 
--- Titles an admin marked 18+ from a card's right-click menu on Discover, where a listing is not a library row and has no
--- series id to put a rating on. Keyed on the folded title (lib/adultTitles.ts titleKey), so every source's copy of it and
+-- RETIRED (no longer read or written; the data is left in place): titles an admin marked 18+ from a card's menu on Discover, where a listing is not a library row and has no
+-- series id to put a rating on. Keyed on the folded title (the folded title), so every source's copy of it and
 -- the trending and recommendation rows hide together while the 18+ reveal is off. The reveal still shows them.
 CREATE TABLE IF NOT EXISTS adult_titles (
   key        text PRIMARY KEY,
@@ -1776,8 +1776,8 @@ CREATE TABLE IF NOT EXISTS keep_reading_hidden (
   PRIMARY KEY (user_id, series_id)
 );
 
--- "Ignore" on a title that is not in the library: this person never sees it on Discover again. Per person (adult_titles
--- is the admin's shared mark); keyed on the folded title (lib/adultTitles.ts titleKey) so every source's copy goes.
+-- "Ignore" on a title that is not in the library: this person never sees it on Discover again. Per person;
+-- keyed on the folded title (routes/personal.ts titleKey) so every source's copy goes.
 CREATE TABLE IF NOT EXISTS ignored_titles (
   user_id     uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   key         text NOT NULL,

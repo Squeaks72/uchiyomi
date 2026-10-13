@@ -34,7 +34,6 @@ import { listRunRecords, runDigest, type RunTarget } from '../lib/repairRuns';
 import { worstCase } from '../lib/repairEstimate';
 import { authenticate, requireAdmin, userIdOf, roleOf, revokeAllSessions, revokeRefreshTokenById, passwordError } from '../lib/auth';
 import { logAudit, recentAudit } from '../lib/audit';
-import { listAdultTitles, setAdultTitle, titleKey } from '../lib/adultTitles';
 import { namesOf, recordAltTitles } from '../lib/altTitles';
 import { healthAllWithEvidence, setDisabled, clearBlock, pruneOrphanedHealth, isDisabled, blockedNow } from '../lib/sourceHealth';
 import { smokeTest } from '../lib/sourceProbe';
@@ -43,7 +42,7 @@ import { testSource } from '../lib/sourceCheck';
 import { currentFailures, stageLines } from '../lib/sourceEvidence';
 import { runExtensionMonitor, runExtensionCheck, extState, liveStore as extensionStore } from '../lib/extensionMonitor';
 import { readSites, writeSites } from '../lib/sources/customSites';
-import { setSourceRating, MAX_SOURCE_AGE } from '../lib/sourceRatings';
+import { setSourceRating, ADULT_AGE } from '../lib/sourceRatings';
 import { reloadAll, listSources, getSource, sniffSite, listRemoteSources, suwayomiConfigured, suwayomiAbout, swAdapterId, isSwAdapterId, withTimeout } from '../lib/sources';
 import {
   listExtensions, refreshExtensions, setExtensionState, sourcesOfExtension, getRepos, addRepo, removeRepo, altRepoUrl,
@@ -2435,75 +2434,6 @@ export default async function adminRoutes(app: FastifyInstance) {
       }
     }
     return { ok: true, ...(folder ? { folder } : {}) };
-  });
-
-  /**
-   * "Mark as 18+" from a library card's menu: the quick version of the edit modal's age rating. Writes ONLY the
-   * rating (the modal's route writes every column, so it cannot be called for one field), on the series and on its
-   * other language editions, as the modal does. Marking also clears "Always show", which would otherwise outrank the
-   * mark; clearing removes a rating of 18 and leaves any other the admin typed. A listing's own genres and library
-   * still hide it as before -- this adds a reason, it never removes one.
-   */
-  app.post('/api/admin/series/:id/adult', async (req, reply) => {
-    const { id } = req.params as { id: string };
-    const b = z.object({ adult: z.boolean() }).safeParse(req.body);
-    if (!b.success) return reply.code(400).send({ error: 'bad_request' });
-    const row = await one<{ title: string }>('SELECT title FROM lib_series WHERE id = $1', [id]);
-    if (!row) return reply.code(404).send({ error: 'not_found' });
-    await tx(async (qq) => {
-      await qq(
-        `INSERT INTO series_overrides (series_id, age_rating, adult_exempt)
-         SELECT x.id, CASE WHEN $2::boolean THEN 18 END, CASE WHEN $2::boolean THEN false END
-           FROM (SELECT $1::text AS id
-                 UNION SELECT o.id FROM lib_series s JOIN lib_series o ON o.work_id = s.work_id AND o.id <> s.id
-                  WHERE s.id = $1 AND s.work_id IS NOT NULL) x
-         ON CONFLICT (series_id) DO UPDATE SET
-           age_rating = CASE WHEN $2::boolean THEN 18 WHEN series_overrides.age_rating = 18 THEN NULL ELSE series_overrides.age_rating END,
-           adult_exempt = CASE WHEN $2::boolean THEN false ELSE series_overrides.adult_exempt END,
-           updated_at = now()`,
-        [id, b.data.adult],
-      );
-    });
-    await logAudit('series.mark_adult', { userId: userIdOf(req), detail: { id, title: row.title, adult: b.data.adult }, req });
-    return { ok: true };
-  });
-
-  /**
-   * "Always show" from a card's menu: the quick version of the edit modal's switch. Writes ONLY `adult_exempt`, on the
-   * series and its other language editions, so one title the 18+ filter catches by a genre can stay listed. It lifts
-   * no age rating (the rating itself still hides it).
-   */
-  app.post('/api/admin/series/:id/always-show', async (req, reply) => {
-    const { id } = req.params as { id: string };
-    const b = z.object({ show: z.boolean() }).safeParse(req.body);
-    if (!b.success) return reply.code(400).send({ error: 'bad_request' });
-    const row = await one<{ title: string }>('SELECT title FROM lib_series WHERE id = $1', [id]);
-    if (!row) return reply.code(404).send({ error: 'not_found' });
-    await q(
-      `INSERT INTO series_overrides (series_id, adult_exempt)
-       SELECT x.id, $2::boolean
-         FROM (SELECT $1::text AS id
-               UNION SELECT o.id FROM lib_series s JOIN lib_series o ON o.work_id = s.work_id AND o.id <> s.id
-                WHERE s.id = $1 AND s.work_id IS NOT NULL) x
-       ON CONFLICT (series_id) DO UPDATE SET adult_exempt = $2::boolean, updated_at = now()`,
-      [id, b.data.show],
-    );
-    invalidateAdultFilter();
-    await logAudit('series.always_show', { userId: userIdOf(req), detail: { id, title: row.title, show: b.data.show }, req });
-    return { ok: true };
-  });
-
-  /** The titles marked 18+ from Discover (lib/adultTitles.ts), for the card menu to say "Mark" or "Not 18+". */
-  app.get('/api/admin/adult-titles', async () => ({ content: await listAdultTitles() }));
-
-  /** Mark (or unmark) a Discover title 18+: hidden from every listing while the viewer is hiding 18+. */
-  app.post('/api/admin/adult-titles', async (req, reply) => {
-    const b = z.object({ title: z.string().trim().min(1).max(300), adult: z.boolean() }).safeParse(req.body);
-    if (!b.success || !titleKey(b.data.title)) return reply.code(400).send({ error: 'bad_request' });
-    const changed = await setAdultTitle(b.data.title, b.data.adult, userIdOf(req));
-    invalidateAdultFilter();
-    await logAudit('discover.mark_adult', { userId: userIdOf(req), detail: { title: b.data.title, adult: b.data.adult }, req });
-    return { ok: true, changed };
   });
 
   /**
@@ -5101,20 +5031,21 @@ export default async function adminRoutes(app: FastifyInstance) {
   });
 
   /**
-   * Set the age rating of a whole source, or clear it with `null` (lib/sourceRatings.ts). 0 is all ages (and cancels an
-   * extension's adult flag), 1-17 is the youngest account that may use it, 18 is adult. Its own route, ranked above
+   * Set what a whole source is, or clear it with `null` (lib/sourceRatings.ts). 0 is "Mixed" (judge each title; it cancels
+   * an extension's adult flag), 18 is "Adult only"; 1-17, the retired in-between ratings, are read as 0. Its own route, ranked above
    * `/:id/:action`. The id need not be loaded now: an extension's source is only registered while the engine is up.
    */
   app.put('/api/admin/sources/:id/age-rating', async (req, reply) => {
     const { id } = req.params as { id: string };
-    const b = z.object({ ageRating: z.number().int().min(0).max(MAX_SOURCE_AGE).nullable() }).strict().safeParse(req.body ?? {});
+    const b = z.object({ ageRating: z.number().int().min(0).max(ADULT_AGE).nullable() }).strict().safeParse(req.body ?? {});
     if (!b.success || !/^[\p{L}\p{N}_.:\-]{1,120}$/u.test(id)) {
-      return reply.code(400).send({ error: 'bad_request', message: 'Send {ageRating: 0-18 | null}.' });
+      return reply.code(400).send({ error: 'bad_request', message: 'Send {ageRating: 0 | 18 | null}.' });
     }
-    await setSourceRating(id, b.data.ageRating);
+    const rating = b.data.ageRating === null ? null : b.data.ageRating >= ADULT_AGE ? ADULT_AGE : 0;
+    await setSourceRating(id, rating);
     invalidateAdultFilter();
-    await logAudit('source.age_rating', { userId: userIdOf(req), detail: { source: id, ageRating: b.data.ageRating }, req });
-    return reply.send({ ok: true, ageRating: b.data.ageRating });
+    await logAudit('source.age_rating', { userId: userIdOf(req), detail: { source: id, ageRating: rating }, req });
+    return reply.send({ ok: true, ageRating: rating });
   });
 
   app.post('/api/admin/sources/:id/:action', async (req, reply) => {

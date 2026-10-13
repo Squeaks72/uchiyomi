@@ -100,7 +100,6 @@ import {
 } from '../lib/numbering';
 import { numKey } from '../lib/postingOrder';
 import { groupStats } from '../lib/groupStats';
-import { titleKey } from '../lib/adultTitles';
 import { fetchAniListArt, fetchTrending, TREND_COUNTRIES, type TrendCountry, TrendingItem } from '../lib/anilist';
 import { adultOk, becauseYouRead } from '../lib/anilistRelated';
 import { automaticAniListAllowed, withAniListMutation } from '../lib/anilistPolicy';
@@ -2308,12 +2307,13 @@ export default async function sourceRoutes(app: FastifyInstance) {
   /**
    * One source's titles as this viewer may be shown them. Only while "Show 18+" is off: the titles the source (or the
    * admin's genre list) says are 18+ are left out, and everything else stays, including titles nothing speaks for --
-   * a listing carries few genres, so unknown is shown rather than the whole site dropped (`trustFlag` false in ratingOf).
+   * a listing carries few genres, so unknown is shown rather than the whole site dropped. This reaches only a source the admin set to
+   * "Mixed": any other flagged source is already out of the list (lib/visibility.ts sourceBrowsableFor).
    */
   const tame = async <T extends SourceSeries>(req: FastifyRequest, src: SourceAdapter, items: T[]): Promise<T[]> => {
     if (!vc(req).hideAdultLibraries) return items;
     const lists = await adultFilter();
-    return items.filter((r) => ratingOf(r, src, lists, false) !== 'adult');
+    return items.filter((r) => ratingOf(r, src, lists) !== 'adult');
   };
 
   app.get('/api/sources', async (req) => {
@@ -3274,9 +3274,7 @@ export default async function sourceRoutes(app: FastifyInstance) {
     const rest = { sources: ans.sources, pending: ans.pending, asked: ans.asked, rating };
     // Every result's rating, by the admin's lists as they are now (cached briefly: lib/visibility.ts adultFilter).
     const lists = await adultFilter();
-    // While hiding 18+ a source's own `isNsfw` no longer condemns its titles (ratingOf `trustFlag`): the source stays in
-    // the fan-out and each title is judged by its own genres and rating.
-    const rated: Rated = { of: (r, src) => ratingOf(r, src, lists, rating !== 'safe'), want: rating };
+    const rated: Rated = { of: (r, src) => ratingOf(r, src, lists), want: rating };
 
     // Same fan-out either way; only the shaping differs. groupBy=source mirrors Mihon's global-search
     // screen (one rail per provider) for the import-review "search manually" sheet — the title-grouped
@@ -3571,13 +3569,11 @@ export default async function sourceRoutes(app: FastifyInstance) {
     // across two. Left out when the library holds it (v0.56.0): by any name the library knows it by, or by its
     // AniList entry -- before, only by the library's own title.
     const seen = new Set<string>();
-    // Per viewer, after the shared cache: titles an admin marked 18+ (lib/adultTitles.ts) while this viewer hides 18+.
-    const marked = ctx.hideAdultLibraries ? (await adultFilter()).titles : null;
     const out = items.filter((t) => {
       const k = norm(t.title);
       const held = heldFor(idx, { source: '', sourceId: '', title: t.title }).length > 0
         || (t.id != null && (idx.byWork.get(`al:${t.id}`)?.length ?? 0) > 0);
-      return !held && adultOk({ adult: false, genres: t.genres }, ctx) && !seen.has(k) && !marked?.has(titleKey(t.title)) && (seen.add(k), true);
+      return !held && adultOk({ adult: false, genres: t.genres }, ctx) && !seen.has(k) && (seen.add(k), true);
     });
     return { content: out.slice(0, TREND_KEEP) };
   });

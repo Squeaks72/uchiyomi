@@ -7,7 +7,7 @@ import { sourceCover } from '@/components/cards';
 import { ScrollRail, CARD_RAIL } from '@/components/ScrollRail';
 import { IcPlus } from '@/components/icons';
 import { useDiscoverMenu } from '@/components/DiscoverMenu';
-import { useIsHiddenTitle } from '@/lib/hiddenTitles';
+import { useIsHiddenTitle } from '@/lib/ignoredTitles';
 import { badgeOf, becauseOf, pollAfter, provenance, type Recommendation, type Recommendations } from '@/lib/recommendations';
 
 function RecCard({ r, onPick, onSearch }: { r: Recommendation; onPick: (r: Recommendation) => void; onSearch?: (title: string) => void }) {

@@ -1849,7 +1849,7 @@ function SeriesInner() {
   const moreGroups = seriesActionGroups({
     isAdmin, mayDownload: canDownload(user), booksCount: series?.booksCount ?? 0, mayArchive,
     autoHero: !!series?.autoHero, hasFolder: !!series?.folder,
-    adultExempt: !!series?.overrides?.adultExempt, removedCount: removedCount ?? 0, hasForeign, offline: authStatus === 'offline', notes: notesCounts,
+    removedCount: removedCount ?? 0, hasForeign, offline: authStatus === 'offline', notes: notesCounts,
     busy: { checkNew: checking, archive: acting, newBanner: busyAdmin },
   });
   const runAction = (a: SeriesActionId) => {
@@ -1869,14 +1869,6 @@ function SeriesInner() {
       case 'zip': zipUp([]); break;
       case 'removed': setShowRemoved(true); break;
       case 'cull': setCulling(true); break;
-      case 'alwaysShow': void (async () => {
-        const show = !series?.overrides?.adultExempt;
-        try {
-          await api(`/api/admin/series/${encodeURIComponent(id)}/always-show`, { json: { show } });
-          qc.invalidateQueries({ queryKey: ['series', id] });
-          toast(show ? tr('Always shown: the 18+ filter will not hide it') : tr('Back under the 18+ filter'), 'success');
-        } catch { toast(tr('Could not do that'), 'error'); }
-      })(); break;
     }
   };
   // ⚠️ The sheet closes BEFORE its row's action runs (SeriesMoreSheet's onPick): Edit details, Rename folder, Remove's

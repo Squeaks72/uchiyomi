@@ -2,7 +2,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { t as tr } from '@/lib/i18n';
-import { useIsHiddenTitle } from '@/lib/hiddenTitles';
+import { useIsHiddenTitle } from '@/lib/ignoredTitles';
 import { Reveal } from '@/components/ui';
 import { ScrollRail, CARD_RAIL } from '@/components/ScrollRail';
 import { TrendingCard, type Trending } from '@/components/DiscoverHero';

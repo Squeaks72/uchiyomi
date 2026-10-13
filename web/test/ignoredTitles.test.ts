@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { titleKey } from '../lib/ignoredTitles';
 
 const read = (p: string) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 
@@ -10,8 +11,8 @@ test('Ignore is offered only for a title the library does not hold', () => {
 });
 
 test('an ignored title leaves every card that is not a library series', () => {
-  const hidden = read('lib/hiddenTitles.ts');
-  assert.match(hidden, /\(!seriesId && ignored\.has\(titleKey\(title\)\)\)/);
+  const hidden = read('lib/ignoredTitles.ts');
+  assert.match(hidden, /!seriesId && ignored\.has\(titleKey\(title\)\)/);
 });
 
 test('the series page has a notes section and calls its bookmarks link Series Bookmarks', () => {
@@ -56,4 +57,9 @@ test('reader: the webtoon column width is a per-device setting, kept out of the 
   assert.doesNotMatch(read('lib/readerPrefs.ts'), /readerWidth|yomi_reader_width/);
   assert.match(read('app/reader/page.tsx'), /\* \(widthPct \/ 100\)/);
   assert.match(read('components/ReaderSettings.tsx'), /data-reader-width/);
+});
+
+test('the client title key folds the way the server does', () => {
+  assert.equal(titleKey('Éclair: The  Series!'), titleKey('eclair the series'));
+  assert.equal(titleKey('...'), '');
 });

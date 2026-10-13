@@ -17,7 +17,7 @@ import { effectsReduced, useReduceEffects } from '@/lib/effects';
 import { t as tr } from '@/lib/i18n';
 import { useSeriesMenu } from './SeriesMenu';
 import { useDiscoverMenu } from './DiscoverMenu';
-import { useIsHiddenTitle, useIsMarkedTitle } from '@/lib/hiddenTitles';
+import { useIsHiddenTitle } from '@/lib/ignoredTitles';
 import { useGlance } from './GlanceCard';
 import { glanceOfSeries, glanceOfSource } from '@/lib/glance';
 import { publicCoverFallback } from '@/lib/coverFallback';
@@ -177,7 +177,6 @@ export function SeriesCard({ series, w = CARD_W, eager = false, note }: {
   const glance = useGlance(glanceOfSeries(series), { cover: img.seriesThumb(series.id, series.artVersion, 800), readSeriesId: series.id, actions: [{ label: tr('Open series'), href: `/series/?id=${series.id}` }] });
   const menu = useSeriesMenu(series, glance.show);
   const title = series.metadata?.title || series.name;
-  // Marked 18+ from its menu: gone at once, before the lists are asked again (lib/hiddenTitles.ts).
   const isHidden = useIsHiddenTitle();
   if (isHidden(title, series.id)) return null;
   return (
@@ -613,7 +612,6 @@ export function SourceCard({ item, providers, onAdd, onOpenAdded, onSearch, eage
     });
   const menu = useDiscoverMenu({ title: item.title, libraryHref, librarySeriesId: owned ? item.librarySeriesId : undefined, onAdd: !owned || item.moreEditions ? onAdd : undefined, addLabel: owned ? tr('Add another edition') : undefined, onSearch, onDescribe: glance.show });
   const isHidden = useIsHiddenTitle();
-  const isMarked = useIsMarkedTitle();
   if (isHidden(item.title, owned ? item.librarySeriesId : undefined)) return null;
   // An owned title opens its entry in the library; adding it again would only say "already there".
   const rootCls = 'group block w-full text-start disabled:cursor-default';
@@ -651,7 +649,7 @@ export function SourceCard({ item, providers, onAdd, onOpenAdded, onSearch, eage
             says so before it is opened. Below the source icons. The text is isolated left to right, so the "+" stays
             where the translation puts it in an Arabic line -- on the text, not on the box: the box's `end` would follow
             its own direction and land at the other corner, away from the icons it sits under. */}
-        {(item.rating === 'adult' || isMarked(item.title, owned ? item.librarySeriesId : undefined)) && (
+        {item.rating === 'adult' && (
           <span data-rating-mark
             className={`absolute end-1.5 ${stack ? 'top-9' : 'top-1.5'} z-10 rounded-md bg-ink-950/80 px-1.5 py-0.5 text-[11px] font-semibold text-red-300 backdrop-blur`}>
             <bdi dir="ltr">{tr('18+')}</bdi>

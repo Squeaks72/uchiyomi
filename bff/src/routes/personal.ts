@@ -14,7 +14,6 @@ import { jobBusy } from './sources';
 import { authenticate, userIdOf, roleOf, issueOpdsToken, issueApiToken, listApiTokens, revokeApiToken, API_SCOPES, revokeOpdsToken, opdsTokenStatus, setOpdsShowAdult, OPDS_TOKEN_DAYS } from '../lib/auth';
 import { enrichSeries, seenCounts } from '../lib/enrich';
 import { env } from '../env';
-import { titleKey } from '../lib/adultTitles';
 import { pushEnabled, vapidPublicKey, saveSubscription, removeSubscription } from '../lib/push';
 import { statusFor, saveConnection, disconnect, whoAmI, pushSeriesProgress, pushSeriesProgressAsync, clearTrackerFloor, testConnection } from '../lib/trackers';
 import { ADAPTERS, isProvider, mangaupdatesLogin, verdictOf, type Provider } from '../lib/trackerProviders';
@@ -86,6 +85,10 @@ function listOut(l: ListRow, uid: string) {
     ...(query ? { query } : {}),
   };
 }
+
+/** A title folded for comparison: case, accents, spacing and punctuation gone, any script's letters and digits kept. */
+const titleKey = (title: string): string =>
+  String(title ?? '').normalize('NFKD').replace(/\p{M}+/gu, '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
 
 export default async function personalRoutes(app: FastifyInstance) {
   // server.ts registers the limiter at the root; a test or a tool that mounts this plugin bare gets it here instead,

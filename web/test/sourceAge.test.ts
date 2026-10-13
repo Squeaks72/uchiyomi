@@ -10,17 +10,19 @@ test('a source with no rating of its own is held to what its extension says', ()
   assert.equal(ageChoice({ ageRating: null, defaultAgeRating: 18 }), 'default');
 });
 
-test('the admin rating wins, and 0 (all ages) cancels an adult flag', () => {
-  assert.equal(effectiveAge({ ageRating: 13, defaultAgeRating: 18 }), 13);
+test('the admin rating wins, and Mixed (0) cancels an adult flag', () => {
+  assert.equal(effectiveAge({ ageRating: 18, defaultAgeRating: null }), 18);
   assert.equal(effectiveAge({ ageRating: 0, defaultAgeRating: 18 }), null);
-  assert.equal(ageChoice({ ageRating: 0 }), 0, 'all ages is a choice of its own, not the default');
+  assert.equal(ageChoice({ ageRating: 0 }), 0, 'Mixed is a choice of its own, not the default');
+  assert.equal(ageChoice({ ageRating: 18 }), 18);
+  assert.equal(ageChoice({ ageRating: 13 }), 0, 'an old 1-17 reads as Mixed');
 });
 
 test('a chip becomes the body of the PUT', () => {
   assert.deepEqual(ageRequest('default'), { ageRating: null });
   assert.deepEqual(ageRequest(0), { ageRating: 0 });
-  assert.deepEqual(ageRequest(17), { ageRating: 17 });
-  assert.ok(SOURCE_AGES.every((n) => Number.isInteger(n) && n >= 0 && n <= 18));
+  assert.deepEqual(ageRequest(18), { ageRating: 18 });
+  assert.deepEqual([...SOURCE_AGES], [0, 18], 'two choices: Mixed and Adult only');
 });
 
 test('the sheet offers the rating on every source and sends it to the age-rating route', () => {

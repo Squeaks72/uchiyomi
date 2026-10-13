@@ -14,8 +14,8 @@ before(async () => {
 });
 beforeEach(() => R.applySourceRatings({}));
 
-test('cleanSourceRatings keeps whole ages 0-18 on real ids and lowercases them', () => {
-  assert.deepEqual(R.cleanSourceRatings({ 'SW:1': 13, a: 0, b: 18, c: 19, d: -1, e: 1.5, f: '13', 'bad id': 5 }), { 'sw:1': 13, a: 0, b: 18 });
+test('cleanSourceRatings keeps 0 and 18 on real ids, lowercases them and reads 1-17 as 0', () => {
+  assert.deepEqual(R.cleanSourceRatings({ 'SW:1': 13, a: 0, b: 18, c: 19, d: -1, e: 1.5, f: '13', 'bad id': 5, g: 17 }), { 'sw:1': 0, a: 0, b: 18, g: 0 });
   for (const v of [null, undefined, [], 'x', 4]) assert.deepEqual(R.cleanSourceRatings(v), {});
 });
 
@@ -26,19 +26,21 @@ test('without a rating the extension flag decides, as before', () => {
   assert.equal(V.sourceAllowedFor({ isNsfw: true }, 17), false, 'an adapter without an id still works');
 });
 
-test('a rating below 18 lets a capped account in once its cap reaches it', () => {
-  R.applySourceRatings({ 'sw:1': 13 });
-  assert.equal(V.sourceAllowedFor({ id: 'SW:1' }, 10), false);
-  assert.equal(V.sourceAllowedFor({ id: 'sw:1' }, 13), true);
-  assert.equal(V.sourceAllowedFor({ id: 'sw:1', isNsfw: true }, 13), true, 'it replaces the extension flag');
-});
-
-test('all ages clears an adult flag; 18 makes an unflagged source adult', () => {
+test('Mixed clears an adult flag; Adult only makes an unflagged source adult', () => {
   R.applySourceRatings({ 'sw:1': 0, 'sw:2': 18 });
   assert.equal(V.sourceAllowedFor({ id: 'sw:1', isNsfw: true }, 6), true);
   assert.equal(R.isAdultSource({ id: 'sw:1', isNsfw: true }), false);
   assert.equal(V.sourceAllowedFor({ id: 'sw:2' }, 17), false);
   assert.equal(R.isAdultSource({ id: 'sw:2' }), true);
+});
+
+test('Show 18+ off: a flagged source is out unless Mixed, an Adult only one is out whatever its flag, no name decides', () => {
+  const ctx = { ...V.SYSTEM_CTX, hideAdultLibraries: true };
+  R.applySourceRatings({ 'sw:1': 0, 'sw:2': 18 });
+  assert.equal(V.sourceBrowsableFor({ id: 'sw:1', isNsfw: true }, ctx), true, 'Mixed stays in the fan-out');
+  assert.equal(V.sourceBrowsableFor({ id: 'sw:2' }, ctx), false);
+  assert.equal(V.sourceBrowsableFor({ id: 'sw:3', isNsfw: true }, ctx), false, 'the flag condemns a source nobody rated');
+  assert.equal(V.sourceBrowsableFor({ id: 'sw:4', name: 'Hentai Heaven' } as never, ctx), true, 'a name proves nothing');
 });
 
 test('ratedAdultIds and clearedIds split the overrides at 18', () => {
@@ -47,24 +49,24 @@ test('ratedAdultIds and clearedIds split the overrides at 18', () => {
   assert.deepEqual(R.clearedIds().sort(), ['b', 'c']);
 });
 
-test('a cleared source is not condemned by its extension flag when ratings are judged', () => {
+test('a Mixed source is not condemned by its extension flag when ratings are judged', () => {
   const item = { genres: [], contentRating: undefined } as never;
   const lists = { genres: [], sources: [], cleared: ['sw:1'] };
   assert.equal(S.ratingOf(item, { id: 'sw:1', isNsfw: true }, lists), undefined);
   assert.equal(S.ratingOf(item, { id: 'sw:2', isNsfw: true }, lists), 'flagged');
-  assert.equal(S.ratingOf(item, { id: 'sw:1', isNsfw: true }, { ...lists, sources: ['sw:1'] }), 'adult', 'rated 18 is adult whatever else');
+  assert.equal(S.ratingOf(item, { id: 'sw:1', isNsfw: true }, { ...lists, sources: ['sw:1'] }), 'adult', 'Adult only is adult whatever else');
 });
 
 test('foldAdultSources moves the retired adult_sources list into ratings as 18, without overriding an entry', () => {
-  assert.deepEqual(R.foldAdultSources(['SW:1', ' sw:2 ', 'sw:3'], { 'sw:2': 13, 'sw:9': 0 }), { 'sw:1': 18, 'sw:2': 13, 'sw:3': 18, 'sw:9': 0 });
+  assert.deepEqual(R.foldAdultSources(['SW:1', ' sw:2 ', 'sw:3'], { 'sw:2': 0, 'sw:9': 0 }), { 'sw:1': 18, 'sw:2': 0, 'sw:3': 18, 'sw:9': 0 });
   assert.deepEqual(R.foldAdultSources(['sw:1'], { 'sw:1': 0 }), { 'sw:1': 0 }, 'an explicit all-ages rating wins over the old list');
-  assert.deepEqual(R.foldAdultSources([], { a: 17 }), { a: 17 });
+  assert.deepEqual(R.foldAdultSources([], { a: 17 }), { a: 0 });
   assert.deepEqual(R.foldAdultSources(null, null), {});
   assert.deepEqual(R.foldAdultSources(['ok', 4, null, 'bad id'], {}), { ok: 18 }, 'junk entries are dropped');
 });
 
 test('foldAdultSources is idempotent: folding its own output with an emptied list changes nothing', () => {
-  const once = R.foldAdultSources(['a', 'b'], { c: 13 });
+  const once = R.foldAdultSources(['a', 'b'], { c: 0 });
   assert.deepEqual(R.foldAdultSources([], once), once);
   assert.deepEqual(R.foldAdultSources(['a', 'b'], once), once);
 });

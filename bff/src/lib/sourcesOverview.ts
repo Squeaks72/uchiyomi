@@ -57,7 +57,7 @@ export interface OverviewSource {
   /** A site added by address: its address. */
   address?: string;
   /**
-   * The admin's own age rating for the whole source (lib/sourceRatings.ts): 0 is all ages, 18 adult, null when none is
+   * The admin's own age rating for the whole source (lib/sourceRatings.ts): 0 is Mixed (judge each title), 18 Adult only, null when none is
    * set. `defaultAgeRating` is what it is held to without one: 18 for an extension that declares itself adult, else null.
    */
   ageRating: number | null;

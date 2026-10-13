@@ -242,7 +242,7 @@ function ContentRatingsSection({ data, save }: { data: any; save: Save }) {
   const sources = sourcesData?.sources ?? [];
   const summary = ratingSummary(sources.map((x) => (x.id in picked ? { ...x, ageRating: picked[x.id] === 'default' ? null : picked[x.id] as number } : x)));
   const rows = filterByName(ratingOrder(sources), find);
-  const ageText = (c: number | 'default') => (c === 'default' ? tr('Default') : c === 0 ? tr('All ages') : `${c}+`);
+  const ageText = (c: number | 'default') => (c === 'default' ? tr('Default') : c === 0 ? tr('Mixed') : tr('Adult only'));
   const rate = async (id: string, choice: number | 'default') => {
     setPicked((p) => ({ ...p, [id]: choice }));
     try {
@@ -290,7 +290,7 @@ function ContentRatingsSection({ data, save }: { data: any; save: Save }) {
           ))}
         </div>
         <p className="mb-1 mt-4 max-w-prose text-[11px] leading-relaxed text-fog-500">
-          {tr('Rate a whole source. 18+ keeps it out of Discover and search while “Show 18+” is off. A lower age means only accounts at least that old can see it. All ages ignores the extension’s own adult flag. Default follows the extension.')}
+          {tr('Rate a whole source. Adult only keeps all of it out of Discover and search while “Show 18+” is off. Mixed judges each title on its own and ignores the extension’s adult flag. Default follows the extension.')}
         </p>
         <p role="status" className="mb-2 text-[11px] text-fog-400" data-ratings-summary>
           {summary.rated === 1 ? tr('1 source rated') : tr('{n} sources rated', { n: summary.rated })} · {tr('Treated as 18+: {m}', { m: summary.adult })}
@@ -330,7 +330,7 @@ function ContentRatingsSection({ data, save }: { data: any; save: Save }) {
       </Block>
       <Block title={tr('How the rules work')}>
         <ul className="max-w-prose list-disc space-y-1 ps-4 text-[11px] leading-relaxed text-fog-500">
-          <li>{tr('A source counts as 18+ when it is rated 18+, or when its extension flags it and it is not rated lower. While “Show 18+” is off it is left out of Discover and search.')}</li>
+          <li>{tr('A source counts as Adult only when you set it so, or when its extension flags it and you have not set it to Mixed. While “Show 18+” is off it is left out of Discover and search.')}</li>
           <li>{tr('Background repair, sweeps and source hunts follow the same rule: a series that is not rated 18+ is never followed onto a source that counts as 18+.')}</li>
           <li>{tr('Library series keep their own ratings. A source’s rating never changes one.')}</li>
         </ul>

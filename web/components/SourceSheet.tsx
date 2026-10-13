@@ -66,16 +66,9 @@ export function resolveTarget(target: SheetTarget, sources: readonly OverviewSou
 /** What the chosen rating does, in a sentence under the chips. */
 function ageNote(s: AgeFacts): string {
   const now = effectiveAge(s);
-  const set = ageChoice(s) !== 'default';
-  if (now === null) {
-    return set ? tr('Open to every account, whatever its extension says.') : tr('Open to every account. Its titles are judged one by one.');
-  }
-  if (now >= 18) {
-    return set
-      ? tr('Adult. Accounts limited below 18 can’t use it, and with Show 18+ off it leaves Discover and search entirely.')
-      : tr('Its extension says it can carry adult titles, so accounts limited below 18 can’t use it. With Show 18+ off its titles are judged one by one.');
-  }
-  return tr('Accounts limited below {age}+ can’t use this source.', { age: String(now) });
+  return now === null
+    ? tr('Open to every account. Its titles are judged one by one.')
+    : tr('Adult. Accounts limited below 18 can’t use it, and with Show 18+ off it leaves Discover and search entirely.');
 }
 
 export function SourceSheet({ target, overview, evidence, testMs, status, actions, installed, hiddenLangs, onClose, onReplace, onBackup, onLanguages, onChanged }: {
@@ -291,7 +284,7 @@ export function SourceSheet({ target, overview, evidence, testMs, status, action
             <p className="text-[11px] font-semibold uppercase tracking-wider text-fog-500 rtl:tracking-normal">{tr('Age rating')}</p>
             <div className="mt-1.5 flex flex-wrap gap-1.5" role="radiogroup" aria-label={tr('Age rating')}>
               {(['default', ...SOURCE_AGES] as Array<number | 'default'>).map((c) => {
-                const label = c === 'default' ? tr('Default') : c === 0 ? tr('All ages') : `${c}+`;
+                const label = c === 'default' ? tr('Default') : c === 0 ? tr('Mixed') : tr('Adult only');
                 const on = ageChoice(s) === c;
                 return (
                   <button key={c} type="button" role="radio" aria-checked={on} disabled={!!busy || on} data-source-age-choice={String(c)}
@@ -299,7 +292,7 @@ export function SourceSheet({ target, overview, evidence, testMs, status, action
                       await api(`/api/admin/sources/${encodeURIComponent(s.id)}/age-rating`, { method: 'PUT', json: ageRequest(c) });
                       return c === 'default' ? tr('Back to the default rating') : tr('Rating saved');
                     })}
-                    className={`btn-key tabular-nums ${on ? 'btn-key-accent' : ''}`}>
+                    className={`btn-key ${on ? 'btn-key-accent' : ''}`}>
                     {label}
                   </button>
                 );

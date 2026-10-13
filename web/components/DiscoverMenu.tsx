@@ -7,7 +7,6 @@ import { t as tr } from '@/lib/i18n';
 import { useToast } from './Toast';
 import { useContextMenu, type MenuItem } from './ContextMenu';
 import { setTitleIgnored } from '@/lib/ignoredTitles';
-import { useAdultMark } from './useAdultMark';
 
 /**
  * The menu of a card on Discover -- the newest wall, a search result, a trending title -- the way a library card has
@@ -53,7 +52,6 @@ export function useDiscoverMenu({ title, libraryHref, librarySeriesId, onAdd, ad
       toast(tr('Could not change the favorite'), 'error');
     }
   };
-  const adultItem = useAdultMark(title, librarySeriesId);
   const items = (): MenuItem[] => [
     ...(onDescribe ? [{ label: tr('Description and details'), onSelect: onDescribe }] : []),
     ...(libraryHref ? [
@@ -80,7 +78,6 @@ export function useDiscoverMenu({ title, libraryHref, librarySeriesId, onAdd, ad
         } catch { toast(tr('Could not do that'), 'error'); }
       },
     }] : []),
-    ...adultItem,
   ];
   return useContextMenu(items, { label: title });
 }
