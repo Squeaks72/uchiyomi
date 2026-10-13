@@ -217,7 +217,7 @@ export function StudioCard({ span = '' }: { span?: string }) {
             <p className="mb-1.5 text-[11px] uppercase tracking-widest text-fog-500">
               {bookCountText(total)}
             </p>
-            {series.length > 0 && <Heatmap values={counts} start={series[0].day} onPick={setPicked} />}
+            {series.length > 0 && <Heatmap values={counts} start={series[0].day} onPick={setPicked} numbers />}
             <p className="mt-1.5 text-[11px] text-fog-500">{tr('Tap a day to see everything you read.')}</p>
           </div>
           <div>
