@@ -2,7 +2,7 @@
   "_meta": {
     "language": "es",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 4601
+    "strings": 4602
   },
   "1 check found something": "1 comprobación encontró algo",
   "1 member": "1 miembro",
@@ -4604,5 +4604,6 @@
   "1 day ago": "hace 1 día",
   "You usually stop around chapter {n}, about {pct}% of the way through.": "Sueles parar hacia el capítulo {n}, en torno al {pct}% de la serie.",
   "You usually stop around chapter {n}.": "Sueles parar hacia el capítulo {n}.",
-  "Dropped means chapters left and no reading for {n}+ days.": "Abandonada significa con capítulos pendientes y sin leer nada desde hace {n}+ días."
+  "Dropped means chapters left and no reading for {n}+ days.": "Abandonada significa con capítulos pendientes y sin leer nada desde hace {n}+ días.",
+  "18+ titles are showing.": "Se muestran títulos 18+."
 }

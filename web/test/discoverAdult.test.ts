@@ -51,7 +51,7 @@ test('the chip is anchored where a search cannot unmount it', () => {
   assert.doesNotMatch(page, /mode === '(?:newest|search)'[^\n]*&& \(\s*<SourcePicker/,
     'SourcePicker is gated on the mode, so a search hides the source filter it is narrowed to');
   assert.ok(!page.includes('<AdultToggle'), 'Discover has its own reveal again, so the control bounces between pages');
-  assert.ok(!code(read('components/AppShell.tsx')).includes('AdultBar'), 'the page carries an 18+ bar again');
+  assert.ok(code(read('components/AdultToggle.tsx')).includes('if (!on) return null;'), 'the bar shows while 18+ is off, hinting at it');
 });
 
 test('the admin console lists every source, including the ones Discover hides', () => {

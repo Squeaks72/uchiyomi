@@ -52,3 +52,17 @@ export function useAdultShown(): boolean {
   }, []);
   return on;
 }
+
+/** While 18+ is revealed: a slim row under the header that says so and hides it again in one tap. Nothing renders while it is off. */
+export function AdultBar() {
+  const qc = useQueryClient();
+  const on = useAdultShown();
+  if (!on) return null;
+  return (
+    <div data-adult-bar className="shell flex items-center justify-end gap-3 pt-2 max-lg:pt-[max(0.5rem,env(safe-area-inset-top))]">
+      <span role="status" data-adult-notice className="min-w-0 text-xs text-amber-200">{tr('18+ titles are showing.')}</span>
+      <button type="button" onClick={() => { setAdultShown(false); qc.invalidateQueries(); }}
+        className="chip chip-active shrink-0 whitespace-nowrap text-xs">{tr('Hide 18+')}</button>
+    </div>
+  );
+}
