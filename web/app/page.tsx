@@ -1,7 +1,7 @@
 'use client';
 import { ScrollRail, CARD_RAIL } from '@/components/ScrollRail';
 import Link from 'next/link';
-import { Fragment, ReactNode, useEffect } from 'react';
+import { Fragment, ReactNode, useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, img } from '@/lib/api';
 import { HomePayload, Series } from '@/lib/types';
@@ -13,6 +13,7 @@ import { ART } from '@/lib/art';
 import { Img, ProgressBar, RailSkeleton, SectionTitle, Reveal } from '@/components/ui';
 import { SeriesCard, ContinueCard } from '@/components/cards';
 import { HeroCarousel } from '@/components/HeroCarousel';
+import { useAccountPrefValue } from '@/lib/accountPrefs';
 import { useArtUnderChrome } from '@/lib/overArt';
 import { IcPlay, IcSparkle, IcRefresh, IcBell, IcSliders } from '@/components/icons';
 import { PullToRefresh } from '@/components/PullToRefresh';
@@ -91,6 +92,7 @@ function greeting(name?: string) {
 export default function HomePage() {
   const { user } = useAuth();
   const [quickOpen, setQuickOpen] = useState(false);
+  const banners = useAccountPrefValue('showBanners');
   const qc = useQueryClient();
   // A second reason for the 18+ reveal to render: a genre or source on the admin's 18+ filter.
   // The reader's rails, in their order (lib/homeRails.ts; Customize below the hero). A hidden rail is not drawn, and the
@@ -271,7 +273,7 @@ export default function HomePage() {
             {/* Squared, as the desktop bar's: a round tag grows into a capsule at "9+". */}
             {(data?.updatesCount ?? 0) > 0 && <span className="absolute -end-1.5 -top-1 grid h-4 min-w-4 place-items-center rounded-[4px] bg-accent px-[3px] text-[10px] font-bold leading-none tabular-nums text-black">{(data!.updatesCount ?? 0) > 9 ? '9+' : data!.updatesCount}</span>}
           </Link>
-          <button type="button" aria-label={tr('Profile')} aria-haspopup="dialog" onClick={() => setQuickOpen(true)} className="rounded-full transition active:opacity-80">
+          <button type="button" aria-label={tr('Profile')} aria-haspopup="dialog" onClick={() => setQuickOpen(true)} className="grid h-10 w-10 place-items-center rounded-full transition active:opacity-80">
             <Avatar avatar={user?.avatar} size={40} />
           </button>
         </div>
@@ -282,9 +284,13 @@ export default function HomePage() {
       {/* The welcome is for a library with nothing in it for this viewer -- `/api/featured` is the latest series they
           can see, so it is empty only then -- and never a flash while that answer is on its way: it now offers the
           import (v0.55.4), which a full library must not show for the second before its carousel arrives. */}
+      {/* The banner is a setting (Profile -> Settings, off by default): off, a page still needs its one heading, so
+          the carousel and its skeleton give way to a screen-reader-only "Home". The welcome is not a banner -- it
+          is what an empty library shows, and stays. */}
       {(featured?.content?.length ?? 0) > 0 ? (
-        <HeroCarousel slides={featured!.content} />
+        banners ? <HeroCarousel slides={featured!.content} /> : <h1 className="sr-only" data-no-banner>{tr('Home')}</h1>
       ) : isLoading || featuredPending ? (
+        !banners ? <h1 className="sr-only" data-no-banner>{tr('Home')}</h1> :
         <div className="skeleton bleed-lg under-topbar under-phone-header h-[min(150vw,82svh)] lg:h-[62vh] lg:min-h-[440px]" />
       ) : (
         <div className="bleed-lg under-topbar under-phone-header relative h-[58vh] min-h-[420px] overflow-hidden lg:h-[70vh]">

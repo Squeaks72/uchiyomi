@@ -45,13 +45,6 @@ test('the Archive slowly button says what it is for, on the series page and in t
   assert.match(read('lib/archive.ts'), /never hit with a burst/);
 });
 
-test('the chapter rail scrolls on its own when the window is short', () => {
-  assert.match(page, /data-series-rail/);
-  assert.match(page, /lg:max-h-\[calc\(100dvh-6rem\)\]/);
-  assert.match(page, /lg:overflow-y-auto/);
-  // lenisScrollers: the rail only claims the wheel while it actually overflows.
-  assert.match(page, /data-lenis-prevent=\{railScrolls \? '' : undefined\}/);
-});
 
 test('fetching a missing chapter shows progress, then that it landed', () => {
   assert.match(page, /data-fetching/);
@@ -61,11 +54,6 @@ test('fetching a missing chapter shows progress, then that it landed', () => {
   assert.match(page, /motion-safe:animate-spin/);
 });
 
-test('the series page puts the extras one tap away for the admin, over the series override', () => {
-  assert.match(page, /data-show-extras/);
-  assert.match(page, /json: \{ hideNotices: !show \}/);
-  assert.match(page, /aria-pressed=\{!series\.hideNoticesEffective\}/);
-});
 
 test('Discover cards have the right-click menu a library card has', () => {
   const menu = read('components/DiscoverMenu.tsx');
@@ -89,3 +77,8 @@ test('a favourite wears a star in the corner of its thumbnail, in both tile size
   // v0.62 draws the favourite mark as upstream's heart (one icon for the Favourite key and the cards); the hook stays.
   assert.equal((cards.match(/<IcHeart [^>]*data-favorite-star/g) || []).length, 2);
 });
+
+// The fork's own sticky chapter rail (data-series-rail) and its admin "extras" strip (data-show-extras) went
+// with upstream's v0.63.0-v0.65.0 series page, which owns that column's layout and shows a series' notice
+// override in the Sources sheet instead. Their tests came out with them; what survived is covered above and in
+// seriesPage.test.ts.

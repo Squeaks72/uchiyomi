@@ -441,9 +441,13 @@ test('an admin can change the cover from the series page and replace one chapter
   assert.match(cmp, /data-compare-replace/);
 });
 
-test('the saved-offline check on a chapter row is a status; removing the device copy is a menu item', () => {
+test('the saved-offline key on a chapter row toggles the device copy, and the menu offers it too', () => {
+  // Upstream's own rule (UI refresh): the key stays live while a chapter is saved on this device, because
+  // `pruned` already excludes that case and the device copy can then be the only one left -- so the key must
+  // be able to remove it. The menu keeps its own way out as well.
   const src = readFileSync(new URL('../app/series/page.tsx', import.meta.url), 'utf8');
-  assert.match(src, /disabled=\{pruned \|\| downloaded\}/);
+  assert.match(src, /disabled=\{pruned\}/);
+  assert.match(src, /onToggleDownload\(\)/);
   assert.match(src, /label: tr\('Remove from this device'\)/);
   assert.match(src, /downloaded \? tr\('Saved on this device'\) : tr\('Save offline'\)/);
 });

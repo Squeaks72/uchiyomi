@@ -79,7 +79,8 @@ export function AdminSettings() {
       <SectionIndex label={tr('Settings')} className="col-span-full" sections={[
         ['server', tr('Server')], ['schedules', tr('Updates & schedules')], ['housekeeping', tr('Library housekeeping')],
         ['scanlators', tr('Scanlators')], ['notifications', tr('Notifications')], ['downloads', tr('Downloads')],
-        ['adult-filter', tr('18+ filter')], ['source-order', tr('Source order')], ['notice-chapters', tr('Notice chapters')],
+        ['politeness', tr('Downloads & politeness')],
+        ['content-ratings', tr('Content ratings')], ['source-order', tr('Source order')], ['notice-chapters', tr('Notice chapters')],
       ]} />
       <ServerSection data={data} save={save} />
       <SchedulesSection data={data} save={save} />

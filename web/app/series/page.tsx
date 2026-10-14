@@ -759,18 +759,6 @@ function SeriesInner() {
   // row exists, so the ☁ on a grey row reads as a spinner and then as a tick on the chapter that replaced it.
   const [fetching, setFetching] = useState<ReadonlySet<number>>(new Set());
   const [landed, setLanded] = useState<ReadonlySet<number>>(new Set());
-  const railRef = useRef<HTMLDivElement>(null);
-  const [railScrolls, setRailScrolls] = useState(false);
-  useEffect(() => {
-    const el = railRef.current;
-    if (!el || typeof ResizeObserver === 'undefined') return;
-    const measure = () => setRailScrolls(el.scrollHeight > el.clientHeight + 1);
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    for (const c of Array.from(el.children)) ro.observe(c);
-    return () => ro.disconnect();
-  });
   // Edit details, open on a tab: Details from its key, Reading from the Sources sheet's language Change.
   const [editing, setEditing] = useState<EditTab | null>(null);
   const [collecting, setCollecting] = useState(false);
