@@ -36,7 +36,8 @@ import { chParam, landingNumber } from '@/lib/healthLinks';
 import { effectsReduced } from '@/lib/effects';
 import { clampPage, pageCount, pageLabel, pageOf, pageSizeFor, pageSlice } from '@/lib/chapterPages';
 import { openRuns, showAllChaptersOn } from '@/lib/showAllChapters';
-import { buttonsClass, compactChaptersOn, dotHide, rowClass, thumbHide } from '@/lib/compactChapters';
+import { buttonsClass, dotHide, rowClass, thumbHide } from '@/lib/compactChapters';
+import { useAccountPrefValue } from '@/lib/accountPrefs';
 import { chapterRowsClass, chapterViewOn, setChapterView, type ChapterView } from '@/lib/chapterView';
 import { PhoneHeroCover } from '@/components/PhoneHeroCover';
 import { Segmented } from '@/components/settings';
@@ -1058,11 +1059,12 @@ function SeriesInner() {
   // chapters and would shift a page picked before them). Following Continue live made the list jump away
   // from what the reader was doing -- expanding an older-chapters run or "Show all" inserts rows ahead of
   // it, and "Mark all read" sends Continue back to chapter 1.
-  // This device's choice of the compact chapter list (lib/compactChapters.ts), read after mount: the static
-  // export renders without localStorage, and the default row is the one to render until we know.
-  const [compact, setCompact] = useState(false);
-  useEffect(() => { setCompact(compactChaptersOn()); }, []);
-  // This device's chapter layout (#214, lib/chapterView.ts), read after mount for the same reason.
+  // The ACCOUNT's choice of the compact chapter list (lib/compactChapters.ts, lib/accountPrefs.ts): the fork
+  // moved this off the device so it follows the person, and accountPrefs.test.ts holds every consumer to the
+  // account store rather than the localStorage mirror it keeps for upstream's own readers.
+  const compact = useAccountPrefValue('compactChapters');
+  // This device's chapter layout (#214, lib/chapterView.ts), read after mount: the static export renders
+  // without localStorage, and the default is the one to render until the client knows.
   const [view, setView] = useState<ChapterView>('columns');
   useEffect(() => { setView(chapterViewOn()); }, []);
   const [chapterPage, setChapterPage] = useState<number | null>(null);
@@ -2133,14 +2135,14 @@ function SeriesInner() {
         <button disabled={acting} onClick={leaveSelect} className="btn-key text-fog-400">{tr('Cancel')}</button>
       </div>
       <div className="mx-auto mt-2 flex max-w-3xl flex-wrap items-center gap-1.5 text-[11px]" data-select-helpers>
-        <button type="button" disabled={acting} onClick={() => selectBooks(filteredBooks.map((b) => b.id), true)} className="chip text-xs">{tr('Select all')}</button>
-        <button type="button" disabled={acting || !pickedCount} onClick={clearPicks} className="chip text-xs disabled:opacity-50">{tr('Select none')}</button>
+        <button type="button" disabled={acting} onClick={() => selectBooks(filteredBooks.map((b) => b.id), true)} className="btn-key">{tr('Select all')}</button>
+        <button type="button" disabled={acting || !pickedCount} onClick={clearPicks} className="btn-key">{tr('Select none')}</button>
         {sourcesHere.length > 1 && (
           <>
             <span className="ms-1 text-fog-500">{tr('Select by source')}</span>
             {sourcesHere.map((x) => (
               <button key={x.id} type="button" disabled={acting} data-select-source={x.id}
-                onClick={() => selectBooks(filteredBooks.filter((b) => b.sourceId === x.id).map((b) => b.id), false)} className="chip max-w-48 truncate text-xs">
+                onClick={() => selectBooks(filteredBooks.filter((b) => b.sourceId === x.id).map((b) => b.id), false)} className="btn-key max-w-48 truncate">
                 {sourceNames[x.id] ?? x.id} · {x.count}
               </button>
             ))}
