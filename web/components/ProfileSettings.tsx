@@ -349,6 +349,9 @@ function ReadingSection({ weeklyGoal }: { weeklyGoal: number }) {
         help={tr('On a screen held upright, a double-page spread can be split into its two pages, or turned on its side to fill the screen.')}
         options={[{ value: 'whole', label: tr('Whole') }, { value: 'split', label: tr('Split') }, { value: 'rotate', label: tr('Rotate') }]}
         onChange={(widePages) => set({ widePages })} />
+      <SwitchRow label={tr('Join split double pages')}
+        help={tr('In Double spread, shows two pages that a source cut from one spread as the spread. Only a pair whose picture runs across the seam is joined.')}
+        on={prefs.joinSplit} onChange={(joinSplit) => set({ joinSplit })} />
       <SwitchRow label={tr('Crop page borders')}
         help={tr('Trims the blank margins around scanned pages. In Webtoon mode only the sides are trimmed, by the same amount for a whole chapter.')}
         on={prefs.cropBorders} onChange={(cropBorders) => set({ cropBorders })} />

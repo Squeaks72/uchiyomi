@@ -50,7 +50,7 @@ interface PageDim { number: number; width: number | null; height: number | null;
 /** `sourceId`: the adapter the copy came from, for naming it on a missing page's caption. Unknown for a downloaded copy. */
 interface Chapter { id: string; seriesId: string; seriesTitle: string; title: string; pages: PageDim[]; offline: boolean; readingDirection?: string | null; pruned?: boolean; sourceId?: string | null }
 interface ChapterRef { id: string; label: string }
-interface FlatItem { ci: number; number: number; width: number | null; height: number | null; key: string; firstOfChapter: boolean; junk?: boolean; missing?: boolean; collapsed?: boolean }
+interface FlatItem { ci: number; number: number; width: number | null; height: number | null; key: string; firstOfChapter: boolean; junk?: boolean; join?: 'rtl' | 'ltr'; missing?: boolean; collapsed?: boolean }
 
 /** Paged mode's render window, in pages: a slide is one screen, so pages and screens are the same thing there. */
 const WINDOW_BEHIND = 2;
@@ -552,8 +552,8 @@ function ReaderInner() {
   const rightFirst = rtl || pagedRtl;
   const splitTrack = prefs.mode === 'paged' && wideMode === 'split';
   const { slides, slideOf, half } = useMemo(
-    () => pairSlides(flat, prefs.mode === 'paged' && !!prefs.spread, { split: splitTrack, rightFirst }),
-    [flat, prefs.mode, prefs.spread, splitTrack, rightFirst],
+    () => pairSlides(flat, prefs.mode === 'paged' && !!prefs.spread, { split: splitTrack, rightFirst, joinSplit: prefs.joinSplit }),
+    [flat, prefs.mode, prefs.spread, splitTrack, rightFirst, prefs.joinSplit],
   );
   /** The paged track's slide, measured: what a split half or a page turned on its side is fitted into. */
   const [area, setArea] = useState({ w: 0, h: 0 });
@@ -1614,7 +1614,11 @@ function ReaderInner() {
             // left, so flipping here as well would put it back the wrong way round. A right-to-left series
             // forced to read left to right still swaps: the pages turn the other way, but a double-page spread
             // is ONE drawing, and it only reassembles with its first page on the right.
-            const shown = rtl && !pagedRtl && idxs.length === 2 ? [idxs[1], idxs[0]] : idxs;
+            let shown = rtl && !pagedRtl && idxs.length === 2 ? [idxs[1], idxs[0]] : idxs;
+            // A joined pair is laid out the way its picture runs (the server found which side the second page is on),
+            // whichever way the series reads: the first page on the right is what a right-to-left layout gives.
+            const joinDir = idxs.length === 2 ? flat[idxs[0]].join : undefined;
+            if (joinDir && (joinDir === 'rtl') !== rightFirst) shown = [shown[1], shown[0]];
             // v0.61.0: one half of a wide page (Wide pages → Split) is a slide of its own, keyed apart from its twin.
             const halfOf = half[s];
             return (

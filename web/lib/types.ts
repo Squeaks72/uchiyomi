@@ -527,6 +527,8 @@ export interface PageInfo {
    * explanation over it rather than letting a blank page read as a broken image.
    */
   missing?: true;
+  /** This page and the next are one double-page spread the source cut in two; which side the next one is on (bff lib/spreadJoin.ts). */
+  join?: 'rtl' | 'ltr';
   fileName: string;
   mediaType: string;
   width?: number;

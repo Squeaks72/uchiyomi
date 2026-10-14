@@ -313,6 +313,16 @@ export function ReaderSettings({
           </p>
         </Row>
 
+        <div className="py-3">
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-sm font-medium text-fog-200">{tr('Join split double pages')}</span>
+            <Switch on={prefs.joinSplit} onChange={(joinSplit) => set({ joinSplit })} label={tr('Join split double pages')} />
+          </div>
+          <p className="mt-1 text-[11px] leading-snug text-fog-500">
+            {tr('In Double spread, shows two pages that a source cut from one spread as the spread. Only a pair whose picture runs across the seam is joined.')}
+          </p>
+        </div>
+
         {/* v0.61.0. Off by default; every title, synced. The margins are measured from each page's own pixels. */}
         <div className="py-3">
           <div className="flex items-center justify-between gap-3">
