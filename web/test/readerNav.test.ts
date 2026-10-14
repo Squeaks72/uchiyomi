@@ -22,3 +22,16 @@ test('pagesAfter counts only the current chapter', () => {
   assert.equal(pagesAfter(flow, 2), 0, 'the next chapter\'s pages are not this chapter\'s');
   assert.equal(pagesAfter(flow, 9), 0);
 });
+
+import { chapterGap } from '../lib/readerNav';
+test('chapterGap names the whole chapters skipped between neighbours', () => {
+  assert.deepEqual(chapterGap(43, 100), { first: 44, last: 99 });
+  assert.deepEqual(chapterGap(100, 102), { first: 101, last: 101 });
+  assert.deepEqual(chapterGap(10.5, 12), { first: 11, last: 11 });
+  assert.equal(chapterGap(43, 44), null);
+  assert.equal(chapterGap(10, 10.5), null);
+  assert.equal(chapterGap(10.5, 11), null);
+  assert.equal(chapterGap(5, 5), null);
+  assert.equal(chapterGap(9, 3), null);
+  assert.equal(chapterGap(undefined, 3), null);
+});
