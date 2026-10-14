@@ -752,7 +752,7 @@ export interface DownloadManifest {
   coverUrl: string;
   totalBytes: number;
   /** `missing` rides along like `junk`: the placeholder bytes download like any page, and the caption is drawn offline too. */
-  pages: { number: number; url: string; width: number | null; height: number | null; bytes: number | null; junk?: boolean; missing?: true }[];
+  pages: { number: number; url: string; width: number | null; height: number | null; bytes: number | null; junk?: boolean; missing?: true; join?: 'rtl' | 'ltr' }[];
 }
 
 export function isWebtoon(dir?: string): boolean {

@@ -46,7 +46,7 @@ import { t as tr } from '@/lib/i18n';
 import { serverReachableHint } from '@/lib/desktop';
 import { IncognitoTag, incognitoRef } from '@/components/IncognitoBanner';
 
-interface PageDim { number: number; width: number | null; height: number | null; junk?: boolean; missing?: boolean }
+interface PageDim { number: number; width: number | null; height: number | null; junk?: boolean; join?: 'rtl' | 'ltr'; missing?: boolean }
 /** `sourceId`: the adapter the copy came from, for naming it on a missing page's caption. Unknown for a downloaded copy. */
 interface Chapter { id: string; seriesId: string; seriesTitle: string; title: string; pages: PageDim[]; offline: boolean; readingDirection?: string | null; pruned?: boolean; sourceId?: string | null }
 interface ChapterRef { id: string; label: string }
@@ -127,7 +127,7 @@ async function loadChapter(bookId: string): Promise<Chapter | null> {
       seriesId: b.seriesId,
       seriesTitle: b.seriesTitle,
       title: b.metadata?.title || b.name,
-      pages: pInfo.map((p) => ({ number: p.number, width: p.width ?? null, height: p.height ?? null, junk: p.junk, missing: p.missing })),
+      pages: pInfo.map((p) => ({ number: p.number, width: p.width ?? null, height: p.height ?? null, junk: p.junk, missing: p.missing, join: p.join })),
       offline: false,
       // The server deleted this chapter's file after everyone finished it. Carried so the empty page list
       // below can be explained rather than blamed on the reader's library mount.
