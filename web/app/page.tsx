@@ -140,7 +140,7 @@ export default function HomePage() {
       case 'continue':
         // Keep reading. Every rail says pt-8; the list below gives the first one shown pt-4, whichever it is.
         return (data?.onDeck?.length ?? 0) > 0 && (
-          <section className="pt-8">
+          <section className="rail-section pt-8">
             <SectionTitle>{tr('Keep reading')}</SectionTitle>
             <ScrollRail label={tr('Keep reading')} className={CARD_RAIL}>
               {data!.onDeck.map((b, i) => <ContinueCard key={b.id} book={b} eager={i < 4} keepReading />)}
@@ -150,7 +150,7 @@ export default function HomePage() {
       case 'forYou':
         // For you
         return (foryou?.content?.length ?? 0) > 0 && (
-          <section className="pt-8">
+          <section className="rail-section pt-8">
             <SectionTitle action={<Link href="/library" className="text-xs text-accent">{tr('Library')}</Link>}>{tr('For you')}</SectionTitle>
             <ScrollRail label={tr('For you')} className={CARD_RAIL}>
               {foryou!.content.map((s) => <SeriesCard key={s.id} series={s} />)}
@@ -160,7 +160,7 @@ export default function HomePage() {
       case 'because':
         // Because you read X (the series being read, else a favourite)
         return seed && (because?.content?.length ?? 0) > 0 && (
-          <section className="pt-8">
+          <section className="rail-section pt-8">
             <SectionTitle>{tr('Because you read {title}', { title: `⁨${seed.name}⁩` })}</SectionTitle>
             <ScrollRail label={tr('Because you read {title}', { title: `⁨${seed.name}⁩` })} className={CARD_RAIL}>
               {because!.content.map((s) => <SeriesCard key={s.id} series={s} />)}
@@ -170,7 +170,7 @@ export default function HomePage() {
       case 'newEpisodes':
         // New episodes
         return (
-          <section className="pt-8">
+          <section className="rail-section pt-8">
             <SectionTitle action={<Link href="/library?sort=updated" className="text-xs text-accent">{tr('See all')}</Link>}>{tr('New episodes')}</SectionTitle>
             {isLoading ? <RailSkeleton /> : (
               <ScrollRail label={tr('New episodes')} className={CARD_RAIL}>
@@ -182,7 +182,7 @@ export default function HomePage() {
       case 'favorites':
         // Favorites
         return (data?.favorites?.length ?? 0) > 0 && (
-          <section className="pt-8">
+          <section className="rail-section pt-8">
             <SectionTitle action={<Link href="/profile" className="text-xs text-accent">{tr('Manage')}</Link>}>{tr('Your favorites')}</SectionTitle>
             <ScrollRail label={tr('Your favorites')} className={CARD_RAIL}>
               {data!.favorites.map((s) => <SeriesCard key={s.id} series={s} />)}
@@ -196,7 +196,7 @@ export default function HomePage() {
         // Pick back up (v0.61.0): series put down three months to two years ago, each at its next chapter and saying
         // when. Only with something in it, like every rail an older server does not send.
         return (data?.pickUp?.length ?? 0) > 0 && (
-          <section className="pt-8" data-home-pickup>
+          <section className="rail-section pt-8" data-home-pickup>
             <SectionTitle>{tr('Pick back up')}</SectionTitle>
             <ScrollRail label={tr('Pick back up')} className={CARD_RAIL}>
               {data!.pickUp!.map((b) => (
@@ -208,7 +208,7 @@ export default function HomePage() {
       case 'recentlyAdded':
         // Recently added
         return (
-          <section className="pt-8">
+          <section className="rail-section pt-8">
             <SectionTitle action={<Link href="/library?sort=new" className="text-xs text-accent">{tr('See all')}</Link>}>{tr('Recently added')}</SectionTitle>
             {isLoading ? <RailSkeleton /> : (
               <ScrollRail label={tr('Recently added')} className={CARD_RAIL}>
@@ -223,7 +223,7 @@ export default function HomePage() {
         // AniList numbers yet has nothing to rank -- so it never shows an empty rail or a skeleton that turns into
         // nothing.
         return (data?.popular?.length ?? 0) > 0 && (
-          <section className="pt-8">
+          <section className="rail-section pt-8">
             <SectionTitle action={<Link href="/library?sort=popular" className="text-xs text-accent">{tr('See all')}</Link>}>{tr('Most popular in your library')}</SectionTitle>
             <ScrollRail label={tr('Most popular in your library')} className={CARD_RAIL}>
               {data!.popular!.map((s) => <SeriesCard key={s.id} series={s} note={sortValue(s, 'score')} />)}
@@ -234,7 +234,7 @@ export default function HomePage() {
         // Hidden gems (v0.61.0): well-rated series nobody here has opened, each saying AniList's score. Only with
         // something in it. See all is the Library's own answer to the same question, best first and not started.
         return (data?.gems?.length ?? 0) > 0 && (
-          <section className="pt-8" data-home-gems>
+          <section className="rail-section pt-8" data-home-gems>
             <SectionTitle action={<Link href="/library?sort=score&read=UNREAD" className="text-xs text-accent">{tr('See all')}</Link>}>{tr('Hidden gems')}</SectionTitle>
             <ScrollRail label={tr('Hidden gems')} className={CARD_RAIL}>
               {data!.gems!.map((s) => <SeriesCard key={s.id} series={s} note={sortValue(s, 'score')} />)}
@@ -244,7 +244,7 @@ export default function HomePage() {
       case 'top10':
         // Trending across accounts — Netflix-style Top 10 with big rank numerals
         return (trending?.content?.length ?? 0) > 0 && (
-          <section className="pt-8">
+          <section className="rail-section pt-8">
             <SectionTitle>{tr('Top 10 in your library')}</SectionTitle>
             <ScrollRail label={tr('Top 10 in your library')} className={CARD_RAIL}>
               {trending!.content.slice(0, 10).map((s, i) => (
