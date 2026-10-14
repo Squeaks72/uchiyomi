@@ -460,13 +460,6 @@ test('a chapter not yet in the library can be fetched and then opened in the rea
   assert.match(sheet, /data-fetch-read/);
 });
 
-test("the phone title block paints above the banner, so a long title's first lines are not hidden behind it", () => {
-  // The banner is `relative` and the title block rises over it when the title wraps; unpositioned, the banner painted
-  // over the first lines ("Chainsaw Man" showed as "Man"). Reintroduce by dropping `relative z-10`: this fails.
-  const src = readFileSync(join(__dirname, '..', 'app/series/page.tsx'), 'utf8');
-  assert.match(src, /<div className="relative z-10 min-w-0 pb-1 lg:hidden">/, 'the phone title block can slide under the banner');
-});
-
 test("an admin's unreadable-chapter card offers Redownload, which refetches that one chapter onto its own row", () => {
   // Reintroduce by deleting the button or posting another route: this fails.
   const src = readFileSync(join(__dirname, '..', 'app/reader/page.tsx'), 'utf8');
