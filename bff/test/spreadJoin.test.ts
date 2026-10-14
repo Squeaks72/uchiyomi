@@ -57,3 +57,12 @@ test('the stitched spread is both pages side by side', async () => {
   const m = await sharp(out).metadata();
   assert.deepEqual([m.width, m.height], [2 * w, h]);
 });
+
+test('a webtoon chapter never joins, even where two pages happen to meet', async () => {
+  const w = 400, h = 600;
+  const { left, right } = await cut(await picture(2 * w, h, 3), w, h);
+  const R = (await edgeProfile(right))!, L = (await edgeProfile(left))!;
+  assert.deepEqual(joinsFor([R, L]), ['rtl', null]);
+  const strip = (await edgeProfile(await picture(w, 1400, 9)))!;
+  assert.deepEqual(joinsFor([R, L, strip, strip]), [null, null, null, null]);
+});

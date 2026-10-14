@@ -51,7 +51,7 @@ export function seam(a: Float32Array, b: Float32Array): { mad: number; corr: num
   return { mad: mad / a.length, corr: sdA > 0 && sdB > 0 ? cov / a.length / (sdA * sdB) : 0, sdA, sdB };
 }
 
-export const SEAM = { minSd: 22, maxMad: 14, minCorr: 0.9, sizeTol: 0.02, maxAspect: 2.0 };
+export const SEAM = { minSd: 22, maxMad: 14, minCorr: 0.9, sizeTol: 0.02, maxAspect: 2.0, stripAspect: 1.8 };
 
 /**
  * Which way the picture runs across the seam from page `a` to the page after it: 'rtl' when a's LEFT edge meets
@@ -70,11 +70,14 @@ export function joinDirection(a: EdgeProfile, b: EdgeProfile): 'rtl' | 'ltr' | n
 }
 
 /**
- * For each page, whether it and the page after it are one split spread, and which way. A page that seems to join
+ * Never in a webtoon chapter (a fifth of its pages are taller than a manga page). For each page, whether it and the page after it are one split spread, and which way. A page that seems to join
  * BOTH its neighbours is a repeating background (the grid behind a Q&A page) or a gradient, not a spread: a page is in
  * at most one spread, so any run of consecutive matches is dropped whole.
  */
 export function joinsFor(profiles: Array<EdgeProfile | null>): Array<'rtl' | 'ltr' | null> {
+  // A webtoon chapter reads as one column and has nothing to join: when a good share of its pages are strips, none are.
+  const known = profiles.filter((p): p is EdgeProfile => !!p);
+  if (known.filter((p) => p.height / p.width > SEAM.stripAspect).length >= known.length * 0.2) return profiles.map(() => null);
   const raw = profiles.map((p, i) => {
     const n = profiles[i + 1];
     return p && n ? joinDirection(p, n) : null;
