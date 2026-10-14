@@ -372,7 +372,7 @@ test('a site\'s sheet says its language, and a source in every language says wha
   const settings = { mangadex_langs: [], mangadex_available: ['en', 'es', 'pt-BR'], unstated_lang: 'en' };
   const render = (s: OverviewSource) => withQueries(createElement(SourceSheet, {
     target: { id: s.id }, overview: { ...OVERVIEW, sources: [s] }, evidence: new Map(), testMs: 53_000, status: undefined, actions: ACTIONS,
-    installed: [], hiddenLangs: [], onClose: noop, onReplace: noop, onLanguages: noop, onChanged: noop,
+    installed: [], hiddenLangs: [], onClose: noop, onReplace: noop, onBackup: noop, onLanguages: noop, onChanged: noop,
   }), [[['admin-settings'], settings]]);
   // A site in Spanish, which the add read from its pages: the sheet says so and changes it. Reintroduce by dropping
   // SiteLanguage from the sheet: nothing says which language a site is in, and a wrong one stays wrong.
