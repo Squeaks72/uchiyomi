@@ -37,6 +37,11 @@ name: Fork sync
 # (`gh workflow run fork-sync.yml --repo Squeaks72/uchiyomi --ref tim`) when the
 # fork is behind and no run explains why.
 #
+# When replaying the patches one commit at a time conflicts, the NET change is tried as a single
+# commit on top of upstream (the old stack is kept as a tag, tim-pre-sync-YYYYMMDD), and the files that
+# only ever conflict mechanically are merged by .github/scripts/fork-resolve.mjs (locale strings both
+# sides appended, the lockfile, the changelog). Only a real collision stops the run.
+#
 # A rebase that does not apply cleanly stops here and fails the run rather than
 # forcing anything: a silently dropped patch is worse than a stale image. (Issues
 # are disabled on this fork, so the failed run and its email are the alert.)
@@ -103,14 +108,36 @@ jobs:
             exit 0
           fi
 
+          orig=$(git rev-parse HEAD)
           if ! git rebase upstream/main; then
-            git diff --name-only --diff-filter=U | sed 's/^/::error title=Rebase conflict::/'
             git rebase --abort || true
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-            exit 1
+            # Replaying the patches one commit at a time can conflict where the sum of them does not: a
+            # patch and its later revert, a fix-up, or two commits that both touch a hunk upstream moved.
+            # So try the NET change as one commit on top of upstream. What conflicts there is a real
+            # collision with upstream, apart from the files fork-resolve.mjs knows how to merge (locale
+            # strings both sides appended, the lockfile, the changelog). Whatever is left stops the run.
+            echo "::warning title=Replay conflicted::trying the net change as one commit"
+            tag="tim-pre-sync-$(date -u +%Y%m%d)"
+            git tag -f "$tag" "$orig"
+            git push -f origin "refs/tags/$tag"
+            git checkout -q --detach upstream/main
+            if ! git merge --squash "$orig"; then
+              if ! node .github/scripts/fork-resolve.mjs; then
+                git merge --abort 2>/dev/null || git reset -q --hard
+                echo "changed=false" >> "$GITHUB_OUTPUT"
+                exit 1
+              fi
+            fi
+            version=$(node -p "require('./bff/package.json').version")
+            { echo "Fork patches on top of upstream v${version}"; echo
+              echo "The patch stack, replayed one commit at a time, conflicted with upstream; its net change"
+              echo "applies as this one commit. The stack it replaces is tag ${tag}:"; echo
+              git log --reverse --format='  %h %s' "$(git merge-base "$orig" upstream/main)..$orig"; } > /tmp/squash-msg.txt
+            git commit -q -F /tmp/squash-msg.txt
+            git checkout -q -B tim
           fi
 
-          if ! git diff --quiet "$(git merge-base ORIG_HEAD upstream/main)" upstream/main -- .github/workflows \
+          if ! git diff --quiet "$(git merge-base "$orig" upstream/main)" upstream/main -- .github/workflows \
              && [ "$HAS_PAT" != "true" ]; then
             echo "::error title=SYNC_TOKEN needed::upstream changed .github/workflows/, which GITHUB_TOKEN may not push. Add a SYNC_TOKEN secret (fine-grained PAT: this repo, Contents + Workflows read/write)."
             exit 1
