@@ -1,6 +1,7 @@
 // Owned catalog backend: a drop-in for the `komga` client, returning Komga-shaped series/book DTOs from
 // the lib_* tables. enrichSeries/booksForUser in catalog.ts then add per-user state exactly as before.
 import { q, one } from './db';
+import { JOIN_VERSION } from './spreadJoin';
 import { cbzPageDims, DL_ROOT, LIBRARY_ROOT, persistScan, type PageDimJoin } from './library';
 import { ViewCtx, Params, visible, browsable, ADULT_RATING } from './visibility';
 import { cleanDescription } from './htmlText';
@@ -813,8 +814,8 @@ export const owned = {
       ...(pd.join ? { join: pd.join } : {}),
     }));
     // A cache row from before spreads were looked for has no `join` key at all (a measured archive sets it, null when
-    // none): measure it again, once, and keep the answer. A PDF carries none and is left alone.
-    const needsJoins = (ds: PageDimJoin[]) => ds.length > 1 && ds[0].join === undefined && !/\.pdf$/i.test(r.file);
+    // none), and one an older detector measured carries an older `jv`: measure it again, once, and keep the answer. A PDF carries none and is left alone.
+    const needsJoins = (ds: PageDimJoin[]) => ds.length > 1 && (ds[0].join === undefined || ds[0].jv !== JOIN_VERSION) && !/\.pdf$/i.test(r.file);
     let dims: PageDimJoin[] = Array.isArray(r.page_dims) && r.page_dims.length ? r.page_dims : [];
     if (dims.length && !needsJoins(dims)) return shape(dims);
     const fresh = await cbzPageDims(`${r.root || LIBRARY_ROOT}/${r.file}`).catch(() => [] as PageDimJoin[]);

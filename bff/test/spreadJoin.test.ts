@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import sharp from 'sharp';
-import { edgeProfile, joinDirection, joinsFor, stitchSpread } from '../src/lib/spreadJoin';
+import { edgeProfile, JOIN_VERSION, joinDirection, joinsFor, stitchSpread } from '../src/lib/spreadJoin';
 
 // A picture with structure at many heights, so an edge carries a recognisable pattern, drawn at `w` x `h`.
 async function picture(w: number, h: number, seed: number): Promise<Buffer> {
@@ -65,4 +65,18 @@ test('a webtoon chapter never joins, even where two pages happen to meet', async
   assert.deepEqual(joinsFor([R, L]), ['rtl', null]);
   const strip = (await edgeProfile(await picture(w, 1400, 9)))!;
   assert.deepEqual(joinsFor([R, L, strip, strip]), [null, null, null, null]);
+});
+
+test('halves whose tones differ and whose cut lost a pixel or two still join (One Piece 1154)', async () => {
+  const w = 400, h = 600;
+  const spread = await picture(2 * w, h, 3);
+  // The scan's two pages are not one exposure: the right half is a little darker, and the cut took 2 px of picture.
+  const left = await sharp(spread).extract({ left: 0, top: 0, width: w, height: h }).jpeg().toBuffer();
+  const right = await sharp(spread).extract({ left: w + 2, top: 0, width: w - 2, height: h }).extend({ right: 2, background: '#fff' }).linear(0.92, -6).jpeg().toBuffer();
+  const L = (await edgeProfile(left))!, R = (await edgeProfile(right))!;
+  assert.equal(joinDirection(R, L), 'rtl');
+});
+
+test('JOIN_VERSION is a positive integer a cache row can be compared with', () => {
+  assert.ok(Number.isInteger(JOIN_VERSION) && JOIN_VERSION >= 2);
 });
