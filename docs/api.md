@@ -1530,7 +1530,6 @@ sorts by `popularity`, `score`, `rating`, `chapters` and `lastRead` (see the Ope
   explicitly means no Home List rails. A selected empty List keeps its slot. Home ignores an already-stored stale or
   unreadable id and the web app omits it on the next edit; the API refuses a request that tries to add one (another
   member's private List, a malformed id).
-- `homeRows: { order: string[], hidden: string[] }`, how this account arranged Home. Row ids are `continue`, `updates`, `favorites`, `because`, `rated`, `collections`, `added` and `top`; a row left out of `order` follows the listed ones in the default order, and the API refuses an unknown id.
 - `showAllChapters: boolean`, the account-wide unpaged chapter-list switch.
 - `incognito: boolean` (since v0.61.0), **Incognito reading**, for the whole account and enforced by the server: progress
   is still written, so Keep reading and every resume work, but no reading event is recorded -- history, streaks,
