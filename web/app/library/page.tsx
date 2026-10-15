@@ -13,7 +13,7 @@ import { IcSearch, IcPlus, IcImport } from '@/components/icons';
 import { PullToRefresh } from '@/components/PullToRefresh';
 import { triggerRefresh } from '@/lib/refresh';
 import { useToast } from '@/components/Toast';
-import { startExport } from '@/lib/exports';
+import { startExport, useZipExports } from '@/lib/exports';
 import { Modal, ConfirmDialog, msgOf } from '@/components/ConfirmDialog';
 import { MoveToLibrary } from '@/components/MoveToLibrary';
 import { useAuth, canDownload } from '@/lib/auth';
@@ -59,6 +59,7 @@ import {
 } from '@/lib/bulkChapterDelete';
 
 function LibraryInner() {
+  const zipOn = useZipExports();
   const params = useSearchParams();
   const router = useRouter();
   const { isAdmin, user, status: authStatus, setSettings } = useAuth();
@@ -886,10 +887,12 @@ function LibraryInner() {
               className="block w-full rounded-lg px-2.5 py-2.5 text-start text-sm text-fog-100 hover:bg-ink-800/60">
               {tr('Add to list')}
             </button>
-            <button onClick={() => { setMore(false); zipPicked(); }} data-zip-picked
-              className="block w-full rounded-lg px-2.5 py-2.5 text-start text-sm text-fog-100 hover:bg-ink-800/60">
-              {tr('Download as zip')}
-            </button>
+            {zipOn && (
+              <button onClick={() => { setMore(false); zipPicked(); }} data-zip-picked
+                className="block w-full rounded-lg px-2.5 py-2.5 text-start text-sm text-fog-100 hover:bg-ink-800/60">
+                {tr('Download as zip')}
+              </button>
+            )}
             {/* From lg up Archive slowly is a key in the bar, and More is only there for the admin rows below. */}
             {canDownload(user) && (
               <button onClick={() => { setMore(false); void archiveSelected(); }}

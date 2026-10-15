@@ -6550,8 +6550,9 @@ paths:
     get:
       tags:
         - downloads
-      summary: The caller's zip export jobs, with progress.
+      summary: The caller's zip export jobs, with progress, and whether an admin has turned Download as zip on.
       operationId: getApiExports
+      description: Answers `{ content, enabled }`; `enabled` is Admin → Settings → Download as zip (off by default).
       security:
         - bearer: []
       responses:
@@ -6592,6 +6593,8 @@ paths:
           description: OK
         "400":
           description: Bad request
+        "403":
+          description: Download as zip is turned off (`exports_off`).
         "404":
           description: No such series, or none of those chapters have files.
         "401":

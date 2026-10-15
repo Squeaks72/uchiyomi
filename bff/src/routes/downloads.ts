@@ -1,13 +1,17 @@
 import type { FastifyInstance } from 'fastify';
 import { junkPagesFor } from '../lib/junkPages';
 import { z } from 'zod';
-import { q } from '../lib/db';
+import { one, q } from '../lib/db';
 import { content } from '../lib/backend';
 import { viewCtxFor, type ViewCtx, hideAdult } from '../lib/visibility';
 import { authenticate, userIdOf, roleOf } from '../lib/auth';
 import { createReadStream } from 'node:fs';
 import { dropExport, jobById, jobsOf, startExport, viewOf, type Target } from '../lib/zipExport';
 import { timingSafeEqual } from 'node:crypto';
+
+/** Admin → Settings → Download as zip (server_settings.zip_exports). Off by default; a column the schema does not have yet reads as off. */
+const zipExportsOn = async (): Promise<boolean> =>
+  !!(await one<{ on: boolean | null }>('SELECT zip_exports AS "on" FROM server_settings WHERE id = 1').catch(() => null))?.on;
 
 /** The finished zip is fetched by a plain browser navigation, which cannot send a Bearer header: its job token authorises it instead. */
 const EXPORT_FILE = '/api/exports/:id/file';
@@ -143,9 +147,11 @@ export default async function downloadRoutes(app: FastifyInstance) {
 
   // Download a series, or chosen chapters of it, as one zip: a job the client watches (like Google Drive's "Preparing
   // your download"), then a file the browser fetches. Jobs are the caller's own; nobody else sees or fetches them.
-  app.get('/api/exports', async (req) => ({ content: jobsOf(userIdOf(req)).map(viewOf) }));
+  // `enabled` is how the web app knows whether to offer Download as zip at all.
+  app.get('/api/exports', async (req) => ({ content: jobsOf(userIdOf(req)).map(viewOf), enabled: await zipExportsOn() }));
 
   app.post('/api/exports', async (req, reply) => {
+    if (!(await zipExportsOn())) return reply.code(403).send({ error: 'exports_off', message: 'Downloading as a zip is turned off on this server.' });
     const b = z.object({
       seriesId: z.string().min(1).max(200).optional(),
       seriesIds: z.array(z.string().min(1).max(200)).max(500).optional(),

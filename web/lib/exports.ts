@@ -2,6 +2,7 @@
 // Zip exports: start one, and follow every export job of this browser. The finished file is fetched with the job's
 // token (returned once, at the start), which is why the tokens live here for the life of the page.
 import { useSyncExternalStore } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 
 export interface ExportJobView {
@@ -67,3 +68,12 @@ export async function dismissExport(id: string): Promise<void> {
 
 const subscribe = (l: () => void) => { listeners.add(l); return () => { listeners.delete(l); }; };
 export const useExports = (): ExportJobView[] => useSyncExternalStore(subscribe, () => jobs, () => jobs);
+
+/** Whether an admin has turned Download as zip on (Admin → Settings): nothing offers it until the server says so. */
+export function useZipExports(): boolean {
+  const { data } = useQuery({
+    queryKey: ['zip-exports'], staleTime: 60_000,
+    queryFn: () => api<{ enabled?: boolean }>('/api/exports').then((r) => r.enabled === true),
+  });
+  return data === true;
+}
