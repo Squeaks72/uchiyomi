@@ -22,3 +22,12 @@ test('the toolbar button is for a pointer that hovers and is fine, not a phone',
   assert.match(list, /\(hover: hover\) and \(pointer: fine\)/);
   assert.match(page, /\{hasKeyboard && \(\s*<button onClick=\{\(\) => setShowKeys\(true\)\}/);
 });
+
+test('the reader has its own right-click menu: the mouse only, and the keys are the menu\'s while it is open', () => {
+  assert.match(page, /const readerMenu = useContextMenu\(\(\): MenuItem\[\] =>/);
+  // Both tracks open it; the hook's touch long-press is not spread, so taps and holds are the reader's.
+  assert.equal((page.match(/onDoubleClick=\{onTrackDoubleClick\} \{\.\.\.menuBind\}/g) ?? []).length, 2);
+  assert.doesNotMatch(page, /\{\.\.\.readerMenu\.bind\}/);
+  // Escape in an open menu closes the menu, not the reader.
+  assert.match(page, /if \(menuOpen\.current\) return;[\s\S]{0,1200}if \(e\.key === 'Escape'\) \{ if \(!e\.repeat\) back\(\)/);
+});

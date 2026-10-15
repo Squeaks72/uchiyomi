@@ -47,6 +47,7 @@ import { t as tr } from '@/lib/i18n';
 import { serverReachableHint } from '@/lib/desktop';
 import { IncognitoTag, incognitoRef } from '@/components/IncognitoBanner';
 import { ReaderShortcuts, useHasKeyboard } from '@/components/ReaderShortcuts';
+import { useContextMenu, type MenuItem } from '@/components/ContextMenu';
 
 interface PageDim { number: number; width: number | null; height: number | null; junk?: boolean; join?: 'rtl' | 'ltr'; missing?: boolean }
 /** `sourceId`: the adapter the copy came from, for naming it on a missing page's caption. Unknown for a downloaded copy. */
@@ -232,6 +233,8 @@ function ReaderInner() {
   const caught = useRef(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showKeys, setShowKeys] = useState(false);
+  /** Whether the right-click menu is open (it is made further down): the keys are its while it is, Escape included. */
+  const menuOpen = useRef(false);
   const hasKeyboard = useHasKeyboard();
   const [showPages, setShowPages] = useState(false);
   const [showChapters, setShowChapters] = useState(false);
@@ -1308,6 +1311,8 @@ function ReaderInner() {
       // ? lists the shortcuts. Not in a text field, and not a key the reader has bound to something.
       if (e.key === '?' && !/^(INPUT|TEXTAREA|SELECT)$/.test((e.target as HTMLElement | null)?.tagName ?? '')
         && !READER_ACTIONS.some((a) => keyMap[a].includes('?'))) { e.preventDefault(); setShowKeys(true); return; }
+      // The right-click menu has the keys while it is open (arrows, Enter, and Escape closes it, not the reader).
+      if (menuOpen.current) return;
       // Z brings one page of a double spread into frame, and back (the arrows then step between its two pages: perform). Not
       // rebindable, and not taken from a key the reader has bound to something else.
       if (e.key.toLowerCase() === 'z' && !e.shiftKey && !/^(INPUT|TEXTAREA|SELECT)$/.test((e.target as HTMLElement | null)?.tagName ?? '')
@@ -1588,6 +1593,52 @@ function ReaderInner() {
     }
   };
 
+  // ---- the right-click menu (the same menu the Library and the series page use, components/ContextMenu.tsx) ----
+  // What one wants under a hand while reading: the spread (this page, un-join it), the page (zoom, bookmark, jump), the
+  // chapter (next, previous, the list), how it is laid out, and the way out. Shift+right-click is still the browser's own
+  // menu (lib/contextMenus.ts wantsOwnMenu), which is where "Save image as" lives. Only the mouse's right button opens it: a
+  // touch screen keeps its taps and holds, so the reader's gestures are untouched.
+  const menuPoint = useRef<{ x: number; y: number } | null>(null);
+  // (set below, once the menu exists)
+  const readerMenu = useContextMenu((): MenuItem[] => {
+    const pt = menuPoint.current;
+    const onPair = pt ? pairTap(pt.x, pt.y) : undefined;
+    const items: MenuItem[] = [];
+    if (onPair === null) items.push({ label: tr('Show both pages'), onSelect: () => setFocused(null) });
+    else if (onPair) items.push({ label: tr('Focus on this page'), onSelect: () => setFocused(onPair) });
+    if (spreadHere) {
+      items.push({
+        label: spreadHere.split ? tr('Join these two pages again') : tr('These two pages are not one spread'),
+        onSelect: () => splitSpread(spreadHere.first, !spreadHere.split),
+      });
+    }
+    items.push(
+      { label: zoom > 1 ? tr('Reset zoom') : tr('Zoom in'), onSelect: () => applyZoom(zoom > 1 ? 1 : 2), divider: items.length > 0 },
+      { label: bookmarked ? tr('Remove bookmark') : tr('Bookmark this page'), onSelect: () => { void toggleBookmark(); }, disabled: !activeChapter || !pageInChapter },
+      { label: tr('Jump to a page'), onSelect: () => setShowPages(true) },
+      { label: tr('Next chapter'), onSelect: () => goChapter(nextId), disabled: !nextId, divider: true },
+      { label: tr('Previous chapter'), onSelect: () => goChapter(prevId, true), disabled: !prevId },
+    );
+    if (chapterRefs.length > 0) items.push({ label: tr('Chapters'), onSelect: () => setShowChapters(true) });
+    if (prefs.mode === 'paged') {
+      items.push({ label: prefs.spread ? tr('Read in single pages') : tr('Read in double spreads'), onSelect: () => setPref({ spread: !prefs.spread }), divider: true });
+    }
+    items.push(
+      { label: tr('Full screen'), onSelect: () => toggleFullscreen(), divider: prefs.mode !== 'paged' },
+      { label: chrome ? tr('Hide controls') : tr('Show controls'), onSelect: () => setChrome((c) => !c) },
+      { label: tr('Reader settings'), onSelect: () => setShowSettings(true) },
+    );
+    if (hasKeyboard) items.push({ label: tr('Keyboard shortcuts'), onSelect: () => setShowKeys(true) });
+    if (seriesHref) items.push({ label: tr('Open the series'), onSelect: () => router.push(seriesHref), divider: true });
+    items.push({ label: tr('Leave the reader'), onSelect: () => back(), divider: !seriesHref });
+    return items;
+  }, { label: tr('Reader') });
+  menuOpen.current = readerMenu.open;
+  /** Only the mouse's right button: the hook's touch long-press is left out, so the reader's own gestures stay as they were. */
+  const menuBind = {
+    onContextMenu: (e: React.MouseEvent<HTMLElement>) => { menuPoint.current = { x: e.clientX, y: e.clientY }; readerMenu.bind.onContextMenu(e); },
+  };
+
   // the header's two-line "what you are reading" block, wrapped in a link to the series when we know its id
   const titleBlock = (
     <>
@@ -1703,6 +1754,7 @@ function ReaderInner() {
           </span>
         </div>
       )}
+      {readerMenu.element}
       <h1 className="sr-only">{[activeChapter?.seriesTitle, activeChapter?.title].filter(Boolean).join(' \u2014 ') || tr('Reader')}</h1>
       {/* The toolbars come up on a tap, which a keyboard has no equivalent of. This is that, reachable with Tab
           and shown only while it has focus. It stays in the page whether or not the toolbars are up, so
@@ -1727,7 +1779,7 @@ function ReaderInner() {
           DOM -- is the only model of the layout there is. A browser that quietly adjusts scrollTop to keep
           content in view desynchronises it from `current` with no symptom and no way to detect it. */}
       {prefs.mode === 'vertical' ? (
-        <div ref={scrollRef} role="region" aria-label={tr('Pages')} data-lenis-prevent style={{ overflowAnchor: 'none' }} onScroll={onScroll} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerEnd} onPointerCancel={onPointerEnd} onDoubleClick={onTrackDoubleClick}
+        <div ref={scrollRef} role="region" aria-label={tr('Pages')} data-lenis-prevent style={{ overflowAnchor: 'none' }} onScroll={onScroll} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerEnd} onPointerCancel={onPointerEnd} onDoubleClick={onTrackDoubleClick} {...menuBind}
           className={`h-screen-d touch-pan-y overflow-y-auto overscroll-contain ${zoom > 1 ? 'overflow-x-auto' : 'overflow-x-hidden'}`}>
           <div className="mx-auto" style={{ width: colW || '100%', filter: THEME_FILTER[prefs.theme] }}>
             <div className="h-2" />
@@ -1748,7 +1800,7 @@ function ReaderInner() {
           </div>
         </div>
       ) : (
-        <div ref={scrollRef} role="region" aria-label={tr('Pages')} data-lenis-prevent onScroll={onScroll} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerEnd} onPointerCancel={onPointerEnd} onDoubleClick={onTrackDoubleClick}
+        <div ref={scrollRef} role="region" aria-label={tr('Pages')} data-lenis-prevent onScroll={onScroll} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerEnd} onPointerCancel={onPointerEnd} onDoubleClick={onTrackDoubleClick} {...menuBind}
           dir={pagedRtl ? 'rtl' : 'ltr'}
           className="hide-scrollbar flex h-screen-d snap-x snap-mandatory overflow-x-auto overflow-y-hidden" style={{ filter: THEME_FILTER[prefs.theme] }}>
           {slides.map((slideIdxs, s) => {
