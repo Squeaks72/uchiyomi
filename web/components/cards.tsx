@@ -18,8 +18,6 @@ import { t as tr } from '@/lib/i18n';
 import { useSeriesMenu } from './SeriesMenu';
 import { useDiscoverMenu } from './DiscoverMenu';
 import { useIsHiddenTitle } from '@/lib/ignoredTitles';
-import { useGlance } from './GlanceCard';
-import { glanceOfSeries, glanceOfSource } from '@/lib/glance';
 import { publicCoverFallback } from '@/lib/coverFallback';
 import { anilistNumbers, type SortValue } from '@/lib/sortValue';
 import { coverProgress, seriesProgress } from '@/lib/seriesProgress';
@@ -192,8 +190,7 @@ export function SeriesCard({ series, w = CARD_W, eager = false, note }: {
   const tilt = useTilt();
   const tint = useTileTint(series.color);
   // Right-click, press-and-hold or Shift+F10 (#100, components/SeriesMenu.tsx), and the ⋯ on a computer (v0.60.0).
-  const glance = useGlance(glanceOfSeries(series), { cover: img.seriesThumb(series.id, series.artVersion, 800), readSeriesId: series.id, actions: [{ label: tr('Open series'), href: `/series/?id=${series.id}` }] });
-  const menu = useSeriesMenu(series, glance.show);
+  const menu = useSeriesMenu(series);
   const title = series.metadata?.title || series.name;
   const isHidden = useIsHiddenTitle();
   if (isHidden(title, series.id)) return null;
@@ -208,7 +205,6 @@ export function SeriesCard({ series, w = CARD_W, eager = false, note }: {
       >
         <Img src={img.seriesThumb(series.id)} alt="" eager={eager} className="h-full w-full transition-transform duration-500 group-hover:scale-[1.07]" />
         <div aria-hidden className="pointer-events-none absolute inset-0 z-10" style={tilt.glare} />
-        {glance.overlay}
         {series.yomi?.favorite && (
           <span className="absolute start-2 top-2 z-10 rounded-full bg-black/55 p-1.5 text-accent backdrop-blur">
             <IcHeart width={14} height={14} fill="currentColor" stroke="none" data-favorite-star />
@@ -250,7 +246,6 @@ export function SeriesCard({ series, w = CARD_W, eager = false, note }: {
       <MoreKey menu={menu} title={title} className="absolute bottom-2 end-1.5 grid" />
     </div>
     {menu.element}
-    {glance.modal}
     </div>
   );
 }
@@ -274,7 +269,7 @@ export function ContinueCard({ book, eager = false, note, keepReading = false }:
   // The card opens the chapter; the title opens the series. Two links, so neither sits inside the other: the chapter link is
   // stretched over the card and the title link sits above it. The menu is the series' own (SeriesMenu.tsx), from the
   // little a book knows of it -- the Properties sheet and the favourite mark read the rest themselves.
-  const menu = useSeriesMenu({ id: book.seriesId, name: book.seriesTitle, metadata: { title: book.seriesTitle } } as unknown as Series, undefined, { keepReading });
+  const menu = useSeriesMenu({ id: book.seriesId, name: book.seriesTitle, metadata: { title: book.seriesTitle } } as unknown as Series, { keepReading });
   const isHidden = useIsHiddenTitle();
   if (isHidden(book.seriesTitle, book.seriesId)) return null;
   return (
@@ -365,8 +360,7 @@ export function SeriesTile({ series, eager = false, selectable, selected, onTogg
   const tilt = useTilt();
   const tilts = !selectable;
   // Not in Select mode: there a press toggles the tile, and the Library's own bar holds the actions (#100).
-  const glance = useGlance(glanceOfSeries(series), { cover: img.seriesThumb(series.id, series.artVersion, 800), readSeriesId: series.id, actions: [{ label: tr('Open series'), href: `/series/?id=${series.id}` }] });
-  const menu = useSeriesMenu(series, selectable ? undefined : glance.show, { onSelect: onStartSelect });
+  const menu = useSeriesMenu(series, { onSelect: onStartSelect });
   const title = series.metadata?.title || series.name;
   const isHidden = useIsHiddenTitle();
   if (isHidden(title, series.id)) return null;
@@ -378,7 +372,6 @@ export function SeriesTile({ series, eager = false, selectable, selected, onTogg
         className={`grad-border relative aspect-[2/3] overflow-hidden ${corner} border border-ink-700/60 transition-all duration-300 group-hover:-translate-y-1 group-hover:shadow-glow group-active:scale-[0.97]`}>
         <Img src={img.seriesThumb(series.id)} alt={title} eager={eager} className="h-full w-full transition-transform duration-500 group-hover:scale-[1.07]" />
         {tilts && <div aria-hidden className="pointer-events-none absolute inset-0 z-10" style={tilt.glare} />}
-        {!selectable && glance.overlay}
         {selectable && (
           <>
             {selected && <span aria-hidden className={`absolute inset-0 z-10 ${corner} border-2 border-accent bg-accent/20`} />}
@@ -438,8 +431,7 @@ export function SeriesTile({ series, eager = false, selectable, selected, onTogg
         <MoreKey menu={menu} title={title} className="absolute bottom-2 end-1.5 grid" />
       </div>
       {menu.element}
-      {glance.modal}
-    </div>
+      </div>
   );
 }
 
@@ -572,8 +564,6 @@ export interface SourceItem {
   moreEditions?: boolean;
   /** Every source behind a folded search hit, by name: the details card's "Sources". */
   providerNames?: string[];
-  /** What the other sources call the same title (a search folds them into this card): the at-a-glance card's other names. */
-  altTitles?: string[];
   /** A search result known to be 18+ (v0.55.4, #158): the small "18+" mark on its cover. */
   rating?: 'adult' | 'safe';
   /**
@@ -620,19 +610,7 @@ export function SourceCard({ item, providers, onAdd, onOpenAdded, onSearch, eage
   const stackId = useId();
   const libraryHref = owned && item.librarySeriesId ? `/series/?id=${encodeURIComponent(item.librarySeriesId)}` : undefined;
   // Right-click, press-and-hold or Shift+F10, as on a library card (components/DiscoverMenu.tsx).
-  // Every source behind the card names itself in the glance's Sources fact: the names a folded search hit carries,
-  // else the icon stack's own list (v0.56.0), where this read the one source name the card used to be labelled with.
-  const glance = useGlance(
-    glanceOfSource({ ...item, providerNames: item.providerNames?.length ? item.providerNames : providers?.map((p) => p.name) ?? [], providerTitles: item.altTitles }),
-    {
-      cover: sourceCover(item.source, item.coverUrl, 800), fallbackCover: item.coverUrl || undefined,
-      readSeriesId: owned ? item.librarySeriesId : undefined,
-      actions: [
-        ...(libraryHref ? [{ label: tr('Open in library'), href: libraryHref }] : []),
-        ...(!owned || item.moreEditions ? [{ label: owned ? tr('Add another edition') : tr('Add to library'), primary: !owned, onClick: onAdd }] : []),
-      ],
-    });
-  const menu = useDiscoverMenu({ title: item.title, libraryHref, librarySeriesId: owned ? item.librarySeriesId : undefined, onAdd: !owned || item.moreEditions ? onAdd : undefined, addLabel: owned ? tr('Add another edition') : undefined, onSearch, onDescribe: glance.show });
+  const menu = useDiscoverMenu({ title: item.title, libraryHref, librarySeriesId: owned ? item.librarySeriesId : undefined, onAdd: !owned || item.moreEditions ? onAdd : undefined, addLabel: owned ? tr('Add another edition') : undefined, onSearch });
   const isHidden = useIsHiddenTitle();
   if (isHidden(item.title, owned ? item.librarySeriesId : undefined)) return null;
   // An owned title opens its entry in the library; adding it again would only say "already there".
@@ -645,18 +623,14 @@ export function SourceCard({ item, providers, onAdd, onOpenAdded, onSearch, eage
         <Img src={sourceCover(item.source, item.coverUrl)} alt="" eager={eager}
           fallbackSrc={publicCoverFallback(item.coverUrl)}
           className="h-full w-full" imgClassName="transition-transform duration-500 group-hover:scale-[1.07]" />
-        {glance.overlay}
 
         {/* The icons overlap the way the source chip's do (SourcePicker), each ringed in the box's own ground so the
             overlap reads. One box, one row: with "+2" it is about 60 px on a 110-px phone tile. The "+2" is isolated left to
             right like the 18+ mark below, or an Arabic line reads it "2+". */}
         {stack && (
-          // Pressable, as the "{n} sources" badge it replaced was: it opens the details card, which names every source
-          // in words. Not in the tab order and not announced as a control -- it is inside the card's own button, and a
-          // keyboard or screen reader reaches the same card through the menu's "Description and details".
+          // Not in the tab order and not announced as a control: it is inside the card's own button, and its label names every source.
           <span id={stackId} role="img" aria-label={stack.names} title={stack.names} data-source-stack={stack.icons.length + stack.more}
-            onClick={(ev) => { if (!glance.show) return; ev.preventDefault(); ev.stopPropagation(); glance.show(); }}
-            className="absolute end-1.5 top-1.5 z-10 flex items-center gap-1 rounded-md bg-ink-950/80 p-1 backdrop-blur hover:bg-ink-950 cursor-pointer">
+            className="absolute end-1.5 top-1.5 z-10 flex items-center gap-1 rounded-md bg-ink-950/80 p-1 backdrop-blur hover:bg-ink-950">
             <span className="inline-flex items-center">
               {stack.icons.map((s, i) => (
                 <span key={s.id} className={`inline-flex ${i > 0 ? '-ms-1.5' : ''}`}>
@@ -713,8 +687,7 @@ export function SourceCard({ item, providers, onAdd, onOpenAdded, onSearch, eage
         ? <Link href={libraryHref} aria-label={item.title} aria-describedby={described} className={rootCls} {...menu.bind}>{body}</Link>
         : <button type="button" onClick={onOpenAdded ?? onAdd} disabled={owned && !onOpenAdded} aria-label={owned ? item.title : `${item.title} · ${tr('Add to library')}`} aria-describedby={described} className={rootCls} {...menu.bind}>{body}</button>}
       {menu.element}
-      {glance.modal}
-    </>
+      </>
   );
 }
 

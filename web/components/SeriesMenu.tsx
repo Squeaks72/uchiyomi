@@ -20,7 +20,7 @@ import { SeriesPropertiesSheet } from './SeriesPropertiesSheet';
  * archive of the rest (#117). Offered by role, never offered and then refused, and greyed rather than hidden
  * while offline. Anything larger is the series page, one click away.
  */
-export function useSeriesMenu(series: Series, onDescribe?: () => void, opts?: { keepReading?: boolean; onSelect?: () => void }) {
+export function useSeriesMenu(series: Series, opts?: { keepReading?: boolean; onSelect?: () => void }) {
   const qc = useQueryClient();
   const toast = useToast();
   const { status } = useAuth();

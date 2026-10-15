@@ -395,7 +395,6 @@ function DiscoverInner() {
       ...(!g.inLibrary && g.providers.some((p) => p.inLibrary) ? { moreEditions: true } : {}),
       ...(g.libraryLangs ? { libraryLangs: g.libraryLangs } : {}), ...(pick.lang !== undefined ? { lang: pick.lang } : {}),
       ...(g.rating === 'adult' ? { rating: 'adult' as const } : {}),
-      ...(g.providers.length > 1 ? { altTitles: g.providers.map((p) => p.title) } : {}),
       providerNames: [...new Set(g.providers.map((p) => p.name || p.source))],
     }];
   }), [searchGroups, selected]);
