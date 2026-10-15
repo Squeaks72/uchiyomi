@@ -445,5 +445,5 @@ export function ToggleChip({ on, variant = 'chip', className = '', children, ...
 
 /** The placeholder shown while a query loads: a skeleton block announced as "Loading…". */
 export function LoadingBlock({ className = '' }: { className?: string }) {
-  return <div role="status" aria-label={tr('Loading…')} className={`skeleton ${className}`} />;
+  return <div role="status" aria-label={tr('Loading…')} className={`skeleton ${className || 'h-24'}`} />;
 }
