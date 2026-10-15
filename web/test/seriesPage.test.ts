@@ -427,6 +427,7 @@ test('the series page offers a Check for new chapters button to an admin, throug
 test('an admin can change the cover from the series page and replace one chapter from another source after a side-by-side compare', () => {
   const src = readFileSync(new URL('../app/series/page.tsx', import.meta.url), 'utf8');
   assert.match(src, /data-cover-button/, 'the cover is a button for an admin');
+  assert.match(src, /\{series && isAdmin && \(\s*<button type="button" onClick=\{\(\) => setCoverPicker\(true\)\} data-cover-key/, 'there is a visible Change cover key under the art, for a phone');
   assert.match(src, /<CoverPickerSheet seriesId=\{id\}/);
   assert.match(src, /onReplaceFrom=\{isAdmin && b\.owned !== false && versionsOf\.get\(b\.number\)\?\.some\(\(c\) => !c\.onDisk\)/,
     'the row offers it to an admin, on an owned chapter another source has');

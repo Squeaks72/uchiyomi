@@ -2258,6 +2258,11 @@ function SeriesInner() {
           </motion.div>
           {/* On a phone the reading button and the four keys come first, right under the art (UI refresh, phone); the
               ratings, the languages and the supply line follow. A desktop's left column is the poster and these. */}
+          {/* Change cover (admin): the picker also opens from the desktop poster, but a phone's hero is the cover itself with nothing to
+              tap, and the poster's hover caption is invisible to touch -- so a plain key sits right under the art in both. */}
+          {series && isAdmin && (
+            <button type="button" onClick={() => setCoverPicker(true)} data-cover-key className="btn-key mt-3 w-full justify-center">{tr('Change cover')}</button>
+          )}
           {Actions}
           {/* The ratings, phone form. The desktop form is the first row of the right column. */}
           {series && <div className="mt-4 lg:hidden"><RatingsPanel anilist={series.yomi?.anilist} rating={rating} onRate={rate} /></div>}
