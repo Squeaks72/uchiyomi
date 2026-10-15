@@ -1863,6 +1863,18 @@ ALTER TABLE server_settings ADD COLUMN IF NOT EXISTS new_member_perms          j
 -- on the server and download it (lib/zipExport.ts). Off by default: it spends disk and CPU on the server and hands a whole
 -- series to whoever can see it. Additive.
 ALTER TABLE server_settings ADD COLUMN IF NOT EXISTS zip_exports boolean NOT NULL DEFAULT false;
+
+-- A reader's own correction of a double-page spread the detector got wrong (lib/spreadMarks.ts): split un-joins the pair
+-- (page, page + 1) for that account's reader and nobody else's. Per account and per chapter; the detector's own answer
+-- (lib_books.page_dims) is never touched, so a re-measure cannot erase it. Additive: older builds ignore the table.
+CREATE TABLE IF NOT EXISTS spread_marks (
+  user_id    uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  book_id    text NOT NULL REFERENCES lib_books(id) ON DELETE CASCADE,
+  page       int  NOT NULL CHECK (page >= 1),
+  mark       text NOT NULL CHECK (mark IN ('split')),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, book_id, page)
+);
 `;
 
 // Serialises migrate() across processes. CREATE TABLE IF NOT EXISTS is not safe to run concurrently:
