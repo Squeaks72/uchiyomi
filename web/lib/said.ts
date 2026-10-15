@@ -805,6 +805,10 @@ const WORDS: Record<string, (p: P) => string | null> = {
   'autofix.now.searching': (p) => tr('Searching {name}', { name: str(p, 'name') }),
   'autofix.now.removing': (p) => tr('Removing {name}', { name: str(p, 'name') }),
   'autofix.now.files': () => tr('Deleting chapters saved twice or numbered impossibly'),
+  'autofix.now.badFiles': () => tr('Fetching again the chapter files that are empty or cut short'),
+  'autofix.now.groups': () => tr('Swapping chapters for a preferred group’s copy'),
+  'autofix.now.names': () => tr('Borrowing chapter names from other sources'),
+  'autofix.now.directions': () => tr('Working out reading directions'),
   'autofix.now.rechecking': () => tr('Checking Health again'),
   'autofix.now.waitSweep': () => tr('Waiting for the chapter sweep to finish'),
 
@@ -850,6 +854,16 @@ const WORDS: Record<string, (p: P) => string | null> = {
     : tr('Tried {n} extensions: none of the series were there', { n: num(p, 'n') })),
   'autofix.done.deletedTwice': (p) => (num(p, 'n') === 1 ? tr('Deleted 1 chapter saved twice') : tr('Deleted {n} chapters saved twice', { n: num(p, 'n') })),
   'autofix.done.deletedOdd': (p) => (num(p, 'n') === 1 ? tr('Deleted 1 chapter numbered impossibly') : tr('Deleted {n} chapters numbered impossibly', { n: num(p, 'n') })),
+  'autofix.done.badFiles': (p) => (num(p, 'n') === 1
+    ? tr('Took 1 broken chapter file off the disk to fetch again')
+    : tr('Took {n} broken chapter files off the disk to fetch again', { n: num(p, 'n') })),
+  'autofix.done.groupsUpgraded': (p) => (num(p, 'n') === 1
+    ? tr('Swapped 1 chapter for a preferred group’s copy')
+    : tr('Swapped {n} chapters for a preferred group’s copy', { n: num(p, 'n') })),
+  'autofix.done.named': (p) => (num(p, 'n') === 1 ? tr('Named 1 chapter from another source') : tr('Named {n} chapters from another source', { n: num(p, 'n') })),
+  'autofix.done.directions': (p) => (num(p, 'n') === 1
+    ? tr('Worked out the reading direction of 1 series')
+    : tr('Worked out the reading direction of {n} series', { n: num(p, 'n') })),
 
   'autofix.item.tested': (p) => (p.ok ? tr('{name} passed its test', { name: str(p, 'name') }) : tr('{name} failed its test again', { name: str(p, 'name') })),
   'autofix.item.unblocked': (p) => tr('Cleared the block on {name}', { name: str(p, 'name') }),
@@ -872,6 +886,9 @@ const WORDS: Record<string, (p: P) => string | null> = {
   'autofix.item.uninstalled': (p) => tr('Tried and removed {name}: none of the series were there', { name: str(p, 'name') }),
   'autofix.item.noRoom': (p) => tr('Did not keep {name}: the source limit is full', { name: str(p, 'name') }),
   'autofix.item.installFailed': (p) => tr('{name} could not be installed', { name: str(p, 'name') }),
+  'autofix.item.refetching': (p) => (num(p, 'n') === 1
+    ? tr('Took 1 broken chapter file of “{title}” off the disk to fetch again', { title: titled(p, 'title') })
+    : tr('Took {n} broken chapter files of “{title}” off the disk to fetch again', { n: num(p, 'n'), title: titled(p, 'title') })),
   'autofix.item.deleted': (p) => (num(p, 'n') === 1
     ? tr('Deleted 1 chapter of “{title}”', { title: titled(p, 'title') })
     : tr('Deleted {n} chapters of “{title}”', { n: num(p, 'n'), title: titled(p, 'title') })),
@@ -934,6 +951,7 @@ const WORDS: Record<string, (p: P) => string | null> = {
   'autofix.needs.downloadsMissing': (p) => (num(p, 'n') === 1
     ? tr('1 downloaded chapter is where the library scan never looks')
     : tr('{n} downloaded chapters are where the library scan never looks', { n: num(p, 'n') })),
+  'autofix.needs.other': (p) => tr('{title} needs a look', { title: str(p, 'title') }),
   'autofix.needs.noRoom': (p) => tr('{name} may carry your series, but the source limit is full: free a slot', { name: str(p, 'name') }),
 
   'autofix.clears.cooldown': (p) => tr('{name} is cooling down', { name: str(p, 'name') }),
@@ -953,6 +971,57 @@ const WORDS: Record<string, (p: P) => string | null> = {
   // v0.55.3: one of two solvers is not answering while the other solves (never on the desktop app: one helper, no backup).
   'autofix.clears.mainSolverDown': () => tr('The main Cloudflare solver is not answering, and the backup is solving meanwhile'),
   'autofix.clears.backupSolverDown': () => tr('The backup Cloudflare solver is not answering, and the main one is solving'),
+
+  // ---- Chapter files, series covers and details, disk, status, reading data and trackers (bff lib/healthFiles.ts, healthMore.ts)
+  'files.detail': (p) => [
+    num(p, 'missing') ? tr('Missing: {n}', { n: num(p, 'missing') }) : '',
+    num(p, 'empty') ? tr('Empty: {n}', { n: num(p, 'empty') }) : '',
+    num(p, 'broken') ? tr('Incomplete: {n}', { n: num(p, 'broken') }) : '',
+  ].filter(Boolean).join(' · '),
+  'files.bad': (p) => tr('Chapters with a missing or damaged file: {n}; series affected: {m}', { n: num(p, 'n'), m: num(p, 'm') }),
+  'files.ok': (p) => tr('no missing or damaged chapter files found (checked: {looked} of {total})', { looked: num(p, 'looked'), total: num(p, 'total') }),
+  'files.note': (p) => tr('A slice of the library is looked at on every run, chapters never looked at or last found wrong first, so all of it is covered over several runs (looked at so far: {looked} of {total}). A chapter is damaged when its file is empty, or a zip that ends too early. Rescan everything and Verify chapter files (Admin → Tasks) put right what is missing; Recheck looks at every file.', { looked: num(p, 'looked'), total: num(p, 'total') }),
+  'files.skipped': (p) => tr('Not counted: {roots} holds none of its files, so the share is probably not mounted (see Disk space and folders).', { roots: strs(p, 'roots').join(listSep()) }),
+  'covers.detail': () => tr('no cover set, none fetched, and no chapter to take one from'),
+  'covers.bad': (p) => tr('Series with nothing to show as a cover: {n}', { n: num(p, 'n') }),
+  'covers.ok': () => tr('every series has a cover, or a chapter to take one from'),
+  'covers.note': () => tr('A cover is one set by hand, one fetched from a source or the web, or the first page of a chapter. A cover that exists but is blank cannot be detected here.'),
+  'details.missing': (p) => tr('Missing: {list}', {
+    list: [p.summary && tr('description'), p.genres && tr('genres'), p.author && tr('author')].filter(Boolean).join(listSep()),
+  }),
+  'details.bad': (p) => tr('Series missing a description or genres: {n}', { n: num(p, 'n') }),
+  'details.ok': () => tr('every series has a description and genres'),
+  'details.note': () => tr('Descriptions and genres come from a source or a metadata lookup. Open a series to edit them or fetch them again. A series missing only its author is listed for reference.'),
+  'disk.where': (p) => (str(p, 'kind') === 'library' ? tr('Library folder') : str(p, 'kind') === 'downloads' ? tr('Downloads folder') : tr('Config folder')),
+  'disk.free': (p) => tr('{free} GB free of {total} GB', { free: numText(num(p, 'free')), total: numText(num(p, 'total')) }),
+  'disk.low': (p) => tr('only {free} GB free of {total} GB', { free: numText(num(p, 'free')), total: numText(num(p, 'total')) }),
+  'disk.cannotRead': (p) => tr('could not be read ({error})', { error: str(p, 'error') }),
+  'disk.looksEmpty': (p) => tr('looks empty, but the library records chapters under it (count: {n}). Is the share mounted?', { n: num(p, 'n') }),
+  'disk.bad': (p) => tr('Folders or disks needing attention: {n}', { n: num(p, 'n') }),
+  'disk.ok': () => tr('enough free space, and every folder can be read'),
+  'disk.note': () => tr('Free space is flagged under 5 % on a disk of under 200 GB, and always under 2 % or 5 GB. A library or download folder that cannot be read, or looks empty while chapters are recorded under it, is usually a share that is not mounted: nothing is marked missing until it is back.'),
+  'orphans.kind': (p) => {
+    switch (str(p, 'kind')) {
+      case 'eventsSeries': return tr('Reading history of removed series');
+      case 'eventsChapter': return tr('Reading history of removed chapters');
+      case 'trackerSeries': return tr('Tracker records of removed series');
+      case 'downloads': return tr('Offline downloads of removed chapters');
+      case 'removed': return tr('Favorites and progress held by removed or merged series');
+      default: return str(p, 'kind');
+    }
+  },
+  'orphans.rows': (p) => tr('Records: {n}', { n: num(p, 'n') }),
+  'orphans.some': (p) => tr('Leftover records: {n}', { n: num(p, 'n') }),
+  'orphans.none': () => tr('no leftover reading data'),
+  'orphans.note': () => tr('Reading history is kept on purpose when a series or chapter goes away, so it comes back if the series is added again, and tracker progress is a floor that stops a tracker being rewound. Nothing here is deleted; it is listed so the growth is visible.'),
+  'trackers.rejected': () => tr('the tracker refused the saved sign-in; it has to be reconnected'),
+  'trackers.error': (p) => tr('last sync failed: {error}', { error: str(p, 'error') }),
+  'trackers.expired': (p) => tr('sign-in expired {date}', { date: dayText(p.at) }),
+  'trackers.expiring': (p) => tr('sign-in expires {date}', { date: dayText(p.at) }),
+  'trackers.bad': (p) => tr('Tracker sign-ins needing attention: {n}', { n: num(p, 'n') }),
+  'trackers.ok': (p) => tr('all tracker sign-ins look fine (count: {n})', { n: num(p, 'n') }),
+  'trackers.none': () => tr('no one has connected a tracker'),
+  'trackers.note': () => tr('Each person reconnects their own tracker under Settings → Trackers; one whose sign-in was refused stays switched off until they do. Sign-ins ending within 14 days are findings, and within 30 days listed for reference.'),
 
   // ---- A diagnosis's fix (bff lib/sourceDiagnosis.ts FixCode). ADMIN ONLY, like the server's.
   'fix.solverCrash': () => (isDesktop()

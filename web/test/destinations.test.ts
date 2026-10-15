@@ -99,10 +99,15 @@ test('it covers every admin tab, every section of Admin → Settings, the profil
     assert.ok(DESTINATIONS.some((d) => d.href === `/admin/?tab=Settings&section=${id}`), `the section ${id} is not a destination`);
   }
   assert.ok(DESTINATIONS.some((d) => d.href === '/admin/import/' && d.label === 'Import a list'), 'the import page is not a destination');
-  for (const name of ['Check for updates', 'Notice chapters', '18+ filter', 'Source order', 'Slow archive', 'Backup time', 'Delete read chapters',
+  for (const name of ['Check for updates', 'Notice chapters', 'Content ratings', 'Downloads & politeness', 'Source order', 'Slow archive', 'Backup time', 'Delete read chapters',
     'Scanlators', 'Cloudflare solver', 'Version', 'Rescan everything']) {
     assert.ok(DESTINATIONS.some((d) => d.label === name), `"${name}" is not found by name`);
   }
+});
+
+test('Content ratings keeps the old 18+ filter name as a keyword and has no retired id', () => {
+  assert.ok(DESTINATIONS.some((d) => d.label === 'Content ratings' && d.keywords?.includes('18+ filter')), '18+ filter is no longer found');
+  assert.ok(!DESTINATIONS.some((d) => d.href.includes('section=adult-filter')), 'a destination still points at the retired adult-filter id');
 });
 
 test('admins only where the page is theirs, and nothing Uchiyomi Desktop does not have', () => {

@@ -42,6 +42,7 @@
  * server_settings.repair_last_run / repair_last_result: those are the Tasks line and the nightly's schedule,
  * and a one-row Fix pressed at 23:00 used to replace the first and move the second (v0.49.0).
  */
+import { removeEmptyFolders } from './emptyFolders';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
 import { q, one } from './db';
@@ -61,6 +62,7 @@ import { blockedNow, clearBlock, isDisabled } from './sourceHealth';
 import { automaticChapterAllowedFor, automaticCopiesFor, copyToChapter, seriesFollowsSource, type ListingCopy } from './seriesListing';
 import { groupsOf, normGroup, type ReleasePrefs } from './releases';
 import { effectivePrefsFor, readSeriesPrefs } from './scanlatorPrefs';
+import { fillMissingMeta, seriesMissingMeta } from './metaFill';
 import { borrowNamesFor, NAMES_RETRY_MS } from './borrowNames';
 import { busyFolders } from './bulkNewest';
 import { beginRun, dismissRun, endRun, stopRequested, type RunCard } from './downloadJobs';
@@ -1528,6 +1530,14 @@ async function stepNames(r: RepairResult, log?: Log): Promise<RepairResult['stop
   return undefined;
 }
 
+/** Fill what a few series lack (description, genres, cover) from their other attached sources (lib/metaFill.ts). */
+async function stepMeta(log?: Log): Promise<void> {
+  for (const id of await seriesMissingMeta(15).catch(() => [] as string[])) {
+    const res = await fillMissingMeta(id);
+    if (res.filled.length) log?.info(`repair: ${id}: filled ${res.filled.join(', ')} from ${res.from.join(', ')}`);
+  }
+}
+
 /**
  * (h) Reading directions (#102): which way series read, for the ones nothing has said about yet.
  *
@@ -1919,7 +1929,7 @@ export async function repairLibrary(log?: Log, opts: RepairOpts = {}): Promise<R
     } else if (step === 'gaps') stopped = await stepGaps(r, opts, budget, pending, notes, log);
     else if (step === 'groups') stopped = await stepGroups(r, opts, notes, log);
     else if (step === 'names') stopped = await stepNames(r, log);
-    else if (step === 'directions') await stepDirections(r, log);
+    else if (step === 'directions') { await stepDirections(r, log); await stepMeta(log); }
     r.stepMs[step] = Date.now() - t;
     if (live) live.stepMs[step] = r.stepMs[step];
     if (activeCard) {
@@ -1940,6 +1950,13 @@ export async function repairLibrary(log?: Log, opts: RepairOpts = {}): Promise<R
     }
   }
 
+  // The whole nightly pass ends by clearing empty folders left behind by series that moved or were removed
+  // (lib/emptyFolders.ts). Not for a partial run, a single-series run or Fix everything's passes.
+  let emptied = 0;
+  if (!stopped && !opts.autofix && !opts.only?.length && !opts.seriesId && !opts.bookId && !opts.sourceId) {
+    emptied = (await removeEmptyFolders(log).catch((e) => { log?.warn(`repair: empty-folder sweep failed: ${(e as Error)?.message || e}`); return { removed: [] as string[] }; })).removed.length;
+  }
+
   here(null);
   const out: RepairResult = { ...r, ms: Date.now() - t0, ...(stopped ? { stopped } : {}) };
   if (live) live.notes = notes;
@@ -1954,6 +1971,7 @@ export async function repairLibrary(log?: Log, opts: RepairOpts = {}): Promise<R
       ...(opts.sourceId ? { sourceId: opts.sourceId } : {}),
       ...(opts.now ? { now: true } : {}),
       summary: summaryOf(out),
+      ...(emptied ? { emptyFoldersRemoved: emptied } : {}),
       ...(stopped ? { stopped } : {}),
       // Capped lists, not counts: enough to answer "which chapters did it touch last night" from the audit
       // page alone, bounded so one run cannot write a megabyte of JSON into the log.

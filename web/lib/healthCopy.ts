@@ -33,6 +33,7 @@ const CHECK_TITLE_KEYS = keys(
   'Source health', 'Duplicate series', 'Impossible chapter numbers', 'Cloudflare solver', 'Version',
   'Extension source limit', 'Library scan', 'Downloads missing from the library', 'Extension engine', 'Chapter numbering',
   'The same chapter saved twice', 'Folders scanned twice',
+  'Chapter files', 'Series covers', 'Series details', 'Disk space and folders', 'Series status', 'Reading data', 'Tracker sync',
 );
 export const CHECK_TITLES: Readonly<Record<string, (typeof CHECK_TITLE_KEYS)[number]>> = {
   'chapter-gaps': CHECK_TITLE_KEYS[0],
@@ -55,6 +56,14 @@ export const CHECK_TITLES: Readonly<Record<string, (typeof CHECK_TITLE_KEYS)[num
   'saved-twice': CHECK_TITLE_KEYS[14],
   // v0.52.0 (#134): the downloads folder inside the library, or the library inside it (bff lib/health.ts foldersScannedTwice).
   'folders-twice': CHECK_TITLE_KEYS[15],
+  // The chapter-file, cover, details, disk, status, reading-data and tracker checks (bff lib/healthFiles.ts, healthMore.ts).
+  files: CHECK_TITLE_KEYS[16],
+  covers: CHECK_TITLE_KEYS[17],
+  details: CHECK_TITLE_KEYS[18],
+  disk: CHECK_TITLE_KEYS[19],
+  stalled: CHECK_TITLE_KEYS[20],
+  orphans: CHECK_TITLE_KEYS[21],
+  trackers: CHECK_TITLE_KEYS[22],
 };
 
 export function checkTitle(c: Pick<HealthCheck, 'id' | 'title'>): string {
@@ -213,6 +222,13 @@ export const ACTION_COPY: Readonly<Record<string, ActionCopy>> = {
   link_editions: {
     label: () => tr('Link as editions'),
     what: () => tr('Keeps both series, each with its own chapters and reading progress, as language editions of one work: the Library shows one card for them. Unlinking from the series page undoes it.'),
+    eta: moment,
+  },
+  // v0.56.0: a frozen series, removed from the library right from the row. The same hide as the series page's Remove from
+  // library: nothing on disk is touched and Admin → Library puts it back.
+  remove_series: {
+    label: () => tr('Remove from library'),
+    what: () => tr('Hides this series from the library. No files are deleted, everyone keeps their reading progress, and Admin → Library puts it back.'),
     eta: moment,
   },
   // Card-level: the step acts on every source that blames the solver, whatever row was pressed.

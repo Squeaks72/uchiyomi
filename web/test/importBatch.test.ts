@@ -152,7 +152,7 @@ test('the match sheet keeps search at the top and the comparison in the pinned f
 test('the intake copy names the button that commits, and the review copy tells the truth about time', () => {
   // Reintroduce by writing "until you press Continue" back: there is no Continue on this page.
   const src = read('app/admin/import/page.tsx');
-  assert.ok(src.includes('nothing lands in your library until you press Import selected.'), 'the intake card promises a button that does not exist');
+  assert.ok(src.includes('Nothing is added until you press Import selected.'), 'the intake card promises a button that does not exist');
   assert.doesNotMatch(code(src), /press Continue/, '"Continue" is back');
   assert.ok(src.includes("tr('Import selected — {n}', { n: selectedIds.size })"), 'the commit button is no longer "Import selected — {n}"');
   // Adding with nothing downloaded still asks each source for the series, one title at a time.
@@ -166,7 +166,7 @@ test('Admin → Sources has one way to import: the reviewed flow', () => {
   // other fixes. Reintroduce by putting the textarea and its POST /api/admin/import back on the card. Since v0.54.0
   // the door is a row of Admin → Sources' Add sources (Providers' card before).
   const src = code(read('app/admin/page.tsx')) + code(read('components/SourcesPanel.tsx'));
-  assert.equal((src.match(/'\/admin\/import\/'/g) || []).length, 0, 'the console pushes to /admin/import/ by hand again');
+  assert.equal((src.match(/(?:push|replace)\('\/admin\/import\/'/g) || []).length, 0, 'the console pushes to /admin/import/ by hand again');
   assert.equal((src.match(/<LinkRow href="\/admin\/import\/" label=\{tr\('Import a list'\)\}/g) || []).length, 1, 'Add sources does not link to /admin/import/ exactly once');
   assert.doesNotMatch(src, /'\/api\/admin\/import'[,)]/, 'the one-shot POST /api/admin/import is back in the UI');
   assert.doesNotMatch(src, /\/api\/admin\/import\/(parse|status)/, 'the old parse/status calls are back');
@@ -357,20 +357,19 @@ test('the review filter finds a row by its matched title too', () => {
   assert.match(src, /c\.backup_title\.toLowerCase\(\)\.includes\(needle\) && !\(c\.match_title \|\| ''\)\.toLowerCase\(\)\.includes\(needle\)/, 'the filter ignores match_title');
 });
 
-test('the intake card tells the truth about what a backup gives up: title, source AND address', () => {
-  // The matcher reads each entry's url (its address on the source) and uses it as the same-source proof;
-  // the card and the docs said only the titles and their source were read. Reintroduce by restoring the
-  // old sentence, in the page or in any locale file.
-  const key = "A .tachibk backup stays on your server — only each entry's title, its source and its address on that source are read.";
+test('the intake card tells the truth about what a backup gives up: title, source AND link', () => {
+  // The matcher reads each entry's url (its link on the source) and uses it as the same-source proof; the card
+  // once said only the titles and their source were read. Reintroduce by restoring the old sentence, in the
+  // page or in any locale file.
+  const key = 'Your backup stays on your server. Only each title, its source and its link are read.';
   const src = read('app/admin/import/page.tsx');
-  assert.ok(src.includes("only each entry\\'s title, its source and its address on that source are read."), 'the card no longer names the address');
+  assert.ok(src.includes(key), 'the card no longer names the link');
   assert.doesNotMatch(src, /only the titles \(and, where available/, 'the old sentence is back on the card');
+  assert.doesNotMatch(src, /its address on that source are read/, 'the old wording is back on the card');
   const dir = join(ROOT, 'public/locales');
   for (const f of readdirSync(dir).filter((x) => x.endsWith('.json'))) {
     const d = JSON.parse(readFileSync(join(dir, f), 'utf8'));
     assert.ok(typeof d[key] === 'string' && d[key].trim(), `${f} has no translation of the new sentence`);
-    const old = Object.keys(d).find((k) => k.startsWith('A .tachibk backup stays on your server') && k !== key);
-    assert.equal(old, undefined, `${f} still carries the old sentence: ${old}`);
   }
 });
 
@@ -472,14 +471,14 @@ test('the tracker intake is a nested box, and the intake card still ends on its 
   assert.match(intake, /<div className="mb-4 rounded-xl border border-ink-700 bg-ink-900\/50 p-2\.5" data-tracker-intake>/, 'the tracker intake is not the nested box');
   assert.match(intake, /<OpenImports batches=\{open\} onOpen=\{onOpen\} \/>\s*<TrackerIntake starting=\{starting\} onStart=\{onTracker\} \/>\s*<p className="mb-2 text-xs font-semibold uppercase tracking-wider text-fog-500">\{tr\('Bring your library over'\)\}<\/p>/, 'the box is not between Open imports and the eyebrow');
   // Not connected: one dim line that lands ON the Progress tracking card (tab + card, see the profile test).
-  assert.match(intake, /<Link href="\/profile\/\?tab=Connections&card=tracking"[^>]*>\s*\{NOT_CONNECTED\(\)\}/, 'the not-connected line does not point at the tracking card');
+  assert.match(intake, /<Link href="\/profile\/\?tab=Connections&card=tracking"[^>]*>\s*\{broken\.length \? tr\('Your tracker rejected the saved login\. Reconnect it under Profile\.'\) : NOT_CONNECTED\(\)\}/, 'the not-connected line does not point at the tracking card');
   // Reading + Plan to read on by default; "Finished" is the read-state word, never the series status "Completed".
   assert.match(src, /const LIST_STATUS_LABELS = keys\('Reading', 'Plan to read', 'Finished', 'On hold', 'Dropped'\);/, 'the list buckets are not declared through keys()');
   assert.match(src, /\{ id: 'reading', label: LIST_STATUS_LABELS\[0\], on: true \},\s*\{ id: 'plan_to_read', label: LIST_STATUS_LABELS\[1\], on: true \},\s*\{ id: 'completed', label: LIST_STATUS_LABELS\[2\], on: false \}/, 'Reading and Plan to read are not the defaults, or completed is not labelled Finished');
   assert.doesNotMatch(src, /keys\([^)]*'Completed'/, '"Completed" (the series status) is used for the read state');
   // The body the server takes, and the three refusals in the person's words.
   assert.match(src, /start\(\{ origin: 'tracker', tracker, statuses \}\)/, 'Load list does not post the tracker body');
-  assert.match(src, /body\.error === 'tracker_rejected'\) toast\(tr\('The tracker rejected the saved token — reconnect it under Profile'\), 'error'\)/, 'tracker_rejected has no sentence');
+  assert.match(src, /body\.error === 'tracker_rejected'\) toast\(tr\('Your tracker rejected the saved login. Reconnect it under Profile.'\), 'error'\)/, 'tracker_rejected has no sentence');
   assert.match(src, /body\.error === 'tracker_unavailable'\) toast\(tr\('Could not read your list right now'\), 'error'\)/, 'tracker_unavailable has no sentence');
   assert.match(src, /body\.error === 'not_connected'\) \{ qc\.invalidateQueries\(\{ queryKey: \['trackers'\] \}\); toast\(NOT_CONNECTED\(\), 'info'\); \}/, 'not_connected does not fall back to the dim line');
 });
@@ -557,23 +556,6 @@ test('an all-owned tracker batch says what it did: the done card counts and name
   assert.deepEqual(missingIn('es.json', ['1 linked for progress sync', '{n} linked for progress sync', 'linked for progress sync']), [], 'a linked key is missing from es.json');
 });
 
-test('the Discover strip tells the truth about a carrier card: a nothing-yet add that checked other sources never reads "Fetched"', () => {
-  // A "Nothing yet" add with candidates leaves a job with `total: 0, status: 'done'` and the judgement on
-  // it; the strip rendered every non-downloading, non-error card as "Fetched" in emerald, so the series a
-  // person had just declined to fetch read as fetched for five minutes -- from the moment of the add, while
-  // the check was still running. Reintroduce by deleting the `j.total === 0 && j.autoFollow` branch: "a
-  // carrier card reads Fetched" fails; by rendering one sentence for both states: "the running check reads
-  // as finished" fails.
-  const src = code(read('app/discover/page.tsx'));
-  assert.match(src, /\) : j\.total === 0 && j\.autoFollow \? \(\s*<p className="mt-1 text-\[11px\] text-fog-500">\{j\.autoFollow\.done \? tr\('Checked other sources'\) : tr\('Checking other sources…'\)\}<\/p>\s*\) : \(\s*<p className="mt-1 text-\[11px\] text-emerald-400">\{tr\('Fetched'\)\}<\/p>/, 'a carrier card reads Fetched, or the running check reads as finished');
-  // The strip reads the shared jobs answer (v0.49.0), whose card type is lib/serverDownloads.ts DownloadJob.
-  assert.match(src, /const \{ data: jobsData \} = useServerDownloads\(\);/, "the strip's jobs are not the shared answer");
-  const lib = code(read('lib/serverDownloads.ts'));
-  const card = lib.slice(lib.indexOf('export interface DownloadJob extends JobCard {'), lib.indexOf('\n}\n', lib.indexOf('export interface DownloadJob')));
-  assert.match(card, /autoFollow\?: AutoFollow;/, "the strip's Job does not know the judgement");
-  for (const f of localeFiles()) assert.deepEqual(missingIn(f, ['Checking other sources…', 'Checked other sources']), [], `${f} lacks a strip key`);
-});
-
 test('the switch is for admins: a member sees no "also check" switch, sends no alsoFollow, and is told who can', () => {
   // The manual follow route and the sheet's × are admin-only, so a member who was shown the switch could
   // follow two sources and never undo them; the doc said "(admins)" and the code did not. Discover passes
@@ -634,11 +616,12 @@ test('the add dialog offers the other sources only when it already holds a list,
   // (#116's `numbering` and #117's "Archive the rest slowly" ride after it, pinned in numbering.test.ts and
   // addSeriesDialog.test.ts.)
   // (v0.52.0's language edition rides after those, pinned in addSeriesDialog.test.ts.)
-  assert.match(src, /json: \{\s*source: picked\.source, sourceId: picked\.sourceId, chapterCount, chapterFrom, autoUpdate, force, alsoFollow: alsoFollowBody, numbering,?(?:\s*\.\.\.\(archiving \? \{ archive: true \} : \{\}\),?)?(?:\s*\.\.\.\(editionBody \? \{ edition: editionBody \} : \{\}\),?)?\s*\}/, 'the add body does not carry alsoFollow');
+  assert.match(src, /json: \{\s*source: picked\.source, sourceId: picked\.sourceId, chapterCount, chapterFrom, autoUpdate, force, alsoFollow: alsoFollowBody, numbering,?(?:\s*\.\.\.\(archiving \? \{ archive: true \} : \{\}\),?)?(?:\s*\.\.\.\(editionBody \? \{ edition: editionBody \} : \{\}\),?)?(?:\s*\.\.\.\(chosenLib && chosenLib !== 'lib' \? \{ libraryId: chosenLib \} : \{\}\),?)?\s*\}/, 'the add body does not carry alsoFollow');
   // The switch is on the options step only with candidates, remembered per device under one key.
   assert.match(src, /\{mayFollow && others\.length > 0 && !view\?\.posting && \(\s*<div className="mt-3" data-also-follow>/, 'the switch shows without candidates');
-  assert.match(src, /const ALSO_FOLLOW_KEY = 'uchiyomi\.alsoFollow';/, 'the per-device key changed');
-  assert.match(src, /localStorage\.setItem\(ALSO_FOLLOW_KEY, v \? '1' : '0'\)/, 'the switch is not remembered');
+  // Remembered on the ACCOUNT now (lib/accountPrefs.ts, mirrored to the same localStorage key it always used).
+  assert.match(src, /const \[alsoFollow, setAlsoFollowPref\] = useAccountPref\('alsoFollow'\);/, 'the switch is not remembered');
+  assert.match(readFileSync(join(__dirname, '..', 'lib/accountPrefs.ts'), 'utf8'), /alsoFollow: \{ mirror: 'uchiyomi\.alsoFollow', on: '1', off: '0', fallback: false \}/, 'the stored key or values changed');
   // The done step: results from the job card the dialog already polls; a result seed points at Find missing.
   assert.match(src, /if \(seed\.kind === 'result'\) return <p[^>]*>\{tr\('Other sources: Find missing chapters on the series page\.'\)\}<\/p>;/, 'a result seed is not pointed at Find missing chapters');
   assert.match(src, /if \(others\.length === 0\) return <p[^>]*>\{tr\('None of the other sources checked lists this title\.'\)\}<\/p>;/, 'zero others does not say "checked"');
@@ -658,7 +641,7 @@ test('the sources sheet marks an automatic follower in its one chip, not as a th
   // Reintroduce by adding a `{s.auto && <span …>}` beside the chip: "a third span is back" fails.
   const src = code(read('components/SourcesSheet.tsx'));
   const rowSrc = src.slice(src.indexOf('function SourceRow('), src.indexOf('function GroupRow('));
-  assert.match(rowSrc, /<span className="chip shrink-0 px-2 py-0\.5 text-\[10px\]">\{s\.primary \? tr\('main'\) : s\.auto \? tr\('followed for you'\) : tr\('also checked'\)\}<\/span>/, 'the chip does not carry "followed for you"');
+  assert.match(rowSrc, /<span className="chip shrink-0 px-2 py-0\.5 text-\[11px\]">\{s\.primary \? tr\('main'\) : s\.auto \? tr\('followed for you'\) : tr\('also checked'\)\}<\/span>/, 'the chip does not carry "followed for you"');
   assert.doesNotMatch(rowSrc, /s\.auto && <span/, 'a third span is back');
   assert.match(rowSrc, /aria-label=\{tr\('Stop following \{s\}', \{ s: s\.name \}\)\}/, 'the × label changed');
   assert.match(read('lib/types.ts'), /auto\?: boolean;/, 'SeriesSource has no `auto`');

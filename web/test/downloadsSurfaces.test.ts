@@ -102,11 +102,10 @@ test('the Library ring: on the phone\'s Library tab, beside the desktop bell, ne
 
 test('every way that used to lead to the pill or the Offline tab leads to Library -> Downloads', () => {
   // Reintroduce the Offline tab as the add dialog's fallback: addSeriesDialog.test.ts and desktopSurfaces.test.ts
-  // fail too. Here: Discover's strip and its "See all", and the series band's "See all".
+  // fail too. Here: the series band's "See all".
   const discover = code(read('app/discover/page.tsx'));
-  // Where each card leads is lib/libraryView.ts stripHref's (libraryView.test.ts); a card it sends nowhere is not a link.
-  assert.match(discover, /const href = stripHref\(j\);[\s\S]*?return href\s*\? <Link key=\{j\.folder\} href=\{href\}/, 'a strip card leads nowhere');
-  assert.match(discover, /<Link href=\{downloadsHref\(\)\}[^>]*>\{tr\('See all'\)\}<\/Link>/, 'the strip has no way to the whole list');
+  // Discover carries no downloads strip: in-progress work lives behind the header's Server fetching button.
+  assert.doesNotMatch(discover, /data-job-card|useServerDownloads/, 'Discover shows downloads again');
   assert.match(code(read('components/SeriesServerDownloads.tsx')), /const href = downloadsHref\(/);
   assert.match(code(read('app/series/page.tsx')), /<SeriesServerDownloads seriesId=\{id\} folder=\{series\?\.folder\} \/>/, 'the series page has no band');
 });
@@ -208,7 +207,8 @@ test('the desktop header fits at 1024 px: round buttons keep their 40 px, and th
     assert.match(m[1], /\bshrink-0\b/, `a round header button can be squeezed into an oval: ${m[1].slice(0, 80)}`);
   }
   assert.ok([...header.matchAll(/\bh-10 w-10\b/g)].length >= 1, 'the round buttons moved -- redo this scan');
-  assert.match(header, /<Link href="\/profile" className="shrink-0 /, 'the avatar can be squeezed');
+  // The avatar is the quick-settings button now (components/ProfileMenu.tsx), not a link in the header.
+  assert.match(code(read('components/ProfileMenu.tsx')), /className=\{`shrink-0 rounded-full /, 'the avatar can be squeezed');
   // The search takes what is left: flexible, never a fixed width, its words truncating down to the icon.
   assert.match(header, /className="flex min-w-0 max-w-xl flex-1 /, 'the search is a fixed width again');
   assert.doesNotMatch(header, /(?<![\w-])w-(72|96|xl)\b/, 'the search is a fixed width again');
@@ -218,7 +218,7 @@ test('the desktop header fits at 1024 px: round buttons keep their 40 px, and th
   assert.match(header, /className="flex min-w-0 max-w-xl flex-1 @container /, 'the search is not a size container');
   assert.match(header, /<span data-search-label className="hidden min-w-0 flex-1 truncate text-sm text-fog-500 @\[4\.5rem\]:block">/,
     'the search label shows a sliver when the search is squeezed');
-  assert.match(header, /<kbd data-search-kbd className="hidden [^"]*\bxl:@\[12rem\]:block">/, 'the ⌘K hint shows in a squeezed search');
+  assert.match(header, /<kbd data-search-kbd className="hidden [^"]*\bxl:@\[12rem\]:block"(?: aria-hidden)?>/, 'the ⌘K hint shows in a squeezed search');
   assert.match(header, /aria-label=\{tr\('Search…'\)\}/, 'with its label hidden the search has no accessible name');
   // Below xl: 12 px gaps and no ⌘K hint. The logo is the sidebar's now.
   assert.match(header, /<div className="shell flex items-center gap-3 py-3 xl:gap-6">/, 'the header keeps its 24 px gaps at lg');

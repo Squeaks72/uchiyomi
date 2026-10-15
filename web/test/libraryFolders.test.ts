@@ -125,14 +125,14 @@ test('the dialog keeps a list of folders, sends `paths`, and the browser\'s rows
   const dialog = slice(admin, 'function LibraryDialog(', 'function LibrariesSection(');
   assert.match(dialog, /const folders = addFolder\(paths, typed\);/, 'Save forgets a folder typed and not added');
   // Reintroduce `path: path.trim()` in either request: "the create does not send paths" / "the edit does not".
-  assert.match(dialog, /json: \{ name: name\.trim\(\), paths: folders, ageRating, anilistLookup \}/, 'the create does not send paths or the AniList preference');
+  assert.match(dialog, /json: \{ name: name\.trim\(\), paths: folders, ageRating, anilistLookup, defaultVisible, readerPrefs: readerPrefs\(\) \}/, 'the create does not send paths or the AniList preference');
   assert.match(dialog, /if \(!isLib && !unchanged\) body\.paths = folders;/, 'the edit does not send paths');
   assert.match(dialog, /const \[anilistLookup, setAniListLookup\] = useState\(editing\?\.anilist_lookup \?\? true\);/,
     'a new or older library does not keep the compatible AniList-on default');
-  assert.match(dialog, /const body: Record<string, unknown> = \{ name: name\.trim\(\), ageRating, anilistLookup \};/,
+  assert.match(dialog, /const body: Record<string, unknown> = \{ name: name\.trim\(\), ageRating, anilistLookup, defaultVisible, readerPrefs: readerPrefs\(\) \};/,
     'an edited library does not save the AniList preference');
   assert.match(dialog, /data-library-anilist-lookup/, 'the dialog has no AniList privacy control');
-  assert.match(dialog, /automatic lookups do not send this library's titles to AniList[\s\S]*manual AniList actions can still connect/,
+  assert.match(dialog, /automatic lookups do not send this library's titles to AniList, Kitsu or MangaUpdates[\s\S]*manual actions can still connect/,
     'the control does not explain its privacy boundary and manual exception');
   assert.match(dialog, /<FolderPicker chosen=\{paths\} held=\{held\} onToggle=\{toggle\} \/>/);
   assert.match(dialog, /setPaths\(\(cur\) => toggleFolder\(cur, p\)\)/, 'a tick does not toggle the list');
@@ -165,6 +165,6 @@ test('a library card and Move to library say the first folder and "+{n} more"', 
   const line = code(read('components/LibraryFolders.tsx'));
   assert.match(line, /const more = moreFoldersText\(paths\);/);
   assert.match(line, /<bdi className="min-w-0 truncate font-mono">\{paths\[0\]\}<\/bdi>\s*\{more && <span className="shrink-0/, 'the count can be truncated away by a long first folder');
-  const library = code(read('app/library/page.tsx'));
+  const library = code(read('components/MoveToLibrary.tsx'));
   assert.match(library, /<LibraryFolders paths=\{foldersOf\(l\)\} className="text-\[11px\] text-fog-500" \/>/, 'Move to library shows one folder');
 });

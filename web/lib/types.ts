@@ -175,6 +175,10 @@ export interface SeriesEdition {
 }
 
 export interface Series {
+  /** Admins only: the library it is in. */
+  library?: { id: string; name: string };
+  /** The reading defaults of the library the series is in; null when it has none. */
+  libraryReader?: { mode?: 'vertical' | 'paged'; theme?: 'amoled' | 'sepia' | 'gray'; spread?: boolean; pagedDirection?: 'ltr' | 'rtl' | 'series' } | null;
   /** Whether the scheduled updater fetches new chapters for this series. */
   autoUpdate?: boolean;
   /** The folder on disk, relative to the library root. Only sent to admins, for the rename control. */
@@ -523,6 +527,8 @@ export interface PageInfo {
    * explanation over it rather than letting a blank page read as a broken image.
    */
   missing?: true;
+  /** This page and the next are one double-page spread the source cut in two; which side the next one is on (bff lib/spreadJoin.ts). */
+  join?: 'rtl' | 'ltr';
   fileName: string;
   mediaType: string;
   width?: number;
@@ -560,6 +566,8 @@ export type HealthAction =
   | 'find_sources'
   // v0.52.0 (#72): a duplicate pair in two languages, linked as editions of one work (POST /api/admin/series/:id/editions).
   | 'link_editions'
+  // v0.56.0: a frozen series removed from the library from Health (DELETE /api/admin/series/:id): hidden, files kept.
+  | 'remove_series'
   // v0.54.0: move every series whose main source is `sourceId` -- off or failing -- to a working source, in one Replace
   // run (POST /api/admin/sources/find in its replace mode); the source and the frozen-series rows offer it.
   | 'replace_source'
@@ -638,6 +646,8 @@ export interface HealthItem {
    * source is `sourceId`. The key's words say the number when it is here.
    */
   findSeries?: number;
+  /** v0.56.0, beside 'find_sources' on a "Series that can no longer update" row: the run is over this row's series alone. */
+  findScope?: 'series';
 
   // ---- v0.53.0, Source health rows only (bff lib/health.ts): the card's group, and what the row's one line and its
   // one key are chosen by. components/SourceHealthBody.tsx reads them; lib/sourceHealth.ts words them.
@@ -742,9 +752,12 @@ export interface DownloadManifest {
   coverUrl: string;
   totalBytes: number;
   /** `missing` rides along like `junk`: the placeholder bytes download like any page, and the caption is drawn offline too. */
-  pages: { number: number; url: string; width: number | null; height: number | null; bytes: number | null; junk?: boolean; missing?: true }[];
+  pages: { number: number; url: string; width: number | null; height: number | null; bytes: number | null; junk?: boolean; missing?: true; join?: 'rtl' | 'ltr' }[];
 }
 
 export function isWebtoon(dir?: string): boolean {
   return dir === 'WEBTOON' || dir === 'VERTICAL';
 }
+
+/** One of the reader's lists, as `/api/collections` returns it. */
+export interface CollectionRow { id: string; name: string; accent: string | null; item_count: number; sort_order?: number }

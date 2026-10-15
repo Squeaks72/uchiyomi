@@ -221,7 +221,7 @@ export function ExtensionRemove({ ext, actions, onRemoved }: { ext: InstalledExt
           className={`btn-key border-red-500/50 bg-red-500/20 text-red-100 hover:border-red-400 hover:text-red-50 ${busyKey(busy === 'uninstall')}`}>
           {busy === 'uninstall' ? <Busy tone="red">{tr('Removing…')}</Busy> : tr('Remove')}
         </button>
-        <button type="button" onClick={() => setRemoving(false)} disabled={!!busy} className="btn-key">{tr('Cancel')}</button>
+        <button type="button" autoFocus onClick={() => setRemoving(false)} disabled={!!busy} className="btn-key">{tr('Cancel')}</button>
       </div>
     </div>
   );

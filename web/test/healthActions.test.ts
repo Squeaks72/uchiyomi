@@ -87,6 +87,8 @@ const ACTIONS: { action: string; labels: string[]; wants: RegExp }[] = [
   // label is the counted one in healthCopy.ts ("Find other sources (189 series)"), whose tr() findSources.test.ts holds.
   // v0.51.0: the press opens the start dialog (follow automatically, or review first); its Start posts the source.
   { action: 'find_sources', labels: ['label: copy.label({ ...ctx, n: item.findSeries })'], wants: /onRun: \(\) => setAsking\('find'\)/ },
+  // v0.56.0: a frozen series is hidden from the library right from its row, after a confirmation (DELETE /api/admin/series/:id).
+  { action: 'remove_series', labels: ["tr('Remove from library')"], wants: /onRun: \(\) => setAsking\('remove'\)/ },
   // v0.52.0 (#72): a duplicate pair in two languages is linked as editions after a confirmation that names both.
   { action: 'link_editions', labels: ["tr('Link as editions')"], wants: /onRun: \(\) => setAsking\('link'\)/ },
   // v0.54.0: a dead main source's series move in one run (POST /api/admin/sources/find, mode 'replace'). The press opens
@@ -203,7 +205,7 @@ test('#117: the slow archive\'s caveat reads as a plain line, the others in ambe
   // Reintroduce the one amber class for every caveat: gaps on their way read as a problem.
   const row = rowOf(code(read(KEYS)));
   assert.match(row, /\.map\(\(c\) => \(\{ text: caveatLine\(c\), tone: caveatTone\(c\) \}\)\)/, 'caveats are not toned');
-  assert.match(row, /data-health-caveat=\{c\.tone\} className=\{`mt-1 text-\[11px\] leading-relaxed \$\{c\.tone === 'calm' \? 'text-fog-400' : 'text-amber-300\/90'\}`\}/,
+  assert.match(row, /data-health-caveat=\{c\.tone\} className=\{`mt-1 text-\[11px\] leading-relaxed \$\{c\.tone === 'calm' \? 'text-fog-300' : 'text-amber-300'\}`\}/,
     'a calm caveat is drawn in amber');
 });
 
@@ -212,7 +214,7 @@ test('every dialog a Health card opens is on <body>, out of the card', () => {
   // its overflow-hidden cuts the dialog off. Reintroduce by rendering a ConfirmDialog in place: this names it.
   const src = code(read(KEYS));
   const opens = [...src.matchAll(/<ConfirmDialog\b/g)].map((m) => m.index!);
-  assert.equal(opens.length, 6, 'the Health confirmations moved -- update this count');
+  assert.equal(opens.length, 7, 'the Health confirmations moved -- update this count');
   for (const at of opens) {
     const before = src.slice(0, at);
     assert.ok(before.lastIndexOf('<OnBody>') > before.lastIndexOf('</OnBody>'), `a Health confirmation is rendered inside its card: ${src.slice(at, at + 90)}`);
@@ -640,4 +642,13 @@ test("Health prints the server's words in their own direction: every finding's t
     assert.ok(at.length > 0, `${what} is no longer printed in a <p> of its own -- update this test`);
     for (const m of at) assert.match(m[1], /\bdir="auto"/, `${what} takes the page's direction, its full stop at its start in Arabic`);
   }
+});
+
+test('every Health row has a Recheck that reruns only its own check and patches the cached report', () => {
+  const src = readFileSync(new URL('../components/HealthActions.tsx', import.meta.url), 'utf8');
+  assert.match(src, /\/api\/admin\/health\/recheck/);
+  assert.match(src, /setQueryData[\s\S]{0,80}\['admin-health'\]/);
+  assert.match(src, /data-health-recheck/);
+  assert.match(src, /hook: 'recheck'/);
+  assert.match(src, /tr\('No longer a problem'\)/);
 });

@@ -338,8 +338,18 @@ export type Rating = 'adult' | 'safe';
 export type Judged = Rating | 'flagged';
 /** What a search shows: everything, everything not known to be 18+ (`safe`), or only what is (`adult`). */
 export type RatingFilter = 'all' | 'safe' | 'adult';
+/**
+ * The ids of a `sources` query value (comma-separated), or null when it names none -- the search then asks every source.
+ * At most 200 ids, so a hostile value costs nothing; the caller still intersects it with the sources the viewer may reach.
+ */
+export function narrowTo(raw: unknown): Set<string> | null {
+  if (typeof raw !== 'string') return null;
+  const ids = raw.split(',').map((s) => s.trim()).filter(Boolean).slice(0, 200);
+  return ids.length ? new Set(ids) : null;
+}
+
 /** The admin's 18+ filter lists (lib/visibility.ts adultFilter): genres as typed, source ids lowercased. */
-export interface AdultLists { genres: readonly string[]; sources: readonly string[] }
+export interface AdultLists { genres: readonly string[]; sources: readonly string[]; /** Sources the admin set to "Mixed": their extension's flag does not count. */ cleared?: readonly string[] }
 
 /**
  * Whether a search result is 18+, by every signal it carries.
@@ -362,7 +372,7 @@ export function ratingOf(
   const adult = new Set(lists.genres.map(fold).filter(Boolean));
   const genres = (Array.isArray(item.genres) ? item.genres : []).filter((g): g is string => typeof g === 'string').map(fold).filter(Boolean);
   if (genres.some((g) => adult.has(g))) return 'adult';
-  if (src?.isNsfw) return 'flagged';
+  if (src?.isNsfw && !(src.id && lists.cleared?.includes(String(src.id).toLowerCase()))) return 'flagged';
   if (item.contentRating === 'safe' || item.contentRating === 'suggestive') return 'safe';
   if (genres.length && adult.size) return 'safe';
   return undefined;
@@ -401,7 +411,12 @@ export interface Provider { source: string; name: string; sourceId: string; cove
  * `rating` (v0.55.4; weighed by cardRating since v0.55.5): 18+, safe, or absent when nothing says. `work` (v0.56.0): the
  * key the card was folded by, when the caller gave one (groupByTitle's keyOf).
  */
-export interface TitleGroup { title: string; coverUrl?: string; updatedAt?: string; providers: Provider[]; rating?: Rating; work?: string }
+export interface TitleGroup {
+  title: string; coverUrl?: string; updatedAt?: string;
+  /** The first description any provider gave, cut short: the card shows its first lines. */
+  summary?: string;
+  providers: Provider[]; rating?: Rating; work?: string;
+}
 export interface SourceRail { source: string; name: string; lang: string | null; results: Array<SourceSeries & { name: string; rating?: Rating }> }
 
 /**
@@ -434,6 +449,7 @@ export function groupByTitle(
       }
       if (!g.coverUrl && r.coverUrl) g.coverUrl = r.coverUrl;
       if (!g.updatedAt && r.updatedAt) g.updatedAt = r.updatedAt;
+      if (!g.summary && r.summary?.trim()) g.summary = r.summary.trim().slice(0, 400);
       if (!g.providers.some((p) => p.source === r.source)) {
         const j = rated?.of(r, src);
         const rating = answered(j);

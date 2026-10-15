@@ -2,19 +2,20 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { placeMenu, wantsOwnMenu } from '../lib/contextMenus';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 const click = (o: Partial<{ shiftKey: boolean; editable: boolean; selection: string; inSelection: boolean }> = {}) =>
   ({ shiftKey: false, editable: false, selection: '', inSelection: false, ...o });
 
 test("the browser's menu is left alone where it is worth something", () => {
-  assert.equal(wantsOwnMenu(click(), true), true, 'a plain right-click on a card opens ours');
+  assert.equal(wantsOwnMenu(click()), true, 'a plain right-click on a card opens ours');
   // Reintroduce by dropping any of these: the annoyance the proposal was careful about.
-  assert.equal(wantsOwnMenu(click({ shiftKey: true }), true), false, 'Shift+right-click is the way to the real one');
-  assert.equal(wantsOwnMenu(click({ editable: true }), true), false, 'a text field keeps paste');
-  assert.equal(wantsOwnMenu(click({ selection: 'Romance Dawn', inSelection: true }), true), false, 'selected text keeps copy');
-  assert.equal(wantsOwnMenu(click({ selection: 'elsewhere', inSelection: false }), true), true,
+  assert.equal(wantsOwnMenu(click({ shiftKey: true })), false, 'Shift+right-click is the way to the real one');
+  assert.equal(wantsOwnMenu(click({ editable: true })), false, 'a text field keeps paste');
+  assert.equal(wantsOwnMenu(click({ selection: 'Romance Dawn', inSelection: true })), false, 'selected text keeps copy');
+  assert.equal(wantsOwnMenu(click({ selection: 'elsewhere', inSelection: false })), true,
     'a selection somewhere else on the page is no reason to give up the menu on this card');
-  assert.equal(wantsOwnMenu(click(), false), false, 'switched off on this device');
 });
 
 test('the menu opens at the point, and flips at the viewport edges', () => {
@@ -31,4 +32,12 @@ test('it never leaves the screen or touches its edge, even when it cannot fit ei
   assert.equal(r.top, 8, 'a menu taller than the screen starts at the margin');
   const l = placeMenu({ x: -50, y: 10 }, { w: 208, h: 100 }, { w: 400, h: 800 });
   assert.equal(l.left, 8, 'a ⋯ button near the left edge anchors the menu at the margin, not off screen');
+});
+
+test('the series menu offers Move library to admins only, through the shared picker', () => {
+  const src = readFileSync(join(process.cwd(), 'components/SeriesMenu.tsx'), 'utf8');
+  const actions = readFileSync(join(process.cwd(), 'components/SeriesActions.tsx'), 'utf8');
+  assert.match(actions, /label: tr\('Move library'\)[\s\S]*isAdmin \? \[\s*\{ label: tr\('Manage'\)[^\n]*children: manage/, 'Move library is not admin-gated');
+  assert.match(src, /useSeriesActions\(/, 'the series menu does not share the actions');
+  assert.match(actions, /<MoveToLibrary n=\{n\}/, 'the menu does not open the library picker');
 });

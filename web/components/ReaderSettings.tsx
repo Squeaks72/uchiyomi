@@ -1,17 +1,19 @@
 'use client';
 import { motion } from 'framer-motion';
-import { useRef } from 'react';
+import { useEffect, useId, useRef } from 'react';
 import { ReaderPrefs } from '@/lib/readerPrefs';
 import type { ColorFilter, DevicePrefs } from '@/lib/readerDevice';
 import type { AutoGuess } from '@/lib/readerAuto';
 import { seriesTypeKey } from '@/lib/seriesTypes';
 import { tapZone, type TapLayout } from '@/lib/readerGesture';
-import { Disclosure } from './settings';
+import { Disclosure, LinkRow } from './settings';
 import { ReaderKeys } from './ReaderKeys';
 import { IcX } from './icons';
 import { Switch } from './Switch';
 import { t as tr } from '@/lib/i18n';
 import { useLayer } from '@/lib/layers';
+import { ToggleChip } from './ui';
+import { useReaderWidth, WIDTH_MIN, WIDTH_MAX } from '@/lib/readerWidth';
 import { INCOGNITO_TEXT } from '@/lib/incognito';
 import { useIncognito } from './IncognitoBanner';
 import { useToast } from './Toast';
@@ -36,13 +38,35 @@ function TapSketch({ layout, rtlTrack }: { layout: TapLayout; rtlTrack: boolean 
   );
 }
 
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
+/** One setting. A group of buttons is named by its label; a slider names itself (`slider`). */
+function Row({ label, slider, children }: { label: string; slider?: boolean; children: React.ReactNode }) {
+  const id = useId();
   return (
     <div className="py-3">
       <div className="mb-2 flex items-center justify-between">
-        <span className="text-sm font-medium text-fog-200">{label}</span>
+        <span id={id} className="text-sm font-medium text-fog-200">{label}</span>
       </div>
+      {slider ? children : <div role="group" aria-labelledby={id}>{children}</div>}
+    </div>
+  );
+}
+
+/** A choice between buttons: states which one is on, and shares the one look. */
+function Choice({ on, onClick, className = 'py-3', children }: { on: boolean; onClick: () => void; className?: string; children: React.ReactNode }) {
+  return (
+    <ToggleChip variant="box" on={on} onClick={onClick} className={`rounded-2xl text-sm ${className}`}>
       {children}
+    </ToggleChip>
+  );
+}
+
+/** A group's heading with the one line that says what the group is: which settings belong to this series and
+ *  which are everyone's (the audit found people could not tell). */
+function Group({ title, help }: { title: string; help: string }) {
+  return (
+    <div className="mt-3 border-t border-ink-700 pt-3 first:mt-0 first:border-t-0 first:pt-0">
+      <h3 className="text-xs font-semibold uppercase tracking-wide text-fog-300">{title}</h3>
+      <p className="mt-1 text-xs leading-snug text-fog-500">{help}</p>
     </div>
   );
 }
@@ -59,6 +83,11 @@ export function ReaderSettings({
   sourceName,
   sourceDefault,
   onSourceDefault,
+  seriesPinned,
+  onResetSeries,
+  modeNote,
+  libraryName,
+  onLibraryDefault,
 }: {
   prefs: ReaderPrefs;
   set: (p: Partial<ReaderPrefs>) => void;
@@ -78,12 +107,41 @@ export function ReaderSettings({
   sourceDefault?: boolean;
   /** Save the current mode/theme/spread as that source's default, or clear it when `false` is passed. */
   onSourceDefault?: (save: boolean) => void;
+  /** Whether this series holds a look of its own, which decides whether the reset button is offered. */
+  seriesPinned?: boolean;
+  /** Forget this series' own look so it follows its source and the profile again. */
+  onResetSeries?: () => void;
+  /** Where the reading mode in force came from, in words, so a guess is never mistaken for a choice. */
+  modeNote?: string;
+  /** Admins: the library this series is in, and the key that saves the current look as its defaults. */
+  libraryName?: string;
+  onLibraryDefault?: () => void;
 }) {
+  const [width, setWidth] = useReaderWidth();
   // A sheet on the notices' layer stack (lib/layers.ts). It runs to the bottom edge, so it does not leave the
   // nav band free -- the reader has no nav there anyway -- and its panel is measured, so a notice rises above
   // it rather than covering its last rows.
   const panelRef = useRef<HTMLDivElement>(null);
   useLayer('dialog', true, { ref: panelRef });
+  // Focus goes in when the sheet opens and back to what opened it when it closes; Escape closes. Tab stays
+  // inside, because the page behind is covered and a focus ring on it would be unseen.
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+  useEffect(() => {
+    const opener = document.activeElement as HTMLElement | null;
+    panelRef.current?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { closeRef.current(); return; }
+      if (e.key !== 'Tab' || !panelRef.current) return;
+      const f = [...panelRef.current.querySelectorAll<HTMLElement>('button:not([disabled]), a[href], input, [tabindex]:not([tabindex="-1"])')];
+      if (!f.length) return;
+      const first = f[0], last = f[f.length - 1];
+      if (e.shiftKey && (document.activeElement === first || document.activeElement === panelRef.current)) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => { document.removeEventListener('keydown', onKey); opener?.focus?.(); };
+  }, []);
   // v0.61.0: Incognito reading, the account's switch (lib/incognito.ts) -- here because the reader is where it is wanted.
   const incognito = useIncognito();
   const toast = useToast();
@@ -98,56 +156,103 @@ export function ReaderSettings({
         animate={{ y: 0 }}
         exit={{ y: '100%' }}
         transition={{ type: 'spring', stiffness: 360, damping: 36 }}
-        role="dialog" aria-modal="true" aria-label={tr('Reader')}
+        role="dialog" aria-modal="true" aria-label={tr('Reader')} tabIndex={-1}
         data-lenis-prevent
-        className="absolute inset-x-0 bottom-0 max-h-[85dvh] overflow-y-auto overscroll-contain rounded-t-4xl border-t border-ink-700 bg-ink-900/95 px-5 pt-4 backdrop-blur-xl pb-[max(1.5rem,calc(env(safe-area-inset-bottom)+1rem))]"
+        className="focus-visible:outline-none absolute inset-x-0 bottom-0 max-h-[85dvh] overflow-y-auto overscroll-contain rounded-t-4xl border-t border-ink-700 bg-ink-900/95 px-5 pt-4 backdrop-blur-xl pb-[max(1.5rem,calc(env(safe-area-inset-bottom)+1rem))]"
       >
         <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-ink-600" />
         <div className="mb-1 flex items-center justify-between">
-          <h3 className="font-display text-lg font-semibold">{tr('Reader')}</h3>
-          <button onClick={onClose} className="text-fog-500"><IcX width={20} height={20} /></button>
+          <h2 className="font-display text-lg font-semibold">{tr('Reader')}</h2>
+          <button onClick={onClose} aria-label={tr('Close')} className="relative grid h-8 w-8 place-items-center text-fog-500 hover:text-fog-200"><IcX width={20} height={20} aria-hidden /></button>
         </div>
 
-        <Row label={tr('Mode')}>
+        <Group title={tr('Saved for this series')} help={tr('Mode, page tone, pages per view and direction apply to this series only.')} />
+
+        <Row label={tr('Reading mode')}>
           <div className="grid grid-cols-2 gap-2">
             {(['vertical', 'paged'] as const).map((m) => (
-              <button
-                key={m}
-                onClick={() => set({ mode: m })}
-                className={`rounded-2xl border py-3 text-sm ${prefs.mode === m ? 'border-accent bg-accent-soft text-accent' : 'border-ink-700 text-fog-300'}`}
-              >
+              <Choice key={m} on={prefs.mode === m} onClick={() => set({ mode: m })}>
                 {m === 'vertical' ? tr('Webtoon (scroll)') : tr('Paged (swipe)')}
-              </button>
+              </Choice>
             ))}
           </div>
+          {modeNote && <p className="mt-1.5 text-[11px] leading-snug text-fog-500" data-mode-note>{modeNote}</p>}
         </Row>
-
-        {/* v0.61.0: Webtoon or Paged picked for each series from its pages and its type, where neither the series nor its
-            source has a mode of its own. Every title, synced. Says what it picked for this one, and why. */}
-        <div className="flex items-center justify-between gap-3 pb-3">
-          <span className="text-sm font-medium text-fog-200">{tr('Pick the mode for each series')}</span>
-          <Switch on={prefs.autoMode} onChange={(autoMode) => set({ autoMode })} label={tr('Pick the mode for each series')} />
-        </div>
-        {autoApplied && (
-          <p data-auto-mode={autoApplied.mode} className="-mt-1 pb-3 text-[11px] leading-snug text-fog-500">
-            {(() => {
-              const mode = autoApplied.mode === 'vertical' ? tr('Webtoon (scroll)') : tr('Paged (swipe)');
-              if (autoApplied.reason === 'strips') return tr('Picked for this series: {mode} · long strips', { mode });
-              if (autoApplied.reason === 'rtl') return tr('Picked for this series: {mode} · right to left', { mode });
-              return tr('Picked for this series: {mode} · {type}', { mode, type: tr(seriesTypeKey(autoApplied.reason)) });
-            })()}
-          </p>
-        )}
 
         <Row label={tr('Theme')}>
           <div className="grid grid-cols-3 gap-2">
             {(['amoled', 'sepia', 'gray'] as const).map((t) => (
-              <button key={t} onClick={() => set({ theme: t })}
-                className={`rounded-2xl border py-3 text-sm ${prefs.theme === t ? 'border-accent bg-accent-soft text-accent' : 'border-ink-700 text-fog-300'}`}>
+              <Choice key={t} on={prefs.theme === t} onClick={() => set({ theme: t })}>
                 {t === 'amoled' ? tr('AMOLED') : t === 'sepia' ? tr('Sepia') : tr('Gray')}
-              </button>
+              </Choice>
             ))}
           </div>
+        </Row>
+
+        {prefs.mode === 'paged' && (
+          <Row label={tr('Pages per view')}>
+            <div className="grid grid-cols-2 gap-2">
+              <Choice on={!prefs.spread} onClick={() => set({ spread: false })}>{tr('Single')}</Choice>
+              <Choice on={!!prefs.spread} onClick={() => set({ spread: true })}>{tr('Double spread')}</Choice>
+            </div>
+          </Row>
+        )}
+
+        {prefs.mode === 'paged' && (
+          <Row label={tr('Reading direction')}>
+            <div className="grid grid-cols-3 gap-2">
+              {([['series', tr('Follow the series')], ['ltr', tr('Left to right')], ['rtl', tr('Right to left')]] as const).map(([v, label]) => (
+                <Choice key={v} on={prefs.pagedDirection === v} onClick={() => set({ pagedDirection: v })} className="px-1 py-3">{label}</Choice>
+              ))}
+            </div>
+          </Row>
+        )}
+
+        {onResetSeries && seriesPinned && (
+          <div className="pb-1 pt-1">
+            <button onClick={onResetSeries}
+              className="w-full rounded-2xl border border-ink-700 py-2.5 text-xs text-fog-400">
+              {tr('Reset this series to my defaults')}
+            </button>
+          </div>
+        )}
+
+        {/*
+          One source is a good proxy for one FORMAT: a webtoon source wants continuous vertical scroll, a
+          manga source wants paged right-to-left. Pinning the current look to the source fixes every title
+          from it at once, instead of the global default being wrong for half the library or each series
+          having to be corrected by hand. A series you have already adjusted still wins over this.
+        */}
+        {libraryName && onLibraryDefault && (
+          <Row label={tr('This library')}>
+            <button onClick={onLibraryDefault} className="w-full rounded-2xl border border-ink-700 py-3 text-sm text-fog-300" data-library-default>
+              {tr('Use these settings for every series in {library}', { library: libraryName })}
+            </button>
+          </Row>
+        )}
+        {sourceName && onSourceDefault && (
+          <Row label={tr('This source')}>
+            <div className="grid gap-2">
+              <button onClick={() => onSourceDefault(true)}
+                className="rounded-2xl border border-ink-700 py-3 text-sm text-fog-300">
+                {tr('Use these settings for every series from {source}', { source: sourceName })}
+              </button>
+              {sourceDefault && (
+                <button onClick={() => onSourceDefault(false)}
+                  className="rounded-2xl border border-ink-700 py-2.5 text-xs text-fog-400">
+                  {tr('Forget the default for {source}', { source: sourceName })}
+                </button>
+              )}
+            </div>
+          </Row>
+        )}
+        <Group title={tr('Reader defaults')} help={tr('Used for every series, unless a source or a series has its own.')} />
+
+        <Row slider label={`${tr('Brightness')} · ${Math.round(prefs.brightness * 100)}%`}>
+          <input type="range" min={0.25} max={1} step={0.05} value={prefs.brightness}
+            aria-label={tr('Brightness')} aria-valuetext={`${Math.round(prefs.brightness * 100)}%`}
+            onChange={(e) => set({ brightness: Number(e.target.value) })}
+            className="w-full accent-[rgb(var(--accent))]" />
         </Row>
 
         {/* v0.61.0: a filter over the page images only -- the theme above still tints the reader as it did. This device
@@ -177,32 +282,21 @@ export function ReaderSettings({
           <p className="mt-2 text-[11px] leading-snug text-fog-500">{tr(INCOGNITO_TEXT[1])}</p>
         </div>
 
-        <Row label={`${tr('Brightness')} · ${Math.round(prefs.brightness * 100)}%`}>
-          <input type="range" min={0.25} max={1} step={0.05} value={prefs.brightness}
-            onChange={(e) => set({ brightness: Number(e.target.value) })}
-            className="w-full accent-[rgb(var(--accent))]" />
-        </Row>
-
-        {prefs.mode === 'paged' && (
-          <Row label={tr('Pages per view')}>
-            <div className="grid grid-cols-2 gap-2">
-              <button onClick={() => set({ spread: false })}
-                className={`rounded-2xl border py-3 text-sm ${!prefs.spread ? 'border-accent bg-accent-soft text-accent' : 'border-ink-700 text-fog-300'}`}>{tr('Single')}</button>
-              <button onClick={() => set({ spread: true })}
-                className={`rounded-2xl border py-3 text-sm ${prefs.spread ? 'border-accent bg-accent-soft text-accent' : 'border-ink-700 text-fog-300'}`}>{tr('Double spread')}</button>
-            </div>
-          </Row>
-        )}
-
-        {prefs.mode === 'paged' && (
-          <Row label={tr('Reading direction')}>
-            <div className="grid grid-cols-3 gap-2">
-              {([['series', tr('Series default')], ['ltr', tr('Left to right')], ['rtl', tr('Right to left')]] as const).map(([v, label]) => (
-                <button key={v} onClick={() => set({ pagedDirection: v })}
-                  className={`rounded-2xl border px-1 py-3 text-sm ${prefs.pagedDirection === v ? 'border-accent bg-accent-soft text-accent' : 'border-ink-700 text-fog-300'}`}>{label}</button>
-              ))}
-            </div>
-          </Row>
+        {/* v0.61.0: Webtoon or Paged picked for each series from its pages and its type, where neither the series nor its
+            source has a mode of its own. Every title, synced. Says what it picked for this one, and why. */}
+        <div className="flex items-center justify-between gap-3 pb-3">
+          <span className="text-sm font-medium text-fog-200">{tr('Pick the mode for each series')}</span>
+          <Switch on={prefs.autoMode} onChange={(autoMode) => set({ autoMode })} label={tr('Pick the mode for each series')} />
+        </div>
+        {autoApplied && (
+          <p data-auto-mode={autoApplied.mode} className="-mt-1 pb-3 text-[11px] leading-snug text-fog-500">
+            {(() => {
+              const mode = autoApplied.mode === 'vertical' ? tr('Webtoon (scroll)') : tr('Paged (swipe)');
+              if (autoApplied.reason === 'strips') return tr('Picked for this series: {mode} · long strips', { mode });
+              if (autoApplied.reason === 'rtl') return tr('Picked for this series: {mode} · right to left', { mode });
+              return tr('Picked for this series: {mode} · {type}', { mode, type: tr(seriesTypeKey(autoApplied.reason)) });
+            })()}
+          </p>
         )}
 
         {/* v0.61.0. Both modes, every title (synced with the account, like the edges above). On a screen held upright
@@ -218,6 +312,16 @@ export function ReaderSettings({
             {tr('On a screen held upright, a double-page spread can be split into its two pages, or turned on its side to fill the screen.')}
           </p>
         </Row>
+
+        <div className="py-3">
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-sm font-medium text-fog-200">{tr('Join split double pages')}</span>
+            <Switch on={prefs.joinSplit} onChange={(joinSplit) => set({ joinSplit })} label={tr('Join split double pages')} />
+          </div>
+          <p className="mt-1 text-[11px] leading-snug text-fog-500">
+            {tr('Shows two pages that a source cut from one spread as the one spread, in single-page and Double spread reading alike. Only a pair whose picture runs across the seam is joined.')}
+          </p>
+        </div>
 
         {/* v0.61.0. Off by default; every title, synced. The margins are measured from each page's own pixels. */}
         <div className="py-3">
@@ -236,39 +340,43 @@ export function ReaderSettings({
             different page orders, and switching mode mid-chapter would land on another page. Hide removes.) */}
         <Row label={tr('Repeated pages')}>
           <div className="grid grid-cols-3 gap-2">
-            <button onClick={() => set({ junkPages: 'show' })}
-              className={`rounded-2xl border py-3 text-sm ${prefs.junkPages === 'show' ? 'border-accent bg-accent-soft text-accent' : 'border-ink-700 text-fog-300'}`}>{tr('Show all')}</button>
-            <button onClick={() => set({ junkPages: 'collapse' })}
-              className={`rounded-2xl border py-3 text-sm ${prefs.junkPages === 'collapse' ? 'border-accent bg-accent-soft text-accent' : 'border-ink-700 text-fog-300'}`}>{tr('Collapse')}</button>
-            <button onClick={() => set({ junkPages: 'hide' })}
-              className={`rounded-2xl border py-3 text-sm ${prefs.junkPages === 'hide' ? 'border-accent bg-accent-soft text-accent' : 'border-ink-700 text-fog-300'}`}>{tr('Hide')}</button>
+            <Choice on={prefs.junkPages === 'show'} onClick={() => set({ junkPages: 'show' })}>{tr('Show all')}</Choice>
+            <Choice on={prefs.junkPages === 'collapse'} onClick={() => set({ junkPages: 'collapse' })}>{tr('Collapse')}</Choice>
+            <Choice on={prefs.junkPages === 'hide'} onClick={() => set({ junkPages: 'hide' })}>{tr('Hide')}</Choice>
           </div>
-          <p className="mt-2 text-[11px] leading-snug text-fog-500">
-            {tr('Credit pages and adverts repeat in every chapter. Collapse folds them down to a line you can scroll past or tap to open; hide takes them out of the chapter altogether.')}
+          <p className="mt-2 text-xs leading-snug text-fog-500">
+            {tr('Credits and ads repeat in every chapter. Collapse shrinks them to a thin strip you can tap to open. Hide removes them.')}
           </p>
         </Row>
 
         {prefs.mode === 'vertical' && (
           <>
-            <Row label={`${tr('Page gap')} · ${prefs.gap}px`}>
+            <Row slider label={`${tr('Page gap')} · ${prefs.gap}px`}>
               <input type="range" min={0} max={40} step={2} value={prefs.gap}
+                aria-label={tr('Page gap')} aria-valuetext={`${prefs.gap}px`}
                 onChange={(e) => set({ gap: Number(e.target.value) })}
                 className="w-full accent-[rgb(var(--accent))]" />
             </Row>
-            <Row label={`${tr('Auto-scroll')} · ${prefs.autoScroll === 0 ? tr('off') : prefs.autoScroll.toFixed(1)}`}>
+            <Row slider label={`${tr('Column width on this device')} · ${width}%`}>
+              <input type="range" min={WIDTH_MIN} max={WIDTH_MAX} step={5} value={width}
+                aria-label={tr('Column width on this device')} aria-valuetext={`${width}%`}
+                onChange={(e) => setWidth(Number(e.target.value))}
+                className="w-full accent-[rgb(var(--accent))]" data-reader-width />
+              <p className="mt-1 text-xs leading-snug text-fog-500">{tr('Narrows the webtoon column. Saved on this device only, so your other screens are unaffected.')}</p>
+            </Row>
+            <Row slider label={`${tr('Auto-scroll')} · ${prefs.autoScroll === 0 ? tr('off') : prefs.autoScroll.toFixed(1)}`}>
               <input type="range" min={0} max={6} step={0.5} value={prefs.autoScroll}
+                aria-label={tr('Auto-scroll')} aria-valuetext={prefs.autoScroll === 0 ? tr('off') : prefs.autoScroll.toFixed(1)}
                 onChange={(e) => set({ autoScroll: Number(e.target.value) })}
                 className="w-full accent-[rgb(var(--accent))]" />
             </Row>
           </>
         )}
 
-        <Row label={tr('Fit')}>
+        <Row label={tr('Page size')}>
           <div className="grid grid-cols-2 gap-2">
-            <button onClick={() => set({ fitWidth: true })}
-              className={`rounded-2xl border py-3 text-sm ${prefs.fitWidth ? 'border-accent bg-accent-soft text-accent' : 'border-ink-700 text-fog-300'}`}>{tr('Fit width')}</button>
-            <button onClick={() => set({ fitWidth: false })}
-              className={`rounded-2xl border py-3 text-sm ${!prefs.fitWidth ? 'border-accent bg-accent-soft text-accent' : 'border-ink-700 text-fog-300'}`}>{tr('Original')}</button>
+            <Choice on={prefs.fitWidth} onClick={() => set({ fitWidth: true })}>{tr('Fit width')}</Choice>
+            <Choice on={!prefs.fitWidth} onClick={() => set({ fitWidth: false })}>{tr('Original')}</Choice>
           </div>
         </Row>
 
@@ -296,28 +404,7 @@ export function ReaderSettings({
           </Disclosure>
         </div>
 
-        {/*
-          One source is a good proxy for one FORMAT: a webtoon source wants continuous vertical scroll, a
-          manga source wants paged right-to-left. Pinning the current look to the source fixes every title
-          from it at once, instead of the global default being wrong for half the library or each series
-          having to be corrected by hand. A series you have already adjusted still wins over this.
-        */}
-        {sourceName && onSourceDefault && (
-          <Row label={tr('This source')}>
-            <div className="grid gap-2">
-              <button onClick={() => onSourceDefault(true)}
-                className="rounded-2xl border border-ink-700 py-3 text-sm text-fog-300">
-                {tr('Use this reader for everything from {source}', { source: sourceName })}
-              </button>
-              {sourceDefault && (
-                <button onClick={() => onSourceDefault(false)}
-                  className="rounded-2xl border border-ink-700 py-2 text-xs text-fog-500">
-                  {tr('Forget the default for {source}', { source: sourceName })}
-                </button>
-              )}
-            </div>
-          </Row>
-        )}
+        <LinkRow href="/profile/?tab=Settings&section=reading" label={tr('Reader defaults → Settings')} help={tr('Set them for every device under Profile → Settings → Reading.')} />
       </motion.div>
     </motion.div>
   );

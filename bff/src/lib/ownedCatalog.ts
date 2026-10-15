@@ -1,7 +1,8 @@
 // Owned catalog backend: a drop-in for the `komga` client, returning Komga-shaped series/book DTOs from
 // the lib_* tables. enrichSeries/booksForUser in catalog.ts then add per-user state exactly as before.
 import { q, one } from './db';
-import { cbzPageDims, DL_ROOT, LIBRARY_ROOT, persistScan } from './library';
+import { JOIN_VERSION } from './spreadJoin';
+import { cbzPageDims, DL_ROOT, LIBRARY_ROOT, persistScan, type PageDimJoin } from './library';
 import { ViewCtx, Params, visible, browsable, ADULT_RATING } from './visibility';
 import { cleanDescription } from './htmlText';
 import { effectiveLang } from './seriesLang';
@@ -93,6 +94,8 @@ const booksSrc = (ctx: ViewCtx, p: Params, alias = 'bv') => `(
     -- A notice chapter the admin hides (lib/noticeChapters.ts) is not a chapter to anyone: not listed, not opened
     -- by id, not next or previous, not in the offline plan or the Komga-compatible API. By the effective number.
    WHERE ${noticeShown('s', 'b', 'ov')}
+     -- A chapter an admin removed by hand (lib/chapterRemovals.ts): its row is a tombstone kept for reading history.
+     AND NOT EXISTS (SELECT 1 FROM series_chapter_removals rm WHERE rm.series_id = b.series_id AND rm.number = COALESCE(ov.number, b.number))
 ) ${alias}`;
 
 /** The overridden title for one series, for the book DTOs that carry seriesTitle. */
@@ -328,6 +331,7 @@ function condSql(cond: any, params: any[], hasUser = false): string {
 
 /** Exposed for tests: the translator is pure apart from the params it pushes. */
 export const _condSql = condSql;
+export const _sortSql = sortSql;
 
 /**
  * @param perUser whether the `mine`/`fav` joins are present in the FROM clause. The per-user sorts name
@@ -346,6 +350,12 @@ function sortSql(sort?: string, perUser = false): string {
     return `(SELECT CASE WHEN r.quiet_after > now() AND sv.auto_update THEN r.next_at END FROM series_radar r WHERE r.series_id = sv.id) ${dir} NULLS LAST, title ASC`;
   }
   if (/random/i.test(field)) return 'random()';
+  // The viewer's own stars (the `rate` CTE). Unrated series go last in either direction: "lowest rated" is
+  // the ones you scored low, not the ones you never scored.
+  if (/rating/i.test(field)) return perUser ? `rt.stars ${dir} NULLS LAST, title ASC` : `title ${dir}`;
+  // When the viewer last read in the series (`mine.last_at`); never-read series go last.
+  if (/lastread/i.test(field)) return perUser ? `m.last_at ${dir} NULLS LAST, title ASC` : `title ${dir}`;
+  if (/chapters|books/i.test(field)) return `books_count ${dir}, title ASC`;
   if (/title|name/i.test(field)) return `title ${dir}`;
   if (/created|added/i.test(field)) return `created_at ${dir}`;
   if (/updated|date|modified/i.test(field)) return `latest_mtime ${dir}`;
@@ -385,6 +395,8 @@ function sortSql(sort?: string, perUser = false): string {
  * userId is always $1 when present, because condSql pushes its own parameters as it walks the tree.
  * Built per query, not once: the notice fragment in it is a constant while nothing hides (lib/noticeChapters.ts).
  */
+const PER_USER_JOINS = 'LEFT JOIN mine m ON m.series_id = sv.id LEFT JOIN fav f ON f.series_id = sv.id LEFT JOIN rate rt ON rt.series_id = sv.id';
+
 const mineCte = () => `WITH mine AS (
   SELECT series_id,
          count(*) FILTER (WHERE completed)::int     AS done,
@@ -398,6 +410,8 @@ const mineCte = () => `WITH mine AS (
    GROUP BY series_id
 ), fav AS (
   SELECT series_id FROM favorites WHERE user_id = $1
+), rate AS (
+  SELECT series_id, stars FROM ratings WHERE user_id = $1
 )`;
 
 /**
@@ -405,7 +419,7 @@ const mineCte = () => `WITH mine AS (
  * filters and the gates, the one this viewer read most recently, else the oldest -- the original. The window runs
  * over the ALREADY filtered set, so a search that matches only the Spanish title shows the Spanish edition, and a
  * viewer who may browse one edition sees that one. `total` counts works, so the grid's paging agrees with its cards.
- * The outer query reads the per-user CTEs again by the chosen row's id: `sortSql` names `m` and `f`, and a filter
+ * The outer query reads the per-user CTEs again by the chosen row's id: `sortSql` names `m`, `f` and `rt`, and a filter
  * already applied inside is not applied twice.
  *
  * Reintroduce by returning the plain search: "the Library shows one card per work" in editions.int.test.ts finds
@@ -417,7 +431,7 @@ async function collapsedSearch(cte: string, from: string, where: string, p: Para
     clone(p).values as any[],
   ))?.c ?? 0;
   const mine = perUser ? 'm.last_at DESC NULLS LAST, ' : '';
-  const joins = perUser ? 'LEFT JOIN mine m ON m.series_id = sv.id LEFT JOIN fav f ON f.series_id = sv.id' : '';
+  const joins = perUser ? PER_USER_JOINS : '';
   const rows = await q(
     `${cte} SELECT ${SERIES_COLS} FROM (
        SELECT sv.*, row_number() OVER (PARTITION BY COALESCE(sv.work_id::text, sv.id) ORDER BY ${mine}sv.created_at, sv.id) AS edition_pick
@@ -477,8 +491,8 @@ const total = async (ctx: ViewCtx, where = 'TRUE', p = new Params(), cte = '', f
 
 export const owned = {
   libraries: async (ctx: ViewCtx) => {
-    const rows = await q<{ id: string; name: string; age_rating: number | null }>(
-      'SELECT id, name, age_rating FROM libraries ORDER BY sort_order, name',
+    const rows = await q<{ id: string; name: string; age_rating: number | null; default_visible: boolean }>(
+      'SELECT id, name, age_rating, default_visible FROM libraries ORDER BY (COALESCE(age_rating, 0) >= 18), lower(name)',
     );
     // A restricted viewer is told about the libraries they hold, not all of them: the list itself would
     // otherwise leak the existence and names of everything they cannot open.
@@ -492,7 +506,7 @@ export const owned = {
     // `adult` rides along rather than being filtered out here: the web app needs to know an 18+ library
     // EXISTS in order to offer the button that reveals it, and it hides those tabs itself while the filter
     // is on. What must not leak is the CONTENT, and that is `browsable()`'s job, not this list's.
-    return allowed.map((r) => ({ id: r.id, name: r.name, adult: (r.age_rating ?? 0) >= ADULT_RATING }));
+    return allowed.map((r) => ({ id: r.id, name: r.name, adult: (r.age_rating ?? 0) >= ADULT_RATING, defaultVisible: r.id === 'lib' || r.default_visible }));
   },
 
   /**
@@ -698,7 +712,7 @@ export const owned = {
     if (wantsUser) p.add(ctx.userId); // mineCte reads $1
     const src = browseSrc(ctx, p);
     const from = wantsUser
-      ? `${src} LEFT JOIN mine m ON m.series_id = sv.id LEFT JOIN fav f ON f.series_id = sv.id`
+      ? `${src} ${PER_USER_JOINS}`
       : src;
 
     let where = body?.condition ? condSql(body.condition, p.values as any[], wantsUser) : 'TRUE';
@@ -779,7 +793,7 @@ export const owned = {
     // Goes through booksSrc so page dimensions cannot enumerate a chapter of a hidden series.
     const p = new Params();
     const bsrc = booksSrc(ctx, p);
-    const r = await one<{ file: string; root: string; pruned_at: string | null; missing_pages: number[] | null; page_dims: Array<{ name: string; width: number | null; height: number | null }> | null }>(
+    const r = await one<{ file: string; root: string; pruned_at: string | null; missing_pages: number[] | null; page_dims: PageDimJoin[] | null }>(
       `SELECT file, root, pruned_at, missing_pages, page_dims FROM ${bsrc} WHERE id = ${p.add(id)}`,
       p.values as any[],
     );
@@ -794,15 +808,25 @@ export const owned = {
     // image is. Same idiom as `junk` on the route.
     const missing = new Set(Array.isArray(r.missing_pages) ? r.missing_pages.map(Number) : []);
     const mark = <T extends { number: number }>(pg: T): T | (T & { missing: true }) => (missing.has(pg.number) ? { ...pg, missing: true as const } : pg);
-    if (Array.isArray(r.page_dims) && r.page_dims.length) {
-      return r.page_dims.map((pd, i) => mark({ number: i + 1, fileName: pd.name, mediaType: mediaType(pd.name), width: pd.width ?? null, height: pd.height ?? null, sizeBytes: null }));
-    }
-    const dims = await cbzPageDims(`${r.root || LIBRARY_ROOT}/${r.file}`).catch(() => [] as Array<{ name: string; width: number | null; height: number | null }>);
+    const shape = (ds: PageDimJoin[]) => ds.map((pd, i) => mark({
+      number: i + 1, fileName: pd.name, mediaType: mediaType(pd.name), width: pd.width ?? null, height: pd.height ?? null, sizeBytes: null,
+      // `join`: this page and the next are one spread the source cut in two (lib/spreadJoin.ts), and which side the next is on.
+      ...(pd.join ? { join: pd.join } : {}),
+    }));
+    // A cache row from before spreads were looked for has no `join` key at all (a measured archive sets it, null when
+    // none), and one an older detector measured carries an older `jv`: measure it again, once, and keep the answer. A PDF carries none and is left alone.
+    const needsJoins = (ds: PageDimJoin[]) => ds.length > 1 && (ds[0].join === undefined || ds[0].jv !== JOIN_VERSION) && !/\.pdf$/i.test(r.file);
+    let dims: PageDimJoin[] = Array.isArray(r.page_dims) && r.page_dims.length ? r.page_dims : [];
+    if (dims.length && !needsJoins(dims)) return shape(dims);
+    const fresh = await cbzPageDims(`${r.root || LIBRARY_ROOT}/${r.file}`).catch(() => [] as PageDimJoin[]);
+    // A re-measure that disagrees with the cache about the page count is a changed file: the cache stands, as it did.
+    if (dims.length && fresh.length !== dims.length) return shape(dims);
+    dims = fresh.length ? fresh : dims;
     // This is a cache, so a failed write must never hide readable pages; but once this call resolves a
     // second reader should be able to use the cache instead of opening the archive again. Fire-and-forget
     // made that ordering depend on database load and was exposed by the partial-chapter completion suite.
-    if (dims.length) await q('UPDATE lib_books SET pages = $1, page_dims = $2 WHERE id = $3', [dims.length, JSON.stringify(dims), id]).catch(() => {});
-    return dims.map((pd, i) => mark({ number: i + 1, fileName: pd.name, mediaType: mediaType(pd.name), width: pd.width, height: pd.height, sizeBytes: null }));
+    if (fresh.length) await q('UPDATE lib_books SET pages = $1, page_dims = $2 WHERE id = $3', [fresh.length, JSON.stringify(fresh), id]).catch(() => {});
+    return shape(dims);
   },
 
   // Next/previous compare (number, file) rather than number alone. Two chapters legitimately share a

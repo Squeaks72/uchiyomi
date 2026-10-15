@@ -80,7 +80,7 @@ test('the reader names the source from what it already has, and asks /api/source
   assert.match(q, /enabled: unnamedMissingSource && canDownload\(user\)/, 'the full source list is asked for by a viewer the route refuses, or with no missing page to name');
   assert.match(src, /const unnamedMissingSource = chapters\.some\(\(c\) => !!c\.sourceId && !seriesSourceNames\[c\.sourceId\] && c\.pages\.some\(\(p\) => p\.missing\)\)/, 'the gate no longer keys on an unnamed source with a missing page');
   // The flag and the source id both have to survive loadChapter, or the caption never renders online.
-  assert.match(src, /junk: p\.junk, missing: p\.missing \}\)\)/, 'loadChapter drops the missing flag from the page list');
+  assert.match(src, /junk: p\.junk, missing: p\.missing, join: p\.join }\)\)/, 'loadChapter drops the missing flag from the page list');
   assert.match(src, /sourceId: b\.sourceId \?\? null,/, 'loadChapter drops the book\'s sourceId');
 });
 
@@ -96,7 +96,7 @@ test('a chapter row says how many pages are missing, as an amber chip before the
   assert.match(cap, /missing === 1 \? tr\('1 page missing'\) : tr\('\{n\} pages missing', \{ n: missing \}\)/, 'the chip text or its singular is gone');
   assert.match(cap, /if \(!parts\.length && !pruned && !short\) return null;/, 'a caption that is only the chip is not drawn');
   assert.match(cap, /\.\.\.\(short \? \[short\] : \[\]\), \.\.\.plain\]\.join\(' · '\)/, 'the chip text is not in the hover title');
-  assert.match(cap, /\{short && <span className="me-1 rounded-full border border-amber-500\/40 bg-amber-500\/10 px-1\.5 text-\[10px\] leading-4 text-amber-300">\{short\}<\/span>\}\s*\{parts\.map/, 'the chip is not an amber chip before the caption parts');
+  assert.match(cap, /\{short && <span className="me-1 rounded-full border border-amber-500\/40 bg-amber-500\/10 px-1\.5 text-\[11px\] leading-4 text-amber-300">\{short\}<\/span>\}\s*\{parts\.map/, 'the chip is not an amber chip before the caption parts');
   assert.doesNotMatch(cap, /<button/, 'RowCaption renders a button inside the row opener');
   // And ChapterRow feeds it from the DTO.
   const row = between(page, 'function ChapterRow(', 'function GhostRow(', 'ChapterRow');
@@ -110,10 +110,10 @@ test('the offline record keeps the missing flag beside junk', () => {
   // lives in the manifest is one the reader never sees: online the caption, offline a blank grey page.
   // Reintroduce by dropping `missing: p.missing` from the pages map in saveChapter.
   const src = code(read('lib/downloads.ts'));
-  assert.match(src, /pages: manifest\.pages\.map\(\(p\) => \(\{ number: p\.number, width: p\.width, height: p\.height, junk: p\.junk, missing: p\.missing \}\)\)/, 'the offline record does not copy `missing` beside `junk`');
-  assert.match(src, /junk\?: boolean; missing\?: true \}\[\];/, 'the OfflineChapter page type lost `missing`');
+  assert.match(src, /pages: manifest\.pages\.map\(\(p\) => \(\{ number: p\.number, width: p\.width, height: p\.height, junk: p\.junk, missing: p\.missing, join: p\.join }\)\)/, 'the offline record does not copy `missing` beside `junk`');
+  assert.match(src, /junk\?: boolean; missing\?: true; join\?: 'rtl' | 'ltr' \}\[\];/, 'the OfflineChapter page type lost `missing`');
   // The manifest type it reads from carries the flag too, or the copy above is a type error at best.
-  assert.match(code(read('lib/types.ts')), /bytes: number \| null; junk\?: boolean; missing\?: true \}\[\];/, 'DownloadManifest pages lost `missing`');
+  assert.match(code(read('lib/types.ts')), /bytes: number \| null; junk\?: boolean; missing\?: true; join\?: 'rtl' | 'ltr' \}\[\];/, 'DownloadManifest pages lost `missing`');
   assert.match(code(read('lib/types.ts')), /missingPages\?: number\[\] \| null;/, 'Book lost `missingPages`');
 });
 

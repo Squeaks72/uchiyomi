@@ -188,10 +188,9 @@ function Glyph({ k }: { k: string }) {
 }
 
 /**
- * One source filter: every source with its count, single choice, a tap on the chosen one clears it. The
- * chosen source is always listed, even past the head, so a reload never leaves it filtering with no control.
- * Main source ends on "No source" (#149) while series have none, or while it is chosen: after the sources and never
- * behind "Show all", the one choice that is not a source.
+ * One source filter as a dropdown: every source with its count, single choice. The chosen source is always an
+ * option, so a reload never leaves it filtering with no control. Main source ends on "No source" (#149) while
+ * series have none, or while it is chosen.
  */
 function SourceSection({ id, fold, title, help, rows, none, count, value, onPick }: {
   /** The section's id for folding (`src`, `anysrc`). */
@@ -228,7 +227,7 @@ function SourceSection({ id, fold, title, help, rows, none, count, value, onPick
 }
 
 /** How many genres are listed before the rest go behind "Show all". */
-const GENRE_HEAD = 20;
+const GENRE_HEAD = 10;
 /** Below this many, the search box is noise. */
 const GENRE_SEARCHABLE = 16;
 
@@ -257,17 +256,20 @@ function GenreRow({ facet, on, onToggle }: { facet: GenreFacet; on: boolean; onT
   return <FilterOption on={on} onPick={onToggle} lead={mosaic} label={facet.label} count={facet.series ?? null} />;
 }
 
-export function LibraryFilters({ read, status, genres, lib, libs, mainSrc, anySrc, onSet }: {
+export function LibraryFilters({ read, status, genres, libSel, libs, mainSrc, anySrc, onSet, onLibs }: {
   read: string;
   status: string;
   genres: string[];
-  lib: string;
+  /** The libraries the grid is narrowed to; empty means all of them. */
+  libSel: string[];
   libs: LibraryRow[];
   /** The `src` URL param: only series ADDED from this source, or NO_SOURCE: the series with no main source. */
   mainSrc: string;
   /** The `anysrc` URL param: series that read from this source at all, main or followed. */
   anySrc: string;
   onSet: (k: string, v: string) => void;
+  /** Replace the library selection; an empty list means all libraries. */
+  onLibs: (next: string[]) => void;
 }) {
   const { data: counted } = useLibrarySources();
   const sources = counted?.sources ?? [];
@@ -328,11 +330,16 @@ export function LibraryFilters({ read, status, genres, lib, libs, mainSrc, anySr
       {/* Only when there is a choice to make. This lists what the viewer may actually open -- the endpoint
           filters by their grants -- so it doubles as an honest answer to "what do I have access to". */}
       {libs.length > 1 && (
-        <FilterSection id="lib" fold={fold} title={tr('Library')} picked={libs.find((l) => l.id === lib)?.name}>
-          <FilterOption on={!lib} onPick={() => onSet('lib', '')} lead={<Glyph k="LIBRARY" />} label={tr('All')} />
-          {libs.map((l) => (
-            <FilterOption key={l.id} on={lib === l.id} onPick={() => onSet('lib', lib === l.id ? '' : l.id)} lead={<Glyph k="LIBRARY" />} label={l.name} />
-          ))}
+        <FilterSection id="lib" fold={fold} title={tr('Library')}
+          picked={libSel.map((id) => libs.find((l) => l.id === id)?.name).filter(Boolean).join(', ') || undefined}>
+          <FilterOption on={libSel.length === 0} onPick={() => onLibs([])} lead={<Glyph k="LIBRARY" />} label={tr('All')} />
+          {libs.map((l) => {
+            const on = libSel.includes(l.id);
+            return (
+              <FilterOption key={l.id} on={on} onPick={() => onLibs(on ? libSel.filter((x) => x !== l.id) : [...libSel, l.id])}
+                lead={<Glyph k="LIBRARY" />} label={l.name} />
+            );
+          })}
         </FilterSection>
       )}
 
@@ -349,19 +356,6 @@ export function LibraryFilters({ read, status, genres, lib, libs, mainSrc, anySr
             lead={<Glyph k={x.key} />} label={tr(x.label)} />
         ))}
       </FilterSection>
-
-      {/* Only with a choice to make: two sources, or for Main source one source and series with none (#149), whose
-          "No source" makes two -- a library with no source at all has nothing to narrow. Empty on a Komga backend (no
-          sources there, and `none` is 0), so neither section renders and no condition a Komga server would refuse is
-          ever sent. */}
-      {(sources.length > 1 || (sources.length > 0 && (none > 0 || mainSrc === NO_SOURCE))) && (
-        <SourceSection title={tr('Main source')} help={tr('Series added from this source.')} id="src" fold={fold}
-          rows={sources} none={none} count={(s) => s.main} value={mainSrc} onPick={(id) => onSet('src', id)} />
-      )}
-      {sources.length > 1 && (
-        <SourceSection title={tr('Any source')} help={tr('Series that read from this source, as their main source or a followed one.')} id="anysrc" fold={fold}
-          rows={sources} count={(s) => s.any} value={anySrc} onPick={(id) => onSet('anysrc', id)} />
-      )}
 
       {formats.length > 0 && (
         <FilterSection id="format" fold={fold} title={tr('Format')} picked={pickedFormats.join(', ') || undefined}>
@@ -386,7 +380,7 @@ export function LibraryFilters({ read, status, genres, lib, libs, mainSrc, anySr
         {/* Two different nothings. "No match" is an answer to a search; a library whose series carry no
             genres at all has not been searched, and telling it that nothing matched is a small lie. */}
         {data && !listed.length && (
-          <p className="text-xs text-fog-500">
+          <p role="status" className="text-xs text-fog-500">
             {q.trim() ? tr('No genre matches that.') : tr('Once your series carry genres, this is where they gather.')}
           </p>
         )}
@@ -396,6 +390,19 @@ export function LibraryFilters({ read, status, genres, lib, libs, mainSrc, anySr
           </button>
         )}
       </FilterSection>
+
+      {/* Only with a choice to make: two sources, or for Main source one source and series with none (#149), whose
+          "No source" makes two -- a library with no source at all has nothing to narrow. Empty on a Komga backend (no
+          sources there, and `none` is 0), so neither section renders and no condition a Komga server would refuse is
+          ever sent. */}
+      {(sources.length > 1 || (sources.length > 0 && (none > 0 || mainSrc === NO_SOURCE))) && (
+        <SourceSection title={tr('Main source')} help={tr('Series added from this source.')} id="src" fold={fold}
+          rows={sources} none={none} count={(s) => s.main} value={mainSrc} onPick={(id) => onSet('src', id)} />
+      )}
+      {sources.length > 1 && (
+        <SourceSection title={tr('Any source')} help={tr('Series that read from this source, as their main source or a followed one.')} id="anysrc" fold={fold}
+          rows={sources} count={(s) => s.any} value={anySrc} onPick={(id) => onSet('anysrc', id)} />
+      )}
     </div>
   );
 }
