@@ -2,7 +2,7 @@
   "_meta": {
     "language": "ar",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 4622
+    "strings": 4626
   },
   "1 check found something": "فحص واحد وجد شيئًا",
   "1 member": "عضو واحد",
@@ -4625,5 +4625,9 @@
   "These two pages are not one spread": "هاتان الصفحتان ليستا صفحة مزدوجة",
   "Join these two pages again": "إعادة دمج هاتين الصفحتين",
   "Shows them as two pages. Saved for your account only; it changes nothing for anyone else.": "تُعرض كصفحتين. يُحفظ لحسابك فقط ولا يغيّر شيئًا لغيرك.",
-  "Page {n} · tap, or press Z, to see both": "الصفحة {n} · انقر أو اضغط Z لعرض الصفحتين"
+  "Page {n} · tap, or press Z, to see both": "الصفحة {n} · انقر أو اضغط Z لعرض الصفحتين",
+  "One page of a spread in frame, and back": "عرض صفحة واحدة من الصفحة المزدوجة، ثم العودة",
+  "With one page in frame: the spread’s other page": "عند عرض صفحة واحدة: الصفحة الأخرى من الصفحة المزدوجة",
+  "Show this list": "إظهار هذه القائمة",
+  "With the mouse: double-click zooms in and out, and a click on a page of a spread brings that page into frame. Change the keys in Reader settings.": "بالفأرة: النقر المزدوج يكبّر ويصغّر، والنقر على صفحة من صفحة مزدوجة يعرضها وحدها. يمكنك تغيير المفاتيح من إعدادات القارئ."
 }
