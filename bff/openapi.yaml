@@ -2652,6 +2652,72 @@ paths:
             `not_refetchable`: the row is not a deliberate canonical owned tombstone, its exact stored copy is
             unsafe or unavailable, a renumber is pending, or the download root is not writable; `busy`: another
             writer owns this series folder.
+  /api/books/{id}/spread-splits:
+    get:
+      tags:
+        - personal
+      summary: The caller's own un-joined spreads in a chapter.
+      description: >-
+        Fork change. The first page of each pair the caller un-joined (the detector had joined it as one double-page
+        spread; the caller's reader shows the two pages apart). Per account: no other account is affected.
+      operationId: getApiBooksIdSpreadSplits
+      security:
+        - bearer: []
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  splits: { type: array, items: { type: integer } }
+        "401":
+          description: Not authenticated
+        "404":
+          description: Not found, or not visible to this account
+  /api/books/{id}/spread-splits/{page}:
+    put:
+      tags:
+        - personal
+      summary: Un-join a spread for the caller, or give it back to the detector.
+      description: >-
+        Fork change. `page` is the first page of the pair (1 to the page count minus 1). `split: true` shows the pair as
+        two pages for this account; `false` removes the caller's mark. At most 60 per chapter (409 `too_many_marks`).
+      operationId: putApiBooksIdSpreadSplitsPage
+      security:
+        - bearer: []
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - { name: page, in: path, required: true, schema: { type: integer, minimum: 1 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [split]
+              properties:
+                split: { type: boolean }
+      responses:
+        "200":
+          description: The caller's un-joined pairs after the change.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  splits: { type: array, items: { type: integer } }
+        "400":
+          description: Not a boolean, or a page that starts no pair
+        "401":
+          description: Not authenticated
+        "404":
+          description: Not found, or not visible to this account
+        "409":
+          description: Too many marks on this chapter
   /api/books/{id}/pages:
     get:
       tags:

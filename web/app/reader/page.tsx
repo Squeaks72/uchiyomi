@@ -14,7 +14,7 @@ import { openableChapters } from '@/lib/chapterRows';
 import { buildFlow, startIndex, renderWindow, pageWidthBucket } from '@/lib/readerFlow';
 import { AHEAD_SCREENS, APPEND_SCREENS, BEHIND_SCREENS, KEEP_SCREENS, MAX_WINDOW_PAGES, anchorAt, nearEnd, prefetchList, screenRange, scrollTopFor, windowSet, type IndexRange } from '@/lib/readerWindow';
 import { CHROME_GRACE_MS, isCatch, readTap, tapMayToggleChrome, undoLeft, undoWindow, type TapZone } from '@/lib/readerGesture';
-import { PAGE_ACTIONS, actionForKey, keyMapFor, type ReaderAction } from '@/lib/readerKeys';
+import { PAGE_ACTIONS, READER_ACTIONS, actionForKey, keyMapFor, type ReaderAction } from '@/lib/readerKeys';
 import { padMapFor } from '@/lib/readerPad';
 import { useGamepad } from '@/lib/useGamepad';
 import { ARM_MS, chapterGap, pagesAfter, skipNeedsConfirm, stillArmed } from '@/lib/readerNav';
@@ -42,13 +42,14 @@ import { NextInStory } from '@/components/RelatedRail';
 import { IcChevronLeft, IcChevronRight, IcSliders, IcGrid } from '@/components/icons';
 import { ReaderImg, MissingCaption, ReaderPageRow, SlidePending, SlideRegion, SlideTurned, DIVIDER_H, measurePage } from '@/components/ReaderPage';
 import { CHAPTER_SAMPLE, LEFT_HALF, RIGHT_HALF, WHOLE, chapterSideCrop, halfCrop, pairCrop, type Region } from '@/lib/readerCrop';
+import { applySplits, loadSplits, saveSplit, spreadChoice, type Splits } from '@/lib/spreadMarks';
 import { t as tr } from '@/lib/i18n';
 import { serverReachableHint } from '@/lib/desktop';
 import { IncognitoTag, incognitoRef } from '@/components/IncognitoBanner';
 
 interface PageDim { number: number; width: number | null; height: number | null; junk?: boolean; join?: 'rtl' | 'ltr'; missing?: boolean }
 /** `sourceId`: the adapter the copy came from, for naming it on a missing page's caption. Unknown for a downloaded copy. */
-interface Chapter { id: string; seriesId: string; seriesTitle: string; title: string; pages: PageDim[]; offline: boolean; readingDirection?: string | null; pruned?: boolean; sourceId?: string | null }
+interface Chapter { id: string; seriesId: string; seriesTitle: string; title: string; pages: PageDim[]; offline: boolean; readingDirection?: string | null; pruned?: boolean; sourceId?: string | null; splits?: Splits }
 interface ChapterRef { id: string; label: string }
 interface FlatItem { ci: number; number: number; width: number | null; height: number | null; key: string; firstOfChapter: boolean; junk?: boolean; join?: 'rtl' | 'ltr'; missing?: boolean; collapsed?: boolean }
 
@@ -121,7 +122,7 @@ async function loadChapter(bookId: string): Promise<Chapter | null> {
   }
   try {
     const b = await api<Book>(`/api/books/${bookId}`);
-    const pInfo = await api<PageInfo[]>(`/api/books/${bookId}/pages`);
+    const [pInfo, splits] = await Promise.all([api<PageInfo[]>(`/api/books/${bookId}/pages`), loadSplits(bookId)]);
     return {
       id: bookId,
       seriesId: b.seriesId,
@@ -133,6 +134,7 @@ async function loadChapter(bookId: string): Promise<Chapter | null> {
       // below can be explained rather than blamed on the reader's library mount.
       pruned: b.pruned === true,
       sourceId: b.sourceId ?? null,
+      splits,
     };
   } catch {
     return null;
@@ -506,10 +508,13 @@ function ReaderInner() {
   // removed: removing would give the two modes different flows, and switching mode mid-chapter would then land
   // on a different page, because nothing re-anchors `current` when the flow is rebuilt.
   const flowJunk = prefs.mode === 'paged' && prefs.junkPages === 'collapse' ? 'show' : prefs.junkPages;
-  const flat: FlatItem[] = useMemo(
+  // `detected` is the flow with the server's joins as found; `flat` has the pairs this reader un-joined taken out
+  // (lib/spreadMarks.ts), so what pairs is decided in one place. Same length and order, so an index means the same in both.
+  const detected: FlatItem[] = useMemo(
     () => buildFlow(chapters, flowJunk, expanded) as FlatItem[],
     [chapters, flowJunk, expanded],
   );
+  const flat: FlatItem[] = useMemo(() => applySplits(detected, chapters.map((c) => c.splits)), [detected, chapters]);
   /** Vertical + `collapse`: a repeated page is drawn as a band of itself instead of being removed. */
   const collapsing = prefs.junkPages === 'collapse';
   /** `hide` is the only mode that takes a page out of the flow, so it is the only one that needs the chip. */
@@ -1071,6 +1076,19 @@ function ReaderInner() {
   });
   const activeChapter = chapters[flat[current]?.ci ?? 0];
 
+  // The page being read as half of a spread the detector joined, and whether this reader un-joined it (lib/spreadMarks.ts). Online
+  // chapters, paged mode only: the answer is kept on the server, and the column has no pairs to correct.
+  const spreadHere = prefs.mode === 'paged' && activeChapter && !activeChapter.offline ? spreadChoice(detected, current, activeChapter.splits) : null;
+  const splitSpread = (first: number, split: boolean) => {
+    const ch = activeChapter;
+    if (!ch) return;
+    const before = ch.splits;
+    const put = (splits?: Splits) => setChapters((cs) => cs.map((c) => (c.id === ch.id ? { ...c, splits } : c)));
+    put(split ? [...new Set([...(before ?? []), first])] : (before ?? []).filter((n) => n !== first));
+    setShowSettings(false);
+    saveSplit(ch.id, first, split).then(put).catch((e) => { put(before); toast(msgOf(e, tr('Could not save')), 'error'); });
+  };
+
   // One place that knows how to move to a page, shared by the scrubber and the page grid. The initial-scroll
   // effect above deliberately does not use it: that one must also seed `lastSent` and run exactly once.
   const jumpTo = useCallback((idx: number) => {
@@ -1234,6 +1252,8 @@ function ReaderInner() {
     const el = scrollRef.current;
     if (PAGE_ACTIONS.has(action)) {
       if (!el) return;
+      // One page of a spread in frame: the arrow toward the other page goes there (stepFocus), before any page turns.
+      if (!o.tap && (action === 'pageLeft' || action === 'pageRight') && stepFocus(action === 'pageLeft' ? -1 : 1)) return;
       // Next and back are reading order, whichever way the pages run. The page to the left or the right is PHYSICAL,
       // like the arrow keys and the thirds: on a right-to-left read the next page is to the left.
       const d = action === 'next' ? 1 : action === 'prev' ? -1 : (action === 'pageRight' ? 1 : -1) * trackSign;
@@ -1279,6 +1299,13 @@ function ReaderInner() {
       // three listens for Escape itself, so it is handled here, and it closes the sheet.
       if (showSettings || showPages || showChapters) {
         if (e.key === 'Escape') { setShowSettings(false); setShowPages(false); setShowChapters(false); }
+        return;
+      }
+      // Z brings one page of a double spread into frame, and back (the arrows then step between its two pages: perform). Not
+      // rebindable, and not taken from a key the reader has bound to something else.
+      if (e.key.toLowerCase() === 'z' && !e.shiftKey && !/^(INPUT|TEXTAREA|SELECT)$/.test((e.target as HTMLElement | null)?.tagName ?? '')
+        && !READER_ACTIONS.some((a) => keyMap[a].some((k) => k.toLowerCase() === 'z'))) {
+        if (focusKeys.current.toggleFocus()) e.preventDefault();
         return;
       }
       // Escape is reserved, never bound: it leaves the reader. ⚠️ Once a press -- Escape repeating called
@@ -1424,6 +1451,42 @@ function ReaderInner() {
     const rect = el.getBoundingClientRect();
     return { slide, page: visual[x < rect.left + rect.width / 2 ? 0 : 1] };
   };
+
+  /** The two pages of the slide on screen as they sit on it, left then right; null when the slide is not a pair. */
+  const pairOnScreen = (slide: number): number[] | null => {
+    const idxs = slides[slide];
+    if (prefs.mode !== 'paged' || !idxs || idxs.length !== 2) return null;
+    return pagedRtl ? [shownOf(idxs)[1], shownOf(idxs)[0]] : shownOf(idxs);
+  };
+  /**
+   * Z: bring one page of the pair into frame, or give the pair back. The same as tapping a page, for a keyboard: it starts on
+   * the pair's first page in reading order. Answers whether it did anything (a slide that is not a pair has nothing to focus).
+   */
+  const toggleFocus = (): boolean => {
+    const slide = slideNow();
+    if (focused?.slide === slide) { acted.current = { kind: 'focus', prev: focused, at: Date.now() }; setFocused(null); return true; }
+    if (!pairOnScreen(slide)) return false;
+    acted.current = { kind: 'focus', prev: focused, at: Date.now() };
+    setFocused({ slide, page: slides[slide][0] });
+    return true;
+  };
+  /**
+   * An arrow key while one page is in frame: to the pair's other page when the arrow points at it, so the two pages of a spread
+   * are read one after the other without leaving focus. `side` is physical (-1 the left of the screen). False at the pair's
+   * edge, where the key turns the page as it always does.
+   */
+  const stepFocus = (side: -1 | 1): boolean => {
+    if (!focused) return false;
+    const on = pairOnScreen(focused.slide);
+    if (!on) return false;
+    const to = on.indexOf(focused.page) + side;
+    if (to < 0 || to > 1) return false;
+    acted.current = { kind: 'focus', prev: focused, at: Date.now() };
+    setFocused({ slide: focused.slide, page: on[to] });
+    return true;
+  };
+  const focusKeys = useRef({ toggleFocus, stepFocus });
+  focusKeys.current = { toggleFocus, stepFocus };
 
   const cancelPendingTap = () => {
     if (tapTimer.current) { clearTimeout(tapTimer.current); tapTimer.current = null; }
@@ -1625,6 +1688,14 @@ function ReaderInner() {
     // `data-page` / `data-chapter`: what is being read, for the browser walks (test/e2e/v610Walk-reader.mjs) -- the counter
     // that says it lives in the auto-hiding footer. Nothing reads them in the app.
     <div className="fixed inset-0 z-40 bg-ink-950" data-page={pageInChapter || undefined} data-chapter={activeChapter?.id}>
+      {/* One page of a spread in frame: say so, and how to get back. Shown on the page's own number, whichever half it is. */}
+      {focused && flat[focused.page] && (
+        <div className="pointer-events-none fixed inset-x-0 bottom-3 z-20 flex justify-center" aria-hidden="true">
+          <span className="rounded-full bg-black/70 px-3 py-1 text-xs text-white">
+            {tr('Page {n} · tap, or press Z, to see both', { n: flat[focused.page].number })}
+          </span>
+        </div>
+      )}
       <h1 className="sr-only">{[activeChapter?.seriesTitle, activeChapter?.title].filter(Boolean).join(' \u2014 ') || tr('Reader')}</h1>
       {/* The toolbars come up on a tap, which a keyboard has no equivalent of. This is that, reachable with Tab
           and shown only while it has focus. It stays in the page whether or not the toolbars are up, so
@@ -1927,6 +1998,8 @@ function ReaderInner() {
               : seriesSource && loadSourcePrefs(seriesSource.id).mode ? tr("From this source's default.")
               : undefined
             }
+            spreadHere={spreadHere}
+            onSplitSpread={splitSpread}
             libraryName={seriesLibrary?.name}
             onLibraryDefault={() => {
               if (!seriesLibrary) return;
