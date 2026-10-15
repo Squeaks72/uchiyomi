@@ -319,7 +319,7 @@ export function ReaderSettings({
             <Switch on={prefs.joinSplit} onChange={(joinSplit) => set({ joinSplit })} label={tr('Join split double pages')} />
           </div>
           <p className="mt-1 text-[11px] leading-snug text-fog-500">
-            {tr('In Double spread, shows two pages that a source cut from one spread as the spread. Only a pair whose picture runs across the seam is joined.')}
+            {tr('Shows two pages that a source cut from one spread as the one spread, in single-page and Double spread reading alike. Only a pair whose picture runs across the seam is joined.')}
           </p>
         </div>
 

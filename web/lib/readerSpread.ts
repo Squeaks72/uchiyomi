@@ -15,7 +15,7 @@
  *     image is already two pages wide; putting it beside a portrait page halves it. Giving the page before it
  *     its own slide is what keeps the rest of the chapter paired the way it was drawn -- without that, every
  *     pair after the first spread is off by one, which is the whole reason this rule exists.
- *  4b. **A joined pair is one slide** (`join`, with the `joinSplit` option): two portrait pages the server found to be
+ *  4b. **A joined pair is one slide**, in single-page reading as well as in spread mode (`join`, with the `joinSplit` option): two portrait pages the server found to be
  *     one spread a source cut in two. They pair even as page 1 of a chapter, and the page before them is solo,
  *     for the reason a wide page's neighbour is.
  *  5. **Unknown dimensions pair as portrait.** `page_dims` is populated by a backfill that has not
@@ -62,8 +62,17 @@ export function pairSlides(
   const slides: number[][] = [];
   const half: Half[] = [];
 
+  // A real pair of portrait pages starting at `i`, in one chapter, that the server says are one spread.
+  const joinAt = (i: number): boolean => {
+    const a = items[i], b = items[i + 1];
+    return !!opts.joinSplit && !!a?.join && !!b && b.ci === a.ci && (a.number === undefined || b.number === undefined || b.number === a.number + 1) && !isWide(a) && !isWide(b);
+  };
+
   if (!spread) {
     for (let k = 0; k < items.length; k++) {
+      // A joined pair is one slide in single-page reading too: it is one drawing, and a phone held upright is where
+      // a spread cut in two is read most. Its half-sized pages sit side by side the way a wide page does.
+      if (joinAt(k)) { slides.push([k, k + 1]); half.push(null); k += 1; continue; }
       if (opts.split && isWide(items[k])) {
         const order: Half[] = opts.rightFirst ? ['right', 'left'] : ['left', 'right'];
         for (const h of order) { slides.push([k]); half.push(h); }
@@ -73,11 +82,6 @@ export function pairSlides(
       }
     }
   } else {
-    // A real pair of portrait pages starting at `i`, in one chapter, that the server says are one spread.
-    const joinAt = (i: number): boolean => {
-      const a = items[i], b = items[i + 1];
-      return !!opts.joinSplit && !!a?.join && !!b && b.ci === a.ci && (a.number === undefined || b.number === undefined || b.number === a.number + 1) && !isWide(a) && !isWide(b);
-    };
     let k = 0;
     while (k < items.length) {
       const it = items[k];

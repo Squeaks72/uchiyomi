@@ -67,7 +67,7 @@ export interface ReaderPrefs {
    */
   cropBorders: boolean;
   /**
-   * Show two pages a source cut from one double-page spread as the spread (lib/readerSpread.ts), in the double-page layout.
+   * Show two pages a source cut from one double-page spread as the spread (lib/readerSpread.ts), in single-page reading and in the double-page layout alike.
    * On by default; the server only flags a pair whose picture runs across the seam (bff lib/spreadJoin.ts).
    */
   joinSplit: boolean;

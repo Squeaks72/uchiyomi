@@ -210,3 +210,12 @@ test('Join split double pages is on unless switched off, and is not a title\'s l
   assert.equal(migratePrefs({ joinSplit: false }).joinSplit, false);
   assert.ok(!(LOOK_KEYS as readonly string[]).includes('joinSplit'));
 });
+
+test('a joined pair is one slide in single-page reading too (One Piece 1154 on a phone held upright)', () => {
+  const mk = (join: Array<'rtl' | 'ltr' | undefined>) => join.map((j, k) => ({ ci: 0, firstOfChapter: k === 0, number: k + 1, width: 800, height: 1150, join: j }));
+  const items = mk([undefined, undefined, 'rtl', undefined, undefined]);
+  assert.deepEqual(pairSlides(items, false, { joinSplit: true }).slides, [[0], [1], [2, 3], [4]]);
+  assert.deepEqual(pairSlides(items, false, { joinSplit: false }).slides, [[0], [1], [2], [3], [4]], 'off: one page per slide');
+  const { slideOf } = pairSlides(items, false, { joinSplit: true });
+  assert.deepEqual(slideOf, [0, 1, 2, 2, 3], 'both pages of the pair open on its slide');
+});
