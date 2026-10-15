@@ -42,7 +42,7 @@ import { NextInStory } from '@/components/RelatedRail';
 import { IcChevronLeft, IcChevronRight, IcSliders, IcGrid } from '@/components/icons';
 import { ReaderImg, MissingCaption, ReaderPageRow, SlidePending, SlideRegion, SlideTurned, DIVIDER_H, measurePage } from '@/components/ReaderPage';
 import { CHAPTER_SAMPLE, LEFT_HALF, RIGHT_HALF, WHOLE, chapterSideCrop, halfCrop, pairCrop, type Region } from '@/lib/readerCrop';
-import { applySplits, loadSplits, saveSplit, spreadChoice, type Splits } from '@/lib/spreadMarks';
+import { applyMarks, loadMarks, markFor, saveMark, spreadOptions, type Marks, type SpreadOption } from '@/lib/spreadMarks';
 import { t as tr } from '@/lib/i18n';
 import { serverReachableHint } from '@/lib/desktop';
 import { IncognitoTag, incognitoRef } from '@/components/IncognitoBanner';
@@ -51,9 +51,9 @@ import { useContextMenu, type MenuItem } from '@/components/ContextMenu';
 
 interface PageDim { number: number; width: number | null; height: number | null; junk?: boolean; join?: 'rtl' | 'ltr'; missing?: boolean }
 /** `sourceId`: the adapter the copy came from, for naming it on a missing page's caption. Unknown for a downloaded copy. */
-interface Chapter { id: string; seriesId: string; seriesTitle: string; title: string; pages: PageDim[]; offline: boolean; readingDirection?: string | null; pruned?: boolean; sourceId?: string | null; splits?: Splits }
+interface Chapter { id: string; seriesId: string; seriesTitle: string; title: string; pages: PageDim[]; offline: boolean; readingDirection?: string | null; pruned?: boolean; sourceId?: string | null; marks?: Marks }
 interface ChapterRef { id: string; label: string }
-interface FlatItem { ci: number; number: number; width: number | null; height: number | null; key: string; firstOfChapter: boolean; junk?: boolean; join?: 'rtl' | 'ltr'; missing?: boolean; collapsed?: boolean }
+interface FlatItem { ci: number; number: number; width: number | null; height: number | null; key: string; firstOfChapter: boolean; junk?: boolean; join?: 'rtl' | 'ltr'; forced?: boolean; missing?: boolean; collapsed?: boolean }
 
 /** Paged mode's render window, in pages: a slide is one screen, so pages and screens are the same thing there. */
 const WINDOW_BEHIND = 2;
@@ -124,7 +124,7 @@ async function loadChapter(bookId: string): Promise<Chapter | null> {
   }
   try {
     const b = await api<Book>(`/api/books/${bookId}`);
-    const [pInfo, splits] = await Promise.all([api<PageInfo[]>(`/api/books/${bookId}/pages`), loadSplits(bookId)]);
+    const [pInfo, marks] = await Promise.all([api<PageInfo[]>(`/api/books/${bookId}/pages`), loadMarks(bookId)]);
     return {
       id: bookId,
       seriesId: b.seriesId,
@@ -136,7 +136,7 @@ async function loadChapter(bookId: string): Promise<Chapter | null> {
       // below can be explained rather than blamed on the reader's library mount.
       pruned: b.pruned === true,
       sourceId: b.sourceId ?? null,
-      splits,
+      marks,
     };
   } catch {
     return null;
@@ -514,13 +514,16 @@ function ReaderInner() {
   // removed: removing would give the two modes different flows, and switching mode mid-chapter would then land
   // on a different page, because nothing re-anchors `current` when the flow is rebuilt.
   const flowJunk = prefs.mode === 'paged' && prefs.junkPages === 'collapse' ? 'show' : prefs.junkPages;
-  // `detected` is the flow with the server's joins as found; `flat` has the pairs this reader un-joined taken out
-  // (lib/spreadMarks.ts), so what pairs is decided in one place. Same length and order, so an index means the same in both.
+  // `detected` is the flow with the server's joins as found; `flat` has this reader's own marks applied (lib/spreadMarks.ts), so
+  // what pairs is decided in one place. Same length and order, so an index means the same in both.
   const detected: FlatItem[] = useMemo(
     () => buildFlow(chapters, flowJunk, expanded) as FlatItem[],
     [chapters, flowJunk, expanded],
   );
-  const flat: FlatItem[] = useMemo(() => applySplits(detected, chapters.map((c) => c.splits)), [detected, chapters]);
+  const flat: FlatItem[] = useMemo(
+    () => applyMarks(detected, chapters.map((c) => c.marks), rtl || pagedRtl ? 'rtl' : 'ltr'),
+    [detected, chapters, rtl, pagedRtl],
+  );
   /** Vertical + `collapse`: a repeated page is drawn as a band of itself instead of being removed. */
   const collapsing = prefs.junkPages === 'collapse';
   /** `hide` is the only mode that takes a page out of the flow, so it is the only one that needs the chip. */
@@ -1082,17 +1085,42 @@ function ReaderInner() {
   });
   const activeChapter = chapters[flat[current]?.ci ?? 0];
 
-  // The page being read as half of a spread the detector joined, and whether this reader un-joined it (lib/spreadMarks.ts). Online
-  // chapters, paged mode only: the answer is kept on the server, and the column has no pairs to correct.
-  const spreadHere = prefs.mode === 'paged' && activeChapter && !activeChapter.offline ? spreadChoice(detected, current, activeChapter.splits) : null;
-  const splitSpread = (first: number, split: boolean) => {
-    const ch = activeChapter;
+  // What a reader may say about the page at flow index `at` (lib/spreadMarks.ts): merge it with a neighbour, take a spread apart, or
+  // let the detector's answer stand. Online chapters, paged mode only: the answer is kept on the server, and the column has no pairs.
+  const optionsAt = (at: number): SpreadOption[] => {
+    const ch = chapters[flat[at]?.ci ?? -1];
+    return prefs.mode === 'paged' && ch && !ch.offline ? spreadOptions(flat, at, ch.marks, pagedRtl) : [];
+  };
+  const optionLabel = (o: SpreadOption): string =>
+    o.kind === 'split' ? tr('These two pages are not one spread')
+    : o.kind === 'unmerge' ? tr('Unmerge these pages')
+    : o.kind === 'restore' ? tr('Join these two pages again')
+    : o.side === 'left' ? tr('Merge with the page on the left') : tr('Merge with the page on the right');
+  const applyOption = (at: number, o: SpreadOption) => {
+    const ch = chapters[flat[at]?.ci ?? -1];
     if (!ch) return;
-    const before = ch.splits;
-    const put = (splits?: Splits) => setChapters((cs) => cs.map((c) => (c.id === ch.id ? { ...c, splits } : c)));
-    put(split ? [...new Set([...(before ?? []), first])] : (before ?? []).filter((n) => n !== first));
+    const mark = markFor(o);
+    const before = ch.marks;
+    const next: Marks = { ...(before ?? {}) };
+    if (mark === null) delete next[o.first];
+    else {
+      next[o.first] = mark;
+      if (mark === 'join') for (const n of [o.first - 1, o.first + 1]) if (next[n] === 'join') delete next[n];
+    }
+    const put = (marks?: Marks) => setChapters((cs) => cs.map((c) => (c.id === ch.id ? { ...c, marks } : c)));
+    put(next);
     setShowSettings(false);
-    saveSplit(ch.id, first, split).then(put).catch((e) => { put(before); toast(msgOf(e, tr('Could not save')), 'error'); });
+    saveMark(ch.id, o.first, mark).then(put).catch((e) => { put(before); toast(msgOf(e, tr('Could not save')), 'error'); });
+  };
+  /** The page a pointer is over: the one in frame, the only one on the slide, or the one on that side of a pair. */
+  const pageAtPoint = (x: number, y: number): number => {
+    const slide = slideNow();
+    if (focused?.slide === slide) return focused.page;
+    const idxs = slides[slide];
+    if (!idxs?.length) return current;
+    const on = idxs.length === 2 ? pairOnScreen(slide) : null;
+    const rect = scrollRef.current?.getBoundingClientRect();
+    return on && rect ? on[x < rect.left + rect.width / 2 ? 0 : 1] : idxs[0];
   };
 
   // One place that knows how to move to a page, shared by the scrubber and the page grid. The initial-scroll
@@ -1606,12 +1634,8 @@ function ReaderInner() {
     const items: MenuItem[] = [];
     if (onPair === null) items.push({ label: tr('Show both pages'), onSelect: () => setFocused(null) });
     else if (onPair) items.push({ label: tr('Focus on this page'), onSelect: () => setFocused(onPair) });
-    if (spreadHere) {
-      items.push({
-        label: spreadHere.split ? tr('Join these two pages again') : tr('These two pages are not one spread'),
-        onSelect: () => splitSpread(spreadHere.first, !spreadHere.split),
-      });
-    }
+    const at = pt ? pageAtPoint(pt.x, pt.y) : current;
+    for (const o of optionsAt(at)) items.push({ label: optionLabel(o), onSelect: () => applyOption(at, o), divider: items.length === 0 ? false : undefined });
     items.push(
       { label: zoom > 1 ? tr('Reset zoom') : tr('Zoom in'), onSelect: () => applyZoom(zoom > 1 ? 1 : 2), divider: items.length > 0 },
       { label: bookmarked ? tr('Remove bookmark') : tr('Bookmark this page'), onSelect: () => { void toggleBookmark(); }, disabled: !activeChapter || !pageInChapter },
@@ -2066,8 +2090,7 @@ function ReaderInner() {
               : seriesSource && loadSourcePrefs(seriesSource.id).mode ? tr("From this source's default.")
               : undefined
             }
-            spreadHere={spreadHere}
-            onSplitSpread={splitSpread}
+            spreadOptions={optionsAt(current).map((o) => ({ label: optionLabel(o), onSelect: () => applyOption(current, o) }))}
             libraryName={seriesLibrary?.name}
             onLibraryDefault={() => {
               if (!seriesLibrary) return;

@@ -2,7 +2,7 @@
   "_meta": {
     "language": "es",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 4628
+    "strings": 4633
   },
   "1 check found something": "1 comprobación encontró algo",
   "1 member": "1 miembro",
@@ -4631,5 +4631,10 @@
   "Zoom in": "Acercar",
   "Read in single pages": "Leer en páginas sueltas",
   "Read in double spreads": "Leer en doble página",
-  "Open the series": "Abrir la serie"
+  "Open the series": "Abrir la serie",
+  "Unmerge these pages": "Separar estas páginas",
+  "Merge with the page on the left": "Unir con la página de la izquierda",
+  "Merge with the page on the right": "Unir con la página de la derecha",
+  "Double pages": "Dobles páginas",
+  "Merge two pages into one spread, or take a spread apart. Saved for your account only; it changes nothing for anyone else.": "Une dos páginas en una doble página o separa una doble página. Se guarda solo en tu cuenta; no cambia nada para los demás."
 }
