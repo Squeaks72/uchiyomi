@@ -11,7 +11,6 @@ import { readShownOnce } from '@/lib/shownOnce';
 import { setTypeToSearchOn, typeToSearchOn } from '@/lib/typeToSearch';
 import { showAllChaptersOn } from '@/lib/showAllChapters';
 import { useAccountPref } from '@/lib/useAccountPref';
-import { titleLangOptions } from '@/lib/titleLang';
 import { ReaderPrefs, loadPrefs, savePrefs, syncPrefsFromServer } from '@/lib/readerPrefs';
 import { Avatar, AVATAR_EMOJIS, AVATAR_COLORS } from '@/components/Avatar';
 import { ProgressBar } from '@/components/ui';
@@ -84,35 +83,6 @@ const COLOR_NAMES: Record<string, string> = {
   '#ef4444': EXTRA_COLOR_NAMES[1],
 };
 const colorName = (hex: string): string => { const n = COLOR_NAMES[hex.toLowerCase()]; return n ? tr(n) : hex; };
-
-/**
- * Title language: a series held in more than one language is one card in the Library, and this picks the edition on it,
- * so its title. Only the languages some series on the server is in are offered. Saved the moment it changes, applied
- * at once to the account's settings, and put back when the server refuses; the Library is refetched either way.
- */
-function TitleLanguageRow() {
-  const { user, setSettings } = useAuth();
-  const qc = useQueryClient();
-  const { status, run } = useAutosave();
-  const saved: string | null = typeof user?.settings?.titleLang === 'string' ? user.settings.titleLang : null;
-  const langs = useQuery({ queryKey: ['title-languages'], queryFn: () => api<{ languages: string[] }>('/api/settings/title-languages') });
-  const options = titleLangOptions(langs.data?.languages ?? [], saved);
-  const pick = (value: string) => {
-    const next = value || null;
-    setSettings({ titleLang: next });
-    void run(() => api('/api/settings', { method: 'PUT', json: { titleLang: next } }))
-      .then((ok) => { if (!ok) setSettings({ titleLang: saved }); qc.invalidateQueries({ queryKey: ['library'] }); });
-  };
-  return (
-    <Row label={tr('Title language')} htmlFor="title-lang" status={status}
-      help={tr('A series you hold in more than one language shows the title in this one. A series without it keeps the title it has.')}>
-      <select id="title-lang" value={saved ?? ''} onChange={(e) => pick(e.target.value)} className="field w-auto">
-        <option value="">{tr('No preference')}</option>
-        {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-      </select>
-    </Row>
-  );
-}
 
 function AppearanceSection() {
   const { user, setAvatar, setSettings } = useAuth();
@@ -262,7 +232,6 @@ function AppearanceSection() {
       <SwitchRow label={tr('Big banners')}
         help={tr('Shows the large banner at the top of Home (the daily pick) and of Discover (trending now). Off by default.')}
         on={banners} onChange={setBanners} />
-      <TitleLanguageRow />
 
       {/* This device only (lib/typeToSearch.ts says why): single-key shortcuts must be possible to switch off. */}
       <SwitchRow label={tr('Type anywhere to search')}
