@@ -88,9 +88,21 @@ an empty string to make sure it can never send anything regardless of the settin
 
 ### Progress trackers
 
-The tracker calls are the only ones this server makes **with your token**: AniList, MyAnimeList and Kitsu,
+The tracker calls are the only ones this server makes **with your token**: AniList, MyAnimeList, Kitsu and MangaUpdates,
 each connected by you under **Profile → Connections → Progress tracking**, and only for reading your list (the
 import) and reporting what you finished. Nothing carrying a token goes to a tracker you have not connected.
+
+**One-time setup, by an admin.** AniList and MyAnimeList sign people in through an application registered with
+them, so someone registers one each and gives its client ID to Uchiyomi once, under **Profile → Connections →
+Progress tracking** (admins see a *Set up sign-in* card; the redirect URL to register is shown there with a copy
+button, and is `<your Uchiyomi address>/tracker-callback/`). AniList: *Settings → Developer → Create new client*,
+paste that redirect URL, and copy the client ID. MyAnimeList: *Account settings → API → Create ID*, app type *web*,
+the same redirect URL, and copy the client ID (and the secret, if it shows one). After that every member just clicks
+**Connect**. Kitsu and MangaUpdates need no setup: members sign in with their username and password, which is used once to get a token
+and not kept. The same IDs can come from the environment instead (`ANILIST_CLIENT_ID`, `MYANIMELIST_CLIENT_ID`,
+`MYANIMELIST_CLIENT_SECRET`); an ID saved in the app wins. The redirect address has to be the one people open
+Uchiyomi at, so a server reached by two names needs the sign-in done at the registered one. MyAnimeList tokens last
+about a month and are not refreshed yet, so MyAnimeList asks to be reconnected monthly.
 
 Two of those services are also asked **without** any token, by title, whether or not anyone has connected
 them. By default, every series added gets its title sent to AniList (`graphql.anilist.co`) once, for banner and cover
@@ -124,9 +136,9 @@ off with **Match Discover titles online** under Admin → Settings; cards then f
 `MANGADEX_API_URL` and `MANGAUPDATES_API_URL` are test knobs like the ones below (defaults `https://api.mangadex.org`
 and `https://api.mangaupdates.com/v1`); `MANGADEX_API_URL` moves every MangaDex request, the MangaDex sources' included.
 
-`ANILIST_API_URL`, `MYANIMELIST_API_URL` and `KITSU_API_URL` are **test knobs**: they point an adapter at a
+`ANILIST_API_URL`, `MYANIMELIST_API_URL`, `KITSU_API_URL` and `MANGAUPDATES_API_URL` are **test knobs**: they point an adapter at a
 stand-in server instead of the real service (the defaults are `https://graphql.anilist.co`,
-`https://api.myanimelist.net/v2` and `https://kitsu.app/api/edge`). They exist so the browser tests can
+`https://api.myanimelist.net/v2`, `https://kitsu.app/api/edge` and `https://api.mangaupdates.com/v1`). They exist so the browser tests can
 drive a tracker import without a real account — and, `ANILIST_API_URL` since v0.55.7, check online matches
 against a fake AniList, so it moves every AniList call, the title lookups above included. There is no reason to
 set them on an install you read on — a wrong value here makes every tracker call fail, or worse, sends your token
@@ -407,10 +419,12 @@ ever hit.
   `AUTOFIX_MAX_MINUTES` is spent, and the next run continues down the list. `0` switches its extensions phase off. A
   package that carries none of the series it was searched for is removed again at once, and is not tried for those
   series again for a month.
+- `MAX_FOLLOWED_SOURCES` (default `5`, 1 to 20): how many sources besides the main one a series may follow, by hand or
+  automatically.
 - `MIN_FREE_GB` (default `10`): refuse to start a download when the download disk has less than this free.
   `0` disables the floor. Fails open if free space cannot be measured.
 
-An ordinary chapter failure may continue from up to two sources already followed for that series. A copy
+An ordinary chapter failure may continue from up to four of the sources already followed for that series. A copy
 explicitly picked by a person never switches. A 403/429 never becomes a partial chapter or starts a hunt;
 the refusing source cools down, while an already-followed copy can keep the queue moving. The sweep can also
 find a new matching source when **Admin → Settings → Updates & schedules → Look for failed chapters on other

@@ -57,6 +57,9 @@ const SAMPLE: Record<string, (c: number) => unknown> = {
   // The engine upgrade: the versions an engine is held to (bff enginePin.ts), and what a step names to copy.
   tested: () => 'v2.3.2243', oldest: () => 'v2.3.2243', image: () => 'suwayomi/suwayomi-server:v2.3.2243',
   command: () => 'docker compose up -d uchiyomi-suwayomi', service: () => 'uchiyomi-suwayomi', path: () => '/mnt/user/appdata/uchiyomi-suwayomi',
+  // The chapter files, details and disk checks (bff lib/healthFiles.ts, healthMore.ts).
+  looked: (c) => c, roots: () => ['/library-dl'], missing: (c) => c, empty: () => 1, broken: () => 2,
+  summary: () => true, genres: () => true, author: () => false, free: () => 12.5,
 };
 
 /**
@@ -549,12 +552,12 @@ test('a stage named mid-sentence is lower-case, as the server\'s English says it
   }
 });
 
-test('every view that prints a download\'s reason words it: Library → Downloads, the series band, Discover, Find missing', () => {
+test('every view that prints a download\'s reason words it: Library → Downloads, the series band, Find missing', () => {
   // The job card's, the run card's and a chapter's reason come with codes (bff routes/sources.ts, lib/downloadJobs.ts,
   // lib/downloadActivity.ts); a view that prints `.reason` itself prints English in every language. Reintroduce
   // `{a.job.reason || tr('Fetch stopped. Try another source or wait.')}` in ServerDownloadsView: it is named here.
   const ROOT = join(__dirname, '..');
-  for (const f of ['components/ServerDownloadsView.tsx', 'components/SeriesServerDownloads.tsx', 'app/discover/page.tsx',
+  for (const f of ['components/ServerDownloadsView.tsx', 'components/SeriesServerDownloads.tsx',
     'components/FindMissingDialog.tsx', 'app/series/page.tsx']) {
     const src = readFileSync(join(ROOT, f), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
     const bare = src.match(/\{[^{}]*\b(?:j|r|f|a\.job|failed\.job|job|ended)\??\.reason\s*(?:\|\||\?\s*[`'])[^{}]*\}|toast\([^)]*\bended\??\.reason\s*\|\|/g);

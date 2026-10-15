@@ -16,6 +16,8 @@ import { useReduceEffects } from '@/lib/effects';
 import { EASE } from '@/lib/motion';
 import { t as tr } from '@/lib/i18n';
 import { statusText } from '@/lib/activity';
+import { useCoverBust, withCoverBust } from '@/lib/coverBust';
+import { applyFavorite } from '@/lib/favoriteCache';
 
 function FavButton({ series }: { series: Series }) {
   const qc = useQueryClient();
@@ -28,6 +30,7 @@ function FavButton({ series }: { series: Series }) {
     try {
       if (next) await api('/api/favorites', { json: { seriesId: series.id } });
       else await api(`/api/favorites/${series.id}`, { method: 'DELETE' });
+      applyFavorite(qc, series.id, next);
       qc.invalidateQueries({ queryKey: ['home'] });
     } catch { setFav(!next); }
   };
@@ -110,9 +113,10 @@ export function HeroCarousel({ slides }: { slides: Series[] }) {
 
       <div className="relative z-10 flex h-full items-end px-5 pb-12 lg:pb-20 lg:pe-14 lg:ps-[calc(var(--rail-w)+3.5rem)]">
         <div className="flex items-end gap-7">
-          <Link href={`/series/?id=${cur.id}`} className="hidden h-72 w-48 shrink-0 overflow-hidden rounded-2xl border border-white/10 shadow-lift transition hover:-translate-y-1 lg:block">
+          {/* The same destination as "Read" beside it, so keyboard and screen-reader users skip this copy. */}
+          <Link href={`/series/?id=${cur.id}`} aria-hidden tabIndex={-1} className="hidden h-72 w-48 shrink-0 overflow-hidden rounded-2xl border border-white/10 shadow-lift transition hover:-translate-y-1 lg:block">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={img.seriesThumb(cur.id, undefined, 800)} alt={cur.metadata?.title || cur.name} className="h-full w-full object-cover" />
+            <img src={withCoverBust(img.seriesThumb(cur.id, undefined, 800))} alt="" className="h-full w-full object-cover" />
           </Link>
           <div className="max-w-xl">
             <span className="mb-3 inline-flex items-center gap-1.5 rounded-md bg-white/10 px-2.5 py-1 text-2xs font-semibold uppercase tracking-wider text-fog-100 backdrop-blur rtl:tracking-normal">★ {tr('Daily pick')}</span>

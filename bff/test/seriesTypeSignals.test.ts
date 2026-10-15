@@ -59,8 +59,8 @@ test('the evidence ranks, least trusted first', () => {
 });
 
 test('a fraction, and a listed notice: a fraction its copies say is 3 pages or fewer', () => {
-  for (const n of [100.1, 100.5, 0.5, 12.01]) assert.equal(isFractionalNumber(n), true, String(n));
-  for (const n of [100, 0, -1, NaN, Infinity]) assert.equal(isFractionalNumber(n), false, String(n));
+  for (const n of [100.1, 100.5, 0.5, 12.01, 0]) assert.equal(isFractionalNumber(n), true, String(n));
+  for (const n of [100, -1, NaN, Infinity]) assert.equal(isFractionalNumber(n), false, String(n));
   // As Postgres hands a `real` back: 100.1 is 100.0999984741211, still a fraction.
   assert.equal(isFractionalNumber(Math.fround(100.1)), true);
   // The sweep's half of the owner's rule (the listing's, lib/noticeChapters.ts listedIsNotice, is the same).

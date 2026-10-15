@@ -41,8 +41,8 @@ import { normTitle } from './titleMatch';
 import { altTitlesFor, MIN_ALT_KEY } from './altTitles';
 import { languageFits, seriesLanguage } from './seriesLang';
 
-/** How many sources a series may FOLLOW, on top of its primary. */
-export const MAX_FOLLOWERS = 2;
+/** How many sources a series may FOLLOW, on top of its primary (env MAX_FOLLOWED_SOURCES, 1 to 20, default 5). */
+export const MAX_FOLLOWERS = Math.min(20, Math.max(1, Math.floor(Number(process.env.MAX_FOLLOWED_SOURCES) || 5)));
 /** How many of an add's candidates are asked at all; the rest are `not_tried`. */
 export const MAX_AUTO_CANDIDATES = 6;
 /**

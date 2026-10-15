@@ -22,7 +22,11 @@ const DAY_MS = 86_400_000;
  *
  * **RTL reverses the weeks, not the drawing.** Mirroring the `<g>` would mirror the month labels with it.
  */
-export function Heatmap({ values, start, max: maxIn, label }: {
+export function Heatmap({ values, start, max: maxIn, label, onPick, numbers }: {
+  /** Write each day's value on its block. */
+  numbers?: boolean;
+  /** Makes every day a button that hands back its ISO date. */
+  onPick?: (day: string) => void;
   /** Dense: one entry per day, index 0 is `start`. */
   values: number[];
   /** ISO date (YYYY-MM-DD) of `values[0]`, read as UTC. */
@@ -55,24 +59,32 @@ export function Heatmap({ values, start, max: maxIn, label }: {
   const fmt = (ms: number) => new Date(ms).toISOString().slice(0, 10);
 
   return (
-    <svg width="100%" viewBox={`0 0 ${w} ${h}`} role="img" className="block overflow-visible"
+    <svg width="100%" viewBox={`0 0 ${w} ${h}`} role={onPick ? 'group' : 'img'} className="block overflow-visible"
       aria-label={label ?? tr('{n} days of reading, {t} chapters in total', { n: values.length, t: total })}>
       {cells.map((c) => {
         // The zero cell is a grid line, not a value: a faint fill that never reaches the accent ramp.
         const t = c.v === 0 ? 0 : 0.18 + 0.82 * Math.min(1, c.v / max);
         const col = rtl ? weeks - 1 - c.col : c.col;
         return (
+          <g key={c.at}>
           <rect
-            key={c.at}
             x={col * STEP}
             y={c.row * STEP}
             width={CELL}
             height={CELL}
             rx={3}
+            data-day={fmt(c.at)}
+            {...(onPick ? { role: 'button', tabIndex: 0, className: 'cursor-pointer', onClick: () => onPick(fmt(c.at)), onKeyDown: (e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPick(fmt(c.at)); } } } : {})}
             fill={c.v === 0 ? 'rgb(255 255 255 / 0.06)' : `rgb(var(--accent) / ${t.toFixed(3)})`}
           >
             <title>{`${fmt(c.at)} — ${c.v}`}</title>
           </rect>
+          {numbers && (
+            <text x={col * STEP + CELL / 2} y={c.row * STEP + CELL / 2} textAnchor="middle" dominantBaseline="central"
+              fontSize={c.v >= 100 ? 5 : c.v >= 10 ? 6.5 : 8} fontWeight={600} pointerEvents="none" data-day-count
+              fill={c.v === 0 ? 'rgb(255 255 255 / 0.28)' : t > 0.55 ? '#000' : 'rgb(255 255 255 / 0.92)'}>{c.v}</text>
+          )}
+          </g>
         );
       })}
     </svg>

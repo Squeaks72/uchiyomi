@@ -242,6 +242,8 @@ test('Home: "Most popular in your library" after Recently added, saying AniList\
   const at = (k: string) => HOME_RAILS.findIndex((r) => r.key === k);
   assert.ok(at('recentlyAdded') >= 0 && at('recentlyAdded') < at('popular') && at('popular') < at('top10'),
     'the rail is not between Recently added and Top 10 in your library');
+  assert.match(code(read('components/HomeRowsSheet.tsx')), /popular: \(\) => tr\('Most popular in your library'\),/,
+    'the rail cannot be named in Customize Home');
   assert.ok(SORTS.some((s) => s.key === 'popular'), 'See all names an order the Library does not have');
   assert.match(read('lib/types.ts'), /popular\?: Series\[\];/, 'HomePayload has no optional `popular`');
 });

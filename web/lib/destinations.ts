@@ -19,8 +19,8 @@ const LABELS = keys(
   // The admin tabs.
   'Overview', 'Tasks', 'Settings', 'Members', 'Sessions', 'Activity', 'Library', 'Health', 'Art', 'Sources',
   // The sections of Admin → Settings, in their order.
-  'Server', 'Updates & schedules', 'Library housekeeping', 'Scanlators', 'Notifications', 'Downloads', '18+ filter',
-  'Source order', 'Notice chapters',
+  'Server', 'Updates & schedules', 'Library housekeeping', 'Scanlators', 'Notifications', 'Downloads', 'Downloads & politeness',
+  'Content ratings', 'Source order', 'Notice chapters',
   // Settings people ask for by name.
   'Check for updates', 'Open registration', 'Backup time', 'Delete read chapters', 'Show missing chapters in Mihon',
   'Slow archive', 'Cloudflare solver', 'Version', 'Import a list', 'Rescan everything', 'Smart update checks',
@@ -92,8 +92,11 @@ export const DESTINATIONS: readonly Destination[] = [
     keywords: ['webhook', 'discord', 'ntfy', 'home assistant', 'alerts'] },
   { key: 'settings-downloads', label: 'Downloads', where: ADMIN_SETTINGS, href: settings('downloads'), admin: true,
     keywords: ['chapters an hour', 'pace', 'free space'] },
-  { key: 'settings-adult', label: '18+ filter', where: ADMIN_SETTINGS, href: settings('adult-filter'), admin: true,
-    keywords: ['adult', 'nsfw', 'mature', 'show 18+'] },
+  // The 18+ filter grew into Content ratings (age ratings and source ratings); the old name still finds it.
+  { key: 'settings-adult', label: 'Content ratings', where: ADMIN_SETTINGS, href: settings('content-ratings'), admin: true,
+    keywords: ['18+ filter', 'adult', 'nsfw', 'mature', 'show 18+', 'age rating', 'source rating', 'age cap'] },
+  { key: 'settings-politeness', label: 'Downloads & politeness', where: ADMIN_SETTINGS, href: settings('politeness'), admin: true,
+    keywords: ['limits', 'environment variables', 'concurrency', 'timeout', 'blocked sources', 'unblock', 'cache size', 'backup keep'] },
   { key: 'settings-source-order', label: 'Source order', where: ADMIN_SETTINGS, href: settings('source-order'), admin: true,
     keywords: ['priority', 'preferred source'] },
   { key: 'settings-notice', label: 'Notice chapters', where: ADMIN_SETTINGS, href: settings('notice-chapters'), admin: true,
@@ -130,7 +133,7 @@ export const DESTINATIONS: readonly Destination[] = [
 
   // ---- The import (app/admin/import/page.tsx) ----
   { key: 'import', label: 'Import a list', where: ADMIN, href: '/admin/import/', admin: true,
-    keywords: ['import', 'mihon', 'tachiyomi', 'tachibk', 'backup', 'mangadex', 'anilist', 'myanimelist', 'mal', 'kitsu',
+    keywords: ['import', 'mihon', 'tachiyomi', 'tachibk', 'backup', 'mangadex', 'anilist', 'myanimelist', 'mal', 'kitsu', 'mangaupdates',
       'migrate', 'move my library', 'paste titles'] },
 
   // ---- The profile's tabs (app/profile/page.tsx), cards and settings ----
@@ -158,7 +161,7 @@ export const DESTINATIONS: readonly Destination[] = [
     desktopHidden: true, keywords: ['push', 'notifications'] },
   { key: 'profile-connections', label: 'Connections', where: PROFILE, href: '/profile/?tab=Connections', keywords: ['integrations'] },
   { key: 'progress-tracking', label: 'Progress tracking', where: PROFILE_CONNECTIONS, href: '/profile/?tab=Connections&section=progress-tracking',
-    keywords: ['anilist', 'myanimelist', 'mal', 'kitsu', 'tracker', 'sync'] },
+    keywords: ['anilist', 'myanimelist', 'mal', 'kitsu', 'mangaupdates', 'tracker', 'sync'] },
   { key: 'opds', label: 'External readers (OPDS)', where: PROFILE_CONNECTIONS, href: '/profile/?tab=Connections&section=opds',
     desktopHidden: true, keywords: ['opds', 'koreader', 'panels', 'chunky', 'e-reader'] },
   { key: 'api-tokens', label: 'API tokens', where: PROFILE_CONNECTIONS, href: '/profile/?tab=Connections&section=api-tokens',

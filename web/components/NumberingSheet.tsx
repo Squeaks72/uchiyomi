@@ -106,7 +106,7 @@ export function NumberingSheet({ seriesId, mode, onClose, onConfirm }: {
             </div>
           </div>
         )}>
-        {isLoading && <p className="py-4 text-sm text-fog-500">{tr('Reading the source’s chapter list…')}</p>}
+        {isLoading && <p role="status" className="py-4 text-sm text-fog-500">{tr('Reading the source’s chapter list…')}</p>}
         {isError && <p role="alert" className="py-4 text-sm text-amber-300">{planErrorText(loadError, tr('Could not do that'))}</p>}
         {plan && counts && (
           <div data-numbering-plan>

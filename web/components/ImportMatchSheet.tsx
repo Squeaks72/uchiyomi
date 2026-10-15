@@ -8,6 +8,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { withAdult } from '@/lib/adult';
 import { Sheet, Img } from '@/components/ui';
 import { ScrollRail } from '@/components/ScrollRail';
 import { SourceIcon } from '@/components/SourcePicker';
@@ -52,7 +53,7 @@ function MiniCard({ label, title, coverUrl, sourceId, sourceLabel, count, loadin
       <Img src={coverUrl ? sourceCover(sourceId, coverUrl) : ''} alt="" fallbackSrc={coverUrl || undefined}
         className="h-16 w-11 shrink-0 rounded" />
       <div className="min-w-0 flex-1">
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-fog-500">{label}</p>
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-fog-500">{label}</p>
         <p className="truncate text-sm text-fog-100">{title}</p>
         <p className="truncate text-[11px] text-fog-400">
           {sourceLabel}{loading ? ` · ${tr('checking…')}` : count != null ? ` · ${bookCountText(count)}` : ''}
@@ -82,15 +83,15 @@ export function ImportMatchSheet({ batchId, candidate, onClose }: {
 
   const { data, isFetching, error } = useQuery({
     queryKey: ['import-search-source', debounced],
-    queryFn: () => api<{ content: SourceGroup[] }>(`/api/sources/search-all?groupBy=source&q=${encodeURIComponent(debounced)}`),
+    queryFn: () => api<{ content: SourceGroup[] }>(withAdult(`/api/sources/search-all?groupBy=source&q=${encodeURIComponent(debounced)}`, true)),
     enabled: debounced.length >= 2,
     staleTime: 30_000,
   });
 
   // Source display names for the preview cards -- the candidate row only carries the source id.
   const { data: sourcesData } = useQuery({
-    queryKey: ['sources'],
-    queryFn: () => api<{ content: Src[] }>('/api/sources'),
+    queryKey: ['sources', 'import'],
+    queryFn: () => api<{ content: Src[] }>(withAdult('/api/sources', true)),
     staleTime: 30_000,
   });
   const sourceName = (id: string | null | undefined): string => (id && sourcesData?.content.find((s) => s.id === id)?.name) || id || '';
@@ -100,13 +101,13 @@ export function ImportMatchSheet({ batchId, candidate, onClose }: {
   // so it is looked up the same way the add dialog looks it up: GET /api/sources/detail.
   const currentDetail = useQuery({
     queryKey: ['import-detail', candidate.match_source, candidate.match_source_id],
-    queryFn: () => api<Detail>(`/api/sources/detail?source=${encodeURIComponent(candidate.match_source!)}&sourceId=${encodeURIComponent(candidate.match_source_id!)}`),
+    queryFn: () => api<Detail>(withAdult(`/api/sources/detail?source=${encodeURIComponent(candidate.match_source!)}&sourceId=${encodeURIComponent(candidate.match_source_id!)}`, true)),
     enabled: !!candidate.match_source && !!candidate.match_source_id,
     staleTime: 60_000,
   });
   const pendingDetail = useQuery({
     queryKey: ['import-detail', pending?.source, pending?.sourceId],
-    queryFn: () => api<Detail>(`/api/sources/detail?source=${encodeURIComponent(pending!.source)}&sourceId=${encodeURIComponent(pending!.sourceId)}`),
+    queryFn: () => api<Detail>(withAdult(`/api/sources/detail?source=${encodeURIComponent(pending!.source)}&sourceId=${encodeURIComponent(pending!.sourceId)}`, true)),
     enabled: !!pending,
     staleTime: 60_000,
   });
@@ -166,7 +167,7 @@ export function ImportMatchSheet({ batchId, candidate, onClose }: {
             sourceId={pending.source} sourceLabel={sourceName(pending.source)}
             count={pendingDetail.data?.count} loading={pendingDetail.isFetching} />
           {delta != null && (
-            <p className={`text-center text-[11px] ${delta === 0 ? 'text-fog-500' : delta > 0 ? 'text-emerald-400' : 'text-amber-400'}`}>
+            <p role="status" className={`text-center text-[11px] ${delta === 0 ? 'text-fog-500' : delta > 0 ? 'text-emerald-400' : 'text-amber-400'}`}>
               {delta === 0 ? tr('Same chapter count as the current pick')
                 : delta === 1 ? tr('+1 chapter vs the current pick')
                 : delta > 0 ? tr('+{n} chapters vs the current pick', { n: delta })
@@ -175,21 +176,21 @@ export function ImportMatchSheet({ batchId, candidate, onClose }: {
             </p>
           )}
           <div className="flex gap-2">
-            <button onClick={() => setPending(null)} disabled={busy === '__confirm'} className="chip flex-1 py-1.5 text-xs disabled:opacity-50">
+            <button type="button" onClick={() => setPending(null)} disabled={busy === '__confirm'} className="chip flex-1 py-1.5 text-xs disabled:opacity-50">
               {tr('Cancel')}
             </button>
-            <button onClick={confirmPending} disabled={busy === '__confirm'} className="btn-accent flex-1 py-1.5 text-xs disabled:opacity-50">
+            <button type="button" onClick={confirmPending} disabled={busy === '__confirm'} className="btn-accent flex-1 py-1.5 text-xs disabled:opacity-50">
               {busy === '__confirm' ? tr('Working…') : tr('Use this pick')}
             </button>
           </div>
         </>
       ) : (
         <div className="flex gap-2">
-          <button onClick={skip} disabled={!!busy} className="chip flex-1 py-1.5 text-xs disabled:opacity-50">
+          <button type="button" onClick={skip} disabled={!!busy} className="chip flex-1 py-1.5 text-xs disabled:opacity-50">
             {busy === '__skip' ? tr('Working…') : tr('Skip this one')}
           </button>
           {candidate.auto_source_id && candidate.decision !== 'auto' && (
-            <button onClick={useAuto} disabled={!!busy} className="chip flex-1 py-1.5 text-xs disabled:opacity-50">
+            <button type="button" onClick={useAuto} disabled={!!busy} className="chip flex-1 py-1.5 text-xs disabled:opacity-50">
               {busy === '__auto' ? tr('Working…') : tr('Use the auto match')}
             </button>
           )}
@@ -204,29 +205,32 @@ export function ImportMatchSheet({ batchId, candidate, onClose }: {
           otherwise paint over this as the rails scroll under it. */}
       <div className="sticky top-0 z-10 -mx-4 mb-3 bg-ink-950/90 px-4 pb-2 pt-1 backdrop-blur-xs">
         <div className="flex items-center gap-2 rounded-xl border border-ink-700 bg-ink-900/60 px-3 py-2 focus-within:border-accent">
-          <IcSearch width={17} height={17} className="text-fog-500" />
+          <IcSearch aria-hidden width={17} height={17} className="text-fog-500" />
           <input
             ref={inputRef}
             value={term}
             onChange={(e) => setTerm(e.target.value)}
             placeholder={tr('Search sources…')}
+            aria-label={tr('Search sources…')}
+            autoComplete="off"
+            enterKeyHint="search"
             autoCapitalize="none"
-            className="w-full bg-transparent text-sm text-fog-50 outline-hidden placeholder:text-fog-500"
+            className="w-full bg-transparent text-sm text-fog-50 outline-hidden focus-visible:outline-accent focus-visible:outline-offset-0 placeholder:text-fog-500"
           />
           {term && (
-            <button onClick={() => setTerm('')} className="text-fog-500" aria-label={tr('Clear')}>
-              <IcX width={15} height={15} />
+            <button type="button" onClick={() => setTerm('')} className="text-fog-500" aria-label={tr('Clear')}>
+              <IcX aria-hidden width={15} height={15} />
             </button>
           )}
         </div>
       </div>
 
       {debounced.length < 2 ? (
-        <p className="py-10 text-center text-sm text-fog-500">{tr('Type at least 2 characters to search.')}</p>
+        <p role="status" className="py-10 text-center text-sm text-fog-500">{tr('Type at least 2 characters to search.')}</p>
       ) : error ? (
-        <p className="py-10 text-center text-sm text-fog-500">{tr('Search failed — try again.')}</p>
+        <p role="alert" className="py-10 text-center text-sm text-fog-500">{tr('Search failed — try again.')}</p>
       ) : isFetching && !data ? (
-        <div className="space-y-4">
+        <div role="status" aria-label={tr('Loading…')} className="space-y-4">
           {Array.from({ length: 2 }).map((_, i) => (
             <div key={i}>
               <div className="skeleton mb-1.5 h-4 w-32 rounded" />
@@ -237,7 +241,7 @@ export function ImportMatchSheet({ batchId, candidate, onClose }: {
           ))}
         </div>
       ) : groups.length === 0 ? (
-        <p className="py-10 text-center text-sm text-fog-500">{tr('Nobody has that title yet.')}</p>
+        <p role="status" className="py-10 text-center text-sm text-fog-500">{tr('Nobody has that title yet.')}</p>
       ) : (
         <div className="space-y-4 pb-2">
           {groups.map((g) => (
@@ -258,20 +262,22 @@ export function ImportMatchSheet({ batchId, candidate, onClose }: {
                     <button
                       key={r.sourceId}
                       type="button"
+                      aria-pressed={selected}
                       onClick={() => setPending({ source: g.source, sourceId: r.sourceId, title: r.title, coverUrl: r.coverUrl })}
                       disabled={busy === '__confirm'}
                       className="w-24 shrink-0 text-start disabled:opacity-50"
                     >
                       <span className="relative block">
-                        <Img src={sourceCover(g.source, r.coverUrl)} alt={r.title} fallbackSrc={r.coverUrl}
+                        <Img src={sourceCover(g.source, r.coverUrl)} alt="" fallbackSrc={r.coverUrl}
                           className={`aspect-[2/3] w-24 rounded-lg border ${selected ? 'border-accent ring-2 ring-accent' : 'border-ink-700'}`} />
                         {r.inLibrary && (
                           <span className="absolute end-1 top-1 grid size-5 place-items-center rounded-full bg-accent text-black">
-                            <IcCheck width={12} height={12} />
+                            <IcCheck aria-hidden width={12} height={12} />
+                            <span className="sr-only">{tr('In library')}</span>
                           </span>
                         )}
                         {selected && (
-                          <span className="absolute bottom-1 start-1 rounded-md bg-accent px-1.5 py-0.5 text-[9px] font-semibold text-black">
+                          <span className="absolute bottom-1 start-1 rounded-md bg-accent px-1.5 py-0.5 text-[11px] font-semibold text-black" aria-hidden>
                             {tr('Comparing')}
                           </span>
                         )}

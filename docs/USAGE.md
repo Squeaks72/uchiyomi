@@ -14,7 +14,7 @@ environment variables see [CONFIGURATION.md](CONFIGURATION.md).
 - [7. Sources: extensions, add-a-site and MangaDex](#7-sources-extensions-add-a-site-and-mangadex)
 - [8. The admin panel](#8-the-admin-panel)
 - [9. Security: 2FA, sessions, password](#9-security-2fa-sessions-password)
-- [10. Tracking: AniList, MyAnimeList and Kitsu](#10-tracking-anilist-myanimelist-and-kitsu)
+- [10. Tracking: AniList, MyAnimeList, Kitsu and MangaUpdates](#10-tracking-anilist-myanimelist-kitsu-and-mangaupdates)
 - [11. Install as an app & offline](#11-install-as-an-app--offline)
 - [12. Backups & restore](#12-backups--restore)
 - [13. Troubleshooting & FAQ](#13-troubleshooting--faq)
@@ -204,7 +204,7 @@ Appearance → Type anywhere to search** switches the typing, and the **/** shor
 
 **Search finds pages and settings too** (since v0.55.4). Type two letters or more and, under the series, **Pages and
 settings** lists what the words name: every admin tab, each section of **Admin → Settings**, the profile's tabs and
-cards, the import, and settings by name — *Notice chapters*, *18+ filter*, *Source order*, *Slow archive*, *Backup
+cards, the import, and settings by name — *Notice chapters*, *Content ratings*, *Source order*, *Slow archive*, *Backup
 time*, *Delete read chapters*, *Scanlators*, *Check for updates*, the *Cloudflare solver* and the *Version* on Health,
 *Rescan everything* on Tasks, *Language*, *API tokens*, *Two-factor authentication* and more. A name works in your
 language and in English, and so do a few words people type instead (*flaresolverr*, *mihon*, *2fa*). Each row says
@@ -745,8 +745,8 @@ once, calmly. The idea is @TIGamingTV's ([#119](https://github.com/AngeloSha/uch
   every other source you as an admin can reach, including extensions that mark themselves 18+ (most manhwa
   extensions do), as Discover and **Follow** on a series page do. A series with no other names stored is first given
   the ones its source's description lists. A candidate must pass the same check as any second source
-  (*Following a second source*): its title, then its chapter numbers. A series follows at most two other sources,
-  the run stops looking once three sources carry the series, and it gives each series at most 90 seconds. A series
+  (*Following a second source*): its title, then its chapter numbers. A series follows at most five other sources
+  (`MAX_FOLLOWED_SOURCES`), the run stops looking once the series is full, and it gives each series at most 90 seconds. A series
   numbered by posting order is skipped: it follows no other source.
 - **Afterwards**, each series that gained a source has its chapter list read again, 1.5 seconds apart, so the next
   scheduled check fetches its new chapters without a burst, and Health checks itself again.
@@ -1388,6 +1388,13 @@ not to you: an e-ink tablet wants E-ink, the phone beside it does not.
   fill the screen. Only on a screen held upright -- a spread fits a phone held sideways, or a computer's screen, as
   it is -- and never in two-page spread mode. The two halves are one page: the counter, your progress, OPDS and
   your trackers never see a half.
+- **Join split double pages** (account, on by default): some sources serve a double-page spread as two ordinary
+  pages. In *Double spread* the reader shows such a pair as the spread. The server finds them by comparing the inner
+  edge of each page with the edge of the next: only a pair whose picture runs across the seam, at the same sizes, is
+  joined (a page can be in one pair only, and webtoon strips are never joined), and the answer is kept with the
+  chapter's page sizes. A chapter measured before this existed is looked at once, the next time it is opened. The
+  pages themselves are never changed, so the counter, progress and OPDS still see two. The KOReader plugin gets the
+  joined image from `/img/lib/books/{id}/spread/{n}`.
 - **Crop page borders** (account): trims the blank white or black margins around scanned pages, measured from each
   page's own pixels in your browser (nothing is cut on the server, and downloaded chapters crop too). Page by page
   all four sides are trimmed, never more than 15 % a side, and a two-page spread keeps its gutter. In webtoon
@@ -1498,7 +1505,7 @@ again.
   - Admin → Settings → *Match Discover titles online* switches the lookups off; cards then fold by their names alone.
 - **Hide 18+ and 18+ only** (since v0.55.4, [#158](https://github.com/AngeloSha/uchiyomi/discussions/158)): with
   **Show 18+** on, three chips under *Results across your sources* — **All**, **Hide 18+**, **18+ only** — filter the
-  results by what is known of each. A result is 18+ when its provider is ticked in **Admin → Settings → 18+ filter**,
+  results by what is known of each. A result is 18+ when its provider is ticked in **Admin → Settings → Content ratings**,
   when MangaDex rates the title erotica, or when it carries one of the 18+ filter's genres, and such a card wears a small
   **18+** mark; a MangaDex title rated safe or suggestive is not, nor one whose genres the filter's list does not name.
   A site whose extension calls itself 18+ makes a title 18+ only when no other site carries it (since v0.55.5): the
@@ -1681,6 +1688,10 @@ sheet, or for every extension at once with **Languages**) and they fold away.
 
 - a source that is offline, failing or switched off and still the **main source** of some series, with how many,
   and how many of those already follow a working source: **Replace** ([below](#replace-a-source));
+  **Add backups** sits beside it: it never replaces anything or turns the source off, it only adds
+  redundancy. It runs *Find other sources* over every series that source is the main source of and, by default,
+  shows what it found before anything is followed: for each series **Follow**, **Follow and make main** (the failing
+  source stays on as a backup, so a temporary outage costs nothing) or **Skip**;
 - the failing sources nothing uses, by name, with **Turn off all**, which asks first;
 - an extension update, with **Update** (**Update all** for several).
 
@@ -1863,7 +1874,7 @@ read in Mihon stays marked in Mihon. Needs Uchiyomi v0.29.0 or newer.
 to the *Komga* extension and speaks a small set of Komga's endpoints, and Uchiyomi now answers
 them. Mint a token with **read + write** (tick *Allow changes*; a read-only token browses and reads, but
 nothing syncs in either direction: Mihon retries a failed push a few times with backoff, then gives up
-quietly until the next chapter read), tick **Include 18+ content** on it if 18+ libraries and series should show
+quietly until the next chapter read), tick **Show 18+ content (this token only)** on it if 18+ libraries and series should show
 on the phone, then in Mihon install the **Komga** extension, set its **Address** to your
 Uchiyomi URL exactly as you reach it (no trailing slash) and its **API key** to the token, and switch the
 Komga tracker on under **Settings → Tracking** *before* adding series — a series added earlier has no link
@@ -1906,7 +1917,8 @@ version alone. In the desktop app it is the app's own version.
 ### Health
 
 **Content → Health** audits your library and tells you what is wrong before you run into it: series with missing
-chapters, chapters that downloaded as one or two images, the same title sitting in the library twice, chapter
+chapters, chapters that downloaded as one or two images (not a manhwa, manhua or webtoon whose pages are all very tall, which is
+just how a strip is cut), the same title sitting in the library twice, chapter
 numbers that can't be real, series waiting for a renumbering review, any source that is failing or blocked, and the
 extension engine. Each check says what it found and what it cannot see. Hit **Re-check** to run them again. Since
 v0.49.1 the page says the server's findings in your language, with dates and times in your own time zone.
@@ -2490,7 +2502,7 @@ what makes an exception possible. Unrated stays visible to everyone on purpose.
 everybody, until somebody asks for it. It stays out of the home rails, the library grid, search, browse,
 your collections, updates, history, bookmarks and the OPDS feeds, and its tab does not appear on the Library
 page. (An OPDS reader has no button to press, so for it the choice sits on its own credential:
-**Profile → Connections → External readers → Include 18+ content in this reader**, off by default.) A **Show 18+** button sits beside the sorts on the Library page and brings it all back; the reveal
+**Profile → Connections → External readers → Show 18+ content in this reader (this link only)**, off by default.) A **Show 18+ content** button sits beside the sorts on the Library page and brings it all back; the reveal
 lasts until you close the browser and then it hides itself again. The button only appears for accounts that
 actually have such a library, and never for one whose age limit is below 18.
 
@@ -2516,7 +2528,7 @@ limit below 18 is the other thing entirely: those sources are refused by name wh
 **The reveal can also cover genres and named sources.** Rating a whole library 18+ is the only thing the
 switch knew about, so keeping, say, *Ecchi* off the shelf meant moving those series into an 18+ library — a
 filing decision made to get a display outcome, and one the scanner argues with on the next rescan.
-**Admin → Settings → 18+ filter** says it directly instead: tick the genres (the list is the genres your
+**Admin → Settings → Content ratings** says it directly instead: tick the genres (the list is the genres your
 library actually has) and, separately, any source that should count as adult although its extension does not
 say so. With **Show 18+** off, a series carrying one of those genres leaves the same places an 18+ library
 does, and a ticked source leaves Discover the way a self-declared adult one does. Nothing is refiled and
@@ -2707,7 +2719,7 @@ source's own cover are never touched. Its line says how many it checked and how 
 
 **Repair library** is the nightly that fixes what Health used to only report (the Health section above lists
 what it does and the two things it never does). Its schedule reads *every 24h · never during a chapter
-sweep*, or *switched off · on demand* when the switch under **Admin → Settings → Library housekeeping** is
+sweep*, or *switched off · on demand* when the switch under **Admin → Settings → Updates & schedules** is
 off — and *Run now* works either way, because nothing it does deletes, merges or renumbers anything. Like
 the sweep it is detached, so the message only says it started; its line shows what it did when it is done and
 keeps it across restarts, for example: *2000 page counts stamped, 28625 still to count · short: 3 replaced,
@@ -2841,7 +2853,7 @@ this server, the Cloudflare solver, extensions: the notices admins also get as w
 when web push is not configured) — and **who it is for**: the whole server, or one person, who then hears
 only about their own favourites, and about server problems only if they are an admin. **Include 18+ series**
 is off by default: titles from libraries rated 18+ are left out of the digest unless you tick it, the way an
-OPDS link and an API token have their own *Include 18+ content* (the web app's *Show 18+* button lives in
+OPDS link and an API token have their own *Show 18+ content* (the web app's *Show 18+* button lives in
 the browser, so a target carries its own choice). A target aimed at a person is bounded by that person's own
 libraries and age limit whatever the box says — those are permissions, not a reveal — so it never names a
 series they could not open themselves.
@@ -2961,7 +2973,7 @@ chapter) as plain numbers, which Homepage's **Custom API** widget can show:
 
 Uchiyomi does not record volumes, so there is no volume count.
 
-## 10. Tracking: AniList, MyAnimeList and Kitsu
+## 10. Tracking: AniList, MyAnimeList, Kitsu and MangaUpdates
 
 Connect your AniList account once under **Profile → Connections → Progress tracking** (tap **Connect** on the
 AniList row and the token field opens under it) and finishing a chapter here updates your AniList list on its own.
@@ -2985,7 +2997,8 @@ your reading. If the service rejects your token, Uchiyomi disables the connectio
 rather than failing silently; a token that has lapsed is noted on the row too, but the connection is left
 in place until you paste a new one. A service that is blocking or rate-limiting the server is a sync
 error to retry on the next chapter, never a verdict on the token, so it does not disconnect anything.
-Disconnect at any time. MyAnimeList and Kitsu connect the same way, each on its own row, and more than one can
+Disconnect at any time. MyAnimeList, Kitsu and MangaUpdates connect the same way, each on its own row (Kitsu and
+MangaUpdates take your username and password, used once to get a token and not kept), and more than one can
 be connected at once; each syncs on its own.
 
 **Reading or Completed** (since v0.61.2, [#201](https://github.com/AngeloSha/uchiyomi/issues/201)). Before each
@@ -3034,6 +3047,25 @@ Completed when the series has ended, and only a series still coming out goes bac
 admin has switched on **Show missing chapters in Mihon**, and only as part of an unbroken run of read chapters
 from the start: chapters read to 12 plus a mark on chapter 1000 still send 12, because a number sent to a
 tracker cannot be taken back there. Section 4, *Marking chapters you don't have as read*, has the whole rule.
+
+**Recommended for you.** With AniList or MyAnimeList connected, **Discover** shows a *Recommended for you* row above
+the wall. It is built from the series you rated 7 or higher (or, unrated, finished or are reading), up to eight from
+AniList and five from MyAnimeList: for each, the service's own readers' "if you liked this" suggestions. Every card
+says which service it came from and, under the title, *Because you read …*; a title both services suggest is one card
+naming both. Left out: everything on any of your connected lists under any status (read, reading, on hold, dropped or
+planned) and anything the library already holds. Light novels are never suggested, and neither is adult work while
+18+ is hidden or your account is capped below 18 (a MyAnimeList suggestion whose age rating AniList cannot confirm
+counts as adult). Nothing is shown until a tracker is connected, and the row is empty when nothing is left to suggest.
+Tapping a card opens the same add dialog as Trending.
+
+The services are asked as little as possible. Your list is read at most every 12 hours (one request per 500 AniList
+entries, one per 1,000 MyAnimeList entries); what readers suggest after a title is asked once per title for the whole
+server and kept for two weeks, so two people who both love Berserk cost one question; AniList is asked for all of a
+person's seeds in one request; MyAnimeList is asked one title at a time, at most one every 1.5 seconds server-wide, with
+a ceiling per hour. A service that refuses (a rate limit, an outage) is left alone for 10 to 45 minutes while the last
+answer keeps showing. Reopening Discover, or several people opening it together, adds no requests. Disconnecting a
+tracker, or signing in to a different account, forgets that list. Kitsu's list is read for the exclusion, but Kitsu
+offers no suggestions.
 
 ![AniList sync](shots/crop-anilist.webp)
 

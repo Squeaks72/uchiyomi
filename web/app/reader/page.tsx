@@ -1,34 +1,37 @@
 'use client';
 import { ScrollRail, CARD_RAIL } from '@/components/ScrollRail';
+import { useReaderWidth } from '@/lib/readerWidth';
 import { Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { isWide, pageHeight, pairSlides, type WidePages } from '@/lib/readerSpread';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, img } from '@/lib/api';
 import { fetchAllBooks } from '@/lib/seriesBooks';
 import { chapterOutcome } from '@/lib/readerState';
 import { openableChapters } from '@/lib/chapterRows';
-import { buildFlow, startIndex, renderWindow } from '@/lib/readerFlow';
+import { buildFlow, startIndex, renderWindow, pageWidthBucket } from '@/lib/readerFlow';
 import { AHEAD_SCREENS, APPEND_SCREENS, BEHIND_SCREENS, KEEP_SCREENS, MAX_WINDOW_PAGES, anchorAt, nearEnd, prefetchList, screenRange, scrollTopFor, windowSet, type IndexRange } from '@/lib/readerWindow';
-import { readTap, undoLeft, undoWindow, type TapZone } from '@/lib/readerGesture';
+import { CHROME_GRACE_MS, isCatch, readTap, tapMayToggleChrome, undoLeft, undoWindow, type TapZone } from '@/lib/readerGesture';
 import { PAGE_ACTIONS, actionForKey, keyMapFor, type ReaderAction } from '@/lib/readerKeys';
 import { padMapFor } from '@/lib/readerPad';
 import { useGamepad } from '@/lib/useGamepad';
-import { ARM_MS, pagesAfter, skipNeedsConfirm, stillArmed } from '@/lib/readerNav';
+import { ARM_MS, chapterGap, pagesAfter, skipNeedsConfirm, stillArmed } from '@/lib/readerNav';
 import { Book, EditionRow, Page, PageInfo, Series } from '@/lib/types';
 import { useAuth, canDownload } from '@/lib/auth';
 import { chapterLabel, languageName } from '@/lib/format';
 import { editionChipLabels, readerTarget } from '@/lib/editions';
 import { numLabel } from '@/lib/numbering';
 import { useToast } from '@/components/Toast';
+import { msgOf } from '@/components/ConfirmDialog';
+import { kickDownloads } from '@/lib/useServerDownloads';
 import { deviceId } from '@/lib/device';
 import { ReaderEndLabel, ReaderEndRadar } from '@/components/ReaderEndRadar';
 import { getOfflineChapter, getPageBlob, queueProgress, noteOfflineProgress, listSeriesDownloads, setOfflinePageJunk } from '@/lib/downloads';
 import { applyCover, clearCover } from '@/lib/theme';
 import { COLOR_FILTER, glide, loadDevicePrefs, saveDevicePrefs, type DevicePrefs } from '@/lib/readerDevice';
-import { ReaderPrefs, loadPrefs, savePrefs, loadSeriesPrefs, saveSeriesPrefs, syncPrefsFromServer, THEME_FILTER, loadSourcePrefs, saveSourcePrefs, clearSourcePrefs, globalPrefsChange, seriesPinChange, titleLook, mergePulled, rememberSeriesSource, seriesSourceOf, rememberSeriesType, seriesTypeOf } from '@/lib/readerPrefs';
+import { hasSeriesLook, resetSeriesLook, ReaderPrefs, loadPrefs, savePrefs, loadSeriesPrefs, saveSeriesPrefs, syncPrefsFromServer, THEME_FILTER, loadSourcePrefs, saveSourcePrefs, clearSourcePrefs, globalPrefsChange, seriesPinChange, titleLook, mergePulled, rememberSeriesSource, seriesSourceOf, rememberSeriesType, seriesTypeOf } from '@/lib/readerPrefs';
 import { guessMode, type AutoGuess } from '@/lib/readerAuto';
 import { ReaderSettings } from '@/components/ReaderSettings';
 import { SectionTitle, useImgRetry, useRtl } from '@/components/ui';
@@ -43,11 +46,11 @@ import { t as tr } from '@/lib/i18n';
 import { serverReachableHint } from '@/lib/desktop';
 import { IncognitoTag, incognitoRef } from '@/components/IncognitoBanner';
 
-interface PageDim { number: number; width: number | null; height: number | null; junk?: boolean; missing?: boolean }
+interface PageDim { number: number; width: number | null; height: number | null; junk?: boolean; join?: 'rtl' | 'ltr'; missing?: boolean }
 /** `sourceId`: the adapter the copy came from, for naming it on a missing page's caption. Unknown for a downloaded copy. */
 interface Chapter { id: string; seriesId: string; seriesTitle: string; title: string; pages: PageDim[]; offline: boolean; readingDirection?: string | null; pruned?: boolean; sourceId?: string | null }
 interface ChapterRef { id: string; label: string }
-interface FlatItem { ci: number; number: number; width: number | null; height: number | null; key: string; firstOfChapter: boolean; junk?: boolean; missing?: boolean; collapsed?: boolean }
+interface FlatItem { ci: number; number: number; width: number | null; height: number | null; key: string; firstOfChapter: boolean; junk?: boolean; join?: 'rtl' | 'ltr'; missing?: boolean; collapsed?: boolean }
 
 /** Paged mode's render window, in pages: a slide is one screen, so pages and screens are the same thing there. */
 const WINDOW_BEHIND = 2;
@@ -86,6 +89,14 @@ async function untilStill(lastMoved: { current: number }, rtl: boolean): Promise
   for (let i = 0; i < 40 && Date.now() - lastMoved.current < STILL_MS; i++) await new Promise((r) => setTimeout(r, 100));
 }
 
+/** True while keyboard focus is inside the reader's toolbars, which must not hide out from under it. */
+const focusInChrome = () => {
+  if (typeof document === 'undefined') return false;
+  const a = document.activeElement;
+  // Keyboard focus only: a mouse click on a button also focuses it, and that should not pin the toolbars open.
+  return !!a?.closest('[data-reader-chrome]') && a.matches(':focus-visible');
+};
+
 /**
  * Whether the screen is held upright (v0.61.0): what Reader → Wide pages waits for. A double-page spread on a phone held
  * upright is a strip across the middle of the screen; held sideways, or on a computer's screen, it fits as it is.
@@ -116,7 +127,7 @@ async function loadChapter(bookId: string): Promise<Chapter | null> {
       seriesId: b.seriesId,
       seriesTitle: b.seriesTitle,
       title: b.metadata?.title || b.name,
-      pages: pInfo.map((p) => ({ number: p.number, width: p.width ?? null, height: p.height ?? null, junk: p.junk, missing: p.missing })),
+      pages: pInfo.map((p) => ({ number: p.number, width: p.width ?? null, height: p.height ?? null, junk: p.junk, missing: p.missing, join: p.join })),
       offline: false,
       // The server deleted this chapter's file after everyone finished it. Carried so the empty page list
       // below can be explained rather than blamed on the reader's library mount.
@@ -177,6 +188,9 @@ function ReaderInner() {
   const imgFilter = COLOR_FILTER[device.colorFilter];
   const behavior = glide(device.colorFilter);
   const [zoom, setZoom] = useState(1);
+  // A pair of pages on one slide with ONE of them brought into frame: tap a page to fill the screen with it, tap it again for the pair.
+  // Only ever a view of a slide that holds two pages, so nothing the pages count (progress, the slider, bookmarks) sees it.
+  const [focused, setFocused] = useState<{ slide: number; page: number } | null>(null);
   const [rtl, setRtl] = useState(false); // series reads right-to-left → double-spread pair order flips
   // Paged mode's track direction: the reader setting (lib/readerPrefs.ts `pagedDirection`), or the series'
   // own direction above when it says `series`. `trackSign` turns a slide index into a scrollLeft: an RTL
@@ -198,17 +212,38 @@ function ReaderInner() {
   // track's: an Arabic caption in an LTR paragraph, or an English one in RTL on a right-to-left read.
   const uiDir = useRtl() ? 'rtl' : 'ltr';
   const [scrubbing, setScrubbing] = useState(false); // slider drag in progress → show the page preview
+  const scrubbingRef = useRef(false);
+  scrubbingRef.current = scrubbing;
 
   const [chrome, setChrome] = useState(true);
+  // The interface is shown once per browser session, as an introduction; after that a reader opens clean and
+  // brings it up on purpose. It used to reappear on every chapter and every reopen.
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem('reader-chrome-seen')) setChrome(false);
+      else sessionStorage.setItem('reader-chrome-seen', '1');
+    } catch { /* storage blocked: keep the introduction */ }
+  }, []);
+  const chromeRef = useRef({ on: true, since: 0 });
+  /** True when this press began while the track was still moving: a catch, not a tap. */
+  const caught = useRef(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showPages, setShowPages] = useState(false);
   const [showChapters, setShowChapters] = useState(false);
   const [current, setCurrent] = useState(0);
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
+  const qc = useQueryClient();
   /** Source id -> display name from the series' own followed sources (set with the reading direction). */
   const [seriesSourceNames, setSeriesSourceNames] = useState<Record<string, string>>({});
   // The series' PRIMARY source, which keys the per-source reader default (lib/readerPrefs.ts seriesSourceOf).
   const [seriesSource, setSeriesSource] = useState<{ id: string; name: string } | null>(null);
+  // A webtoon is one long strip cut into images, never a spread cut in two: joining is for paged series only.
+  // Joins are off only for a series TYPED webtoon, not one whose direction is merely unknown (the API says WEBTOON for NULL,
+  // which is half the library, One Piece among it). The server already joins nothing in a chapter of strips (lib/spreadJoin.ts
+  // joinsFor), so a manga of unknown direction keeps its joined spreads.
+  const [typedWebtoon, setTypedWebtoon] = useState(false);
+  const [seriesLibrary, setSeriesLibrary] = useState<{ id: string; name: string } | null>(null);
+  const [libraryLook, setLibraryLook] = useState<NonNullable<Series['libraryReader']> | null>(null);
   // The work's language editions (v0.52.0, #72), for the chapter sheet's chips, and each chapter's number, which a
   // switch to another edition opens there. Both from requests the page makes anyway.
   const [editions, setEditions] = useState<EditionRow[] | null>(null);
@@ -217,6 +252,10 @@ function ReaderInner() {
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const [colW, setColW] = useState(0);
+  // This device's own column width (lib/readerWidth.ts), not an account setting.
+  const [widthPct] = useReaderWidth();
+  /** The width page images are asked for: the screen's, in device pixels, in a few steps so the server's cache is shared. 0 until measured. */
+  const [pageW, setPageW] = useState(0);
   const didInitScroll = useRef(false);
   /** The last `chapterId:page` a progress ping was sent for. Declared here rather than beside sendProgress
    *  because the initial-scroll effect seeds it, and that effect is defined above sendProgress. */
@@ -234,7 +273,7 @@ function ReaderInner() {
    * that far: the OS decides how long a double-click may take (Windows defaults to 500 ms), so the single
    * click of a slow double-click has already acted by the time the browser says the two were one gesture.
    */
-  const acted = useRef<{ kind: 'turn'; slide: number; at: number } | { kind: 'scroll'; top: number; at: number } | { kind: 'chrome'; at: number } | null>(null);
+  const acted = useRef<{ kind: 'turn'; slide: number; at: number } | { kind: 'scroll'; top: number; at: number } | { kind: 'chrome'; at: number } | { kind: 'focus'; prev: { slide: number; page: number } | null; at: number } | null>(null);
   /** When the pointer path handled a double-tap itself. A touch double-tap also raises `dblclick`, and
    *  zooming for both halves of the same gesture would put the zoom straight back where it started. */
   const handledDouble = useRef(0);
@@ -374,13 +413,19 @@ function ReaderInner() {
       // this device last saw and the downloaded record's direction. The pages' shape is the chapter's own, either way.
       let seriesType = first.offline ? seriesTypeOf(first.seriesId) : null;
       let readsRtl = first.readingDirection === 'RIGHT_TO_LEFT';
+      setTypedWebtoon(seriesType === 'webtoon');
+      let libLook: NonNullable<Series['libraryReader']> | null = null;
       try {
         const s = await api<Series>(`/api/series/${first.seriesId}`);
         if (alive) {
           setRtl(s?.metadata?.readingDirection === 'RIGHT_TO_LEFT');
+          libLook = s?.libraryReader ?? null;
+          setLibraryLook(libLook);
+          setSeriesLibrary(s?.library ?? null);
           readsRtl = s?.metadata?.readingDirection === 'RIGHT_TO_LEFT';
           seriesType = s?.seriesType ?? null;
           rememberSeriesType(first.seriesId, seriesType);
+          setTypedWebtoon(seriesType === 'webtoon');
           setEditions((s?.edition?.editions?.length ?? 0) > 1 ? s.edition!.editions! : null);
           // The followed sources' display names, for the caption on a page the source never served. Free:
           // this request is made anyway, and `sources` is sent to every viewer, unlike /api/sources.
@@ -411,7 +456,8 @@ function ReaderInner() {
       // neither its memory nor its source holds one (titleLook).
       const memory = loadSeriesPrefs(first.seriesId);
       autoGuess.current = guessMode({ pages: first.pages, type: seriesType, rtl: readsRtl });
-      const look = titleLook(loadPrefs(), src ? loadSourcePrefs(src.id) : {}, memory, autoGuess.current);
+      // The library's own reading defaults sit between the global default and the source's (fork).
+      const look = titleLook(loadPrefs(), { ...(libLook ?? {}), ...(src ? loadSourcePrefs(src.id) : {}) }, memory, autoGuess.current);
       setPrefs(look.prefs);
       setAutoApplied(look.autoApplied);
       setZoom(memory.zoom && memory.zoom >= 1 ? memory.zoom : 1);
@@ -516,9 +562,11 @@ function ReaderInner() {
   const rightFirst = rtl || pagedRtl;
   const splitTrack = prefs.mode === 'paged' && wideMode === 'split';
   const { slides, slideOf, half } = useMemo(
-    () => pairSlides(flat, prefs.mode === 'paged' && !!prefs.spread, { split: splitTrack, rightFirst }),
-    [flat, prefs.mode, prefs.spread, splitTrack, rightFirst],
+    () => pairSlides(flat, prefs.mode === 'paged' && !!prefs.spread, { split: splitTrack, rightFirst, joinSplit: prefs.joinSplit && !typedWebtoon }),
+    [flat, prefs.mode, prefs.spread, splitTrack, rightFirst, prefs.joinSplit, typedWebtoon],
   );
+  // The slides were laid out again (another chapter, a setting): a page brought into frame belongs to the old layout.
+  useEffect(() => { setFocused(null); }, [slides]);
   /** The paged track's slide, measured: what a split half or a page turned on its side is fitted into. */
   const [area, setArea] = useState({ w: 0, h: 0 });
   useEffect(() => {
@@ -596,13 +644,14 @@ function ReaderInner() {
   useEffect(() => {
     const measure = () => {
       const w = scrollRef.current?.clientWidth || window.innerWidth;
-      const base = prefs.fitWidth ? Math.min(w, 860) : w;
+      const base = (prefs.fitWidth ? Math.min(w, 860) : w) * (widthPct / 100);
       setColW(base * zoom);
+      setPageW(pageWidthBucket(base, window.devicePixelRatio || 1));
     };
     measure();
     window.addEventListener('resize', measure);
     return () => window.removeEventListener('resize', measure);
-  }, [prefs.fitWidth, ready, zoom]);
+  }, [prefs.fitWidth, ready, zoom, widthPct]);
 
   // keep the page roughly centered when zooming
   useEffect(() => {
@@ -766,7 +815,7 @@ function ReaderInner() {
     const ch = chapters[it.ci];
     if (!ch) return null;
     if (ch.offline) return blobUrls.current.get(it.key) || null;
-    return img.page(ch.id, it.number);
+    return img.page(ch.id, it.number, pageW || undefined);
   };
 
   /**
@@ -861,11 +910,16 @@ function ReaderInner() {
     lastMoved.current = Date.now();
     const el = scrollRef.current;
     if (!el) return;
+    // The page is moving under the interface, so the reader is reading: put it away. The grace period lets a
+    // tap's own page turn, and the first moments after it opens, pass without dismissing it.
+    const c = chromeRef.current;
+    if (c.on && Date.now() - c.since > CHROME_GRACE_MS && !scrubbingRef.current && !focusInChrome()) setChrome(false);
     if (prefs.mode === 'paged') {
       // Math.abs: an RTL track scrolls from 0 into NEGATIVE scrollLeft (the spec'd behaviour every current
       // engine follows), so page n sits at -n × width.
       const s = Math.round(Math.abs(el.scrollLeft) / Math.max(1, el.clientWidth));
       const idxs = slides[Math.max(0, Math.min(slides.length - 1, s))];
+      setFocused((f) => (f && f.slide !== s ? null : f));
       const i = idxs ? idxs[idxs.length - 1] : 0; // last page of a spread → completion fires on the final spread
       setCurrent((c) => (c === i ? c : i));
       return;
@@ -877,6 +931,15 @@ function ReaderInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tops, heights, flat, prefs.mode, slides]); // the sign-free Math.abs above needs no trackSign dep
 
+  /** Said as the next chapter joins the column (or is jumped to): the numbers between the two are not in the library. */
+  const warnGap = (fromId?: string, toId?: string) => {
+    const to = toId ? numberOf.get(toId) : undefined;
+    const gap = chapterGap(fromId ? numberOf.get(fromId) : undefined, to);
+    if (!gap || to == null) return;
+    toast(gap.first === gap.last
+      ? tr('Chapter {a} is missing here. This continues at chapter {next}.', { a: numLabel(gap.first), next: numLabel(to) })
+      : tr('Chapters {a}–{b} are missing here. This continues at chapter {next}.', { a: numLabel(gap.first), b: numLabel(gap.last), next: numLabel(to) }), 'info');
+  };
   // ---- continuous reading: append next chapter near the end ----
   useEffect(() => {
     if (!ready || !flat.length || appending.current || noMore.current) return;
@@ -901,6 +964,7 @@ function ReaderInner() {
       const outcome = chapterOutcome(ch);
       await untilStill(lastMoved, rtlTrack);
       hold();
+      if (outcome === 'ok') warnGap(last?.id, next.id);
       if (outcome === 'ok') setChapters((cs) => (cs.some((c) => c.id === ch!.id) ? cs : [...cs, ch!]));
       // There IS a next chapter -- chapterRefs says so -- and it would not load. Claiming the series is
       // finished here is how a corrupt file or a dropped connection came to read as an ending.
@@ -1114,7 +1178,7 @@ function ReaderInner() {
   const goNext = () => {
     if (!nextId) return;
     const remaining = pagesAfter(flat, current);
-    if (!skipNeedsConfirm(remaining) || stillArmed(armedNext, Date.now())) { setArmedNext(null); goChapter(nextId); return; }
+    if (!skipNeedsConfirm(remaining) || stillArmed(armedNext, Date.now())) { setArmedNext(null); warnGap(activeChapter?.id, nextId); goChapter(nextId); return; }
     setArmedNext(Date.now());
   };
   useEffect(() => {
@@ -1155,8 +1219,9 @@ function ReaderInner() {
 
   // ---- auto-hide chrome ----
   useEffect(() => {
+    chromeRef.current = { on: chrome, since: Date.now() };
     if (!chrome || showSettings) return;
-    const t = setTimeout(() => setChrome(false), 3800);
+    const t = setTimeout(() => { if (!focusInChrome()) setChrome(false); }, 3800);
     return () => clearTimeout(t);
   }, [chrome, showSettings]);
 
@@ -1243,6 +1308,7 @@ function ReaderInner() {
   // ---- tap / double-tap / pinch (no overlay -> native scroll works) ----
   const onPointerDown = (e: React.PointerEvent) => {
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    caught.current = prefs.mode !== 'paged' && pointers.current.size === 1 && isCatch(lastMoved.current, Date.now());
     if (pointers.current.size === 2) {
       const p = [...pointers.current.values()];
       pinch.current = { dist: Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y), zoom };
@@ -1289,6 +1355,8 @@ function ReaderInner() {
       lastDoubleAt: lastDoubleAt.current,
     });
     if (act.kind === 'none') return; // a scroll, or a press held long enough to be something else
+    // Stopping a fling is not a tap. Nothing happens: no page turn, no interface.
+    if (caught.current) { caught.current = false; return; }
     if (act.kind === 'double') {
       cancelPendingTap();
       lastTapAt.current = 0;
@@ -1302,7 +1370,56 @@ function ReaderInner() {
     cancelPendingTap();
     lastTapAt.current = now;
     const zone = act.zone;
+    // A thumb on the edge of a webtoon is not asking for the interface.
+    if (prefs.mode !== 'paged' && !tapMayToggleChrome(e.pointerType, zone)) return;
+    // A tap ON a page of a pair brings that page into frame (and on the focused page, back to the pair), instead of turning or
+    // showing the interface; a tap on the black around the pages is still the tap layout's.
+    const target = pairTap(e.clientX, e.clientY);
+    if (target !== undefined) {
+      tapTimer.current = setTimeout(() => { tapTimer.current = null; acted.current = { kind: 'focus', prev: focused, at: Date.now() }; setFocused(target); }, act.after);
+      return;
+    }
     tapTimer.current = setTimeout(() => { tapTimer.current = null; runTap(zone); }, act.after);
+  };
+
+  /**
+   * The pages of a slide in the order the layout puts them. RTL manga: right page reads first. On an RTL track `dir` already
+   * lays a spread out right to left, so flipping here as well would put it back the wrong way round. A right-to-left series
+   * forced to read left to right still swaps: the pages turn the other way, but a double-page spread is ONE drawing, and it
+   * only reassembles with its first page on the right. A joined pair is laid out the way its picture runs (the server found
+   * which side the second page is on), whichever way the series reads: the first page on the right is what a right-to-left
+   * layout gives.
+   */
+  const shownOf = (idxs: number[]): number[] => {
+    let shown = rtl && !pagedRtl && idxs.length === 2 ? [idxs[1], idxs[0]] : idxs;
+    const joinDir = idxs.length === 2 ? flat[idxs[0]].join : undefined;
+    if (joinDir && (joinDir === 'rtl') !== rightFirst) shown = [shown[1], shown[0]];
+    return shown;
+  };
+
+  /**
+   * What a tap at (x, y) does to the pair on screen: `{slide, page}` to bring that page into frame, `null` to go back to the pair,
+   * `undefined` when it is none of that (not a pair, or the tap missed the pages and landed on the black round them).
+   * The page is the one on that side of the screen: the pair is laid out symmetrically, one page a half.
+   */
+  const pairTap = (x: number, y: number): { slide: number; page: number } | null | undefined => {
+    const el = scrollRef.current;
+    if (prefs.mode !== 'paged' || !el) return undefined;
+    const slide = slideNow();
+    const idxs = slides[slide];
+    if (!idxs) return undefined;
+    const isFocused = focused?.slide === slide;
+    if (idxs.length !== 2) return undefined;
+    const box = el.children[slide] as HTMLElement | undefined;
+    const onPage = Array.from(box?.querySelectorAll('img') ?? []).some((im) => {
+      const r = im.getBoundingClientRect();
+      return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+    });
+    if (!onPage) return undefined;
+    if (isFocused) return null;
+    const visual = pagedRtl ? [shownOf(idxs)[1], shownOf(idxs)[0]] : shownOf(idxs); // left, right on screen
+    const rect = el.getBoundingClientRect();
+    return { slide, page: visual[x < rect.left + rect.width / 2 ? 0 : 1] };
   };
 
   const cancelPendingTap = () => {
@@ -1353,12 +1470,21 @@ function ReaderInner() {
       if (a.kind === 'turn' && el) el.scrollTo({ left: trackSign * a.slide * (el.clientWidth || window.innerWidth) });
       else if (a.kind === 'scroll' && el) el.scrollTo({ top: a.top });
       else if (a.kind === 'chrome') setChrome((c) => !c);
+      else if (a.kind === 'focus') setFocused(a.prev);
     }
     applyZoom(zoom > 1 ? 1 : 2);
   };
 
   const total = flat.length;
   const pageInChapter = activeChapter ? (flat[current]?.number ?? 0) : 0;
+  const chapterPageCount = activeChapter?.pages.length ?? 0;
+  /** "Page 3 of 24", for screen readers: settles half a second after the page stops changing, so a scroll is not a stream of speech. */
+  const pageText = chapterPageCount && pageInChapter ? tr('Page {n} of {total}', { n: pageInChapter, total: chapterPageCount }) : '';
+  const [announced, setAnnounced] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => setAnnounced(pageText), 500);
+    return () => clearTimeout(t);
+  }, [pageText]);
 
   // ---- bookmarks ----
   // A bookmark is a note about a page, not a pointer to bytes, so it is keyed on (book, page) and survives
@@ -1388,14 +1514,13 @@ function ReaderInner() {
       setMarks((prev) => { const n = new Set(prev); on ? n.add(k) : n.delete(k); return n; });
     }
   };
-  const chapterPageCount = activeChapter?.pages.length ?? 0;
 
   // the header's two-line "what you are reading" block, wrapped in a link to the series when we know its id
   const titleBlock = (
     <>
       <p className="flex items-center gap-1 text-sm font-medium text-white transition group-hover:text-accent">
         <span className="truncate">{activeChapter?.seriesTitle || tr('Reading')}</span>
-        {seriesHref && <IcChevronRight width={14} height={14} className="shrink-0 text-fog-500 transition group-hover:text-accent" />}
+        {seriesHref && <IcChevronRight aria-hidden width={14} height={14} className="shrink-0 text-fog-500 transition group-hover:text-accent" />}
       </p>
       <p className="truncate text-[11px] text-fog-400">{activeChapter?.title}</p>
     </>
@@ -1407,6 +1532,20 @@ function ReaderInner() {
    * the "You finished" card mid-series. Both told them to stop looking.
    */
   const retry = () => { setFailed(null); setReady(false); setReloadKey((k) => k + 1); };
+  const [redownloading, setRedownloading] = useState(false);
+  const redownload = async () => {
+    const c = activeChapter;
+    if (!c || redownloading) return;
+    setRedownloading(true);
+    try {
+      const res = await api<{ total: number; skipped: Array<{ reason: string }> }>(`/api/admin/series/${c.seriesId}/chapters/refetch`, { method: 'POST', json: { bookIds: [c.id] } });
+      if (res.total > 0) { void kickDownloads(qc); toast(tr('Downloading this chapter again. Try it in a minute.'), 'info'); }
+      else toast(tr('This chapter cannot be downloaded again from here. Use the series page.'), 'error');
+    } catch (e) {
+      toast(msgOf(e, tr('Could not start.')), 'error');
+    }
+    setRedownloading(false);
+  };
   const failureCard = (
     <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}
       className="mx-auto w-full max-w-3xl px-6 py-16 text-center">
@@ -1430,6 +1569,7 @@ function ReaderInner() {
         {/* No Try again for a pruned chapter: there is nothing to retry, and a button that cannot work is
             worse than no button. */}
         {failed !== 'pruned' && <button onClick={retry} className="btn-accent text-sm">{tr('Try again')}</button>}
+        {isAdmin && !activeChapter?.offline && <button onClick={redownload} disabled={redownloading} className="btn-ghost text-sm">{tr('Redownload this chapter')}</button>}
         <button onClick={() => (seriesHref ? router.push(seriesHref) : back())} className={`text-sm ${failed === 'pruned' ? 'btn-accent' : 'btn-ghost'}`}>{tr('Back to series')}</button>
       </div>
     </motion.div>
@@ -1482,6 +1622,14 @@ function ReaderInner() {
     // `data-page` / `data-chapter`: what is being read, for the browser walks (test/e2e/v610Walk-reader.mjs) -- the counter
     // that says it lives in the auto-hiding footer. Nothing reads them in the app.
     <div className="fixed inset-0 z-40 bg-ink-950" data-page={pageInChapter || undefined} data-chapter={activeChapter?.id}>
+      <h1 className="sr-only">{[activeChapter?.seriesTitle, activeChapter?.title].filter(Boolean).join(' \u2014 ') || tr('Reader')}</h1>
+      {/* The toolbars come up on a tap, which a keyboard has no equivalent of. This is that, reachable with Tab
+          and shown only while it has focus. It stays in the page whether or not the toolbars are up, so
+          focus is never left on a control that has just gone. */}
+      <button type="button" aria-expanded={chrome} onClick={() => setChrome((c) => !c)}
+        className="sr-only focus-visible:not-sr-only focus-visible:fixed focus-visible:start-3 focus-visible:top-3 focus-visible:z-50 focus-visible:rounded-full focus-visible:bg-black/80 focus-visible:px-4 focus-visible:py-2 focus-visible:text-sm focus-visible:text-white">
+        {chrome ? tr('Hide controls') : tr('Show controls')}
+      </button>
       <div className="pointer-events-none absolute inset-0 z-30 bg-black" style={{ opacity: 1 - prefs.brightness }} />
       {/* Ambient cover wash framing the reader: the look, by default. Its switch (Cover colour at the edges, #170)
           removes the two bands outright rather than their colour, because with no colour they are still a 16 %
@@ -1498,7 +1646,7 @@ function ReaderInner() {
           DOM -- is the only model of the layout there is. A browser that quietly adjusts scrollTop to keep
           content in view desynchronises it from `current` with no symptom and no way to detect it. */}
       {prefs.mode === 'vertical' ? (
-        <div ref={scrollRef} data-lenis-prevent style={{ overflowAnchor: 'none' }} onScroll={onScroll} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerEnd} onPointerCancel={onPointerEnd} onDoubleClick={onTrackDoubleClick}
+        <div ref={scrollRef} role="region" aria-label={tr('Pages')} data-lenis-prevent style={{ overflowAnchor: 'none' }} onScroll={onScroll} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerEnd} onPointerCancel={onPointerEnd} onDoubleClick={onTrackDoubleClick}
           className={`h-screen-d touch-pan-y overflow-y-auto overscroll-contain ${zoom > 1 ? 'overflow-x-auto' : 'overflow-x-hidden'}`}>
           <div className="mx-auto" style={{ width: colW || '100%', filter: THEME_FILTER[prefs.theme] }}>
             <div className="h-2" />
@@ -1519,19 +1667,17 @@ function ReaderInner() {
           </div>
         </div>
       ) : (
-        <div ref={scrollRef} data-lenis-prevent onScroll={onScroll} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerEnd} onPointerCancel={onPointerEnd} onDoubleClick={onTrackDoubleClick}
+        <div ref={scrollRef} role="region" aria-label={tr('Pages')} data-lenis-prevent onScroll={onScroll} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerEnd} onPointerCancel={onPointerEnd} onDoubleClick={onTrackDoubleClick}
           dir={pagedRtl ? 'rtl' : 'ltr'}
           className="hide-scrollbar flex h-screen-d snap-x snap-mandatory overflow-x-auto overflow-y-hidden" style={{ filter: THEME_FILTER[prefs.theme] }}>
-          {slides.map((idxs, s) => {
-            // RTL manga: right page reads first. On an RTL track `dir` already lays a spread out right to
-            // left, so flipping here as well would put it back the wrong way round. A right-to-left series
-            // forced to read left to right still swaps: the pages turn the other way, but a double-page spread
-            // is ONE drawing, and it only reassembles with its first page on the right.
-            const shown = rtl && !pagedRtl && idxs.length === 2 ? [idxs[1], idxs[0]] : idxs;
+          {slides.map((slideIdxs, s) => {
+            // One page of the pair brought into frame (see `focused`): the slide holds just it, so everything below lays it out as a single page.
+            const idxs = focused && focused.slide === s ? [focused.page] : slideIdxs;
+            const shown = shownOf(idxs);
             // v0.61.0: one half of a wide page (Wide pages → Split) is a slide of its own, keyed apart from its twin.
             const halfOf = half[s];
             return (
-              <div key={halfOf ? `${flat[idxs[0]].key}:${halfOf}` : flat[idxs[0]].key} className="relative flex h-full w-full shrink-0 snap-center snap-always items-center justify-center gap-1">
+              <div key={halfOf ? `${flat[idxs[0]].key}:${halfOf}` : flat[idxs[0]].key} className="relative flex h-full w-full shrink-0 snap-center snap-always items-center justify-center">
                 {shown.map((i) => {
                   const p = flat[i];
                   if (!(activeSet.has(i) && srcFor(i))) return <span key={p.key} className="text-ink-600">{p.number}</span>;
@@ -1581,7 +1727,7 @@ function ReaderInner() {
                       region = pairCrop(pair[0]?.all ?? WHOLE, pair[1]?.all ?? WHOLE)[shown.indexOf(i)];
                     }
                     return <SlideRegion key={p.key} src={srcFor(i)!} alt={tr('Page {n}', { n: p.number })} width={w} height={h}
-                      region={region} area={shown.length === 2 ? { w: area.w / 2 - 2, h: area.h } : area} zoom={zoom}
+                      region={region} area={shown.length === 2 ? { w: area.w / 2, h: area.h } : area} zoom={zoom}
                       pending={pending} onLoaded={loaded} filter={imgFilter} trimmed={region.l} />;
                   }
                   return (
@@ -1618,8 +1764,8 @@ function ReaderInner() {
           <>
             <motion.header initial={{ y: -64, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -64, opacity: 0 }}
               className="absolute inset-x-0 top-0 z-40 flex items-center gap-2 bg-linear-to-b from-black/90 via-black/55 to-transparent px-3 pb-8 pt-[max(0.9rem,calc(env(safe-area-inset-top)+0.55rem))] before:pointer-events-none before:absolute before:inset-x-0 before:bottom-full before:h-16 before:bg-black/90">
-              <button onClick={back} className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-black/45 text-white backdrop-blur">
-                <IcChevronLeft width={22} height={22} />
+              <button onClick={back} aria-label={tr('Back')} className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-black/45 text-white backdrop-blur">
+                <IcChevronLeft width={22} height={22} aria-hidden />
               </button>
               {/* Tapping the title is the route to the series while reading, and the chevron is the whole
                   affordance -- without it this reads as inert as it used to. BOTH lines are inside the link
@@ -1641,19 +1787,19 @@ function ReaderInner() {
               {chapterRefs.length > 0 && (
                 <button onClick={() => setShowChapters(true)} aria-label={tr('Chapters')}
                   className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-black/45 text-white backdrop-blur">
-                  <IcGrid width={18} height={18} />
+                  <IcGrid width={18} height={18} aria-hidden />
                 </button>
               )}
               <button onClick={toggleBookmark} aria-label={bookmarked ? tr('Remove bookmark') : tr('Bookmark this page')}
                 aria-pressed={bookmarked}
                 className={`grid h-10 w-10 shrink-0 place-items-center rounded-full bg-black/45 backdrop-blur ${bookmarked ? 'text-accent' : 'text-white'}`}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill={bookmarked ? 'currentColor' : 'none'}
+                <svg aria-hidden width="20" height="20" viewBox="0 0 24 24" fill={bookmarked ? 'currentColor' : 'none'}
                      stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round">
                   <path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1Z" />
                 </svg>
               </button>
-              <button onClick={() => setShowSettings(true)} data-reader-settings className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-black/45 text-white backdrop-blur">
-                <IcSliders width={20} height={20} />
+              <button onClick={() => setShowSettings(true)} aria-label={tr('Reader settings')} data-reader-settings className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-black/45 text-white backdrop-blur">
+                <IcSliders width={20} height={20} aria-hidden />
               </button>
             </motion.header>
 
@@ -1680,21 +1826,22 @@ function ReaderInner() {
                       ) : (
                         <div className="grid h-44 w-32 place-items-center text-xs text-ink-600">{it.number}</div>
                       )}
-                      <p className="truncate bg-black/75 px-2 py-1 text-center text-[10px] text-fog-200">{ch.title} · {it.number}/{ch.pages.length}</p>
+                      <p className="truncate bg-black/75 px-2 py-1 text-center text-[11px] text-fog-200">{ch.title} · {it.number}/{ch.pages.length}</p>
                     </div>
                   );
                 })()}
                 <button onClick={() => goChapter(prevId, true)} disabled={!prevId} aria-label={tr('Previous chapter')}
                   className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-black/45 text-white backdrop-blur disabled:opacity-30">
-                  {pagedRtl ? <IcChevronRight width={18} height={18} /> : <IcChevronLeft width={18} height={18} />}
+                  {pagedRtl ? <IcChevronRight aria-hidden width={18} height={18} /> : <IcChevronLeft aria-hidden width={18} height={18} />}
                 </button>
                 {/* The counter is the button. A long-press would be invisible on a phone, which this repo
                     already learned once from a hover-only affordance nobody found. */}
                 <button dir="ltr" onClick={() => setShowPages(true)} aria-label={tr('Jump to a page')}
-                  className="shrink-0 rounded-full px-1.5 py-0.5 text-[11px] tabular-nums text-fog-300 transition hover:bg-white/10 hover:text-white">
+                  className="relative shrink-0 rounded-full px-1.5 py-0.5 text-[11px] tabular-nums text-fog-300 transition before:absolute before:-inset-2 hover:bg-white/10 hover:text-white">
                   {chapterPageCount ? `${pageInChapter}/${chapterPageCount}` : `${current + 1}/${total}`}
                 </button>
                 <input type="range" min={0} max={Math.max(0, total - 1)} value={current}
+                  aria-label={tr('Page')} aria-valuetext={pageText || undefined}
                   onPointerDown={() => setScrubbing(true)}
                   // Let go of focus after a drag: a slider that keeps it owns Space and the arrows, so in the
                   // webtoon column Space stopped scrolling until the controls hid. Tab still reaches it.
@@ -1703,8 +1850,8 @@ function ReaderInner() {
                   onChange={(e) => jumpTo(Number(e.target.value))}
                   className="h-1 flex-1 accent-[rgb(var(--accent))]" />
                 <button onClick={goNext} disabled={!nextId} aria-label={armedNext != null ? tr('Tap again to skip to the next chapter') : tr('Next chapter')}
-                  className={`grid h-9 w-9 shrink-0 place-items-center rounded-full text-white backdrop-blur disabled:opacity-30 ${armedNext != null ? 'bg-accent' : 'bg-black/45'}`}>
-                  {pagedRtl ? <IcChevronLeft width={18} height={18} /> : <IcChevronRight width={18} height={18} />}
+                  className={`grid h-9 w-9 shrink-0 place-items-center rounded-full backdrop-blur disabled:opacity-30 ${armedNext != null ? 'bg-accent text-black' : 'bg-black/45 text-white'}`}>
+                  {pagedRtl ? <IcChevronLeft aria-hidden width={18} height={18} /> : <IcChevronRight aria-hidden width={18} height={18} />}
                 </button>
               </div>
             </motion.footer>
@@ -1771,6 +1918,26 @@ function ReaderInner() {
               else clearSourcePrefs(seriesSource.id);
               setShowSettings(false);
             }}
+            modeNote={
+              seriesId0 && loadSeriesPrefs(seriesId0).mode ? tr('Saved for this series.')
+              : libraryLook?.mode ? tr("From this library's reading defaults.")
+              : seriesSource && loadSourcePrefs(seriesSource.id).mode ? tr("From this source's default.")
+              : undefined
+            }
+            libraryName={seriesLibrary?.name}
+            onLibraryDefault={() => {
+              if (!seriesLibrary) return;
+              api(`/api/admin/libraries/${seriesLibrary.id}`, { method: 'PATCH', json: { readerPrefs: { mode: prefs.mode, theme: prefs.theme, spread: prefs.spread, pagedDirection: prefs.pagedDirection } } })
+                .then(() => { setLibraryLook({ mode: prefs.mode, theme: prefs.theme, spread: prefs.spread, pagedDirection: prefs.pagedDirection }); toast(tr('Saved as the default for {library}.', { library: seriesLibrary.name })); })
+                .catch((e) => toast(msgOf(e, tr('Could not save')), 'error'));
+              setShowSettings(false);
+            }}
+            seriesPinned={!!seriesId0 && hasSeriesLook(seriesId0)}
+            onResetSeries={() => {
+              if (!seriesId0) return;
+              setPrefs(resetSeriesLook(seriesId0, prefs, seriesSource?.id, libraryLook));
+              setShowSettings(false);
+            }}
           />
         )}
       </AnimatePresence>
@@ -1797,7 +1964,7 @@ function ReaderInner() {
       )}
 
       {!ready && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-ink-950">
+        <div role="status" className="absolute inset-0 z-50 flex items-center justify-center bg-ink-950">
           <div className="animate-pulse-soft text-fog-500">{tr('Loading chapter…')}</div>
         </div>
       )}

@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import {
-  TAP_WINDOW_MS, UNDO_WINDOW_MS, isTap, readTap, singleTapDelay, tapZone, undoLeft, undoWindow,
+  TAP_WINDOW_MS, UNDO_WINDOW_MS, isTap, readTap, singleTapDelay, tapZone, undoLeft, undoWindow, isCatch, tapMayToggleChrome, CATCH_MS,
 } from '../lib/readerGesture';
 
 const at = (t: number, x = 500, y = 400) => ({ x, y, t });
@@ -164,4 +164,18 @@ test('the reader turns a physical zone through the track\'s direction and a read
   assert.match(sheet, /<span aria-hidden dir="ltr" className="grid grid-cols-3/, 'the tap sketches mirror with the interface');
   assert.match(sheet, /const back = z === 'prev' \|\| \(z === 'back' && !rtlTrack\) \|\| \(z === 'forward' && rtlTrack\);/);
   assert.match(src, /rtlTrack=\{pagedRtl\}/, 'the sheet is not told which way the track runs');
+});
+
+
+test('a press during a fling is a catch, not a tap', () => {
+  assert.equal(isCatch(1000, 1000 + CATCH_MS - 1), true);
+  assert.equal(isCatch(1000, 1000 + CATCH_MS), false);
+  assert.equal(isCatch(0, 5), false);
+});
+
+test('a finger toggles the interface only from the middle of the screen', () => {
+  assert.equal(tapMayToggleChrome('touch', 'chrome'), true);
+  assert.equal(tapMayToggleChrome('touch', 'back'), false);
+  assert.equal(tapMayToggleChrome('touch', 'forward'), false);
+  assert.equal(tapMayToggleChrome('mouse', 'back'), true);
 });

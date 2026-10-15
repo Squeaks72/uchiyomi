@@ -415,11 +415,11 @@ test('the select bar fits two rows on a phone and one at 1024 px: the admin acti
   assert.ok(bar.length > 200, 'could not find the select bar');
   assert.doesNotMatch(code(bar), /className=\{?[`"]chip\b/, 'a chip in the select bar');
   const phone = [...bar.matchAll(/className=\{?[`"](btn-key\b[^`"]*)[`"]\}?/g)].map((m) => m[1]).filter((c) => !/\bhidden lg:inline-flex\b/.test(c));
-  const phoneOnly = phone.filter((c) => /\blg:hidden\b/.test(c));
-  assert.equal(phoneOnly.length, 1, 'expected exactly one phone-only More key');
+  // v0.62: More is everyone's at every width (Add to list and Download as zip are its first rows), so it is no longer phone-only.
+  assert.equal([...bar.matchAll(/onClick=\{\(\) => setMore\(true\)\}/g)].length, 1, 'expected exactly one More key');
   assert.ok(phone.length <= 6, `${phone.length} keys reach the phone bar; more than six wraps to a third row at 390 px`);
   assert.doesNotMatch(code(bar), /setMoving\(true\)|setRemoving\(true\)|findSelected/, 'an admin action is a key in the bar');
-  assert.match(bar, /onClick=\{\(\) => setMore\(true\)\} className=\{`btn-key \$\{isAdmin \? '' : 'lg:hidden'\}`\}/,
+  assert.match(bar, /onClick=\{\(\) => setMore\(true\)\} className="btn-key"/,
     'the admin actions cannot be reached from lg up');
   // From lg up, every chip and key an admin sees there: at most the seven that measured one row at 1024 px.
   const keys = [...bar.matchAll(/className=\{?[`"]((?:chip|btn-key)\b[^`"]*)[`"]\}?/g)].map((m) => m[1]);
@@ -441,7 +441,7 @@ test('every string the select bar renders is in the locale files, singulars incl
                        'Lost track of the fetch. Check the library in a moment.', '1 selected', '{n} selected', 'No files are deleted.',
                        'Nothing removed · 1 skipped', 'Nothing removed · {n} skipped',
                        'The chapters stay exactly where they are on disk, and nothing in your library folder is touched.',
-                       "Everyone's reading progress, history, favourites and ratings are kept, so you can put them back at any time from Admin → Library."]) {
+                       "Everyone's reading progress, history, favorites and ratings are kept, so you can put them back at any time from Admin → Library."]) {
     assert.ok(label in es, `"${label}" renders through tr() but is in no locale file`);
   }
 });
@@ -453,14 +453,16 @@ test('Archive slowly: a key from lg up, a row of More on a phone, for anyone who
   // `hidden lg:inline-flex`): "the archive key reaches the phone bar" fails; gate More on `isAdmin` again: "a
   // member who may download has no way to archive on a phone" fails.
   const src = code(read('app/library/page.tsx'));
-  assert.match(src, /\{canDownload\(user\) && <button disabled=\{acting\} onClick=\{archiveSelected\} className="btn-key hidden lg:inline-flex">\{tr\('Archive slowly'\)\}<\/button>\}/,
+  assert.match(src, /\{canDownload\(user\) && <button disabled=\{acting\} onClick=\{archiveSelected\} className="btn-key hidden lg:inline-flex" title=\{archiveWhy\(\)\}>\{tr\('Archive slowly'\)\}<\/button>\}/,
     'the archive key reaches the phone bar');
   // More is a member's on a phone only (from lg up Archive slowly is a key), and an admin's at every width (v0.49.1).
-  assert.match(src, /\{\(isAdmin \|\| canDownload\(user\)\) && <button disabled=\{acting\} onClick=\{\(\) => setMore\(true\)\} className=\{`btn-key \$\{isAdmin \? '' : 'lg:hidden'\}`\}/,
+  assert.match(src, /<button disabled=\{acting\} onClick=\{\(\) => setMore\(true\)\} className="btn-key" aria-haspopup="dialog">/,
     'a member who may download has no way to archive on a phone');
   const sheet = src.slice(src.indexOf('<Sheet title={selectedText(picked.size)}'), src.indexOf('</Sheet>', src.indexOf('<Sheet title={selectedText(picked.size)}')));
   assert.match(sheet, /\{canDownload\(user\) && \(\s*<button onClick=\{\(\) => \{ setMore\(false\); void archiveSelected\(\); \}\}/, 'More has no Archive slowly, or keeps the sheet open under the notice');
-  assert.match(sheet, /\{isAdmin && \(\s*<>\s*<button onClick=\{\(\) => \{ setMore\(false\); setMoving\(true\); \}\}/, "a member's More offers the admin's Move to library");
+  assert.match(sheet, /\{isAdmin && \(\s*<>[\s\S]*setMore\(false\); setMoving\(true\);/, "a member's More offers the admin's Move to library");
+  assert.ok(sheet.indexOf('setMore(false); setMoving(true)') > sheet.indexOf('{isAdmin && ('), "Move to library sits outside the admin block");
+  assert.ok(sheet.indexOf('zipPicked()') > -1 && sheet.indexOf('zipPicked()') < sheet.indexOf('{isAdmin && ('), 'Download as zip is not a row of More for everyone');
   // One request per 500 (the route's cap), and one notice for the whole selection: components/ArchiveQueue.tsx.
   const q = code(read('components/ArchiveQueue.tsx'));
   assert.match(q, /for \(let i = 0; i < ids\.length; i \+= ARCHIVE_MAX_SERIES\)/, 'a big selection is one request past the route cap');
@@ -532,9 +534,9 @@ test('src is the main source and anysrc any source, from the URL to the search, 
   assert.equal(pushed.mainSource, 'src -> src', 'src is not the main source');
   assert.equal(pushed.anySource, 'anysrc -> anysrc', 'anysrc is not any source');
   assert.match(page, /const src = params\.get\('src'\) \|\| '';\s*const anysrc = params\.get\('anysrc'\) \|\| '';/, 'the URL params are read into the wrong names');
-  assert.match(page, /useMemo\(\(\) => conditionFrom\(read, status, genres, lib, src, anysrc\), \[read, status, genres\.join\(','\), lib, src, anysrc\]\)/,
+  assert.match(page, /useMemo\(\(\) => \{\s*const base = conditionFrom\(read, status, genres, '', src, anysrc\);[\s\S]*?\}, \[read, status, genres\.join\(','\), libKey, src, anysrc\]\)/,
     'the condition memo does not carry both source filters, in order');
-  assert.match(page, /queryKey: \['library', active\.key, dir, read, status, genres\.join\(','\), lib, src, anysrc, q\],/, "the grid's key does not carry the source filters");
+  assert.match(page, /queryKey: \['library', active\.key, dir, read, status, genres\.join\(','\), libKey, src, anysrc, q\],/, "the grid's key does not carry the source filters");
   assert.match(page, /const activeCount = [^;]*\+ \(src \? 1 : 0\) \+ \(anysrc \? 1 : 0\);/, 'the badge does not count the source filters');
   // The writing side: Main source's chips set `src` and count `main`, Any source's set `anysrc` and count `any`, and
   // both placements of the panel are handed both values; each active chip clears its own param.

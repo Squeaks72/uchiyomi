@@ -106,8 +106,9 @@ test('Home draws its rails by key, in the reader\'s order, and a hidden rail ask
   assert.match(home, /<div className="\[&>section:first-child\]:pt-4">/);
   assert.doesNotMatch(home.slice(home.indexOf('const rail ='), home.indexOf('return (\n    <PullToRefresh')), /<section className="pt-4"/,
     'one rail still says pt-4 for itself, wherever it is moved');
-  // The key is on the greeting's line, beside the 18+ reveal.
-  assert.match(home, /<AdultToggle className="shrink-0" alsoWhen=\{adultFilter\} \/>\s*<HomeCustomize \/>/);
+  // The key is on the greeting's line. The fork took the on-page 18+ reveal out of every page -- the avatar's
+  // quick settings is the only control for it -- so Customize stands there alone.
+  assert.match(home, /<div className="flex shrink-0 items-center gap-2">\s*<HomeCustomize \/>\s*<\/div>/);
 });
 
 test('the Customize sheet: one place for rails, the Lists page still the one place for lists', () => {
@@ -137,6 +138,9 @@ test('the account keeps homeRails: the settings PUT stores any key a newer clien
   // No bff change for this: PUT /api/settings validates the keys that steer a query or name a row and merges the rest
   // (`app_settings.data || EXCLUDED.data`). If that ever narrows to a list of known keys, homeRails stops saving.
   const route = read('../bff/src/routes/personal.ts');
-  assert.match(route, /const body = z\.record\(z\.string\(\), z\.any\(\)\)\.safeParse\(req\.body \?\? \{\}\);/);
+  assert.match(route, /const body = settingsBody\.safeParse\(req\.body \?\? \{\}\);/);
+  // The fork moved that schema into lib/accountSettings.ts. Still a free-form record -- only its three boolean
+  // account switches are refined -- so a key a newer client writes (homeRails, tone) is still kept.
+  assert.match(read('../bff/src/lib/accountSettings.ts'), /z\.record\(z\.string\(\), z\.any\(\)\)\.superRefine\(/);
   assert.match(route, /ON CONFLICT \(user_id\) DO UPDATE SET data = app_settings\.data \|\| EXCLUDED\.data/);
 });

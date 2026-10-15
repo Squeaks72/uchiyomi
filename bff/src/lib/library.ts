@@ -29,6 +29,7 @@ import { MAX_META_BYTES, EntryTooLarge, zipEntryCapped, regularFiles, readRegula
 // reader, needing only its own page ORDER, while PDF is genuinely different and reads nothing from here.
 import { pdfPages, pdfPageBytes, pdfPageCount, pdfPageDims, pdfPageIndex, pdfPageName } from './readers/pdf';
 import { epubPages } from './readers/epub';
+import { edgeProfile, joinsFor, JOIN_VERSION, type EdgeProfile } from './spreadJoin';
 
 export const LIBRARY_ROOT = process.env.LIBRARY_ROOT || '/library';
 const IMG = /\.(jpe?g|png|webp|gif|avif)$/i;
@@ -381,12 +382,20 @@ export async function cbzPageAt(
 
 /** Real pixel dimensions of every page (CBZ/CBR/folder). The reader needs these to reserve the right height
  *  per page — without them, tall webtoon pages overlap. Cached in lib_books.page_dims after first read. */
-export async function cbzPageDims(path: string): Promise<Array<{ name: string; width: number | null; height: number | null }>> {
-  const out: Array<{ name: string; width: number | null; height: number | null }> = [];
+export async function cbzPageDims(path: string): Promise<PageDimJoin[]> {
+  const out: PageDimJoin[] = [];
+  const profiles: Array<EdgeProfile | null> = [];
   const dim = async (name: string, bytes: Buffer) => {
+    const prof = await edgeProfile(bytes);
+    profiles.push(prof);
+    if (prof) { out.push({ name, width: prof.width, height: prof.height }); return; }
     try { const m = await sharp(bytes).metadata(); out.push({ name, width: m.width ?? null, height: m.height ?? null }); }
     catch { out.push({ name, width: null, height: null }); }
   };
+  // `join`: this page and the next are one spread the source cut in two (lib/spreadJoin.ts). Set on every page of a
+  // measured archive (null when none), so a cache row without the key is one measured before the feature; `jv` is the
+  // detector's version (spreadJoin.ts JOIN_VERSION), so a row an older detector measured is measured again.
+  const withJoins = () => { joinsFor(profiles).forEach((j, i) => { out[i].join = j; out[i].jv = JOIN_VERSION; }); return out; };
   const kind = chapterKind(path);
   // Measured from the page box rather than by rendering: this runs over every page of a chapter, and
   // rasterising a whole volume to find out how tall it is would be absurd.
@@ -402,14 +411,16 @@ export async function cbzPageDims(path: string): Promise<Array<{ name: string; w
         if (bytes) await dim(name, bytes); else out.push({ name, width: null, height: null });
       }
     } finally { await zip.close(); }
-    return out;
+    return withJoins();
   }
   for (const name of await cbzPages(path)) {
     const bytes = await cbzEntry(path, name).catch(() => null);
     if (bytes) await dim(name, bytes); else out.push({ name, width: null, height: null });
   }
-  return out;
+  return withJoins();
 }
+
+export type PageDimJoin = { name: string; width: number | null; height: number | null; join?: 'rtl' | 'ltr' | null; jv?: number };
 
 // Owned download dir (writable; separate from Suwayomi's read library so permissions stay clean).
 export const DL_ROOT = process.env.DL_ROOT || '/library-dl';

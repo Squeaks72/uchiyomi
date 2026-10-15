@@ -1,5 +1,6 @@
 // The notice-chapter reads that need the database (lib/noticeChapters.ts is the rule itself, and pure).
 import { q, one } from './db';
+import { SERIES_TYPES } from './seriesTypeSignals';
 import { hidesNotices, hiddenNoticeCount, noticesActive, sanitiseNoticeTypes, setNoticesActive, setNoticesShortOnly } from './noticeChapters';
 import type { SeriesType } from './seriesTypeSignals';
 
@@ -43,4 +44,19 @@ export async function refreshNoticesActive(): Promise<void> {
             (SELECT hide_notice_short_only FROM server_settings WHERE id = 1) AS short_only`).catch(() => null);
   setNoticesActive(r?.active === true);
   setNoticesShortOnly(r?.short_only !== false);
+}
+
+/**
+ * "Hide notice chapters" ships ON for every series type (with "Only hide short ones", so a real chapter posted in
+ * parts stays): a chapter like 0.5 or 44.5 of three pages or fewer is, far more often than not, an announcement or a
+ * stray from an unrelated title. Applied ONCE per server, at boot (server.ts), to a server that has not chosen: the
+ * flag `notice_default_applied` is set whatever the list held, so an admin who switches every type off keeps it off.
+ * Not in the migration, so a scratch database in a test starts with nothing hidden, as it always did.
+ */
+export async function applyNoticeDefault(): Promise<void> {
+  await q(
+    `UPDATE server_settings
+        SET hide_notice_types = CASE WHEN hide_notice_types = '[]'::jsonb THEN $1::jsonb ELSE hide_notice_types END,
+            notice_default_applied = true
+      WHERE id = 1 AND NOT notice_default_applied`, [JSON.stringify(SERIES_TYPES)]).catch((e) => console.warn(`[notices] could not apply the default: ${(e as Error)?.message || e}`));
 }

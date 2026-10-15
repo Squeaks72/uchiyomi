@@ -107,7 +107,7 @@ export type FallbackOutcome =
   | { kind: 'failed'; via: string; err: any };
 
 /** How many other followed sources one failed chapter may be asked from. */
-export const MAX_ALTERNATES = 2;
+export const MAX_ALTERNATES = Math.min(4, Math.max(1, Math.floor(Number(process.env.MAX_FOLLOWED_SOURCES) || 5)));
 
 /**
  * What a failure is called when the job card or the log names it: the source status when the source was

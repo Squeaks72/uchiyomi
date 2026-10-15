@@ -1,11 +1,11 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { adultShown, setAdultShown, onAdultChange } from '@/lib/adult';
 import { t as tr } from '@/lib/i18n';
 
-export interface LibraryRow { id: string; name: string; adult?: boolean }
+export interface LibraryRow { id: string; name: string; adult?: boolean; defaultVisible?: boolean }
 
 /** The library list, shared by the toggle and by whatever renders library tabs. */
 export function useLibraries() {
@@ -13,6 +13,7 @@ export function useLibraries() {
     queryKey: ['libraries'],
     queryFn: () => api<LibraryRow[]>('/api/libraries'),
     staleTime: 5 * 60 * 1000,
+    refetchOnMount: 'always',
   });
 }
 
@@ -52,42 +53,18 @@ export function useAdultShown(): boolean {
   return on;
 }
 
-/**
- * Reveal libraries rated 18+, for this browser session.
- *
- * Renders nothing at all unless this account actually holds an 18+ library, because for almost every
- * install it is a control with nothing behind it. `/api/libraries` reports `adult` for exactly this, and it
- * already drops libraries above the viewer's age cap — so an account that may not open the 18+ shelf never
- * sees the button that would reveal it.
- *
- * `alsoWhen` is a second reason to render, for a screen that knows of something else the reveal is hiding.
- * Discover passes `hiddenAdult > 0` from `/api/sources`: since v0.42.0 the reveal also hides adult
- * PROVIDERS, and an install with adult sources and no 18+ library would otherwise lose them with no button
- * anywhere to ask for them back. Library and Home pass `useAdultFilterConfigured()`, for the admin's
- * 18+ genres and sources. It only ever adds a reason; the library check alone still renders it.
- *
- * Flipping it invalidates every query rather than a chosen list. The reveal changes what a dozen endpoints
- * return — the home rails, search, genres and their counts, collections, updates, history, bookmarks, and
- * now the Discover source list — and enumerating them here would be one more list to forget to update.
- */
-export function AdultToggle({ className = '', alsoWhen = false }: { className?: string; alsoWhen?: boolean }) {
+/** While 18+ is revealed: a pill pinned to the screen on every page that says so and hides it again in one tap. Nothing renders while it is off. */
+export function AdultBar() {
   const qc = useQueryClient();
-  const { data: libs } = useLibraries();
   const on = useAdultShown();
-
-  if (!alsoWhen && !(libs ?? []).some((l) => l.adult)) return null;
-
+  if (!on) return null;
   return (
-    <button
-      type="button"
-      aria-pressed={on}
-      onClick={() => {
-        setAdultShown(!on);
-        qc.invalidateQueries();
-      }}
-      className={`chip whitespace-nowrap ${on ? 'chip-active' : ''} ${className}`}
-    >
-      {tr('Show 18+')}
-    </button>
+    <div data-adult-bar className="pointer-events-none fixed inset-x-0 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-40 flex justify-center px-3 lg:bottom-5">
+      <div className="pointer-events-auto flex items-center gap-3 rounded-full border border-amber-300/30 bg-ink-950/90 py-1.5 ps-4 pe-1.5 shadow-lg backdrop-blur">
+        <span role="status" data-adult-notice className="min-w-0 text-xs text-amber-200">{tr('18+ titles are showing.')}</span>
+        <button type="button" onClick={() => { setAdultShown(false); qc.invalidateQueries(); }}
+          className="chip chip-active shrink-0 whitespace-nowrap text-xs">{tr('Hide 18+')}</button>
+      </div>
+    </div>
   );
 }

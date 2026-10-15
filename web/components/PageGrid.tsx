@@ -38,48 +38,45 @@ export function PageGrid({ title, pages, current, onPick, onClose, onToggleJunk 
     <Sheet title={title} onClose={onClose}>
       <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
         {pages.map((p) => (
-          <button
-            key={`${p.number}:${p.idx}`}
-            onClick={() => { onPick(p.idx); onClose(); }}
-            aria-label={p.junk ? tr('Open skipped page {n}', { n: p.number }) : tr('Open page {n}', { n: p.number })}
-            aria-current={p.idx === current ? 'true' : undefined}
+          // Two sibling buttons in one box, never one inside the other: a button nested in a button is invalid,
+          // and a screen reader reaches neither. The tile is the jump; the small key is the correction.
+          <div key={`${p.number}:${p.idx}`}
             className={`relative overflow-hidden rounded-lg border bg-ink-900 transition
-              ${p.idx === current ? 'border-accent ring-1 ring-accent' : 'border-ink-700 hover:border-ink-500'}
-              ${p.junk ? 'opacity-45' : ''}`}
-          >
-            <Thumb src={p.src} n={p.number} />
+              ${p.idx === current ? 'border-accent ring-1 ring-accent' : 'border-ink-700 hover:border-ink-500'}`}>
+            <button
+              type="button"
+              onClick={() => { onPick(p.idx); onClose(); }}
+              aria-label={p.junk ? tr('Open skipped page {n}', { n: p.number }) : tr('Open page {n}', { n: p.number })}
+              aria-current={p.idx === current ? 'true' : undefined}
+              className={`block w-full ${p.junk ? 'opacity-45' : ''}`}
+            >
+              <Thumb src={p.src} n={p.number} />
+              <span aria-hidden className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/85 to-transparent pb-0.5 pt-3 text-[11px] font-medium tabular-nums text-white/90">
+                {p.number}
+              </span>
+            </button>
             {/* A skipped page is still HERE, and still openable. Dimmed rather than absent, because a page
-                that silently vanished from the grid would look like a broken chapter. */}
+                that silently vanished from the grid would look like a broken chapter. The words are in the
+                tile's own name ("Open skipped page"), so this is for the eye. */}
             {p.junk && (
-              <span className="absolute start-1 top-1 rounded bg-black/70 px-1 text-[9px] font-medium text-fog-300">
+              <span aria-hidden className="pointer-events-none absolute start-1 top-1 rounded bg-black/70 px-1 text-[11px] font-medium text-fog-300">
                 {tr('skipped')}
               </span>
             )}
-            <span className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/85 to-transparent pb-0.5 pt-3 text-[10px] font-medium tabular-nums text-white/90">
-              {p.number}
-            </span>
-            {/* ⚠️ A <span role="button"> rather than a nested <button>, which is invalid HTML: the browser
-                closes the outer button before this one, and the tile stops being clickable at all. The tile
-                is the jump; this is the correction, so it stops the event rather than bubbling into it. */}
             {onToggleJunk && !p.missing && (
-              <span
-                role="button"
-                tabIndex={0}
+              <button
+                type="button"
                 aria-label={p.junk ? tr('Stop skipping page {n}', { n: p.number }) : tr('Skip page {n}', { n: p.number })}
                 title={p.junk ? tr('Stop skipping this page') : tr('Skip this page')}
-                onClick={(e) => { e.stopPropagation(); onToggleJunk(p.number, !p.junk); }}
-                onKeyDown={(e) => {
-                  if (e.key !== 'Enter' && e.key !== ' ') return;
-                  e.preventDefault(); e.stopPropagation(); onToggleJunk(p.number, !p.junk);
-                }}
-                className="absolute end-1 top-1 grid h-6 w-6 cursor-pointer place-items-center rounded-full
+                onClick={() => onToggleJunk(p.number, !p.junk)}
+                className="absolute end-1 top-1 grid h-6 w-6 place-items-center rounded-full
                            bg-black/70 text-[11px] leading-none text-fog-300 backdrop-blur
                            hover:bg-black/85 hover:text-white"
               >
-                {p.junk ? '↺' : '⊘'}
-              </span>
+                <span aria-hidden>{p.junk ? '↺' : '⊘'}</span>
+              </button>
             )}
-          </button>
+          </div>
         ))}
       </div>
     </Sheet>

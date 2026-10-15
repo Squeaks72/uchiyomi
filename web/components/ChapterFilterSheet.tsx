@@ -28,8 +28,8 @@ export function ChapterFilterSheet({ groupNames, group, onGroup, hasGhosts, show
     <Sheet title={tr('Filter chapters')} onClose={onClose} overBottomNav>
       {groupNames.length > 0 && (
         <section>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-fog-500">{tr('Translated by')}</p>
-          <div className="flex flex-wrap gap-1.5">
+          <p id="chapter-filter-by" className="mb-2 text-xs font-semibold uppercase tracking-wider text-fog-500">{tr('Translated by')}</p>
+          <div role="group" aria-labelledby="chapter-filter-by" className="flex flex-wrap gap-1.5">
             <button type="button" onClick={() => onGroup(ALL_GROUPS)} aria-pressed={group === ALL_GROUPS}
               className={`chip text-xs ${group === ALL_GROUPS ? 'chip-active' : ''}`}>{tr('All')}</button>
             {groupNames.map((n) => (
@@ -44,7 +44,11 @@ export function ChapterFilterSheet({ groupNames, group, onGroup, hasGhosts, show
       )}
       {hasGhosts && (
         <div className={`flex items-center justify-between gap-3 ${groupNames.length > 0 ? 'mt-5 border-t border-ink-800/70 pt-4' : ''}`}>
-          <span className="text-sm text-fog-100">{tr('Show chapters not on the server yet')}</span>
+          <span className="min-w-0">
+            <span className="block text-sm text-fog-100">{tr('Show chapters not on the server yet')}</span>
+            {/* On the account, not the device (lib/accountPrefs.ts): it follows you to your other browsers. */}
+            <span className="block text-[11px] text-fog-500">{tr('Remembered on your account')}</span>
+          </span>
           <Switch on={showGhosts} onChange={onToggleGhosts} label={tr('Show chapters not on the server yet')} />
         </div>
       )}

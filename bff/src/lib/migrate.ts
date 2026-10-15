@@ -6,6 +6,7 @@ import { typeFromGenres, SERIES_TYPE_FROM } from './seriesTypeSignals';
 import { cleanGenres } from './genres';
 import { REFILE_FAILURES_SQL } from './chapterFailures';
 import { ssoOnly } from './authMode';
+import { foldAdultSources } from './sourceRatings';
 
 // NOTE: gen_random_uuid() is in Postgres core (v13+); no pgcrypto extension needed.
 // (The supabase/postgres image's event triggers reject CREATE EXTENSION under a custom role.)
@@ -53,6 +54,21 @@ CREATE TABLE IF NOT EXISTS collection_items (
   position      int  NOT NULL DEFAULT 0,
   PRIMARY KEY (collection_id, series_id)
 );
+
+ALTER TABLE collections ADD COLUMN IF NOT EXISTS description text;
+
+-- Titles on a list that the library does not hold yet ("save for later"). Keyed by the normalised title, the one
+-- thing every discover card has; they move into collection_items when the library gains the title.
+CREATE TABLE IF NOT EXISTS collection_wants (
+  collection_id uuid NOT NULL REFERENCES collections(id) ON DELETE CASCADE,
+  title_key     text NOT NULL,
+  title         text NOT NULL,
+  cover_url     text,
+  position      int  NOT NULL DEFAULT 0,
+  created_at    timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (collection_id, title_key)
+);
+ALTER TABLE collection_wants ADD COLUMN IF NOT EXISTS sources jsonb;
 
 CREATE TABLE IF NOT EXISTS ratings (
   user_id    uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -672,6 +688,14 @@ CREATE TABLE IF NOT EXISTS user_trackers (
   created_at   timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (user_id, provider)
 );
+-- The OAuth application each tracker signs people in through, registered once by an admin (AniList, MyAnimeList).
+-- client_secret is sealed like a token; AniList's implicit flow and MAL's PKCE flow need none, so it is optional.
+CREATE TABLE IF NOT EXISTS tracker_oauth_apps (
+  provider      text PRIMARY KEY,
+  client_id     text NOT NULL,
+  client_secret text,
+  updated_at    timestamptz NOT NULL DEFAULT now()
+);
 -- which external entry a library series maps to. Resolved once from the same AniList match used for art.
 CREATE TABLE IF NOT EXISTS series_trackers (
   series_id   text NOT NULL,
@@ -681,6 +705,24 @@ CREATE TABLE IF NOT EXISTS series_trackers (
   linked_by   uuid REFERENCES users(id) ON DELETE SET NULL,  -- null = matched automatically
   updated_at  timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (series_id, provider)
+);
+
+-- Recommendations from the connected trackers (lib/trackerRecs.ts). Both tables exist to spare the services:
+-- the person's list is read at most twice a day and what readers recommend after a title is asked once per
+-- title for the whole server, for two weeks, however many people hold it.
+CREATE TABLE IF NOT EXISTS tracker_list_cache (
+  user_id    uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  provider   text NOT NULL,
+  entries    jsonb NOT NULL,
+  fetched_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, provider)
+);
+CREATE TABLE IF NOT EXISTS tracker_rec_cache (
+  provider   text NOT NULL,
+  seed_id    text NOT NULL,
+  recs       jsonb NOT NULL,
+  fetched_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (provider, seed_id)
 );
 
 -- admin-editable per-series metadata + art overrides
@@ -810,6 +852,11 @@ ALTER TABLE libraries ADD COLUMN IF NOT EXISTS age_rating int;
 -- Per-library privacy boundary for implicit AniList enrichment (#168). Existing and rollback-created libraries keep
 -- the historical behaviour; switching it off never clears art, tracker links, direction or type already learned.
 ALTER TABLE libraries ADD COLUMN IF NOT EXISTS anilist_lookup boolean NOT NULL DEFAULT true;
+-- Whether the library view starts with this library selected. The default library ignores it (always visible).
+ALTER TABLE libraries ADD COLUMN IF NOT EXISTS default_visible boolean NOT NULL DEFAULT true;
+
+-- Reading defaults for the whole library (mode, theme, spread, direction); null = none, the reader's own apply.
+ALTER TABLE libraries ADD COLUMN IF NOT EXISTS reader_prefs jsonb;
 
 -- Why a series is in the library it is in. The scanner already keeps an existing series where it is, so a
 -- hand-move survives a rescan by accident; this records that it was DELIBERATE, so creating or re-pathing a
@@ -1053,6 +1100,18 @@ CREATE TABLE IF NOT EXISTS listing_progress (
 );
 CREATE INDEX IF NOT EXISTS idx_listing_progress_series ON listing_progress (series_id);
 
+-- Chapter numbers an admin removed from a series by hand (a chapter that never belonged: a wrong match's 0.5). The
+-- series page, the reader's next/previous, the Komga API, the ghost rows and the updater all leave them out
+-- (lib/chapterRemovals.ts). The files are deleted, but the lib_books row stays as a tombstone, so reading history
+-- survives; this table is what keeps the number hidden and un-fetched. The number is the chapter's effective one.
+CREATE TABLE IF NOT EXISTS series_chapter_removals (
+  series_id  text NOT NULL REFERENCES lib_series(id) ON DELETE CASCADE,
+  number     real NOT NULL,
+  removed_at timestamptz NOT NULL DEFAULT now(),
+  removed_by uuid,
+  PRIMARY KEY (series_id, number)
+);
+
 -- Where a notification goes besides a browser (v0.43.0, issue 70): a webhook, Home Assistant, ntfy, Discord.
 -- Admin-only and admin-written, which is why lib/notify/guard.ts ALLOWS a private address here that
 -- lib/ssrfGuard.ts refuses for the cover proxy -- a self-hosted Home Assistant lives on the LAN.
@@ -1166,6 +1225,9 @@ END $$;
 -- series is filed or who may open it. Empty by default, so an existing install behaves exactly as before.
 ALTER TABLE server_settings ADD COLUMN IF NOT EXISTS adult_genres  jsonb NOT NULL DEFAULT '[]'::jsonb;
 ALTER TABLE server_settings ADD COLUMN IF NOT EXISTS adult_sources jsonb NOT NULL DEFAULT '[]'::jsonb;
+
+-- The admin's own age rating for a whole source (lib/sourceRatings.ts): {"sw:123": 18}: 0 = Mixed (judge each title), 18 = Adult only. Absent = the default.
+ALTER TABLE server_settings ADD COLUMN IF NOT EXISTS source_ratings jsonb NOT NULL DEFAULT '{}'::jsonb;
 -- "Hide everything tagged Mature, except this one." Without it the genre list is all-or-nothing, and one
 -- wrongly-tagged classic is enough to make somebody turn the whole filter off.
 ALTER TABLE series_overrides ADD COLUMN IF NOT EXISTS adult_exempt boolean;
@@ -1521,6 +1583,9 @@ ALTER TABLE lib_series       ADD COLUMN IF NOT EXISTS series_type_from text;
 ALTER TABLE lib_series       ADD COLUMN IF NOT EXISTS hide_notices     boolean;
 ALTER TABLE series_overrides ADD COLUMN IF NOT EXISTS series_type      text;
 ALTER TABLE server_settings  ADD COLUMN IF NOT EXISTS hide_notice_types jsonb NOT NULL DEFAULT '[]'::jsonb;
+-- Whether the shipped default (hide short fractional chapters, every type) has been applied once: lib/noticeSettings.ts
+-- applyNoticeDefault, at boot. After that the admin's switches are never touched, an empty list included.
+ALTER TABLE server_settings  ADD COLUMN IF NOT EXISTS notice_default_applied boolean NOT NULL DEFAULT false;
 -- The chapters whose file number has a fraction, by series: the few rows a notice can be among (lib/noticeChapters.ts
 -- mayBeNotice, hiddenBookCount), so the hidden counts and the read-progress roll-ups do not visit every chapter of
 -- the library while a switch is on (about 1,800 of 48,000 on the owner's). Partial and small; nothing else reads it.
@@ -1578,6 +1643,15 @@ ALTER TABLE series_trackers ADD COLUMN IF NOT EXISTS checked_at timestamptz;
 ALTER TABLE series_art      ADD COLUMN IF NOT EXISTS checked_at timestamptz;
 ALTER TABLE server_settings ADD COLUMN IF NOT EXISTS match_check_last_run    timestamptz;
 ALTER TABLE server_settings ADD COLUMN IF NOT EXISTS match_check_last_result jsonb;
+-- The English, romanised and Japanese titles of a series' linked AniList entry, shown on the series page
+-- (lib/otherTitles.ts). One row per series; a row with all three NULL records an answer with no names, asked again later.
+CREATE TABLE IF NOT EXISTS series_other_titles (
+  series_id  text PRIMARY KEY REFERENCES lib_series(id) ON DELETE CASCADE,
+  english    text,
+  romaji     text,
+  native     text,
+  fetched_at timestamptz NOT NULL DEFAULT now()
+);
 --
 -- (#150) The file a scan last read a series' ComicInfo from -- its first chapter archive -- as JSON [how it was
 -- read, path, mtime ms, size] (lib/library.ts infoReadOf). A scan opens that archive again only when the file is no
@@ -1686,6 +1760,34 @@ CREATE TABLE IF NOT EXISTS anilist_scores (
   fetched_at  timestamptz NOT NULL DEFAULT now()
 );
 
+-- RETIRED (no longer read or written; the data is left in place): titles an admin marked 18+ from a card's menu on Discover, where a listing is not a library row and has no
+-- series id to put a rating on. Keyed on the folded title (the folded title), so every source's copy of it and
+-- the trending and recommendation rows hide together while the 18+ reveal is off. The reveal still shows them.
+CREATE TABLE IF NOT EXISTS adult_titles (
+  key        text PRIMARY KEY,
+  title      text NOT NULL,
+  marked_by  uuid REFERENCES users(id) ON DELETE SET NULL,
+  marked_at  timestamptz NOT NULL DEFAULT now()
+);
+
+-- "Remove from Keep reading": the series stays in the library, it only leaves that Home row. A row hides the series
+-- until it is read again (read_progress.updated_at moves past hidden_at), so reading it brings it back by itself.
+CREATE TABLE IF NOT EXISTS keep_reading_hidden (
+  user_id    uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  series_id  text NOT NULL,
+  hidden_at  timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, series_id)
+);
+
+-- "Ignore" on a title that is not in the library: this person never sees it on Discover again. Per person;
+-- keyed on the folded title (routes/personal.ts titleKey) so every source's copy goes.
+CREATE TABLE IF NOT EXISTS ignored_titles (
+  user_id     uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  key         text NOT NULL,
+  title       text NOT NULL,
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, key)
+);
 -- v0.61.0: what AniList relates an entry to (lib/anilistRelated.ts): its sequels, prequels, main story, side stories,
 -- spin-offs and alternative versions (relations), and the entries its readers recommend (recs), keyed like
 -- anilist_scores by the AniList id a series is linked to. Each item keeps AniList's own adult flag and genres: the 18+
@@ -2104,6 +2206,23 @@ const DATA_MIGRATIONS: { id: string; run: (c: PoolClient) => Promise<void> }[] =
       );
     },
   },
+  // The adult-sources list retired into the per-source age ratings (lib/sourceRatings.ts): a source on that list means
+  // exactly a rating of 18, so every id on it becomes a rating of 18 (foldAdultSources: an id the admin already rated
+  // keeps its rating), and the list is emptied. The column and the settings field stay for API compatibility, and the
+  // 18+ filter reads both, so a list set later is still honoured. One read and one UPDATE.
+  {
+    id: 'fork-adult-sources-into-ratings',
+    run: async (c) => {
+      const row = (await c.query<{ adult_sources: unknown; source_ratings: unknown }>(
+        'SELECT adult_sources, source_ratings FROM server_settings WHERE id = 1')).rows[0];
+      if (!row || !Array.isArray(row.adult_sources) || row.adult_sources.length === 0) return;
+      await c.query(
+        `UPDATE server_settings SET source_ratings = $1::jsonb, adult_sources = '[]'::jsonb, updated_at = now() WHERE id = 1`,
+        [JSON.stringify(foldAdultSources(row.adult_sources, row.source_ratings))],
+      );
+    },
+  },
+
 ];
 
 export async function migrate(): Promise<void> {

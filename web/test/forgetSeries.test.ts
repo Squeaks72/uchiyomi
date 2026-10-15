@@ -56,7 +56,7 @@ test('every string Forget and the token checkbox render is in the locale files, 
                        "This erases the series and everyone's reading history on it — progress, bookmarks, notes, ratings, favourites, tracker links.",
                        'Stats and Wrapped change. If the files ever reappear it comes back as a new series with no history. This cannot be undone.',
                        'Forgotten. Nobody had read it.', "Forgotten. 1 member's history on it is gone.", "Forgotten. {n} members' history on it is gone.",
-                       'Could not forget it', 'Include 18+ content', '18+']) {
+                       'Could not forget it', 'Show 18+ content (this token only)', '18+']) {
     assert.ok(label in es, `"${label}" renders through tr() but is in no locale file`);
   }
 });
@@ -111,21 +111,21 @@ test('every string on the Removed row and in the two dialogs is translated, and 
   assert.match(panel, /tr\('1 chapter · removed \{when\}'/, 'the singular caption is not translated');
   assert.match(panel, /tr\('\{n\} chapters · removed \{when\}'/, 'the plural caption is not translated');
   assert.equal((panel.match(/\{tr\('Folder'\)\}: <span dir="ltr">\{(purge|forget)\.folder\}<\/span>/g) || []).length, 2, 'both dialogs must translate "Folder" and keep the path LTR');
-  assert.match(panel, /\{tr\('Removing a series hides it from the library, search and the updater\./, 'the intro paragraph is not translated');
+  assert.match(panel, /\{tr\('Removing a series hides it from the library, search and updates\./, 'the intro paragraph is not translated');
   assert.doesNotMatch(panel, /\bchapter\{r\.books_count === 1/, 'the caption is still pluralised in JS');
   // The title: two lines on a phone (line-clamp-2), one line with an ellipsis and a tooltip from lg up. A
   // 506 px title against a 168 px column at 390 lost everything after "Kaguya-sama: Love Is War – The",
   // and two long-prefix titles were indistinguishable.
-  assert.match(panel, /<p className="[^"]*\bline-clamp-2\b[^"]*\blg:block\b[^"]*\blg:truncate\b[^"]*" title=\{r\.title\}>\{r\.title\}<\/p>/, 'the Removed row title must clamp to two lines on a phone and truncate with a tooltip on a desktop');
+  assert.match(panel, /<p id=\{`removed-\$\{r\.id\}`\} className="[^"]*\bline-clamp-2\b[^"]*\blg:block\b[^"]*\blg:truncate\b[^"]*" title=\{r\.title\}>\{r\.title\}<\/p>/, 'the Removed row title must clamp to two lines on a phone and truncate with a tooltip on a desktop');
 
   const es = JSON.parse(read('public/locales/es.json'));
   for (const label of ['Type {title} to confirm', 'Put back', 'Restoring…', 'Folder', 'Working…',
                        '1 chapter · removed {when}', '{n} chapters · removed {when}',
-                       'Removing a series hides it from the library, search and the updater. Its files are left exactly where they are, and everyone’s reading progress is kept, so putting it back changes nothing else.']) {
+                       'Removing a series hides it from the library, search and updates. Its files stay where they are and everyone’s progress is kept, so you can put it back any time.']) {
     assert.ok(label in es, `"${label}" renders through tr() but is in no locale file`);
   }
   // and the caption that NAMES the chip names its translated label, not the English one
-  const gone = es['The chapter files are gone. Put back lists them as deleted from the server; Fetch again on the series page brings back the ones Uchiyomi downloaded.'];
+  const gone = es['The chapter files are gone. Put back restores the series with its chapters marked as deleted. Use Fetch again on the series page to download them once more.'];
   assert.ok(gone.includes(es['Put back']) && !gone.includes('Put back'), 'the files-gone caption still says «Put back» in English beside a translated chip');
 });
 
@@ -137,7 +137,7 @@ test('the token form offers 18+ libraries, off by default, and sends it as showA
   const src = code(read('components/ProfileConnections.tsx'));
   assert.match(src, /const \[adult, setAdult\] = useState\(false\)/, 'the checkbox must start unchecked');
   assert.match(src, /json: \{ name: name\.trim\(\), scopes, showAdult: adult \}/, 'showAdult is not sent with the mint');
-  assert.match(src, /checked=\{adult\}[\s\S]{0,140}?\/>\{tr\('Include 18\+ content'\)\}/, 'the checkbox has no label');
+  assert.match(src, /checked=\{adult\}[\s\S]{0,140}?\/>\{tr\('Show 18\+ content \(this token only\)'\)\}/, 'the checkbox has no label');
   assert.match(src, /t\.showAdult \? ` · \$\{tr\('18\+'\)\}` : ''/, 'the list does not show which tokens see 18+');
   assert.match(src, /setAdmin\(false\); setAdult\(false\); setOpen\(false\)/, 'the form must reset the checkbox after a mint');
 });
