@@ -2,7 +2,7 @@
   "_meta": {
     "language": "fr",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 4617
+    "strings": 4621
   },
   "1 check found something": "1 vérification a trouvé quelque chose",
   "1 member": "1 membre",
@@ -4620,5 +4620,9 @@
   "These two pages are not one spread": "Ces deux pages ne forment pas une double page",
   "Join these two pages again": "Rejoindre ces deux pages",
   "Shows them as two pages. Saved for your account only; it changes nothing for anyone else.": "Les affiche comme deux pages. Enregistré pour votre compte uniquement ; rien ne change pour les autres.",
-  "Page {n} · tap, or press Z, to see both": "Page {n} · touchez ou appuyez sur Z pour voir les deux"
+  "Page {n} · tap, or press Z, to see both": "Page {n} · touchez ou appuyez sur Z pour voir les deux",
+  "One page of a spread in frame, and back": "Une page de la double page en plein cadre, et retour",
+  "With one page in frame: the spread’s other page": "Avec une page en plein cadre : l’autre page de la double page",
+  "Show this list": "Afficher cette liste",
+  "With the mouse: double-click zooms in and out, and a click on a page of a spread brings that page into frame. Change the keys in Reader settings.": "À la souris : le double-clic zoome et dézoome, et un clic sur une page d’une double page l’affiche en plein cadre. Changez les touches dans les réglages du lecteur."
 }

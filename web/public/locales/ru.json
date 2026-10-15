@@ -2,7 +2,7 @@
   "_meta": {
     "language": "ru",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 4617
+    "strings": 4621
   },
   "1 check found something": "1 проверка нашла проблему",
   "1 member": "1 участник",
@@ -4620,5 +4620,9 @@
   "These two pages are not one spread": "Эти две страницы — не разворот",
   "Join these two pages again": "Снова объединить эти две страницы",
   "Shows them as two pages. Saved for your account only; it changes nothing for anyone else.": "Показывает их как две страницы. Сохраняется только для вашей учётной записи и ничего не меняет для других.",
-  "Page {n} · tap, or press Z, to see both": "Страница {n} · нажмите или клавишу Z, чтобы увидеть обе"
+  "Page {n} · tap, or press Z, to see both": "Страница {n} · нажмите или клавишу Z, чтобы увидеть обе",
+  "One page of a spread in frame, and back": "Одна страница разворота крупно и обратно",
+  "With one page in frame: the spread’s other page": "Когда открыта одна страница: другая страница разворота",
+  "Show this list": "Показать этот список",
+  "With the mouse: double-click zooms in and out, and a click on a page of a spread brings that page into frame. Change the keys in Reader settings.": "Мышью: двойной щелчок увеличивает и уменьшает, а щелчок по странице разворота показывает её крупно. Клавиши меняются в настройках читалки."
 }

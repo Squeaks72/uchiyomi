@@ -2,7 +2,7 @@
   "_meta": {
     "language": "ja",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 4617
+    "strings": 4621
   },
   "1 check found something": "1 件のチェックで問題を検出",
   "1 member": "メンバー 1 人",
@@ -4620,5 +4620,9 @@
   "These two pages are not one spread": "この2ページは見開きではない",
   "Join these two pages again": "この2ページを再びつなげる",
   "Shows them as two pages. Saved for your account only; it changes nothing for anyone else.": "2ページとして表示します。アカウントにのみ保存され、他の人には影響しません。",
-  "Page {n} · tap, or press Z, to see both": "{n}ページ · タップするかZキーで両方を表示"
+  "Page {n} · tap, or press Z, to see both": "{n}ページ · タップするかZキーで両方を表示",
+  "One page of a spread in frame, and back": "見開きの1ページを拡大表示／元に戻す",
+  "With one page in frame: the spread’s other page": "1ページを表示中：見開きのもう一方のページ",
+  "Show this list": "この一覧を表示",
+  "With the mouse: double-click zooms in and out, and a click on a page of a spread brings that page into frame. Change the keys in Reader settings.": "マウス：ダブルクリックで拡大・縮小、見開きのページをクリックするとそのページを表示します。キーはリーダー設定で変更できます。"
 }
