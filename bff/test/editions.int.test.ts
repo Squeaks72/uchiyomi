@@ -122,7 +122,7 @@ before(async () => {
     return reply.code(status).send({ error: status >= 500 ? 'internal' : err.message || 'error' });
   });
   await app.register(rateLimit, { global: false });
-  for (const mod of ['sources', 'admin', 'catalog', 'komgaCompat']) await app.register((await import(`../src/routes/${mod}`)).default);
+  for (const mod of ['sources', 'admin', 'catalog', 'komgaCompat', 'personal']) await app.register((await import(`../src/routes/${mod}`)).default);
   await app.ready();
   for (const [name, id] of Object.entries(ids)) {
     H[name] = { authorization: `Bearer ${app.jwt.sign({ sub: id, role: name === ADMIN ? 'admin' : 'user' })}` };
@@ -252,6 +252,38 @@ test('the Library shows one card per work: the edition read last, else the origi
   } finally {
     await q(`UPDATE series_overrides SET title = NULL WHERE series_id = $1`, [B]);
     await q(`DELETE FROM read_progress WHERE book_id = 'b_ed_b1'`);
+  }
+});
+
+test('a title language puts that edition on the Library card, and nothing is hidden when there is none', { skip }, async () => {
+  const search = async (who: string, body: Record<string, unknown>) =>
+    (await call('POST', '/api/series/search', who, { size: 40, ...body })).json();
+  const cards = async (who: string) =>
+    (await search(who, { query: TITLE, collapseEditions: true })).content.filter((s: any) => s.id === A || s.id === B).map((s: any) => s.id);
+  const put = (payload: unknown) => call('PUT', '/api/settings', ADMIN, payload);
+  try {
+    assert.deepEqual(await cards(ADMIN), [A], 'PREMISE: with no preference the original is the card');
+    // Reintroduce by ignoring titleLang in collapsedSearch: the card stays the English original.
+    assert.equal((await put({ titleLang: 'es' })).statusCode, 200);
+    assert.equal(((await call('GET', '/api/settings', ADMIN)).json()).titleLang, 'es', 'saved as an app code');
+    assert.deepEqual(await cards(ADMIN), [B], '"es" takes the es-419 edition: same base language');
+    assert.equal((await put({ titleLang: 'es-419' })).statusCode, 200);
+    assert.deepEqual(await cards(ADMIN), [B], 'the exact code');
+    assert.equal((await put({ titleLang: 'en' })).statusCode, 200);
+    assert.deepEqual(await cards(ADMIN), [A]);
+    assert.equal((await put({ titleLang: 'fr' })).statusCode, 200);
+    assert.deepEqual(await cards(ADMIN), [A], 'a language the work has no edition in: the usual pick, nothing hidden');
+    assert.equal((await put({ titleLang: 'all' })).statusCode, 400, 'a code that is not one language is refused');
+    assert.equal((await put({ titleLang: 5 })).statusCode, 400);
+    assert.equal((await put({ titleLang: null })).statusCode, 200);
+    assert.equal(((await call('GET', '/api/settings', ADMIN)).json()).titleLang, null, 'none');
+    // Another account's preference is its own.
+    await put({ titleLang: 'es' });
+    assert.deepEqual(await cards(MEMBER), [A], 'the member set nothing');
+    const langs = (await call('GET', '/api/settings/title-languages', MEMBER)).json().languages;
+    assert.ok(langs.includes('en') && langs.includes('es-419'), `the languages the server holds editions in: ${langs}`);
+  } finally {
+    await put({ titleLang: null });
   }
 });
 

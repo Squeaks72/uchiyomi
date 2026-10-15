@@ -9,6 +9,7 @@ import { effectiveLang } from './seriesLang';
 import { noticeBook, noticeShown, visibleBookCount } from './noticeChapters';
 import { rangeEnd, numberText } from './chapterRanges';
 import { anilistScoreOf } from './anilistScores';
+import { preferredTitleLang, titleLangOrder } from './titleLang';
 
 interface Page<T> { content: T[]; totalElements: number; totalPages: number; number: number; size: number; first: boolean; last: boolean }
 
@@ -453,16 +454,17 @@ const mineCte = () => `WITH mine AS (
  * Reintroduce by returning the plain search: "the Library shows one card per work" in editions.int.test.ts finds
  * two cards, and none for a title only the Spanish edition carries if the window runs before the filter.
  */
-async function collapsedSearch(cte: string, from: string, where: string, p: Params, pg: number, size: number, order: string, perUser: boolean) {
+async function collapsedSearch(cte: string, from: string, where: string, p: Params, pg: number, size: number, order: string, perUser: boolean, titleLang: string | null) {
   const t = (await one<{ c: number }>(
     `${cte} SELECT count(DISTINCT COALESCE(sv.work_id::text, sv.id))::int AS c FROM ${from} WHERE ${where}`,
     clone(p).values as any[],
   ))?.c ?? 0;
   const mine = perUser ? 'm.last_at DESC NULLS LAST, ' : '';
   const joins = perUser ? PER_USER_JOINS : '';
+  // The viewer's title language (lib/titleLang.ts) comes before recency: the card is the edition in their language.
   const rows = await q(
     `${cte} SELECT ${SERIES_COLS} FROM (
-       SELECT sv.*, row_number() OVER (PARTITION BY COALESCE(sv.work_id::text, sv.id) ORDER BY ${mine}sv.created_at, sv.id) AS edition_pick
+       SELECT sv.*, row_number() OVER (PARTITION BY COALESCE(sv.work_id::text, sv.id) ORDER BY ${titleLangOrder(titleLang, (v) => p.add(v))}${mine}sv.created_at, sv.id) AS edition_pick
          FROM ${from} WHERE ${where}
      ) sv ${joins}
      WHERE sv.edition_pick = 1 ORDER BY ${order} LIMIT ${p.add(size)} OFFSET ${p.add(pg * size)}`,
@@ -752,7 +754,7 @@ export const owned = {
     if (body?.fullTextSearch) {
       where = `(${where}) AND title ILIKE ${p.add(`%${body.fullTextSearch}%`)}`;
     }
-    if (collapse) return collapsedSearch(cte, from, where, p, pg, size, sortSql(sort, wantsUser), wantsUser);
+    if (collapse) return collapsedSearch(cte, from, where, p, pg, size, sortSql(sort, wantsUser), wantsUser, await preferredTitleLang(ctx.userId));
     const t = await total(ctx, where, clone(p), cte, from);
     const rows = await q(
       `${cte} SELECT ${SERIES_COLS} FROM ${from} WHERE ${where} ORDER BY ${sortSql(sort, wantsUser)} LIMIT ${p.add(size)} OFFSET ${p.add(pg * size)}`,
