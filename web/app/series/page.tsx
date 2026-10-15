@@ -16,7 +16,7 @@ import { applyCover, clearCover } from '@/lib/theme';
 import { Img, Backdrop, SectionTitle, useWideViewport } from '@/components/ui';
 import { SeriesCard } from '@/components/cards';
 import { useToast } from '@/components/Toast';
-import { startExport } from '@/lib/exports';
+import { startExport, useZipExports } from '@/lib/exports';
 import { ConfirmDialog, Modal, msgOf } from '@/components/ConfirmDialog';
 import { seedMeta, metaBody } from '@/lib/seriesMeta';
 import { GenreTagInput } from '@/components/GenreTagInput';
@@ -744,6 +744,7 @@ function EditionChips({ editions, onAdd, className = '' }: { editions: EditionRo
 }
 
 function SeriesInner() {
+  const zipOn = useZipExports();
   const id = useSearchParams().get('id') || '';
   const wantCh = chParam(useSearchParams().get('ch'));
   // Health's Open on a numbering finding (#116, lib/healthLinks.ts numberingHref): the plan, open on arrival.
@@ -1838,7 +1839,7 @@ function SeriesInner() {
   const moreGroups = seriesActionGroups({
     isAdmin, mayDownload: canDownload(user), booksCount: series?.booksCount ?? 0, mayArchive,
     autoHero: !!series?.autoHero, hasFolder: !!series?.folder,
-    removedCount: removedCount ?? 0, hasForeign, offline: authStatus === 'offline', notes: notesCounts,
+    removedCount: removedCount ?? 0, hasForeign, offline: authStatus === 'offline', zipExports: zipOn, notes: notesCounts,
     busy: { checkNew: checking, archive: acting, newBanner: busyAdmin },
   });
   const runAction = (a: SeriesActionId) => {
@@ -2118,7 +2119,7 @@ function SeriesInner() {
         {/* The two icons say which side each acts on: ⬇ this device, ☁ the server. */}
         {!isDesktop() && <button disabled={acting || !saveable.length} onClick={bulkSave} className="btn-key"><IcDownload width={14} height={14} />{tr('Save offline')}</button>}
         {/* The fork's own two: a zip of the chosen chapters, and the stronger remove that also stops them being listed. */}
-        <button disabled={acting || !pickedBookList.some((b) => b.owned)} onClick={() => zipUp(pickedBookList.filter((b) => b.owned).map((b) => b.id))} className="btn-key"><IcDownload width={14} height={14} />{tr('Download as zip')}</button>
+        {zipOn && <button disabled={acting || !pickedBookList.some((b) => b.owned)} onClick={() => zipUp(pickedBookList.filter((b) => b.owned).map((b) => b.id))} className="btn-key"><IcDownload width={14} height={14} />{tr('Download as zip')}</button>}
         {canDownload(user) && <button disabled={acting || !fetchable.length} onClick={bulkFetch} className="btn-key"><IcCloudDownload width={14} height={14} />{tr('Fetch')}</button>}
         {isAdmin && <button disabled={acting || !refetchable.length} onClick={() => setConfirming({ what: 'refetch', books: refetchable })} className="btn-key"><IcCloudDownload width={14} height={14} />{tr('Fetch again')}</button>}
         {isAdmin && (

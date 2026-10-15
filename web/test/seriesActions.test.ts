@@ -26,9 +26,9 @@ const read = (p: string) => readFileSync(join(ROOT, p), 'utf8');
 const code = (src: string): string => src.replace(/\{\/\*[\s\S]*?\*\/\}/g, '').replace(/\/\*[\s\S]*?\*\//g, '')
   .split('\n').filter((l) => !l.trim().startsWith('//')).join('\n');
 
-const MEMBER: SeriesActionsInput = { isAdmin: false, mayDownload: false, booksCount: 40, mayArchive: false, autoHero: false, hasFolder: false };
+const MEMBER: SeriesActionsInput = { isAdmin: false, mayDownload: false, booksCount: 40, mayArchive: false, autoHero: false, hasFolder: false, zipExports: true };
 const DOWNLOADER: SeriesActionsInput = { ...MEMBER, mayDownload: true, mayArchive: true };
-const ADMIN: SeriesActionsInput = { isAdmin: true, mayDownload: true, booksCount: 40, mayArchive: true, autoHero: true, hasFolder: true };
+const ADMIN: SeriesActionsInput = { isAdmin: true, mayDownload: true, booksCount: 40, mayArchive: true, autoHero: true, hasFolder: true, zipExports: true };
 /** The groups as `group: item item …`, the shape a person sees. */
 const shape = (x: SeriesActionsInput) => seriesActionGroups(x).map((g) => `${g.id}: ${g.items.map((i) => i.id).join(' ')}`);
 
@@ -170,4 +170,11 @@ test('the page: four keys under the button, More by width, the sheet closed befo
     ['archive', 'void archiveSlowly()'], ['newBanner', 'void newBanner()'], ['checkNew', 'void checkNow()'], ['markAllRead', 'void markAllRead()']] as const) {
     assert.ok(page.includes(`case '${id}': ${call}; break;`), `${id} does not run ${call}`);
   }
+});
+
+test('the series is offered as a zip only while an admin has Download as zip on', () => {
+  const ids = (x: SeriesActionsInput) => seriesActionGroups(x).flatMap((g) => g.items.map((i) => i.id));
+  assert.ok(ids(MEMBER).includes('zip'));
+  assert.ok(!ids({ ...MEMBER, zipExports: false }).includes('zip'));
+  assert.ok(!ids({ ...MEMBER, zipExports: undefined }).includes('zip'), 'a server that does not say is a server with it off');
 });

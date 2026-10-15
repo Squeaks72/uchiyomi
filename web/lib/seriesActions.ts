@@ -57,6 +57,8 @@ export interface SeriesActionsInput {
   /** `series.folder`, sent to admins only: Rename folder. */
   hasFolder: boolean;
   offline?: boolean;
+  /** Admin → Settings → Download as zip is on (`useZipExports`): without it the series is not offered as a zip. */
+  zipExports?: boolean;
   /** Fork: chapters removed from this series (Removed chapters dialog). */
   removedCount?: number;
   /** Fork: chapters from sources other than the primary one exist (Remove chapters from other sources). */
@@ -99,7 +101,7 @@ export function seriesActionGroups(x: SeriesActionsInput): SeriesActionGroup[] {
     ...(x.mayDownload && x.booksCount >= 3 ? [{ id: 'findMissing' as const, label: tr('Find missing chapters'), disabled: offline }] : []),
     ...(x.mayArchive ? [{ id: 'archive' as const, label: tr('Archive slowly'), hook: 'archive-slowly', why: archiveWhy(), disabled: offline }] : []),
     ...(x.isAdmin ? [{ id: 'checkNew' as const, label: tr('Check for new chapters'), disabled: offline }] : []),
-    ...(some ? [{ id: 'zip' as const, label: tr('Download series as zip'), hook: 'zip-series', disabled: offline }] : []),
+    ...(some && x.zipExports ? [{ id: 'zip' as const, label: tr('Download series as zip'), hook: 'zip-series', disabled: offline }] : []),
     ...(x.isAdmin && (x.removedCount ?? 0) > 0 ? [{ id: 'removed' as const, label: tr('Removed chapters ({n})…', { n: x.removedCount ?? 0 }), hook: 'removed-open', disabled: offline }] : []),
   ];
   const share: SeriesAction[] = [

@@ -16,7 +16,7 @@ import { AddSeriesDialog } from '@/components/AddSeriesDialog';
 import { Img } from '@/components/ui';
 import { canDownload } from '@/lib/auth';
 import { useExportList } from '@/components/ListShare';
-import { startExport } from '@/lib/exports';
+import { startExport, useZipExports } from '@/lib/exports';
 import { useContextMenu } from '@/components/ContextMenu';
 import { useSeriesActions } from '@/components/SeriesActions';
 import { selectedText } from '@/lib/counted';
@@ -96,6 +96,7 @@ function SortChips({ value, onPick }: { value: ListSort; onPick: (s: ListSort) =
 }
 
 function CollectionInner() {
+  const zipOn = useZipExports();
   const id = useSearchParams().get('id') || '';
   const qc = useQueryClient();
   const toast = useToast();
@@ -223,7 +224,7 @@ function CollectionInner() {
               </>
             )}
             {!editing && data && <button type="button" onClick={() => void exportList(id, data.name)} data-list-export className="chip ms-auto text-xs">{tr('Export')}</button>}
-            {!editing && data && <button type="button" data-list-zip className="chip text-xs"
+            {!editing && data && zipOn && <button type="button" data-list-zip className="chip text-xs"
               onClick={() => startExport({ collectionId: id })
                 .then(() => toast(tr('Zipping started. Follow it at the bottom of the screen.'), 'success'))
                 .catch(() => toast(tr('Nothing on the server to zip yet. Fetch some chapters first.'), 'error'))}>{tr('Download as zip')}</button>}

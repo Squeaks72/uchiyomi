@@ -5,7 +5,7 @@ import { api } from '@/lib/api';
 import { canDownload, useAuth } from '@/lib/auth';
 import { t as tr } from '@/lib/i18n';
 import { applyFavorite } from '@/lib/favoriteCache';
-import { startExport } from '@/lib/exports';
+import { startExport, useZipExports } from '@/lib/exports';
 import { archiveWhy } from '@/lib/archive';
 import { followBulkNewest, BULK_NEWEST_POLL_MS, type BulkNewestStatus } from '@/lib/bulkNewest';
 import { kickDownloads } from '@/lib/useServerDownloads';
@@ -32,6 +32,7 @@ type Dialog = null | 'list' | 'move' | 'find' | 'remove' | 'chapters';
  * `onDone` runs after an action changed things (the Library leaves Select mode with it).
  */
 export function useSeriesActions({ onDone, builtinList }: { onDone?: () => void; builtinList?: boolean } = {}) {
+  const zipOn = useZipExports();
   const qc = useQueryClient();
   const toast = useToast();
   const { isAdmin, status, user } = useAuth();
@@ -234,14 +235,14 @@ export function useSeriesActions({ onDone, builtinList }: { onDone?: () => void;
     const favourite = !many && !!opts.favourite;
     const off = offline;
     const downloads: MenuItem[] = [
-      {
+      ...(zipOn ? [{
         label: tr('Download as zip'), disabled: off,
         onSelect: () => {
           startExport({ seriesIds: of })
             .then(() => toast(tr('Zipping started. Follow it at the bottom of the screen.'), 'success'))
             .catch(() => toast(tr('Nothing on the server to zip yet. Fetch some chapters first.'), 'error'));
         },
-      },
+      }] : []),
       ...(dl ? [
         { label: tr('Fetch newest'), disabled: off, onSelect: () => fetchNewest(of) },
         { label: tr('Archive slowly'), disabled: off, title: archiveWhy(), onSelect: async () => { const r = await archive(of); if (r) settle(); } },
