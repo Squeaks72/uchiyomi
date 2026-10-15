@@ -6534,13 +6534,8 @@ paths:
         reader's edges) and, since v0.55.7, `listSorts` (list id to `az`, `za`, `read`, `unread` or `latest`: the order
         each list is shown in; a list's own order is not stored). Since v0.55.8 the validated keys are `librarySort`,
         `homeCollections` and `showAllChapters` (since v0.60.0 also `librarySortDir`, since v0.61.0 `incognito`, a
-<<<<<<< HEAD
-        boolean; fork: `titleLang`, an app language code or null for none, else 400). Fork change: `compactChapters`, `showGhosts` and `alsoFollow` are account settings now (they were
-        per-device); each must be a boolean when present, else 400. Since v0.68.0 `trackerPlanOnAdd` is a boolean too. Unknown keys remain accepted and retained for
-=======
         boolean). Fork change: `compactChapters`, `showGhosts` and `alsoFollow` are account settings now (they were
-        per-device); each must be a boolean when present, else 400. Unknown keys remain accepted and retained for
->>>>>>> 3fc23fe3 (Revert "Title language" setting)
+        per-device); each must be a boolean when present, else 400. Since v0.68.0 `trackerPlanOnAdd` is a boolean too. Unknown keys remain accepted and retained for
         compatibility -- since v0.66.0 the web app's `homeRails` (`{order, hidden}`, Home's rails as the reader
         arranged them; null is the default order) and `tone` (`oled`, `graphite` or `midnight`, the background)
         among them.
