@@ -8,8 +8,6 @@ import { dotWindow } from '@/lib/carousel';
 import { useArtUnderChrome } from '@/lib/overArt';
 import { useDiscoverMenu } from '@/components/DiscoverMenu';
 import { useIsHiddenTitle } from '@/lib/ignoredTitles';
-import { useGlance } from '@/components/GlanceCard';
-import { glanceOfTrending } from '@/lib/glance';
 
 export interface Trending {
   /** The AniList entry (sent since v0.56.0): what Discover's AniList rails key a card by (v0.61.0). */
@@ -163,11 +161,7 @@ export function DiscoverHero({ slides, onPick }: { slides: Trending[]; onPick: (
 
 /** The trending items the hero did not take, as a rail. Same art, one size down. */
 export function TrendingCard({ t, onPick, onSearch }: { t: Trending; onPick: (t: Trending) => void; onSearch?: (title: string) => void }) {
-  const glance = useGlance(glanceOfTrending(t), {
-    cover: sourceCover(undefined, t.cover, 800), fallbackCover: t.cover || undefined,
-    actions: [{ label: tr('Add to library'), primary: true, onClick: () => onPick(t) }],
-  });
-  const menu = useDiscoverMenu({ title: t.title, onAdd: () => onPick(t), onSearch, onDescribe: glance.show });
+  const menu = useDiscoverMenu({ title: t.title, onAdd: () => onPick(t), onSearch });
   const isHidden = useIsHiddenTitle();
   if (isHidden(t.title)) return null;
   return (
@@ -176,7 +170,6 @@ export function TrendingCard({ t, onPick, onSearch }: { t: Trending; onPick: (t:
       <div className="grad-border relative aspect-[2/3] overflow-hidden rounded-2xl border border-ink-700/60 transition-all duration-300 group-hover:-translate-y-1 group-hover:shadow-glow">
         <Img src={sourceCover(undefined, t.cover)} alt="" fallbackSrc={t.cover || undefined}
           className="h-full w-full" imgClassName="transition-transform duration-500 group-hover:scale-[1.06]" />
-        {glance.overlay}
         {t.score != null && (
           <span className="absolute end-1.5 top-1.5 rounded-md bg-ink-950/80 px-1.5 py-0.5 text-[11px] font-semibold text-accent backdrop-blur">{t.score}%</span>
         )}
@@ -187,7 +180,6 @@ export function TrendingCard({ t, onPick, onSearch }: { t: Trending; onPick: (t:
       <p className="mt-1.5 line-clamp-2 text-xs font-medium leading-tight text-fog-300 transition group-hover:text-fog-100">{t.title}</p>
     </button>
     {menu.element}
-    {glance.modal}
     </>
   );
 }

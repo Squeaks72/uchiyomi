@@ -6,7 +6,6 @@ import { motion, useReducedMotion, useScroll, useTransform } from 'framer-motion
 import { HeroArt } from '@/components/MosaicArt';
 import { useArtUnderChrome } from '@/lib/overArt';
 import { useReduceEffects } from '@/lib/effects';
-import { SeriesNotes } from '@/components/SeriesNotes';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, img } from '@/lib/api';
@@ -2276,7 +2275,6 @@ function SeriesInner() {
           <div className="hidden lg:block"><SupplyLine parts={supplyWide} loaded={supplyLoaded} wide onOpen={() => setSourcesOpen(true)} /></div>
           {Genres}
           {Summary}
-          <SeriesNotes seriesId={id} />
           {Chapters}
         </div>
       </div>
