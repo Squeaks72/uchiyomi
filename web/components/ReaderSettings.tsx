@@ -17,7 +17,6 @@ import { useReaderWidth, WIDTH_MIN, WIDTH_MAX } from '@/lib/readerWidth';
 import { INCOGNITO_TEXT } from '@/lib/incognito';
 import { useIncognito } from './IncognitoBanner';
 import { useToast } from './Toast';
-import type { SpreadChoice } from '@/lib/spreadMarks';
 
 /**
  * A tap layout drawn as the 3 x 3 grid it divides the page into (v0.61.0): shaded where a tap goes back, lit where it
@@ -89,8 +88,7 @@ export function ReaderSettings({
   modeNote,
   libraryName,
   onLibraryDefault,
-  spreadHere,
-  onSplitSpread,
+  spreadOptions,
 }: {
   prefs: ReaderPrefs;
   set: (p: Partial<ReaderPrefs>) => void;
@@ -119,10 +117,8 @@ export function ReaderSettings({
   /** Admins: the library this series is in, and the key that saves the current look as its defaults. */
   libraryName?: string;
   onLibraryDefault?: () => void;
-  /** The double-page spread the page being read is half of (lib/spreadMarks.ts); null when it is in none. */
-  spreadHere?: SpreadChoice | null;
-  /** Show the pair that starts at page `first` as two pages (`true`), or as the detector found it (`false`). */
-  onSplitSpread?: (first: number, split: boolean) => void;
+  /** What may be done to the double page at the page being read (merge, split, restore); empty when nothing may. */
+  spreadOptions?: Array<{ label: string; onSelect: () => void }>;
 }) {
   const [width, setWidth] = useReaderWidth();
   // A sheet on the notices' layer stack (lib/layers.ts). It runs to the bottom edge, so it does not leave the
@@ -322,13 +318,13 @@ export function ReaderSettings({
 
         {/* The detector joins a pair that is not a spread now and then: the reader's word against it, kept on the account
             (bff lib/spreadMarks.ts), so it follows them to the phone and changes nothing for anyone else. */}
-        {spreadHere && onSplitSpread && (
-          <Row label={tr('This double page')}>
-            <Choice on={spreadHere.split} onClick={() => onSplitSpread(spreadHere.first, !spreadHere.split)}>
-              {spreadHere.split ? tr('Join these two pages again') : tr('These two pages are not one spread')}
-            </Choice>
+        {spreadOptions && spreadOptions.length > 0 && (
+          <Row label={tr('Double pages')}>
+            <div className="grid grid-cols-1 gap-2">
+              {spreadOptions.map((o) => <Choice key={o.label} on={false} onClick={o.onSelect}>{o.label}</Choice>)}
+            </div>
             <p className="mt-2 text-[11px] leading-snug text-fog-500">
-              {tr('Shows them as two pages. Saved for your account only; it changes nothing for anyone else.')}
+              {tr('Merge two pages into one spread, or take a spread apart. Saved for your account only; it changes nothing for anyone else.')}
             </p>
           </Row>
         )}
