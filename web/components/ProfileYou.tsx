@@ -177,7 +177,7 @@ export function StudioCard({ span = '' }: { span?: string }) {
     <div id="reading-studio" className={`${CARD} scroll-mt-4 lg:scroll-mt-20 ${span}`}>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <h2 className="font-display text-base font-semibold">{tr('Reading studio')}</h2>
-        <div role="group" aria-label={tr('Time range')} className="flex gap-1.5">
+        <div className="flex gap-1.5">
           {[90, 180, 365].map((d) => (
             <button key={d} onClick={() => setDays(d)} aria-pressed={days === d}
               className={`chip text-[11px] ${days === d ? 'border-accent/50 text-accent' : 'text-fog-400'}`}>

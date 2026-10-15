@@ -423,8 +423,8 @@ export function FindMissingDialog({ seriesId, onClose, onAddEdition }: {
 
   return (
     <Modal title={tr('Find missing chapters')} onClose={onClose}>
-      {scan.isLoading && <p role="status" className="text-sm text-fog-400">{tr('Asking your sources…')}</p>}
-      {scan.error && !d && <p role="alert" className="text-sm text-rose-300">{msgOf(scan.error, tr('The scan failed.'))}</p>}
+      {scan.isLoading && <p className="text-sm text-fog-400">{tr('Asking your sources…')}</p>}
+      {scan.error && !d && <p className="text-sm text-rose-300">{msgOf(scan.error, tr('The scan failed.'))}</p>}
 
       {d && (
         <>
@@ -436,8 +436,8 @@ export function FindMissingDialog({ seriesId, onClose, onAddEdition }: {
               : `. ${tr('No gaps between them.')}`}
           </p>
 
-          {d.refusal && <p role="status" className="mt-3 text-sm text-amber-300">{d.refusal.message}</p>}
-          {d.failed && <p role="alert" className="mt-3 text-sm text-rose-300">{tr(d.failed)}</p>}
+          {d.refusal && <p className="mt-3 text-sm text-amber-300">{d.refusal.message}</p>}
+          {d.failed && <p className="mt-3 text-sm text-rose-300">{tr(d.failed)}</p>}
           {/* Each source's card comes in as that source answers; this says who it is still waiting for. */}
           {asking && (
             <p className="mt-3 flex items-center gap-2 text-xs text-fog-400" aria-live="polite">

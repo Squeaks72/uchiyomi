@@ -74,7 +74,7 @@ function Running({ s }: { s: RescanStatus }) {
   const done = Math.min(s.done, total);
   return (
     <div className={BOX} data-rescan-panel="running">
-      <p className="text-[12px] tabular-nums text-fog-300" role="status" data-rescan-progress>{progressLine(s)}</p>
+      <p className="text-[12px] tabular-nums text-fog-300" aria-live="polite" data-rescan-progress>{progressLine(s)}</p>
       {total > 0 && (
         // The bar fills from the start edge, so from the right in Arabic (--start, app/globals.css).
         <div className="h-1.5 overflow-hidden rounded-[3px] bg-ink-700" role="progressbar" aria-valuemin={0} aria-valuemax={total}

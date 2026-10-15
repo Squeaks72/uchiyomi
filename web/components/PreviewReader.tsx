@@ -125,9 +125,9 @@ export function PreviewReader({ source, sourceName, sourceId, title, onClose, on
       <p className="mb-3 text-xs text-fog-500">
         {tr('Reading from {source}. Nothing is added to your library and no progress is kept.', { source: sourceName })}
       </p>
-      {list.isPending && <p role="status" className="py-8 text-center text-sm text-fog-500">{tr('Loading…')}</p>}
-      {list.isError && <p role="alert" className="py-8 text-center text-sm text-rose-400">{msgOf(list.error, tr('That source would not answer.'))}</p>}
-      {list.isSuccess && chapters.length === 0 && <p role="status" className="py-8 text-center text-sm text-fog-500">{tr('No chapters listed.')}</p>}
+      {list.isPending && <p className="py-8 text-center text-sm text-fog-500">{tr('Loading…')}</p>}
+      {list.isError && <p className="py-8 text-center text-sm text-rose-400">{msgOf(list.error, tr('That source would not answer.'))}</p>}
+      {list.isSuccess && chapters.length === 0 && <p className="py-8 text-center text-sm text-fog-500">{tr('No chapters listed.')}</p>}
       <div className="space-y-1">
         {chapters.map((c) => (
           <button key={c.number} type="button" onClick={() => openChapter(c.number)}
@@ -149,7 +149,7 @@ export function PreviewReader({ source, sourceName, sourceId, title, onClose, on
         {number !== null && (
           <button type="button" onClick={back}
             className="inline-flex h-10 shrink-0 items-center gap-1 rounded-full ps-2 pe-3 text-sm text-fog-300 hover:bg-ink-800 hover:text-fog-100">
-            <IcChevronLeft aria-hidden width={18} height={18} className="rtl:rotate-180" />{tr('Chapters')}
+            <IcChevronLeft width={18} height={18} className="rtl:rotate-180" />{tr('Chapters')}
           </button>
         )}
         <h2 className="min-w-0 flex-1 truncate px-2 text-sm font-normal text-fog-200">
@@ -158,7 +158,7 @@ export function PreviewReader({ source, sourceName, sourceId, title, onClose, on
         <span className="shrink-0 text-[11px] text-fog-600">{tr('Preview')}</span>
         <button type="button" onClick={() => unwind(() => closeRef.current())} aria-label={tr('Close')}
           className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-fog-300 hover:bg-ink-800 hover:text-fog-100">
-          <IcX aria-hidden width={20} height={20} />
+          <IcX width={20} height={20} />
         </button>
       </div>
       <div data-lenis-prevent className="flex-1 overflow-y-auto overscroll-contain px-2 py-3 lg:px-4">
@@ -195,8 +195,8 @@ function PreviewPages({ source, sourceId, number, prev, next, onPick }: {
 
   return (
     <div ref={top}>
-      {count.isPending && <p role="status" className="py-16 text-center text-sm text-fog-500">{tr('Loading…')}</p>}
-      {count.isError && <p role="alert" className="py-16 text-center text-sm text-rose-400">{msgOf(count.error, tr('That chapter would not load.'))}</p>}
+      {count.isPending && <p className="py-16 text-center text-sm text-fog-500">{tr('Loading…')}</p>}
+      {count.isError && <p className="py-16 text-center text-sm text-rose-400">{msgOf(count.error, tr('That chapter would not load.'))}</p>}
       {Array.from({ length: count.data?.count ?? 0 }, (_, i) => (
         <PreviewPage key={`${number}:${i}`} src={previewPageUrl(source, sourceId, number, i)} index={i} />
       ))}
@@ -213,7 +213,7 @@ function PreviewPages({ source, sourceId, number, prev, next, onPick }: {
 function PreviewPage({ src, index }: { src: string; index: number }) {
   const [state, setState] = useState<'loading' | 'ok' | 'failed'>('loading');
   if (state === 'failed') {
-    return <p role="status" className="py-10 text-center text-xs text-fog-500">{tr('Page {n} could not be loaded.', { n: index + 1 })}</p>;
+    return <p className="py-10 text-center text-xs text-fog-500">{tr('Page {n} could not be loaded.', { n: index + 1 })}</p>;
   }
   return (
     // eslint-disable-next-line @next/next/no-img-element

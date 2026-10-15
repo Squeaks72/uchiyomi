@@ -41,7 +41,7 @@ export function PullToRefresh({ onRefresh, children }: { onRefresh: () => Promis
     <div onTouchStart={onStart} onTouchMove={onMove} onTouchEnd={onEnd}>
       <div style={{ height: dist }} className="flex items-center justify-center overflow-hidden text-fog-500 transition-[height] duration-200">
         {dist > 0 && (
-          <span aria-hidden className={`text-xs ${busy ? 'animate-pulse-soft text-accent' : ''}`}>
+          <span className={`text-xs ${busy ? 'animate-pulse-soft text-accent' : ''}`}>
             {busy ? tr('Refreshing…') : dist >= THRESHOLD ? tr('Release to refresh') : tr('Pull to refresh')}
           </span>
         )}

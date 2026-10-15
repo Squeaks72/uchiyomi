@@ -227,7 +227,7 @@ export function SourceSheet({ target, overview, evidence, testMs, status, action
         {s && says && (
           <section aria-label={tr('Status')}>
             {/* The one line: the state in a word, and why, as the row in the list says it. */}
-            <p role="status" className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[13px]" data-source-status={s.state}>
+            <p className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[13px]" data-source-status={s.state}>
               <StatusMark tone={says.tone} label={says.word} size="md" />
               {says.reason && <span className="text-fog-400">— {says.reason}</span>}
             </p>

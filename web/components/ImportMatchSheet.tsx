@@ -167,7 +167,7 @@ export function ImportMatchSheet({ batchId, candidate, onClose }: {
             sourceId={pending.source} sourceLabel={sourceName(pending.source)}
             count={pendingDetail.data?.count} loading={pendingDetail.isFetching} />
           {delta != null && (
-            <p role="status" className={`text-center text-[11px] ${delta === 0 ? 'text-fog-500' : delta > 0 ? 'text-emerald-400' : 'text-amber-400'}`}>
+            <p className={`text-center text-[11px] ${delta === 0 ? 'text-fog-500' : delta > 0 ? 'text-emerald-400' : 'text-amber-400'}`}>
               {delta === 0 ? tr('Same chapter count as the current pick')
                 : delta === 1 ? tr('+1 chapter vs the current pick')
                 : delta > 0 ? tr('+{n} chapters vs the current pick', { n: delta })
@@ -205,7 +205,7 @@ export function ImportMatchSheet({ batchId, candidate, onClose }: {
           otherwise paint over this as the rails scroll under it. */}
       <div className="sticky top-0 z-10 -mx-4 mb-3 bg-ink-950/90 px-4 pb-2 pt-1 backdrop-blur-xs">
         <div className="flex items-center gap-2 rounded-xl border border-ink-700 bg-ink-900/60 px-3 py-2 focus-within:border-accent">
-          <IcSearch aria-hidden width={17} height={17} className="text-fog-500" />
+          <IcSearch width={17} height={17} className="text-fog-500" />
           <input
             ref={inputRef}
             value={term}
@@ -226,11 +226,11 @@ export function ImportMatchSheet({ batchId, candidate, onClose }: {
       </div>
 
       {debounced.length < 2 ? (
-        <p role="status" className="py-10 text-center text-sm text-fog-500">{tr('Type at least 2 characters to search.')}</p>
+        <p className="py-10 text-center text-sm text-fog-500">{tr('Type at least 2 characters to search.')}</p>
       ) : error ? (
-        <p role="alert" className="py-10 text-center text-sm text-fog-500">{tr('Search failed — try again.')}</p>
+        <p className="py-10 text-center text-sm text-fog-500">{tr('Search failed — try again.')}</p>
       ) : isFetching && !data ? (
-        <div role="status" aria-label={tr('Loading…')} className="space-y-4">
+        <div className="space-y-4">
           {Array.from({ length: 2 }).map((_, i) => (
             <div key={i}>
               <div className="skeleton mb-1.5 h-4 w-32 rounded" />
@@ -241,7 +241,7 @@ export function ImportMatchSheet({ batchId, candidate, onClose }: {
           ))}
         </div>
       ) : groups.length === 0 ? (
-        <p role="status" className="py-10 text-center text-sm text-fog-500">{tr('Nobody has that title yet.')}</p>
+        <p className="py-10 text-center text-sm text-fog-500">{tr('Nobody has that title yet.')}</p>
       ) : (
         <div className="space-y-4 pb-2">
           {groups.map((g) => (

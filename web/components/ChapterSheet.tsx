@@ -38,7 +38,7 @@ export function ChapterSheet({ title, chapters, activeId, onPick, onClose, heade
               ${c.id === activeId ? 'text-accent' : 'text-fog-200 hover:text-fog-50'}`}
           >
             <span className="min-w-0 flex-1 truncate">{c.label}</span>
-            {c.id === activeId && <IcCheck aria-hidden width={15} height={15} className="shrink-0" />}
+            {c.id === activeId && <IcCheck width={15} height={15} className="shrink-0" />}
           </button>
           </li>
         ))}

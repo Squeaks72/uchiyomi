@@ -123,7 +123,7 @@ export function MangadexLanguages({ sources, onSaved, open: always = false }: {
             </button>
           );
         })}
-        {!data && <span role="status" className="text-[11px] text-fog-500">{tr('Loading…')}</span>}
+        {!data && <span className="text-[11px] text-fog-500">{tr('Loading…')}</span>}
       </div>
       <p className="mt-2 max-w-prose text-[11px] leading-relaxed text-fog-500">
         {tr('All MangaDex sources share one rate limit: when MangaDex asks Uchiyomi to slow down, every language waits.')}

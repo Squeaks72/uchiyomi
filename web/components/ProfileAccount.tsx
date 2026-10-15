@@ -283,7 +283,7 @@ function SessionsSection() {
           </>}
           help={`${s.ip || tr('unknown ip')} · ${tr('active {when}', { when: relativeTime(s.last_seen) })}`}>
           {!s.current && (
-            <button type="button" onClick={() => revoke(s.id)} aria-label={tr('Revoke {name}', { name: shownDeviceName(s.device_name) || tr('Device') })} className="chip text-xs hover:border-rose-500/50 hover:text-rose-400">{tr('Revoke')}</button>
+            <button type="button" onClick={() => revoke(s.id)} className="chip text-xs hover:border-rose-500/50 hover:text-rose-400">{tr('Revoke')}</button>
           )}
         </Row>
       ))}
