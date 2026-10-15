@@ -380,7 +380,7 @@ export function LibraryFilters({ read, status, genres, libSel, libs, mainSrc, an
         {/* Two different nothings. "No match" is an answer to a search; a library whose series carry no
             genres at all has not been searched, and telling it that nothing matched is a small lie. */}
         {data && !listed.length && (
-          <p role="status" className="text-xs text-fog-500">
+          <p className="text-xs text-fog-500">
             {q.trim() ? tr('No genre matches that.') : tr('Once your series carry genres, this is where they gather.')}
           </p>
         )}
