@@ -18,7 +18,7 @@ import { PAGE_ACTIONS, actionForKey, keyMapFor, type ReaderAction } from '@/lib/
 import { padMapFor } from '@/lib/readerPad';
 import { useGamepad } from '@/lib/useGamepad';
 import { ARM_MS, chapterGap, pagesAfter, skipNeedsConfirm, stillArmed } from '@/lib/readerNav';
-import { Book, EditionRow, Page, PageInfo, Series, isWebtoon } from '@/lib/types';
+import { Book, EditionRow, Page, PageInfo, Series } from '@/lib/types';
 import { useAuth, canDownload } from '@/lib/auth';
 import { chapterLabel, languageName } from '@/lib/format';
 import { editionChipLabels, readerTarget } from '@/lib/editions';
@@ -235,7 +235,10 @@ function ReaderInner() {
   // The series' PRIMARY source, which keys the per-source reader default (lib/readerPrefs.ts seriesSourceOf).
   const [seriesSource, setSeriesSource] = useState<{ id: string; name: string } | null>(null);
   // A webtoon is one long strip cut into images, never a spread cut in two: joining is for paged series only.
-  const [webtoonSeries, setWebtoonSeries] = useState(false);
+  // Joins are off only for a series TYPED webtoon, not one whose direction is merely unknown (the API says WEBTOON for NULL,
+  // which is half the library, One Piece among it). The server already joins nothing in a chapter of strips (lib/spreadJoin.ts
+  // joinsFor), so a manga of unknown direction keeps its joined spreads.
+  const [typedWebtoon, setTypedWebtoon] = useState(false);
   const [seriesLibrary, setSeriesLibrary] = useState<{ id: string; name: string } | null>(null);
   const [libraryLook, setLibraryLook] = useState<NonNullable<Series['libraryReader']> | null>(null);
   // The work's language editions (v0.52.0, #72), for the chapter sheet's chips, and each chapter's number, which a
@@ -407,7 +410,7 @@ function ReaderInner() {
       // this device last saw and the downloaded record's direction. The pages' shape is the chapter's own, either way.
       let seriesType = first.offline ? seriesTypeOf(first.seriesId) : null;
       let readsRtl = first.readingDirection === 'RIGHT_TO_LEFT';
-      setWebtoonSeries(isWebtoon(first.readingDirection ?? undefined) || seriesType === 'webtoon');
+      setTypedWebtoon(seriesType === 'webtoon');
       let libLook: NonNullable<Series['libraryReader']> | null = null;
       try {
         const s = await api<Series>(`/api/series/${first.seriesId}`);
@@ -419,7 +422,7 @@ function ReaderInner() {
           readsRtl = s?.metadata?.readingDirection === 'RIGHT_TO_LEFT';
           seriesType = s?.seriesType ?? null;
           rememberSeriesType(first.seriesId, seriesType);
-          setWebtoonSeries(isWebtoon(s?.metadata?.readingDirection) || isWebtoon(first.readingDirection ?? undefined) || seriesType === 'webtoon');
+          setTypedWebtoon(seriesType === 'webtoon');
           setEditions((s?.edition?.editions?.length ?? 0) > 1 ? s.edition!.editions! : null);
           // The followed sources' display names, for the caption on a page the source never served. Free:
           // this request is made anyway, and `sources` is sent to every viewer, unlike /api/sources.
@@ -556,8 +559,8 @@ function ReaderInner() {
   const rightFirst = rtl || pagedRtl;
   const splitTrack = prefs.mode === 'paged' && wideMode === 'split';
   const { slides, slideOf, half } = useMemo(
-    () => pairSlides(flat, prefs.mode === 'paged' && !!prefs.spread, { split: splitTrack, rightFirst, joinSplit: prefs.joinSplit && !webtoonSeries }),
-    [flat, prefs.mode, prefs.spread, splitTrack, rightFirst, prefs.joinSplit, webtoonSeries],
+    () => pairSlides(flat, prefs.mode === 'paged' && !!prefs.spread, { split: splitTrack, rightFirst, joinSplit: prefs.joinSplit && !typedWebtoon }),
+    [flat, prefs.mode, prefs.spread, splitTrack, rightFirst, prefs.joinSplit, typedWebtoon],
   );
   /** The paged track's slide, measured: what a split half or a page turned on its side is fitted into. */
   const [area, setArea] = useState({ w: 0, h: 0 });
