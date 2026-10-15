@@ -6433,6 +6433,29 @@ paths:
           description: Not authenticated
         "404":
           description: Not found, or not visible to this account
+  /api/settings/title-languages:
+    get:
+      tags:
+        - personal
+      summary: The languages the Title language setting can offer.
+      description: >-
+        Fork change. The stated languages (app codes, BCP-47) of the live series on this server that are language
+        editions of a work. With `titleLang` set in `/api/settings` the Library's one card per work is the edition in
+        that language, else one in the same base language, else the usual pick.
+      operationId: getApiSettingsTitleLanguages
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  languages: { type: array, items: { type: string } }
+        "401":
+          description: Not authenticated
   /api/settings:
     get:
       tags:
@@ -6459,7 +6482,7 @@ paths:
         reader's edges) and, since v0.55.7, `listSorts` (list id to `az`, `za`, `read`, `unread` or `latest`: the order
         each list is shown in; a list's own order is not stored). Since v0.55.8 the validated keys are `librarySort`,
         `homeCollections` and `showAllChapters` (since v0.60.0 also `librarySortDir`, since v0.61.0 `incognito`, a
-        boolean). Fork change: `compactChapters`, `showGhosts` and `alsoFollow` are account settings now (they were
+        boolean; fork: `titleLang`, an app language code or null for none, else 400). Fork change: `compactChapters`, `showGhosts` and `alsoFollow` are account settings now (they were
         per-device); each must be a boolean when present, else 400. Unknown keys remain accepted and retained for
         compatibility -- since v0.66.0 the web app's `homeRails` (`{order, hidden}`, Home's rails as the reader
         arranged them; null is the default order) and `tone` (`oled`, `graphite` or `midnight`, the background)

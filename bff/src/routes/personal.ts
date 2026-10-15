@@ -22,6 +22,8 @@ import { normTitle } from '../lib/titleMatch';
 import { logAudit } from '../lib/audit';
 import { noticeBook } from '../lib/noticeChapters';
 import { settingsBody } from '../lib/accountSettings';
+import { canonLang } from '../lib/lang';
+import { titleLanguages } from '../lib/titleLang';
 import { devicesOf, hourIn, lastDays, loadTimeline, summarize, validTz, yearRange } from '../lib/readingTime';
 import { listFor, ownListFor, listsFor, listItems, kindOf, ownerOf, type ListRow } from '../lib/lists';
 import { smartQuery, parseQuery } from '../lib/smartLists';
@@ -1367,6 +1369,9 @@ export default async function personalRoutes(app: FastifyInstance) {
     return row?.data ?? {};
   });
 
+  // The languages the "Title language" setting can offer: those some series on this server is an edition in.
+  app.get('/api/settings/title-languages', async () => ({ languages: await titleLanguages() }));
+
   app.put('/api/settings', async (req, reply) => {
     const uid = userIdOf(req);
     // zod 4 requires a key schema as well as a value schema; z.record(valueOnly) was a v3 signature.
@@ -1399,6 +1404,13 @@ export default async function personalRoutes(app: FastifyInstance) {
       const dir = z.enum(['asc', 'desc']).safeParse(data.librarySortDir);
       if (!dir.success) return reply.code(400).send({ error: 'bad_settings', message: 'Choose High to low or Low to high.' });
       data.librarySortDir = dir.data;
+    }
+    if ('titleLang' in data) {
+      // The language series titles are shown in (lib/titleLang.ts): an app code, or null/'' for no preference.
+      const raw = data.titleLang;
+      if (raw === null || raw === '') data.titleLang = null;
+      else if (typeof raw === 'string' && canonLang(raw)) data.titleLang = canonLang(raw);
+      else return reply.code(400).send({ error: 'bad_settings', message: 'Choose a valid title language.' });
     }
     if ('showAllChapters' in data && typeof data.showAllChapters !== 'boolean') {
       return reply.code(400).send({ error: 'bad_settings', message: 'Show all chapters must be on or off.' });
