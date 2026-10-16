@@ -399,7 +399,6 @@ for (const [engine, schemaFile] of [
   }
 });
 
-<<<<<<< ours
 test("a manga of another source is not this source's: no series, no chapters", async () => {
   // The engine's manga ids are global across extensions, and the age cap and the source switches are judged on the
   // source a request names. Without the check an adult extension's manga resolved through a safe one. Reintroduce by
@@ -417,7 +416,8 @@ test("a manga of another source is not this source's: no series, no chapters", a
     fetchManga: { fetchMangaAndChapters: { manga: { id: 8, title: 'Own Manga', sourceId: String(LOCAL.id) } } },
   }));
   assert.equal((await own.getSeries('8'))?.title, 'Own Manga');
-=======
+});
+
 // ---- the fork's numbering of a source that numbers no chapter -------------------------------------------------
 
 test('a source that numbers no chapter is numbered 1..K by the engine\'s own order', async () => {
@@ -453,5 +453,4 @@ test('a list with some real numbers never invents any: the numberless rows are d
   const list = await a.listChapters('1');
   assert.deepEqual(list.map((c) => c.number), [1, 2]);
   assert.equal(unnumberedOf(list), 1);
->>>>>>> theirs
 });
