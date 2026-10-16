@@ -47,6 +47,14 @@ esac; exit 0`);
 trap 'echo "app got TERM" >> "$FAKELOG"; exit 0' TERM
 if [ -n "\${FAKE_SLEEP:-}" ]; then sleep "$FAKE_SLEEP" & wait $!; fi
 exit "\${FAKE_EXIT:-0}"`);
+  // Run as root (a dev container, some CI images) the script takes its su-exec branch, and su-exec only exists in the
+  // image. A shim that drops the "uid:gid" argument and runs the rest keeps these tests runnable anywhere; unlogged,
+  // so it does not appear in the calls the tests assert on. As a non-root user the script never calls it.
+  writeFileSync(join(bin, 'su-exec'), '#!/bin/sh\nshift\nexec "$@"\n');
+  chmodSync(join(bin, 'su-exec'), 0o755);
+  // As root the script first tries to ADD a passwd entry (busybox addgroup/adduser in the image). Fakes that fail keep
+  // a root run from touching this machine's real accounts and send it down the nss_wrapper path these tests assert on.
+  for (const n of ['addgroup', 'adduser']) { writeFileSync(join(bin, n), '#!/bin/sh\nexit 1\n'); chmodSync(join(bin, n), 0o755); }
   const pgdata = join(root, 'pg'); const sock = join(root, 'sock');
   // A stand-in for libnss_wrapper.so. The test uid has no passwd entry in the runner's container either,
   // so without this the non-root path has no remedy and refuses -- which is its own test below.

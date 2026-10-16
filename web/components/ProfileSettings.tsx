@@ -1,6 +1,7 @@
 'use client';
 import { ReactNode, useEffect, useRef, useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { setTitleIgnored } from '@/lib/ignoredTitles';
 import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { requestPersist, storageEstimate } from '@/lib/downloads';
@@ -8,9 +9,9 @@ import { deviceId } from '@/lib/device';
 import { bytes } from '@/lib/format';
 import { readShownOnce } from '@/lib/shownOnce';
 import { setTypeToSearchOn, typeToSearchOn } from '@/lib/typeToSearch';
-import { compactChaptersOn, setCompactChaptersOn } from '@/lib/compactChapters';
 import { showAllChaptersOn } from '@/lib/showAllChapters';
-import { contextMenusOn, setContextMenusOn } from '@/lib/contextMenus';
+import { compactChaptersOn, setCompactChaptersOn } from '@/lib/compactChapters';
+import { useBanners } from '@/lib/bannerPref';
 import { ReaderPrefs, loadPrefs, savePrefs, syncPrefsFromServer } from '@/lib/readerPrefs';
 import { Avatar, AVATAR_EMOJIS, AVATAR_COLORS } from '@/components/Avatar';
 import { ProgressBar } from '@/components/ui';
@@ -45,6 +46,7 @@ export function ProfileSettings({ weeklyGoal }: { weeklyGoal: number }) {
       <ReadingSection weeklyGoal={weeklyGoal} />
       {!desktop && <DownloadsSection />}
       {!desktop && <DeviceSection />}
+      <IgnoredSection />
     </div>
   );
 }
@@ -136,10 +138,9 @@ function AppearanceSection() {
   // Read after mount: localStorage is not there during the static export's render.
   const [typeSearch, setTypeSearch] = useState(true);
   useEffect(() => { setTypeSearch(typeToSearchOn()); }, []);
+  const [banners, setBanners] = useBanners();
   const [compactList, setCompactList] = useState(false);
   useEffect(() => { setCompactList(compactChaptersOn()); }, []);
-  const [contextMenus, setContextMenus] = useState(true);
-  useEffect(() => { setContextMenus(contextMenusOn()); }, []);
   // Show all chapters at once (lib/showAllChapters.ts): on the account like Reduce effects, so every device the
   // reader signs in on opens the whole list; optimistic, and put back when the server refuses.
   const showAllChapters = showAllChaptersOn(user?.settings);
@@ -225,6 +226,9 @@ function AppearanceSection() {
       <SwitchRow label={tr('Reduce effects')}
         help={tr('Turns off the animated background, blur, smooth scrolling and transitions. Try it if scrolling feels slow.')}
         on={reduceEffects} onChange={saveReduceEffects} />
+      <SwitchRow label={tr('Big banners')}
+        help={tr('Shows the large banner at the top of Home (the daily pick) and of Discover (trending now). Off by default.')}
+        on={banners} onChange={setBanners} />
 
       {/* This device only (lib/typeToSearch.ts says why): single-key shortcuts must be possible to switch off. */}
       <SwitchRow label={tr('Type anywhere to search')}
@@ -233,11 +237,7 @@ function AppearanceSection() {
 
       {/* This device only, and only a computer's rows change: lib/compactChapters.ts. Off by default -- the
           default chapter row is the deliberate look, and taking part of it away is the reader's choice. */}
-      {/* This device only, like the two above (lib/contextMenus.ts, #100). On by default: the menus only take the
-          right-click where the browser's offers nothing worth keeping, and Shift+right-click still gets it. */}
-      <SwitchRow label={tr('Right-click menus')}
-        help={tr('Right-click a series or a chapter, or press and hold one on a touchscreen, for its actions. Shift+right-click still opens the browser’s own menu. This device only.')}
-        on={contextMenus} onChange={(next) => { setContextMenusOn(next); setContextMenus(next); }} />
+
 
       <SwitchRow label={tr('Compact chapter list')}
         help={tr('On a computer, chapter rows without thumbnails, and their buttons appear when you point at a row. Phones and tablets are unchanged. This device only.')}
@@ -348,6 +348,9 @@ function ReadingSection({ weeklyGoal }: { weeklyGoal: number }) {
         help={tr('On a screen held upright, a double-page spread can be split into its two pages, or turned on its side to fill the screen.')}
         options={[{ value: 'whole', label: tr('Whole') }, { value: 'split', label: tr('Split') }, { value: 'rotate', label: tr('Rotate') }]}
         onChange={(widePages) => set({ widePages })} />
+      <SwitchRow label={tr('Join split double pages')}
+        help={tr('Shows two pages that a source cut from one spread as the one spread, in single-page and Double spread reading alike. Only a pair whose picture runs across the seam is joined.')}
+        on={prefs.joinSplit} onChange={(joinSplit) => set({ joinSplit })} />
       <SwitchRow label={tr('Crop page borders')}
         help={tr('Trims the blank margins around scanned pages. In Webtoon mode only the sides are trimmed, by the same amount for a whole chapter.')}
         on={prefs.cropBorders} onChange={(cropBorders) => set({ cropBorders })} />
@@ -431,6 +434,33 @@ function DownloadsSection() {
         {!persisted && <button type="button" onClick={ask} className="chip text-xs">{tr('Protect downloads')}</button>}
       </Row>
       <LinkRow href="/downloads/" label={tr('Offline downloads')} />
+    </Section>
+  );
+}
+
+/* ============================== Ignored titles ============================== */
+
+/** Titles ignored from Discover's menu, each with the way back. Drawn only once there is something to take back. */
+function IgnoredSection() {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const { data } = useQuery({
+    queryKey: ['ignored-titles-list'], staleTime: 60_000,
+    queryFn: () => api<{ content: Array<{ key: string; title: string }> }>('/api/ignored-titles').then((r) => r.content),
+  });
+  if (!data?.length) return null;
+  const restore = async (title: string) => {
+    try { await setTitleIgnored(qc, title, false); }
+    catch { toast(tr('Could not do that'), 'error'); }
+  };
+  return (
+    <Section id="ignored" title={tr('Ignored titles')} icon={<IcCheck width={18} height={18} />}>
+      <p className="px-1 pb-2 text-xs text-fog-500">{tr('These never show on Discover. Show again puts one back.')}</p>
+      {data.map((m) => (
+        <Row key={m.key} label={m.title}>
+          <button type="button" onClick={() => restore(m.title)} className="btn-key text-xs">{tr('Show again')}</button>
+        </Row>
+      ))}
     </Section>
   );
 }

@@ -228,7 +228,8 @@ export default async function findSourcesRoutes(app: FastifyInstance) {
   app.post('/api/admin/sources/find/:runId/dismiss', decision('dismiss'));
 
   /**
-   * A Replace review's proposal made the series' main source (v0.54.0, lib/findSources.ts promoteProposal). Body
+   * A review's proposal made the series' main source (v0.54.0, lib/findSources.ts promoteProposal; a Replace review
+   * drops the source it replaces, a Find review over one source's series keeps it as a follower). Body
    * `{seriesId, sourceId}`. 200 with the series' result as it now reads (`promoted` on it, the proposal `promoted`);
    * 404 `not_found`; 409 `decided` (with `state`), `posting_order`, `source_unavailable`, `language_differs` (with
    * `edition`), `full`, `moved`, `busy`, `renumber_pending`, `not_followed` or `is_main`, with `messageSaid` where the

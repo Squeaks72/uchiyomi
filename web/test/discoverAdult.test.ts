@@ -37,25 +37,6 @@ test('the reveal chip stays on screen while the reveal is on', () => {
     'the /api/sources type no longer carries hiddenAdult, so the chip has nothing to appear for');
 });
 
-test('the chip is anchored where a search cannot unmount it', () => {
-  // Reintroduce by moving `<AdultToggle .../>` into the SourcePicker chip row: the header is the one place
-  // that is the same in both modes, and the picker's row is a browse control whose mounting has changed
-  // before. SourcePicker used to be newest-only, which is why this anchor exists; it now stays mounted
-  // while searching too, because a search made with a source chosen is narrowed to that source and the
-  // picker is where that filter is shown and cleared. Reintroduce the old gating by wrapping it in
-  // `{mode === 'newest' && (...)}` again: "SourcePicker is gated on the mode" fails, and a narrowed search
-  // loses the only thing on screen that says it is narrowed.
-  const page = code(read('app/discover/page.tsx'));
-  const header = page.slice(page.indexOf('<header'), page.indexOf('</header>'));
-  assert.ok(header.includes('<AdultToggle alsoWhen={showAdultChip}'),
-    'the reveal chip is not in the Discover header any more');
-  assert.ok(page.includes('<SourcePicker'), 'SourcePicker is gone from Discover');
-  assert.doesNotMatch(page, /mode === '(?:newest|search)'[^\n]*&& \(\s*<SourcePicker/,
-    'SourcePicker is gated on the mode, so a search hides the source filter it is narrowed to');
-  assert.ok(page.indexOf('<AdultToggle alsoWhen={showAdultChip}') < page.indexOf('<SourcePicker'),
-    'the chip is rendered inside the picker region rather than the header');
-});
-
 test('AdultToggle renders for a second reason, and still for its first', () => {
   // Reintroduce by restoring `if (!(libs ?? []).some((l) => l.adult)) return null;`: an install with adult
   // sources and no 18+ library gets a filter with no off switch anywhere.

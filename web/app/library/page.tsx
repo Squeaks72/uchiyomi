@@ -14,10 +14,9 @@ import { PullToRefresh } from '@/components/PullToRefresh';
 import { triggerRefresh } from '@/lib/refresh';
 import { useToast } from '@/components/Toast';
 import { Modal, ConfirmDialog, msgOf } from '@/components/ConfirmDialog';
-import { LibraryFolders } from '@/components/LibraryFolders';
-import { foldersOf } from '@/lib/libraryFolders';
+import { MoveToLibrary } from '@/components/MoveToLibrary';
 import { useAuth, canDownload } from '@/lib/auth';
-import { AdultToggle, useAdultFilterConfigured, useAdultShown, useLibraries } from '@/components/AdultToggle';
+import { useAdultShown, useLibraries } from '@/components/AdultToggle';
 import { LibraryFilters, NO_SOURCE, READ_STATES, STATUSES, useLibrarySources } from '@/components/LibraryFilters';
 import { LibrarySortSheet, LibraryToolbar } from '@/components/LibraryToolbar';
 import { SORTS, dirLabel, naturalDir, sortDirOf, sortString, validDir, type SortDir } from '@/lib/librarySort';
@@ -28,7 +27,9 @@ import { gridClass, libraryLayoutOn, setLibraryLayout, type LibraryLayout } from
 import { Sheet } from '@/components/ui';
 import { useArchiveEnqueue } from '@/components/ArchiveQueue';
 import { t as tr } from '@/lib/i18n';
+import { applyFavorite } from '@/lib/favoriteCache';
 import { selectedText } from '@/lib/counted';
+import { archiveWhy } from '@/lib/archive';
 import { followBulkNewest, BULK_NEWEST_POLL_MS, type BulkNewestStatus } from '@/lib/bulkNewest';
 import { useLayer } from '@/lib/layers';
 import { useReduceEffects } from '@/lib/effects';
@@ -42,6 +43,10 @@ import { EmptyState } from '@/components/EmptyState';
 import { LibraryStart } from '@/components/LibraryStart';
 import { ART } from '@/lib/art';
 import { BulkChapterDeleteRunDialog } from '@/components/BulkChapterDeleteRun';
+import { CollectionPickerModal } from '@/components/CollectionPicker';
+import { useContextMenu } from '@/components/ContextMenu';
+import { useSeriesActions } from '@/components/SeriesActions';
+import { BulkGenresModal } from '@/components/BulkGenres';
 import {
   BULK_CHAPTER_DELETE_POLL_MS,
   bulkChapterDeleteFinished,
@@ -76,7 +81,8 @@ function LibraryInner() {
   const genres = (params.get('genres') || '').split(',').filter(Boolean);
   // Which library, or '' for all of them. This lists only what the viewer may open -- the endpoint filters
   // by their grants -- so the tab row doubles as an honest answer to "what do I actually have access to".
-  const lib = params.get('lib') || '';
+  // The `lib` param: absent = the libraries marked visible by default, `*` = all of them, else a comma list.
+  const libParam = params.get('lib');
   const src = params.get('src') || '';
   const anysrc = params.get('anysrc') || '';
   // "Search your library" (v0.60.0): the toolbar's field, a title filter the server applies with everything else.
@@ -85,7 +91,6 @@ function LibraryInner() {
   const sourceName = (id: string) => (id === NO_SOURCE ? tr('No source') : libSources?.sources.find((x) => x.id === id)?.name || id);
   const { data: allLibs } = useLibraries();
   // The 18+ filter can hide series by genre on an install with no 18+ library; the reveal must still render.
-  const adultFilter = useAdultFilterConfigured();
   const adultOn = useAdultShown();
   // An 18+ library's own tab goes with its contents: leaving it there while the grid it opens is empty is
   // worse than not offering it, and the toggle beside the sorts is what brings both back.
@@ -93,6 +98,16 @@ function LibraryInner() {
     () => (allLibs ?? []).filter((l) => adultOn || !l.adult),
     [allLibs, adultOn],
   );
+  const libsReady = allLibs !== undefined;
+  const defaultLibs = useMemo(() => libs.filter((l) => l.defaultVisible !== false).map((l) => l.id), [libs]);
+  // Hiding anything by default only matters when there is more than one library and some are switched off.
+  const defaultsNarrow = libs.length > 1 && defaultLibs.length > 0 && defaultLibs.length < libs.length;
+  const libSel = useMemo(() => {
+    if (libParam === null) return defaultsNarrow ? defaultLibs : [];
+    if (libParam === '*') return [];
+    return libParam.split(',').filter(Boolean);
+  }, [libParam, defaultsNarrow, defaultLibs]);
+  const libKey = libSel.join(',');
   const [sheet, setSheet] = useState(false);
   // The phone's Sort sheet (v0.60.0), the page's like the Filters sheet: from lg up the Sort key opens a menu instead.
   const [sortSheet, setSortSheet] = useState(false);
@@ -122,6 +137,8 @@ function LibraryInner() {
   const [deleteCancelling, setDeleteCancelling] = useState(false);
   // The phone's overflow for the two admin actions (see the bar below).
   const [more, setMore] = useState(false);
+  const [listing, setListing] = useState(false);
+  const [genreEdit, setGenreEdit] = useState(false);
   // v0.51.0: Find other sources asks first whether to follow automatically or review first.
   const [finding, setFinding] = useState(false);
   // The Fetch newest job as last polled, while it runs: what the bar's label counts up with.
@@ -137,13 +154,32 @@ function LibraryInner() {
   // the page, so a value read once would not follow it. Downloads only for a viewer who may download.
   const mayDownload = authStatus === 'authed' && canDownload(user);
   const view: LibraryView = readView(params.get('view'), mayDownload);
-  useEffect(() => { setSelecting(false); setPicked(new Set()); }, [read, status, genres.join(','), sortKey, dir, lib, src, anysrc, q, view]);
-  const togglePick = (id: string) =>
-    setPicked((p) => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  useEffect(() => { setSelecting(false); setPicked(new Set()); anchor.current = null; }, [read, status, genres.join(','), sortKey, dir, libKey, src, anysrc, q, view]);
+  // The last tile clicked: Shift+click selects everything between it and the next one, as a file explorer does.
+  const anchor = useRef<string | null>(null);
+  const itemsRef = useRef<Array<{ id: string }>>([]);
+  const togglePick = (id: string, shiftKey = false) => {
+    const ids = itemsRef.current.map((x) => x.id);
+    const from = shiftKey && anchor.current ? ids.indexOf(anchor.current) : -1;
+    const to = ids.indexOf(id);
+    if (from >= 0 && to >= 0) {
+      const [lo, hi] = from < to ? [from, to] : [to, from];
+      setPicked((p) => new Set([...p, ...ids.slice(lo, hi + 1)]));
+    } else {
+      setPicked((p) => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; });
+    }
+    anchor.current = id;
+  };
+  // Right-click on a tile in Select mode: an unpicked tile joins the selection first, as in a file explorer.
+  const openSelectionMenu = (id: string, at: { x: number; y: number }) => {
+    setPicked((p) => (p.has(id) ? p : new Set(p).add(id)));
+    anchor.current = id;
+    selMenu.openPoint(at.x, at.y);
+  };
   // ⚠️ `lib` counts. It used to be left out because it lived in its own tab rail rather than in the sheet,
   // so selecting a library filtered the grid while the badge said nothing was filtered and the "· filtered"
   // hint stayed dark. Now that every way to narrow the shelf is in one panel, every one of them counts.
-  const activeCount = (read ? 1 : 0) + (status ? 1 : 0) + genres.length + (lib ? 1 : 0) + (src ? 1 : 0) + (anysrc ? 1 : 0);
+  const activeCount = (read ? 1 : 0) + (status ? 1 : 0) + genres.length + libSel.length + (src ? 1 : 0) + (anysrc ? 1 : 0);
   // The shelf is narrowed: a filter, or a search. The search is not a filter the panel holds, so it is not in the
   // Filters badge; but an empty grid under one is "nothing matches", never "your library is empty".
   const narrowed = activeCount > 0 || !!q;
@@ -156,9 +192,18 @@ function LibraryInner() {
     // `folder` points one arrival at a tile in Downloads ("Open in library" on an add still downloading its
     // first chapter). Any change made on the page has moved on from it.
     next.delete('folder');
-    router.replace(`/library?${next.toString()}`);
+    router.replace(`/library/?${next.toString()}`);
     if (k === 'sort' && validSort(v)) saveOrder(v, naturalDir(SORTS.find((s) => s.key === v)!));
     else if (k === 'dir' && validDir(v)) saveOrder(sortKey, v);
+  };
+
+  // Replace the library selection. Nothing selected is "all"; picking every library stays a list, so the last chip you tap is never swallowed; a selection equal to the defaults needs no param.
+  const setLibs = (next: string[]) => {
+    const everything = next.length === 0;
+    const sameAsDefaults = next.length === defaultLibs.length && next.every((x) => defaultLibs.includes(x));
+    if (everything) setParam('lib', defaultsNarrow ? '*' : '');
+    else if (sameAsDefaults && defaultsNarrow) setParam('lib', '');
+    else setParam('lib', next.join(','));
   };
 
   /**
@@ -183,21 +228,30 @@ function LibraryInner() {
     const n = new URLSearchParams();
     if (sortKey) n.set('sort', sortKey);
     if (reversed) n.set('dir', dir);
+    if (defaultsNarrow) n.set('lib', '*');
     if (!alsoSearch && q) n.set('q', q);
     // v0.61.0: the smart list this shelf was opened from (its Edit filters) stays, so filters cleared and chosen again
     // can still Update it.
     if (params.get('list')) n.set('list', params.get('list')!);
-    router.replace(`/library?${n.toString()}`);
+    router.replace(`/library/?${n.toString()}`);
   };
 
-  const condition = useMemo(() => conditionFrom(read, status, genres, lib, src, anysrc), [read, status, genres.join(','), lib, src, anysrc]);
+  // The library filter is a selection of libraries (fork), which lib/libraryQuery.ts's single `lib` cannot say: its own
+  // condition is added here, beside the rest.
+  const condition = useMemo(() => {
+    const base = conditionFrom(read, status, genres, '', src, anysrc);
+    if (!libSel.length) return base;
+    const one = (id: string) => ({ libraryId: { operator: 'is', value: id } });
+    const pick: any = libSel.length === 1 ? one(libSel[0]) : { anyOf: libSel.map(one) };
+    return { allOf: [pick, ...((base as any)?.allOf ?? [])] };
+  }, [read, status, genres.join(','), libKey, src, anysrc]);
   // v0.61.0: the shelf on screen as a smart list's query -- the order in force included, the account's default too.
   const shownQuery = useMemo(() => queryOfParams(params, { sort: active.key, dir }), [params, active.key, dir]);
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isFetchNextPageError, isLoading, isError, isFetching, isPlaceholderData, refetch } = useInfiniteQuery({
-    queryKey: ['library', active.key, dir, read, status, genres.join(','), lib, src, anysrc, q],
+    queryKey: ['library', active.key, dir, read, status, genres.join(','), libKey, src, anysrc, q],
     // The Downloads view shows no grid: forty covers fetched to sit unseen behind it would be the wrong work.
-    enabled: view === 'series',
+    enabled: view === 'series' && libsReady,
     initialPageParam: 0,
     // One card per work (v0.52.0, #72): the language editions of a title are one card -- the edition this reader read
     // last, else the original -- whose caption names the work's languages (SeriesTile). Reintroduce by dropping the
@@ -304,10 +358,17 @@ function LibraryInner() {
     qc.invalidateQueries({ queryKey: ['home'] });
   };
 
+  // Right-click in Select mode: every action that fits the selection (components/SeriesActions.tsx), at the pointer.
+  const selActions = useSeriesActions({ onDone: settle });
+  const selMenu = useContextMenu(() => [
+    ...selActions.items([...picked]),
+    { label: tr('Select all loaded'), divider: true, onSelect: () => setPicked(new Set(itemsRef.current.map((x) => x.id))) },
+  ], { label: selectedText(picked.size) });
+
   const bulk = async (path: string, extra: Record<string, unknown>) => {
     setActing(true);
     try {
-      const r = await api<{ applied: number; skipped: { id: string }[] }>(path, {
+      const r = await api<{ applied: number; skipped: { id: string }[]; problems?: { reason?: string }[] }>(path, {
         json: { seriesIds: [...picked], ...extra },
       });
       // Say what was skipped rather than silently applying to fewer than were selected. Each count its own pair of
@@ -317,6 +378,8 @@ function LibraryInner() {
       const gone = r.skipped.length === 1 ? tr('1 series is no longer in the library')
         : tr('{n} series are no longer in the library', { n: r.skipped.length });
       toast(r.skipped.length ? `${updated} · ${gone}` : updated, 'success');
+      if (r.problems?.length) toast(`${r.problems.length === 1 ? tr('1 folder could not be moved') : tr('{n} folders could not be moved', { n: r.problems.length })}: ${r.problems[0].reason ?? ''}`, 'error');
+      if (typeof extra.favorite === 'boolean') { const gone = new Set(r.skipped.map((x) => x.id)); for (const sid of picked) if (!gone.has(sid)) applyFavorite(qc, sid, extra.favorite); }
       settle();
     } catch { toast(tr('Could not apply that'), 'error'); }
     setActing(false);
@@ -532,6 +595,7 @@ function LibraryInner() {
   }, [hasNextPage, isFetchingNextPage, isFetchNextPageError, fetchNextPage, view]);
 
   const items = data?.pages.flatMap((p) => p.content) ?? [];
+  itemsRef.current = items;
   const total = data?.pages[0]?.totalElements;
 
   const series = view === 'series';
@@ -552,7 +616,7 @@ function LibraryInner() {
               sections slid under the bar once the page scrolled. */}
           <div className="sticky top-[var(--topbar-h)] max-h-[calc(100dvh-var(--topbar-h))] overflow-y-auto pb-8 pt-6" data-lenis-prevent>
             <LibraryFilters
-              read={read} status={status} genres={genres} lib={lib} libs={libs} mainSrc={src} anySrc={anysrc}
+              read={read} status={status} genres={genres} libSel={libSel} libs={libs} mainSrc={src} anySrc={anysrc} onLibs={setLibs}
               onSet={setParam}
             />
             {activeCount > 0 && (
@@ -581,7 +645,7 @@ function LibraryInner() {
             )}
             {/* Search and Add live in the top bar on a wide screen, so they are phone-only here. This search is the whole
                 app's (series, sources, places); the toolbar's field below searches the shelf. */}
-            <Link href="/search" className="grid h-10 w-10 place-items-center rounded-full border border-ink-700 bg-ink-850/70 text-fog-300 lg:hidden">
+            <Link href="/search" aria-label={tr('Search')} className="grid h-10 w-10 place-items-center rounded-full border border-ink-700 bg-ink-850/70 text-fog-300 lg:hidden">
               <IcSearch width={20} height={20} />
             </Link>
             {isAdmin && (
@@ -590,8 +654,9 @@ function LibraryInner() {
                 <IcImport width={19} height={19} />
               </Link>
             )}
-            {canDownload(user) && (
-              <Link href="/discover" className="grid h-10 w-10 place-items-center rounded-full border border-accent/40 bg-accent-soft text-accent lg:hidden" title={tr('Add new series')}>
+            {/* Discover refuses an account that may not download, so the "+" is not offered to one (a dead end). */}
+            {mayDownload && (
+              <Link href="/discover" className="grid h-10 w-10 place-items-center rounded-full border border-accent/40 bg-accent-soft text-accent lg:hidden" title={tr('Add new series')} aria-label={tr('Add new series')}>
                 <IcPlus width={20} height={20} />
               </Link>
             )}
@@ -615,7 +680,6 @@ function LibraryInner() {
           selecting={selecting} onSelecting={() => { setSelecting((v) => !v); setPicked(new Set()); }}
           onSelectAll={() => setPicked(new Set(items.map((s) => s.id)))}
           onSurprise={surprise}
-          adult={<AdultToggle alsoWhen={adultFilter} />}
           className="mt-3 lg:sticky lg:top-[var(--topbar-h)] lg:z-20 lg:mt-4 lg:border-b lg:border-ink-800/60 lg:bg-ink-950/80 lg:py-3 lg:backdrop-blur-xl"
         />
         {/* What narrows the shelf is always visible, so a short library is never mysterious -- the search and an order
@@ -633,33 +697,33 @@ function LibraryInner() {
                 {tr(dirLabel(active, dir))} ×
               </button>
             )}
-            {lib && (
-              <button onClick={() => setParam('lib', '')} className="chip text-xs">
-                {libs.find((l) => l.id === lib)?.name || lib} ×
+            {libSel.map((id) => (
+              <button key={id} onClick={() => setLibs(libSel.filter((x) => x !== id))} type="button" aria-label={tr('Remove filter: {name}', { name: libs.find((l) => l.id === id)?.name || id })} className="chip text-xs">
+                {libs.find((l) => l.id === id)?.name || id} ×
               </button>
-            )}
+            ))}
             {src && (
-              <button onClick={() => setParam('src', '')} className="chip text-xs">
+              <button onClick={() => setParam('src', '')} type="button" aria-label={tr('Remove filter: {name}', { name: sourceName(src) })} className="chip text-xs">
                 {tr('Main: {name}', { name: sourceName(src) })} ×
               </button>
             )}
             {anysrc && (
-              <button onClick={() => setParam('anysrc', '')} className="chip text-xs">
+              <button onClick={() => setParam('anysrc', '')} type="button" aria-label={tr('Remove filter: {name}', { name: sourceName(anysrc) })} className="chip text-xs">
                 {tr('Any: {name}', { name: sourceName(anysrc) })} ×
               </button>
             )}
             {read && (
-              <button onClick={() => setParam('read', '')} className="chip text-xs">
+              <button onClick={() => setParam('read', '')} type="button" aria-label={tr('Remove filter: {name}', { name: tr(READ_STATES.find((r) => r.key === read)?.label || read) })} className="chip text-xs">
                 {tr(READ_STATES.find((r) => r.key === read)?.label || read)} ×
               </button>
             )}
             {status && (
-              <button onClick={() => setParam('status', '')} className="chip text-xs">
+              <button onClick={() => setParam('status', '')} type="button" aria-label={tr('Remove filter: {name}', { name: tr(STATUSES.find((v) => v.key === status)?.label || status) })} className="chip text-xs">
                 {tr(STATUSES.find((v) => v.key === status)?.label || status)} ×
               </button>
             )}
             {genres.map((g) => (
-              <button key={g} onClick={() => setParam('genres', genres.filter((x) => x !== g).join(','))} className="chip text-xs">
+              <button key={g} type="button" onClick={() => setParam('genres', genres.filter((x) => x !== g).join(','))} aria-label={tr('Remove filter: {name}', { name: g })} className="chip text-xs">
                 {g} ×
               </button>
             ))}
@@ -719,11 +783,12 @@ function LibraryInner() {
             ))
           : items.map((s, i) => (layout === 'list'
             ? <SeriesRow key={s.id} series={s} eager={i < 12} note={sortValue(s, active.key)}
-                selectable={selecting} selected={picked.has(s.id)} onToggle={() => togglePick(s.id)} />
+                selectable={selecting} selected={picked.has(s.id)} onToggle={() => togglePick(s.id)} onSelectionMenu={(at) => openSelectionMenu(s.id, at)} />
             // v0.58.0: under the title, the value the shelf is sorted by ("★ 84", "312K readers", "★ 4/5"), for the five
             // orders whose answer is not on the card already; nothing for the four older ones.
             : <SeriesTile key={s.id} series={s} eager={i < 12} note={sortValue(s, active.key)} compact={layout === 'compact'}
-                selectable={selecting} selected={picked.has(s.id)} onToggle={() => togglePick(s.id)} />
+                selectable={selecting} selected={picked.has(s.id)} onToggle={(e) => togglePick(s.id, e?.shiftKey)} onSelectionMenu={(at) => openSelectionMenu(s.id, at)}
+                onStartSelect={() => { setSelecting(true); setPicked(new Set([s.id])); anchor.current = s.id; }} />
             ))}
       </div>
 
@@ -784,17 +849,18 @@ function LibraryInner() {
               v0.60.0: keys, not chips -- these are actions, and the owner's "no more pills" keeps the capsule for the
               filter chips; the same 12 px words and 12 px padding, so the rows measured above hold. */}
           <div className="mx-auto flex max-w-3xl flex-wrap items-center gap-2 lg:max-w-5xl">
-            <span className="me-auto text-sm font-medium text-fog-100">
+            <span role="status" className="me-auto text-sm font-medium text-fog-100">
               {fetching ? tr('Fetching {done} of {total}…', { done: fetching.done, total: fetching.total }) : selectedText(picked.size)}
             </span>
             <button disabled={acting} onClick={() => bulk('/api/library/bulk/read', { completed: true })} className="btn-key">{tr('Mark read')}</button>
             <button disabled={acting} onClick={() => bulk('/api/library/bulk/read', { completed: false })} className="btn-key">{tr('Mark unread')}</button>
-            <button disabled={acting} onClick={() => bulk('/api/favorites/bulk', { favorite: true })} className="btn-key">{tr('Favourite')}</button>
+            <button disabled={acting} onClick={() => bulk('/api/favorites/bulk', { favorite: true })} className="btn-key">{tr('Favorite')}</button>
             {/* Server-side fetch, so it follows the same permission as the Add button and the series
                 page's Fetch: a member who may not download does not see it. */}
             {canDownload(user) && <button disabled={acting} onClick={fetchNewest} className="btn-key">{tr('Fetch newest')}</button>}
-            {canDownload(user) && <button disabled={acting} onClick={archiveSelected} className="btn-key hidden lg:inline-flex">{tr('Archive slowly')}</button>}
-            {(isAdmin || canDownload(user)) && <button disabled={acting} onClick={() => setMore(true)} className={`btn-key ${isAdmin ? '' : 'lg:hidden'}`} aria-haspopup="dialog">{tr('More')}</button>}
+            {canDownload(user) && <button disabled={acting} onClick={archiveSelected} className="btn-key hidden lg:inline-flex" title={archiveWhy()}>{tr('Archive slowly')}</button>}
+            {/* More is everyone's: Add to list and Download as zip are its first rows (a ninth key wrapped the phone bar to a third row). */}
+            <button disabled={acting} onClick={() => setMore(true)} className="btn-key" aria-haspopup="dialog">{tr('More')}</button>
             {/* Live during a Fetch newest run, unlike the other keys: a 500-series run is minutes of pacing plus
                 downloads, and a bar frozen for all of it left navigating away as the only way out. Cancel stops
                 the polling and leaves select mode; the run completes server-side. Reintroduce with a plain
@@ -810,15 +876,24 @@ function LibraryInner() {
           {/* `pb-2`: the sheet's nav clearance is 4 px short of the nav's measured height (see the series
               page), and the last row here would otherwise end 3 px under it. */}
           <div className="space-y-1 pb-2">
+            <button onClick={() => { setMore(false); setListing(true); }} data-add-to-list
+              className="block w-full rounded-lg px-2.5 py-2.5 text-start text-sm text-fog-100 hover:bg-ink-800/60">
+              {tr('Add to list')}
+            </button>
             {/* From lg up Archive slowly is a key in the bar, and More is only there for the admin rows below. */}
             {canDownload(user) && (
               <button onClick={() => { setMore(false); void archiveSelected(); }}
                 className="block w-full rounded-lg px-2.5 py-2.5 text-start text-sm text-fog-100 hover:bg-ink-800/60 lg:hidden">
                 {tr('Archive slowly')}
+                <span className="mt-0.5 block text-xs text-fog-500">{archiveWhy()}</span>
               </button>
             )}
             {isAdmin && (
               <>
+                <button onClick={() => { setMore(false); setGenreEdit(true); }} data-genres-selected
+                  className="block w-full rounded-lg px-2.5 py-2.5 text-start text-sm text-fog-100 hover:bg-ink-800/60">
+                  {tr('Edit genres')}
+                </button>
                 <button onClick={() => { setMore(false); setMoving(true); }}
                   className="block w-full rounded-lg px-2.5 py-2.5 text-start text-sm text-fog-100 hover:bg-ink-800/60">
                   {tr('Move to library')}
@@ -849,6 +924,11 @@ function LibraryInner() {
           </div>
         </Sheet>
       )}
+      {listing && <CollectionPickerModal seriesIds={[...picked]} onClose={() => setListing(false)} onDone={settle} />}
+      {genreEdit && <BulkGenresModal n={picked.size} seriesIds={[...picked]} onClose={() => setGenreEdit(false)}
+        onDone={() => { qc.invalidateQueries({ queryKey: ['genre-names'] }); settle(); }} />}
+      {selMenu.element}
+      {selActions.element}
       {finding && <FindStartDialog onClose={() => setFinding(false)} onStart={(review) => { setFinding(false); void findSelected(review); }} />}
       {removing && (
         <ConfirmDialog
@@ -929,7 +1009,7 @@ function LibraryInner() {
             </div>
           }>
           <LibraryFilters
-            read={read} status={status} genres={genres} lib={lib} libs={libs} mainSrc={src} anySrc={anysrc}
+            read={read} status={status} genres={genres} libSel={libSel} libs={libs} mainSrc={src} anySrc={anysrc} onLibs={setLibs}
             onSet={setParam}
           />
         </Sheet>
@@ -949,6 +1029,7 @@ function LibraryInner() {
  * A switch, not a navigation: it replaces the URL (the page's one `setParam`), so Back leaves the Library
  * rather than walking back through the tabs. The underline slides only when motion is welcome.
  */
+
 function ViewSwitch({ view, onView }: { view: LibraryView; onView: (v: LibraryView) => void }) {
   const ring = useDownloadsRing();
   const plain = useReduceEffects();
@@ -966,9 +1047,9 @@ function ViewSwitch({ view, onView }: { view: LibraryView; onView: (v: LibraryVi
               <ProgressRing progress={ring.progress} size={16} tone={ring.slow ? 'amber' : 'accent'} static={ring.slow} />
             )}
             {v === 'downloads' && ring.count > 0 && (
-              <span className="rounded-[4px] bg-ink-800 px-[3px] text-[10px] font-bold leading-[14px] tabular-nums text-accent">{ring.count}</span>
+              <span className="rounded-[4px] bg-ink-800 px-[3px] text-[11px] font-bold leading-[14px] tabular-nums text-accent">{ring.count}</span>
             )}
-            {v === 'downloads' && ring.attention && <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-amber-400" />}
+            {v === 'downloads' && ring.attention && <><span aria-hidden className="h-1.5 w-1.5 rounded-full bg-amber-400" /><span className="sr-only">{tr('Needs attention')}</span></>}
             {on && (
               <motion.span layoutId="libview" aria-hidden className="absolute inset-x-0 -bottom-px h-0.5 rounded-sm bg-accent"
                 transition={plain || still ? { duration: 0 } : { type: 'spring', stiffness: 520, damping: 40 }} />
@@ -977,43 +1058,6 @@ function ViewSwitch({ view, onView }: { view: LibraryView; onView: (v: LibraryVi
         );
       })}
     </div>
-  );
-}
-
-/**
- * Move a selection into a library, or hand it back to the folder rule.
- *
- * Admin-only, and deliberately phrased as filing rather than moving: nothing on disk changes, and the series
- * stays where the scanner found it. Picking a library pins the choice, so a rescan or a newly created library
- * whose path contains these folders will not quietly undo it.
- */
-function MoveToLibrary({ n, busy, onClose, onPick }: {
-  n: number; busy: boolean; onClose: () => void; onPick: (libraryId: string | null) => void;
-}) {
-  const { data } = useQuery({
-    queryKey: ['admin-libraries'],
-    queryFn: () => api<{ content: { id: string; name: string; path: string; paths?: string[]; age_rating: number | null }[] }>('/api/admin/libraries'),
-  });
-  return (
-    <Modal title={tr('File {n} series', { n })} onClose={onClose}>
-      <div className="space-y-1">
-        {(data?.content ?? []).map((l) => (
-          <button key={l.id} disabled={busy} onClick={() => onPick(l.id)}
-            className="flex w-full items-center justify-between gap-3 rounded-lg px-2.5 py-2 text-start hover:bg-ink-800/60 disabled:opacity-50">
-            <span className="min-w-0">
-              <span className="block truncate text-sm text-fog-100">{l.name}</span>
-              <LibraryFolders paths={foldersOf(l)} className="text-[11px] text-fog-500" />
-            </span>
-            {l.age_rating != null && <span className="shrink-0 rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-300">{l.age_rating}+</span>}
-          </button>
-        ))}
-        <button disabled={busy} onClick={() => onPick(null)}
-          className="mt-2 w-full rounded-lg border border-ink-700 px-2.5 py-2 text-sm text-fog-400 hover:text-fog-200 disabled:opacity-50">
-          {tr('Automatic — follow the folder')}
-        </button>
-      </div>
-      <p className="mt-3 text-[11px] leading-relaxed text-fog-600">{tr('No files move. This only changes which library these series appear in, and it survives the next scan.')}</p>
-    </Modal>
   );
 }
 

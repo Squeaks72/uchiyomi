@@ -1,34 +1,37 @@
 'use client';
 import { ScrollRail, CARD_RAIL } from '@/components/ScrollRail';
+import { useReaderWidth } from '@/lib/readerWidth';
 import { Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { isWide, pageHeight, pairSlides, type WidePages } from '@/lib/readerSpread';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, img } from '@/lib/api';
 import { fetchAllBooks } from '@/lib/seriesBooks';
 import { chapterOutcome } from '@/lib/readerState';
 import { openableChapters } from '@/lib/chapterRows';
-import { buildFlow, startIndex, renderWindow } from '@/lib/readerFlow';
+import { buildFlow, startIndex, renderWindow, pageWidthBucket } from '@/lib/readerFlow';
 import { AHEAD_SCREENS, APPEND_SCREENS, BEHIND_SCREENS, KEEP_SCREENS, MAX_WINDOW_PAGES, anchorAt, nearEnd, prefetchList, screenRange, scrollTopFor, windowSet, type IndexRange } from '@/lib/readerWindow';
-import { readTap, undoLeft, undoWindow, type TapZone } from '@/lib/readerGesture';
+import { CHROME_GRACE_MS, isCatch, readTap, tapMayToggleChrome, undoLeft, undoWindow, type TapZone } from '@/lib/readerGesture';
 import { PAGE_ACTIONS, READER_ACTIONS, actionForKey, keyMapFor, type ReaderAction } from '@/lib/readerKeys';
 import { padMapFor } from '@/lib/readerPad';
 import { useGamepad } from '@/lib/useGamepad';
-import { ARM_MS, pagesAfter, skipNeedsConfirm, stillArmed } from '@/lib/readerNav';
+import { ARM_MS, chapterGap, pagesAfter, skipNeedsConfirm, stillArmed } from '@/lib/readerNav';
 import { Book, EditionRow, Page, PageInfo, Series } from '@/lib/types';
 import { useAuth, canDownload } from '@/lib/auth';
 import { chapterLabel, languageName } from '@/lib/format';
 import { editionChipLabels, readerTarget } from '@/lib/editions';
 import { numLabel } from '@/lib/numbering';
 import { useToast } from '@/components/Toast';
+import { msgOf } from '@/components/ConfirmDialog';
+import { kickDownloads } from '@/lib/useServerDownloads';
 import { deviceId } from '@/lib/device';
 import { ReaderEndLabel, ReaderEndRadar } from '@/components/ReaderEndRadar';
 import { getOfflineChapter, getPageBlob, queueProgress, noteOfflineProgress, listSeriesDownloads, setOfflinePageJunk } from '@/lib/downloads';
 import { applyCover, clearCover } from '@/lib/theme';
 import { COLOR_FILTER, glide, loadDevicePrefs, saveDevicePrefs, type DevicePrefs } from '@/lib/readerDevice';
-import { ReaderPrefs, loadPrefs, savePrefs, loadSeriesPrefs, saveSeriesPrefs, syncPrefsFromServer, THEME_FILTER, loadSourcePrefs, saveSourcePrefs, clearSourcePrefs, globalPrefsChange, seriesPinChange, titleLook, mergePulled, rememberSeriesSource, seriesSourceOf, rememberSeriesType, seriesTypeOf, rememberLibraryLook, libraryLookOf, type LibraryLook } from '@/lib/readerPrefs';
+import { hasSeriesLook, resetSeriesLook, ReaderPrefs, loadPrefs, savePrefs, loadSeriesPrefs, saveSeriesPrefs, syncPrefsFromServer, THEME_FILTER, loadSourcePrefs, saveSourcePrefs, clearSourcePrefs, globalPrefsChange, seriesPinChange, titleLook, mergePulled, rememberSeriesSource, seriesSourceOf, rememberSeriesType, seriesTypeOf, rememberLibraryLook, libraryLookOf, type LibraryLook } from '@/lib/readerPrefs';
 import { guessMode, type AutoGuess } from '@/lib/readerAuto';
 import { ReaderSettings } from '@/components/ReaderSettings';
 import { SectionTitle, useImgRetry, useRtl } from '@/components/ui';
@@ -39,17 +42,18 @@ import { NextInStory } from '@/components/RelatedRail';
 import { IcChevronLeft, IcChevronRight, IcSliders, IcGrid } from '@/components/icons';
 import { ReaderImg, MissingCaption, ReaderPageRow, SlidePending, SlideRegion, SlideTurned, DIVIDER_H, measurePage } from '@/components/ReaderPage';
 import { CHAPTER_SAMPLE, LEFT_HALF, RIGHT_HALF, WHOLE, chapterSideCrop, halfCrop, pairCrop, type Region } from '@/lib/readerCrop';
+import { applyMarks, loadMarks, markFor, saveMark, spreadOptions, type Marks, type SpreadOption } from '@/lib/spreadMarks';
 import { t as tr } from '@/lib/i18n';
 import { serverReachableHint } from '@/lib/desktop';
 import { IncognitoTag, incognitoRef } from '@/components/IncognitoBanner';
 import { useContextMenu, type MenuItem } from '@/components/ContextMenu';
 import { ReaderShortcuts, useHasKeyboard } from '@/components/ReaderShortcuts';
 
-interface PageDim { number: number; width: number | null; height: number | null; junk?: boolean; missing?: boolean }
+interface PageDim { number: number; width: number | null; height: number | null; junk?: boolean; join?: 'rtl' | 'ltr'; missing?: boolean }
 /** `sourceId`: the adapter the copy came from, for naming it on a missing page's caption. Unknown for a downloaded copy. */
-interface Chapter { id: string; seriesId: string; seriesTitle: string; title: string; pages: PageDim[]; offline: boolean; readingDirection?: string | null; pruned?: boolean; sourceId?: string | null }
+interface Chapter { id: string; seriesId: string; seriesTitle: string; title: string; pages: PageDim[]; offline: boolean; readingDirection?: string | null; pruned?: boolean; sourceId?: string | null; marks?: Marks }
 interface ChapterRef { id: string; label: string }
-interface FlatItem { ci: number; number: number; width: number | null; height: number | null; key: string; firstOfChapter: boolean; junk?: boolean; missing?: boolean; collapsed?: boolean }
+interface FlatItem { ci: number; number: number; width: number | null; height: number | null; key: string; firstOfChapter: boolean; junk?: boolean; join?: 'rtl' | 'ltr'; forced?: boolean; missing?: boolean; collapsed?: boolean }
 
 /** Paged mode's render window, in pages: a slide is one screen, so pages and screens are the same thing there. */
 const WINDOW_BEHIND = 2;
@@ -88,6 +92,14 @@ async function untilStill(lastMoved: { current: number }, rtl: boolean): Promise
   for (let i = 0; i < 40 && Date.now() - lastMoved.current < STILL_MS; i++) await new Promise((r) => setTimeout(r, 100));
 }
 
+/** True while keyboard focus is inside the reader's toolbars, which must not hide out from under it. */
+const focusInChrome = () => {
+  if (typeof document === 'undefined') return false;
+  const a = document.activeElement;
+  // Keyboard focus only: a mouse click on a button also focuses it, and that should not pin the toolbars open.
+  return !!a?.closest('[data-reader-chrome]') && a.matches(':focus-visible');
+};
+
 /**
  * Whether the screen is held upright (v0.61.0): what Reader → Wide pages waits for. A double-page spread on a phone held
  * upright is a strip across the middle of the screen; held sideways, or on a computer's screen, it fits as it is.
@@ -112,18 +124,19 @@ async function loadChapter(bookId: string): Promise<Chapter | null> {
   }
   try {
     const b = await api<Book>(`/api/books/${bookId}`);
-    const pInfo = await api<PageInfo[]>(`/api/books/${bookId}/pages`);
+    const [pInfo, marks] = await Promise.all([api<PageInfo[]>(`/api/books/${bookId}/pages`), loadMarks(bookId)]);
     return {
       id: bookId,
       seriesId: b.seriesId,
       seriesTitle: b.seriesTitle,
       title: b.metadata?.title || b.name,
-      pages: pInfo.map((p) => ({ number: p.number, width: p.width ?? null, height: p.height ?? null, junk: p.junk, missing: p.missing })),
+      pages: pInfo.map((p) => ({ number: p.number, width: p.width ?? null, height: p.height ?? null, junk: p.junk, missing: p.missing, join: p.join })),
       offline: false,
       // The server deleted this chapter's file after everyone finished it. Carried so the empty page list
       // below can be explained rather than blamed on the reader's library mount.
       pruned: b.pruned === true,
       sourceId: b.sourceId ?? null,
+      marks,
     };
   } catch {
     return null;
@@ -179,6 +192,9 @@ function ReaderInner() {
   const imgFilter = COLOR_FILTER[device.colorFilter];
   const behavior = glide(device.colorFilter);
   const [zoom, setZoom] = useState(1);
+  // A pair of pages on one slide with ONE of them brought into frame: tap a page to fill the screen with it, tap it again for the pair.
+  // Only ever a view of a slide that holds two pages, so nothing the pages count (progress, the slider, bookmarks) sees it.
+  const [focused, setFocused] = useState<{ slide: number; page: number } | null>(null);
   const [rtl, setRtl] = useState(false); // series reads right-to-left → double-spread pair order flips
   // Paged mode's track direction: the reader setting (lib/readerPrefs.ts `pagedDirection`), or the series'
   // own direction above when it says `series`. `trackSign` turns a slide index into a scrollLeft: an RTL
@@ -200,8 +216,21 @@ function ReaderInner() {
   // track's: an Arabic caption in an LTR paragraph, or an English one in RTL on a right-to-left read.
   const uiDir = useRtl() ? 'rtl' : 'ltr';
   const [scrubbing, setScrubbing] = useState(false); // slider drag in progress → show the page preview
+  const scrubbingRef = useRef(false);
+  scrubbingRef.current = scrubbing;
 
   const [chrome, setChrome] = useState(true);
+  // The interface is shown once per browser session, as an introduction; after that a reader opens clean and
+  // brings it up on purpose. It used to reappear on every chapter and every reopen.
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem('reader-chrome-seen')) setChrome(false);
+      else sessionStorage.setItem('reader-chrome-seen', '1');
+    } catch { /* storage blocked: keep the introduction */ }
+  }, []);
+  const chromeRef = useRef({ on: true, since: 0 });
+  /** True when this press began while the track was still moving: a catch, not a tap. */
+  const caught = useRef(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showPages, setShowPages] = useState(false);
   const [showChapters, setShowChapters] = useState(false);
@@ -210,11 +239,17 @@ function ReaderInner() {
   const [showKeys, setShowKeys] = useState(false);
   const hasKeyboard = useHasKeyboard();
   const [current, setCurrent] = useState(0);
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
+  const qc = useQueryClient();
   /** Source id -> display name from the series' own followed sources (set with the reading direction). */
   const [seriesSourceNames, setSeriesSourceNames] = useState<Record<string, string>>({});
   // The series' PRIMARY source, which keys the per-source reader default (lib/readerPrefs.ts seriesSourceOf).
   const [seriesSource, setSeriesSource] = useState<{ id: string; name: string } | null>(null);
+  // A webtoon is one long strip cut into images, never a spread cut in two: joining is for paged series only.
+  // Joins are off only for a series TYPED webtoon, not one whose direction is merely unknown (the API says WEBTOON for NULL,
+  // which is half the library, One Piece among it). The server already joins nothing in a chapter of strips (lib/spreadJoin.ts
+  // joinsFor), so a manga of unknown direction keeps its joined spreads.
+  const [typedWebtoon, setTypedWebtoon] = useState(false);
   // The library the series is in (admins only) and the reading defaults it carries (everyone): they sit under the source's own.
   const [seriesLibrary, setSeriesLibrary] = useState<{ id: string; name: string } | null>(null);
   const [libraryLook, setLibraryLook] = useState<LibraryLook | null>(null);
@@ -226,6 +261,10 @@ function ReaderInner() {
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const [colW, setColW] = useState(0);
+  // This device's own column width (lib/readerWidth.ts), not an account setting.
+  const [widthPct] = useReaderWidth();
+  /** The width page images are asked for: the screen's, in device pixels, in a few steps so the server's cache is shared. 0 until measured. */
+  const [pageW, setPageW] = useState(0);
   const didInitScroll = useRef(false);
   /** The last `chapterId:page` a progress ping was sent for. Declared here rather than beside sendProgress
    *  because the initial-scroll effect seeds it, and that effect is defined above sendProgress. */
@@ -243,7 +282,7 @@ function ReaderInner() {
    * that far: the OS decides how long a double-click may take (Windows defaults to 500 ms), so the single
    * click of a slow double-click has already acted by the time the browser says the two were one gesture.
    */
-  const acted = useRef<{ kind: 'turn'; slide: number; at: number } | { kind: 'scroll'; top: number; at: number } | { kind: 'chrome'; at: number } | null>(null);
+  const acted = useRef<{ kind: 'turn'; slide: number; at: number } | { kind: 'scroll'; top: number; at: number } | { kind: 'chrome'; at: number } | { kind: 'focus'; prev: { slide: number; page: number } | null; at: number } | null>(null);
   /** When the pointer path handled a double-tap itself. A touch double-tap also raises `dblclick`, and
    *  zooming for both halves of the same gesture would put the zoom straight back where it started. */
   const handledDouble = useRef(0);
@@ -294,8 +333,12 @@ function ReaderInner() {
     if (seriesId0) saveSeriesPrefs(seriesId0, { zoom: clamped });
   };
 
+  /** The chapter the address was last moved to by reading, so the load below does not run for it. */
+  const urlSynced = useRef<string | null>(null);
   // ---- (re)load on bookId change ----
   useEffect(() => {
+    // The address followed the reader into the next chapter (see urlFollowsReading): the chapters are all loaded already.
+    if (urlSynced.current === bookId) { urlSynced.current = null; return; }
     let alive = true;
     setReady(false);
     setEnded(false);
@@ -385,6 +428,7 @@ function ReaderInner() {
       // this device last saw and the downloaded record's direction. The pages' shape is the chapter's own, either way.
       let seriesType = first.offline ? seriesTypeOf(first.seriesId) : null;
       let readsRtl = first.readingDirection === 'RIGHT_TO_LEFT';
+      setTypedWebtoon(seriesType === 'webtoon');
       let libLook: LibraryLook | null = null;
       try {
         const s = await api<Series>(`/api/series/${first.seriesId}`);
@@ -397,6 +441,7 @@ function ReaderInner() {
           readsRtl = s?.metadata?.readingDirection === 'RIGHT_TO_LEFT';
           seriesType = s?.seriesType ?? null;
           rememberSeriesType(first.seriesId, seriesType);
+          setTypedWebtoon(seriesType === 'webtoon');
           setEditions((s?.edition?.editions?.length ?? 0) > 1 ? s.edition!.editions! : null);
           // The followed sources' display names, for the caption on a page the source never served. Free:
           // this request is made anyway, and `sources` is sent to every viewer, unlike /api/sources.
@@ -479,9 +524,15 @@ function ReaderInner() {
   // removed: removing would give the two modes different flows, and switching mode mid-chapter would then land
   // on a different page, because nothing re-anchors `current` when the flow is rebuilt.
   const flowJunk = prefs.mode === 'paged' && prefs.junkPages === 'collapse' ? 'show' : prefs.junkPages;
-  const flat: FlatItem[] = useMemo(
+  // `detected` is the flow with the server's joins as found; `flat` has this reader's own marks applied (lib/spreadMarks.ts), so
+  // what pairs is decided in one place. Same length and order, so an index means the same in both.
+  const detected: FlatItem[] = useMemo(
     () => buildFlow(chapters, flowJunk, expanded) as FlatItem[],
     [chapters, flowJunk, expanded],
+  );
+  const flat: FlatItem[] = useMemo(
+    () => applyMarks(detected, chapters.map((c) => c.marks), rtl || pagedRtl ? 'rtl' : 'ltr'),
+    [detected, chapters, rtl, pagedRtl],
   );
   /** Vertical + `collapse`: a repeated page is drawn as a band of itself instead of being removed. */
   const collapsing = prefs.junkPages === 'collapse';
@@ -535,9 +586,11 @@ function ReaderInner() {
   const rightFirst = rtl || pagedRtl;
   const splitTrack = prefs.mode === 'paged' && wideMode === 'split';
   const { slides, slideOf, half } = useMemo(
-    () => pairSlides(flat, prefs.mode === 'paged' && !!prefs.spread, { split: splitTrack, rightFirst }),
-    [flat, prefs.mode, prefs.spread, splitTrack, rightFirst],
+    () => pairSlides(flat, prefs.mode === 'paged' && !!prefs.spread, { split: splitTrack, rightFirst, joinSplit: prefs.joinSplit && !typedWebtoon }),
+    [flat, prefs.mode, prefs.spread, splitTrack, rightFirst, prefs.joinSplit, typedWebtoon],
   );
+  // The slides were laid out again (another chapter, a setting): a page brought into frame belongs to the old layout.
+  useEffect(() => { setFocused(null); }, [slides]);
   /** The paged track's slide, measured: what a split half or a page turned on its side is fitted into. */
   const [area, setArea] = useState({ w: 0, h: 0 });
   useEffect(() => {
@@ -615,13 +668,14 @@ function ReaderInner() {
   useEffect(() => {
     const measure = () => {
       const w = scrollRef.current?.clientWidth || window.innerWidth;
-      const base = prefs.fitWidth ? Math.min(w, 860) : w;
+      const base = (prefs.fitWidth ? Math.min(w, 860) : w) * (widthPct / 100);
       setColW(base * zoom);
+      setPageW(pageWidthBucket(base, window.devicePixelRatio || 1));
     };
     measure();
     window.addEventListener('resize', measure);
     return () => window.removeEventListener('resize', measure);
-  }, [prefs.fitWidth, ready, zoom]);
+  }, [prefs.fitWidth, ready, zoom, widthPct]);
 
   // keep the page roughly centered when zooming
   useEffect(() => {
@@ -785,7 +839,7 @@ function ReaderInner() {
     const ch = chapters[it.ci];
     if (!ch) return null;
     if (ch.offline) return blobUrls.current.get(it.key) || null;
-    return img.page(ch.id, it.number);
+    return img.page(ch.id, it.number, pageW || undefined);
   };
 
   /**
@@ -837,6 +891,7 @@ function ReaderInner() {
     const el = scrollRef.current;
     if (!el || !didInitScroll.current || laidOutMode.current === prefs.mode) return;
     laidOutMode.current = prefs.mode;
+    pagedWidth.current = 0; // a new scroller: its width is its own
     if (prefs.mode === 'paged') {
       laidOutSign.current = trackSign;
       laidOutSplit.current = splitTrack;
@@ -876,15 +931,49 @@ function ReaderInner() {
   }, [splitTrack]);
 
   // ---- track current page on scroll ----
+  /** The paged track's width and slide as the last scroll event read them: what a resize is put back to. */
+  const pagedWidth = useRef(0);
+  const pagedSlide = useRef(0);
+  // A resize that raises no scroll event (the offset still fits) leaves the track between two pages: snap it back too.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el || prefs.mode !== 'paged' || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => {
+      const w = el.clientWidth;
+      if (!w || !pagedWidth.current || pagedWidth.current === w) return;
+      pagedWidth.current = w;
+      el.scrollTo({ left: trackSign * pagedSlide.current * w, behavior: 'instant' as ScrollBehavior });
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefs.mode, ready, trackSign]);
   const onScroll = useCallback(() => {
     lastMoved.current = Date.now();
     const el = scrollRef.current;
     if (!el) return;
+    // The page is moving under the interface, so the reader is reading: put it away. The grace period lets a
+    // tap's own page turn, and the first moments after it opens, pass without dismissing it.
+    const c = chromeRef.current;
+    if (c.on && Date.now() - c.since > CHROME_GRACE_MS && !scrubbingRef.current && !focusInChrome()) setChrome(false);
     if (prefs.mode === 'paged') {
       // Math.abs: an RTL track scrolls from 0 into NEGATIVE scrollLeft (the spec'd behaviour every current
       // engine follows), so page n sits at -n × width.
-      const s = Math.round(Math.abs(el.scrollLeft) / Math.max(1, el.clientWidth));
+      // ⚠️ A track whose width just changed (the window dragged to a screen of another size, a sidebar, a rotation) keeps its
+      // scrollLeft in PIXELS, so the same offset now divides into another slide: the reader was moved to a different page, and
+      // a few chapters on once the append and progress paths believed it. The width, not the offset, is what changed, so this
+      // scroll event is no reading: put the track back on the slide it was on and read nothing from it.
+      const w = el.clientWidth;
+      if (pagedWidth.current && pagedWidth.current !== w) {
+        pagedWidth.current = w;
+        el.scrollTo({ left: trackSign * pagedSlide.current * w, behavior: 'instant' as ScrollBehavior });
+        return;
+      }
+      pagedWidth.current = w;
+      const s = Math.round(Math.abs(el.scrollLeft) / Math.max(1, w));
+      pagedSlide.current = s;
       const idxs = slides[Math.max(0, Math.min(slides.length - 1, s))];
+      setFocused((f) => (f && f.slide !== s ? null : f));
       const i = idxs ? idxs[idxs.length - 1] : 0; // last page of a spread → completion fires on the final spread
       setCurrent((c) => (c === i ? c : i));
       return;
@@ -896,6 +985,15 @@ function ReaderInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tops, heights, flat, prefs.mode, slides]); // the sign-free Math.abs above needs no trackSign dep
 
+  /** Said as the next chapter joins the column (or is jumped to): the numbers between the two are not in the library. */
+  const warnGap = (fromId?: string, toId?: string) => {
+    const to = toId ? numberOf.get(toId) : undefined;
+    const gap = chapterGap(fromId ? numberOf.get(fromId) : undefined, to);
+    if (!gap || to == null) return;
+    toast(gap.first === gap.last
+      ? tr('Chapter {a} is missing here. This continues at chapter {next}.', { a: numLabel(gap.first), next: numLabel(to) })
+      : tr('Chapters {a}–{b} are missing here. This continues at chapter {next}.', { a: numLabel(gap.first), b: numLabel(gap.last), next: numLabel(to) }), 'info');
+  };
   // ---- continuous reading: append next chapter near the end ----
   useEffect(() => {
     if (!ready || !flat.length || appending.current || noMore.current) return;
@@ -920,6 +1018,7 @@ function ReaderInner() {
       const outcome = chapterOutcome(ch);
       await untilStill(lastMoved, rtlTrack);
       hold();
+      if (outcome === 'ok') warnGap(last?.id, next.id);
       if (outcome === 'ok') setChapters((cs) => (cs.some((c) => c.id === ch!.id) ? cs : [...cs, ch!]));
       // There IS a next chapter -- chapterRefs says so -- and it would not load. Claiming the series is
       // finished here is how a corrupt file or a dropped connection came to read as an ending.
@@ -1026,6 +1125,44 @@ function ReaderInner() {
   });
   const activeChapter = chapters[flat[current]?.ci ?? 0];
 
+  // What a reader may say about the page at flow index `at` (lib/spreadMarks.ts): merge it with a neighbour, take a spread apart, or
+  // let the detector's answer stand. Online chapters, paged mode only: the answer is kept on the server, and the column has no pairs.
+  const optionsAt = (at: number): SpreadOption[] => {
+    const ch = chapters[flat[at]?.ci ?? -1];
+    return prefs.mode === 'paged' && ch && !ch.offline ? spreadOptions(flat, at, ch.marks, pagedRtl) : [];
+  };
+  const optionLabel = (o: SpreadOption): string =>
+    o.kind === 'split' ? tr('These two pages are not one spread')
+    : o.kind === 'unmerge' ? tr('Unmerge these pages')
+    : o.kind === 'restore' ? tr('Join these two pages again')
+    : o.side === 'left' ? tr('Merge with the page on the left') : tr('Merge with the page on the right');
+  const applyOption = (at: number, o: SpreadOption) => {
+    const ch = chapters[flat[at]?.ci ?? -1];
+    if (!ch) return;
+    const mark = markFor(o);
+    const before = ch.marks;
+    const next: Marks = { ...(before ?? {}) };
+    if (mark === null) delete next[o.first];
+    else {
+      next[o.first] = mark;
+      if (mark === 'join') for (const n of [o.first - 1, o.first + 1]) if (next[n] === 'join') delete next[n];
+    }
+    const put = (marks?: Marks) => setChapters((cs) => cs.map((c) => (c.id === ch.id ? { ...c, marks } : c)));
+    put(next);
+    setShowSettings(false);
+    saveMark(ch.id, o.first, mark).then(put).catch((e) => { put(before); toast(msgOf(e, tr('Could not save')), 'error'); });
+  };
+  /** The page a pointer is over: the one in frame, the only one on the slide, or the one on that side of a pair. */
+  const pageAtPoint = (x: number, y: number): number => {
+    const slide = slideNow();
+    if (focused?.slide === slide) return focused.page;
+    const idxs = slides[slide];
+    if (!idxs?.length) return current;
+    const on = idxs.length === 2 ? pairOnScreen(slide) : null;
+    const rect = scrollRef.current?.getBoundingClientRect();
+    return on && rect ? on[x < rect.left + rect.width / 2 ? 0 : 1] : idxs[0];
+  };
+
   // One place that knows how to move to a page, shared by the scrubber and the page grid. The initial-scroll
   // effect above deliberately does not use it: that one must also seed `lastSent` and run exactly once.
   const jumpTo = useCallback((idx: number) => {
@@ -1105,7 +1242,17 @@ function ReaderInner() {
   const seriesHref = activeSeriesId ? `/series/?id=${activeSeriesId}` : null;
 
   const back = () => (typeof window !== 'undefined' && window.history.length > 1 ? router.back() : router.push(seriesId ? `/series/?id=${seriesId}` : '/'));
-  const goChapter = (cid?: string, atEnd = false) => { if (cid) router.replace(`/reader/?book=${cid}${atEnd ? '&page=last' : ''}`); };
+  // ⚠️ Refresh went back to where the reader was OPENED. Continuous reading appends the next chapters to one track, but the
+  // address kept naming the first, so a reload reopened that chapter (and its saved page) however far on the reader had got.
+  // The address now follows the chapter on screen; progress for it is saved by the same path, so a reload resumes there.
+  const readingChapterId = ready && didInitScroll.current ? chapters[flat[current]?.ci ?? -1]?.id : undefined;
+  useEffect(() => {
+    if (!readingChapterId || readingChapterId === bookId || chapters[0]?.id !== bookId) return; // not while a jump is loading
+    urlSynced.current = readingChapterId;
+    router.replace(`/reader/?book=${readingChapterId}`, { scroll: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [readingChapterId]);
+  const goChapter = (cid?: string, atEnd = false) => { urlSynced.current = null; if (cid) router.replace(`/reader/?book=${cid}${atEnd ? '&page=last' : ''}`); };
   /**
    * Read this chapter in another language edition (v0.52.0): the same number there when the server holds it, else
    * that edition's page at the number, where its ghost row has Fetch -- said first, so the jump is not a surprise.
@@ -1133,7 +1280,7 @@ function ReaderInner() {
   const goNext = () => {
     if (!nextId) return;
     const remaining = pagesAfter(flat, current);
-    if (!skipNeedsConfirm(remaining) || stillArmed(armedNext, Date.now())) { setArmedNext(null); goChapter(nextId); return; }
+    if (!skipNeedsConfirm(remaining) || stillArmed(armedNext, Date.now())) { setArmedNext(null); warnGap(activeChapter?.id, nextId); goChapter(nextId); return; }
     setArmedNext(Date.now());
   };
   useEffect(() => {
@@ -1174,8 +1321,9 @@ function ReaderInner() {
 
   // ---- auto-hide chrome ----
   useEffect(() => {
+    chromeRef.current = { on: chrome, since: Date.now() };
     if (!chrome || showSettings) return;
-    const t = setTimeout(() => setChrome(false), 3800);
+    const t = setTimeout(() => { if (!focusInChrome()) setChrome(false); }, 3800);
     return () => clearTimeout(t);
   }, [chrome, showSettings]);
 
@@ -1188,6 +1336,8 @@ function ReaderInner() {
     const el = scrollRef.current;
     if (PAGE_ACTIONS.has(action)) {
       if (!el) return;
+      // One page of a spread in frame: the arrow toward the other page goes there (stepFocus), before any page turns.
+      if (!o.tap && (action === 'pageLeft' || action === 'pageRight') && stepFocus(action === 'pageLeft' ? -1 : 1)) return;
       // Next and back are reading order, whichever way the pages run. The page to the left or the right is PHYSICAL,
       // like the arrow keys and the thirds: on a right-to-left read the next page is to the left.
       const d = action === 'next' ? 1 : action === 'prev' ? -1 : (action === 'pageRight' ? 1 : -1) * trackSign;
@@ -1243,6 +1393,13 @@ function ReaderInner() {
       // in a text field or anything editable, and not when the reader has bound ? to something.
       if (e.key === '?' && !e.repeat && !/^(INPUT|TEXTAREA|SELECT)$/.test(t?.tagName ?? '') && !t?.isContentEditable
         && !READER_ACTIONS.some((a) => keyMap[a].includes('?'))) { e.preventDefault(); setShowKeys(true); return; }
+      // Z brings one page of a double spread into frame, and back (the arrows then step between its two pages: perform). Not
+      // rebindable, and not taken from a key the reader has bound to something else.
+      if (e.key.toLowerCase() === 'z' && !e.shiftKey && !/^(INPUT|TEXTAREA|SELECT)$/.test((e.target as HTMLElement | null)?.tagName ?? '')
+        && !READER_ACTIONS.some((a) => keyMap[a].some((k) => k.toLowerCase() === 'z'))) {
+        if (focusKeys.current.toggleFocus()) e.preventDefault();
+        return;
+      }
       // Escape is reserved, never bound: it leaves the reader. ⚠️ Once a press -- Escape repeating called
       // history.back() until it left the reader for wherever came before.
       if (e.key === 'Escape') { if (!e.repeat) back(); return; }
@@ -1273,6 +1430,7 @@ function ReaderInner() {
     // it used to count as a tap here too: a right click on the edge of a page turned it, and one in the middle toggled the controls.
     if (e.pointerType === 'mouse' && e.button !== 0) { tap.current = null; return; }
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    caught.current = prefs.mode !== 'paged' && pointers.current.size === 1 && isCatch(lastMoved.current, Date.now());
     if (pointers.current.size === 2) {
       const p = [...pointers.current.values()];
       pinch.current = { dist: Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y), zoom };
@@ -1319,6 +1477,8 @@ function ReaderInner() {
       lastDoubleAt: lastDoubleAt.current,
     });
     if (act.kind === 'none') return; // a scroll, or a press held long enough to be something else
+    // Stopping a fling is not a tap. Nothing happens: no page turn, no interface.
+    if (caught.current) { caught.current = false; return; }
     if (act.kind === 'double') {
       cancelPendingTap();
       lastTapAt.current = 0;
@@ -1332,8 +1492,93 @@ function ReaderInner() {
     cancelPendingTap();
     lastTapAt.current = now;
     const zone = act.zone;
+    // A thumb on the edge of a webtoon is not asking for the interface.
+    if (prefs.mode !== 'paged' && !tapMayToggleChrome(e.pointerType, zone)) return;
+    // A tap ON a page of a pair brings that page into frame (and on the focused page, back to the pair), instead of turning or
+    // showing the interface; a tap on the black around the pages is still the tap layout's.
+    const target = pairTap(e.clientX, e.clientY);
+    if (target !== undefined) {
+      tapTimer.current = setTimeout(() => { tapTimer.current = null; acted.current = { kind: 'focus', prev: focused, at: Date.now() }; setFocused(target); }, act.after);
+      return;
+    }
     tapTimer.current = setTimeout(() => { tapTimer.current = null; runTap(zone); }, act.after);
   };
+
+  /**
+   * The pages of a slide in the order the layout puts them. RTL manga: right page reads first. On an RTL track `dir` already
+   * lays a spread out right to left, so flipping here as well would put it back the wrong way round. A right-to-left series
+   * forced to read left to right still swaps: the pages turn the other way, but a double-page spread is ONE drawing, and it
+   * only reassembles with its first page on the right. A joined pair is laid out the way its picture runs (the server found
+   * which side the second page is on), whichever way the series reads: the first page on the right is what a right-to-left
+   * layout gives.
+   */
+  const shownOf = (idxs: number[]): number[] => {
+    let shown = rtl && !pagedRtl && idxs.length === 2 ? [idxs[1], idxs[0]] : idxs;
+    const joinDir = idxs.length === 2 ? flat[idxs[0]].join : undefined;
+    if (joinDir && (joinDir === 'rtl') !== rightFirst) shown = [shown[1], shown[0]];
+    return shown;
+  };
+
+  /**
+   * What a tap at (x, y) does to the pair on screen: `{slide, page}` to bring that page into frame, `null` to go back to the pair,
+   * `undefined` when it is none of that (not a pair, or the tap missed the pages and landed on the black round them).
+   * The page is the one on that side of the screen: the pair is laid out symmetrically, one page a half.
+   */
+  const pairTap = (x: number, y: number): { slide: number; page: number } | null | undefined => {
+    const el = scrollRef.current;
+    if (prefs.mode !== 'paged' || !el) return undefined;
+    const slide = slideNow();
+    const idxs = slides[slide];
+    if (!idxs) return undefined;
+    const isFocused = focused?.slide === slide;
+    if (idxs.length !== 2) return undefined;
+    const box = el.children[slide] as HTMLElement | undefined;
+    const onPage = Array.from(box?.querySelectorAll('img') ?? []).some((im) => {
+      const r = im.getBoundingClientRect();
+      return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+    });
+    if (!onPage) return undefined;
+    if (isFocused) return null;
+    const visual = pagedRtl ? [shownOf(idxs)[1], shownOf(idxs)[0]] : shownOf(idxs); // left, right on screen
+    const rect = el.getBoundingClientRect();
+    return { slide, page: visual[x < rect.left + rect.width / 2 ? 0 : 1] };
+  };
+
+  /** The two pages of the slide on screen as they sit on it, left then right; null when the slide is not a pair. */
+  const pairOnScreen = (slide: number): number[] | null => {
+    const idxs = slides[slide];
+    if (prefs.mode !== 'paged' || !idxs || idxs.length !== 2) return null;
+    return pagedRtl ? [shownOf(idxs)[1], shownOf(idxs)[0]] : shownOf(idxs);
+  };
+  /**
+   * Z: bring one page of the pair into frame, or give the pair back. The same as tapping a page, for a keyboard: it starts on
+   * the pair's first page in reading order. Answers whether it did anything (a slide that is not a pair has nothing to focus).
+   */
+  const toggleFocus = (): boolean => {
+    const slide = slideNow();
+    if (focused?.slide === slide) { acted.current = { kind: 'focus', prev: focused, at: Date.now() }; setFocused(null); return true; }
+    if (!pairOnScreen(slide)) return false;
+    acted.current = { kind: 'focus', prev: focused, at: Date.now() };
+    setFocused({ slide, page: slides[slide][0] });
+    return true;
+  };
+  /**
+   * An arrow key while one page is in frame: to the pair's other page when the arrow points at it, so the two pages of a spread
+   * are read one after the other without leaving focus. `side` is physical (-1 the left of the screen). False at the pair's
+   * edge, where the key turns the page as it always does.
+   */
+  const stepFocus = (side: -1 | 1): boolean => {
+    if (!focused) return false;
+    const on = pairOnScreen(focused.slide);
+    if (!on) return false;
+    const to = on.indexOf(focused.page) + side;
+    if (to < 0 || to > 1) return false;
+    acted.current = { kind: 'focus', prev: focused, at: Date.now() };
+    setFocused({ slide: focused.slide, page: on[to] });
+    return true;
+  };
+  const focusKeys = useRef({ toggleFocus, stepFocus });
+  focusKeys.current = { toggleFocus, stepFocus };
 
   const cancelPendingTap = () => {
     if (tapTimer.current) { clearTimeout(tapTimer.current); tapTimer.current = null; }
@@ -1383,12 +1628,21 @@ function ReaderInner() {
       if (a.kind === 'turn' && el) el.scrollTo({ left: trackSign * a.slide * (el.clientWidth || window.innerWidth) });
       else if (a.kind === 'scroll' && el) el.scrollTo({ top: a.top });
       else if (a.kind === 'chrome') setChrome((c) => !c);
+      else if (a.kind === 'focus') setFocused(a.prev);
     }
     applyZoom(zoom > 1 ? 1 : 2);
   };
 
   const total = flat.length;
   const pageInChapter = activeChapter ? (flat[current]?.number ?? 0) : 0;
+  const chapterPageCount = activeChapter?.pages.length ?? 0;
+  /** "Page 3 of 24", for screen readers: settles half a second after the page stops changing, so a scroll is not a stream of speech. */
+  const pageText = chapterPageCount && pageInChapter ? tr('Page {n} of {total}', { n: pageInChapter, total: chapterPageCount }) : '';
+  const [announced, setAnnounced] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => setAnnounced(pageText), 500);
+    return () => clearTimeout(t);
+  }, [pageText]);
 
   // ---- bookmarks ----
   // A bookmark is a note about a page, not a pointer to bytes, so it is keyed on (book, page) and survives
@@ -1418,21 +1672,29 @@ function ReaderInner() {
       setMarks((prev) => { const n = new Set(prev); on ? n.add(k) : n.delete(k); return n; });
     }
   };
-  const chapterPageCount = activeChapter?.pages.length ?? 0;
 
-  // ---- the right-click menu (the menu the Library and the series page use, components/ContextMenu.tsx) ----
-  // What one wants under a hand while reading: the page (zoom, bookmark, jump), the chapter (next, previous, the list), how it is
-  // laid out, and the way out. Shift+right-click is still the browser's own menu (lib/contextMenus.ts wantsOwnMenu), which is where
-  // "Save image as" lives. Only the mouse's right button opens it: a touch screen keeps its taps and holds, so the reader's
-  // gestures are untouched.
+  // ---- the right-click menu (the same menu the Library and the series page use, components/ContextMenu.tsx) ----
+  // What one wants under a hand while reading: the spread (this page, un-join it), the page (zoom, bookmark, jump), the
+  // chapter (next, previous, the list), how it is laid out, and the way out. Shift+right-click is still the browser's own
+  // menu (lib/contextMenus.ts wantsOwnMenu), which is where "Save image as" lives. Only the mouse's right button opens it: a
+  // touch screen keeps its taps and holds, so the reader's gestures are untouched.
+  const menuPoint = useRef<{ x: number; y: number } | null>(null);
+  // (set below, once the menu exists)
   const readerMenu = useContextMenu((): MenuItem[] => {
-    const items: MenuItem[] = [
-      { label: zoom > 1 ? tr('Reset zoom') : tr('Zoom in'), onSelect: () => applyZoom(zoom > 1 ? 1 : 2) },
+    const pt = menuPoint.current;
+    const onPair = pt ? pairTap(pt.x, pt.y) : undefined;
+    const items: MenuItem[] = [];
+    if (onPair === null) items.push({ label: tr('Show both pages'), onSelect: () => setFocused(null) });
+    else if (onPair) items.push({ label: tr('Focus on this page'), onSelect: () => setFocused(onPair) });
+    const at = pt ? pageAtPoint(pt.x, pt.y) : current;
+    for (const o of optionsAt(at)) items.push({ label: optionLabel(o), onSelect: () => applyOption(at, o), divider: items.length === 0 ? false : undefined });
+    items.push(
+      { label: zoom > 1 ? tr('Reset zoom') : tr('Zoom in'), onSelect: () => applyZoom(zoom > 1 ? 1 : 2), divider: items.length > 0 },
       { label: bookmarked ? tr('Remove bookmark') : tr('Bookmark this page'), onSelect: () => { void toggleBookmark(); }, disabled: !activeChapter || !pageInChapter },
       { label: tr('Jump to a page'), onSelect: () => setShowPages(true) },
       { label: tr('Next chapter'), onSelect: () => goChapter(nextId), disabled: !nextId, divider: true },
       { label: tr('Previous chapter'), onSelect: () => goChapter(prevId, true), disabled: !prevId },
-    ];
+    );
     if (chapterRefs.length > 0) items.push({ label: tr('Chapters'), onSelect: () => setShowChapters(true) });
     if (prefs.mode === 'paged') {
       items.push({ label: prefs.spread ? tr('Read in single pages') : tr('Read in double spreads'), onSelect: () => setPref({ spread: !prefs.spread }), divider: true });
@@ -1442,6 +1704,7 @@ function ReaderInner() {
       { label: chrome ? tr('Hide controls') : tr('Show controls'), onSelect: () => setChrome((c) => !c) },
       { label: tr('Reader settings'), onSelect: () => setShowSettings(true) },
     );
+    if (hasKeyboard) items.push({ label: tr('Keyboard shortcuts'), onSelect: () => setShowKeys(true) });
     if (seriesHref) items.push({ label: tr('Open the series'), onSelect: () => router.push(seriesHref), divider: true });
     items.push({ label: tr('Leave the reader'), onSelect: () => back(), divider: !seriesHref });
     return items;
@@ -1465,7 +1728,7 @@ function ReaderInner() {
     <>
       <p className="flex items-center gap-1 text-sm font-medium text-white transition group-hover:text-accent">
         <span className="truncate">{activeChapter?.seriesTitle || tr('Reading')}</span>
-        {seriesHref && <IcChevronRight width={14} height={14} className="shrink-0 text-fog-500 transition group-hover:text-accent" />}
+        {seriesHref && <IcChevronRight aria-hidden width={14} height={14} className="shrink-0 text-fog-500 transition group-hover:text-accent" />}
       </p>
       <p className="truncate text-[11px] text-fog-400">{activeChapter?.title}</p>
     </>
@@ -1477,6 +1740,20 @@ function ReaderInner() {
    * the "You finished" card mid-series. Both told them to stop looking.
    */
   const retry = () => { setFailed(null); setReady(false); setReloadKey((k) => k + 1); };
+  const [redownloading, setRedownloading] = useState(false);
+  const redownload = async () => {
+    const c = activeChapter;
+    if (!c || redownloading) return;
+    setRedownloading(true);
+    try {
+      const res = await api<{ total: number; skipped: Array<{ reason: string }> }>(`/api/admin/series/${c.seriesId}/chapters/refetch`, { method: 'POST', json: { bookIds: [c.id] } });
+      if (res.total > 0) { void kickDownloads(qc); toast(tr('Downloading this chapter again. Try it in a minute.'), 'info'); }
+      else toast(tr('This chapter cannot be downloaded again from here. Use the series page.'), 'error');
+    } catch (e) {
+      toast(msgOf(e, tr('Could not start.')), 'error');
+    }
+    setRedownloading(false);
+  };
   const failureCard = (
     <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}
       className="mx-auto w-full max-w-3xl px-6 py-16 text-center">
@@ -1500,6 +1777,7 @@ function ReaderInner() {
         {/* No Try again for a pruned chapter: there is nothing to retry, and a button that cannot work is
             worse than no button. */}
         {failed !== 'pruned' && <button onClick={retry} className="btn-accent text-sm">{tr('Try again')}</button>}
+        {isAdmin && !activeChapter?.offline && <button onClick={redownload} disabled={redownloading} className="btn-ghost text-sm">{tr('Redownload this chapter')}</button>}
         <button onClick={() => (seriesHref ? router.push(seriesHref) : back())} className={`text-sm ${failed === 'pruned' ? 'btn-accent' : 'btn-ghost'}`}>{tr('Back to series')}</button>
       </div>
     </motion.div>
@@ -1553,6 +1831,22 @@ function ReaderInner() {
     // that says it lives in the auto-hiding footer. Nothing reads them in the app.
     <div className="fixed inset-0 z-40 bg-ink-950" data-page={pageInChapter || undefined} data-chapter={activeChapter?.id}>
       {readerMenu.element}
+      {/* One page of a spread in frame: say so, and how to get back. Shown on the page's own number, whichever half it is. */}
+      {focused && flat[focused.page] && (
+        <div className="pointer-events-none fixed inset-x-0 bottom-3 z-20 flex justify-center" aria-hidden="true">
+          <span className="rounded-full bg-black/70 px-3 py-1 text-xs text-white">
+            {tr('Page {n} · tap, or press Z, to see both', { n: flat[focused.page].number })}
+          </span>
+        </div>
+      )}
+      <h1 className="sr-only">{[activeChapter?.seriesTitle, activeChapter?.title].filter(Boolean).join(' \u2014 ') || tr('Reader')}</h1>
+      {/* The toolbars come up on a tap, which a keyboard has no equivalent of. This is that, reachable with Tab
+          and shown only while it has focus. It stays in the page whether or not the toolbars are up, so
+          focus is never left on a control that has just gone. */}
+      <button type="button" aria-expanded={chrome} onClick={() => setChrome((c) => !c)}
+        className="sr-only focus-visible:not-sr-only focus-visible:fixed focus-visible:start-3 focus-visible:top-3 focus-visible:z-50 focus-visible:rounded-full focus-visible:bg-black/80 focus-visible:px-4 focus-visible:py-2 focus-visible:text-sm focus-visible:text-white">
+        {chrome ? tr('Hide controls') : tr('Show controls')}
+      </button>
       <div className="pointer-events-none absolute inset-0 z-30 bg-black" style={{ opacity: 1 - prefs.brightness }} />
       {/* Ambient cover wash framing the reader: the look, by default. Its switch (Cover colour at the edges, #170)
           removes the two bands outright rather than their colour, because with no colour they are still a 16 %
@@ -1593,16 +1887,14 @@ function ReaderInner() {
         <div ref={scrollRef} data-lenis-prevent onScroll={onScroll} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerEnd} onPointerCancel={onPointerEnd} onDoubleClick={onTrackDoubleClick} {...menuBind}
           dir={pagedRtl ? 'rtl' : 'ltr'}
           className="hide-scrollbar flex h-screen-d snap-x snap-mandatory overflow-x-auto overflow-y-hidden" style={{ filter: THEME_FILTER[prefs.theme] }}>
-          {slides.map((idxs, s) => {
-            // RTL manga: right page reads first. On an RTL track `dir` already lays a spread out right to
-            // left, so flipping here as well would put it back the wrong way round. A right-to-left series
-            // forced to read left to right still swaps: the pages turn the other way, but a double-page spread
-            // is ONE drawing, and it only reassembles with its first page on the right.
-            const shown = rtl && !pagedRtl && idxs.length === 2 ? [idxs[1], idxs[0]] : idxs;
+          {slides.map((slideIdxs, s) => {
+            // One page of the pair brought into frame (see `focused`): the slide holds just it, so everything below lays it out as a single page.
+            const idxs = focused && focused.slide === s ? [focused.page] : slideIdxs;
+            const shown = shownOf(idxs);
             // v0.61.0: one half of a wide page (Wide pages → Split) is a slide of its own, keyed apart from its twin.
             const halfOf = half[s];
             return (
-              <div key={halfOf ? `${flat[idxs[0]].key}:${halfOf}` : flat[idxs[0]].key} className="relative flex h-full w-full shrink-0 snap-center snap-always items-center justify-center gap-1">
+              <div key={halfOf ? `${flat[idxs[0]].key}:${halfOf}` : flat[idxs[0]].key} className="relative flex h-full w-full shrink-0 snap-center snap-always items-center justify-center">
                 {shown.map((i) => {
                   const p = flat[i];
                   if (!(activeSet.has(i) && srcFor(i))) return <span key={p.key} className="text-ink-600">{p.number}</span>;
@@ -1652,7 +1944,7 @@ function ReaderInner() {
                       region = pairCrop(pair[0]?.all ?? WHOLE, pair[1]?.all ?? WHOLE)[shown.indexOf(i)];
                     }
                     return <SlideRegion key={p.key} src={srcFor(i)!} alt={tr('Page {n}', { n: p.number })} width={w} height={h}
-                      region={region} area={shown.length === 2 ? { w: area.w / 2 - 2, h: area.h } : area} zoom={zoom}
+                      region={region} area={shown.length === 2 ? { w: area.w / 2, h: area.h } : area} zoom={zoom}
                       pending={pending} onLoaded={loaded} filter={imgFilter} trimmed={region.l} />;
                   }
                   return (
@@ -1689,8 +1981,8 @@ function ReaderInner() {
           <>
             <motion.header initial={{ y: -64, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -64, opacity: 0 }}
               className="absolute inset-x-0 top-0 z-40 flex items-center gap-2 bg-linear-to-b from-black/90 via-black/55 to-transparent px-3 pb-8 pt-[max(0.9rem,calc(env(safe-area-inset-top)+0.55rem))] before:pointer-events-none before:absolute before:inset-x-0 before:bottom-full before:h-16 before:bg-black/90">
-              <button onClick={back} className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-black/45 text-white backdrop-blur">
-                <IcChevronLeft width={22} height={22} />
+              <button onClick={back} aria-label={tr('Back')} className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-black/45 text-white backdrop-blur">
+                <IcChevronLeft width={22} height={22} aria-hidden />
               </button>
               {/* Tapping the title is the route to the series while reading, and the chevron is the whole
                   affordance -- without it this reads as inert as it used to. BOTH lines are inside the link
@@ -1712,13 +2004,13 @@ function ReaderInner() {
               {chapterRefs.length > 0 && (
                 <button onClick={() => setShowChapters(true)} aria-label={tr('Chapters')}
                   className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-black/45 text-white backdrop-blur">
-                  <IcGrid width={18} height={18} />
+                  <IcGrid width={18} height={18} aria-hidden />
                 </button>
               )}
               <button onClick={toggleBookmark} aria-label={bookmarked ? tr('Remove bookmark') : tr('Bookmark this page')}
                 aria-pressed={bookmarked}
                 className={`grid h-10 w-10 shrink-0 place-items-center rounded-full bg-black/45 backdrop-blur ${bookmarked ? 'text-accent' : 'text-white'}`}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill={bookmarked ? 'currentColor' : 'none'}
+                <svg aria-hidden width="20" height="20" viewBox="0 0 24 24" fill={bookmarked ? 'currentColor' : 'none'}
                      stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round">
                   <path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1Z" />
                 </svg>
@@ -1759,21 +2051,22 @@ function ReaderInner() {
                       ) : (
                         <div className="grid h-44 w-32 place-items-center text-xs text-ink-600">{it.number}</div>
                       )}
-                      <p className="truncate bg-black/75 px-2 py-1 text-center text-[10px] text-fog-200">{ch.title} · {it.number}/{ch.pages.length}</p>
+                      <p className="truncate bg-black/75 px-2 py-1 text-center text-[11px] text-fog-200">{ch.title} · {it.number}/{ch.pages.length}</p>
                     </div>
                   );
                 })()}
                 <button onClick={() => goChapter(prevId, true)} disabled={!prevId} aria-label={tr('Previous chapter')}
                   className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-black/45 text-white backdrop-blur disabled:opacity-30">
-                  {pagedRtl ? <IcChevronRight width={18} height={18} /> : <IcChevronLeft width={18} height={18} />}
+                  {pagedRtl ? <IcChevronRight aria-hidden width={18} height={18} /> : <IcChevronLeft aria-hidden width={18} height={18} />}
                 </button>
                 {/* The counter is the button. A long-press would be invisible on a phone, which this repo
                     already learned once from a hover-only affordance nobody found. */}
                 <button dir="ltr" onClick={() => setShowPages(true)} aria-label={tr('Jump to a page')}
-                  className="shrink-0 rounded-full px-1.5 py-0.5 text-[11px] tabular-nums text-fog-300 transition hover:bg-white/10 hover:text-white">
+                  className="relative shrink-0 rounded-full px-1.5 py-0.5 text-[11px] tabular-nums text-fog-300 transition before:absolute before:-inset-2 hover:bg-white/10 hover:text-white">
                   {chapterPageCount ? `${pageInChapter}/${chapterPageCount}` : `${current + 1}/${total}`}
                 </button>
                 <input type="range" min={0} max={Math.max(0, total - 1)} value={current}
+                  aria-label={tr('Page')} aria-valuetext={pageText || undefined}
                   onPointerDown={() => setScrubbing(true)}
                   // Let go of focus after a drag: a slider that keeps it owns Space and the arrows, so in the
                   // webtoon column Space stopped scrolling until the controls hid. Tab still reaches it.
@@ -1782,8 +2075,8 @@ function ReaderInner() {
                   onChange={(e) => jumpTo(Number(e.target.value))}
                   className="h-1 flex-1 accent-[rgb(var(--accent))]" />
                 <button onClick={goNext} disabled={!nextId} aria-label={armedNext != null ? tr('Tap again to skip to the next chapter') : tr('Next chapter')}
-                  className={`grid h-9 w-9 shrink-0 place-items-center rounded-full text-white backdrop-blur disabled:opacity-30 ${armedNext != null ? 'bg-accent' : 'bg-black/45'}`}>
-                  {pagedRtl ? <IcChevronLeft width={18} height={18} /> : <IcChevronRight width={18} height={18} />}
+                  className={`grid h-9 w-9 shrink-0 place-items-center rounded-full backdrop-blur disabled:opacity-30 ${armedNext != null ? 'bg-accent text-black' : 'bg-black/45 text-white'}`}>
+                  {pagedRtl ? <IcChevronLeft aria-hidden width={18} height={18} /> : <IcChevronRight aria-hidden width={18} height={18} />}
                 </button>
               </div>
             </motion.footer>
@@ -1866,6 +2159,19 @@ function ReaderInner() {
               else clearSourcePrefs(seriesSource.id);
               setShowSettings(false);
             }}
+            modeNote={
+              seriesId0 && loadSeriesPrefs(seriesId0).mode ? tr('Saved for this series.')
+              : libraryLook?.mode ? tr("From this library's reading defaults.")
+              : seriesSource && loadSourcePrefs(seriesSource.id).mode ? tr("From this source's default.")
+              : undefined
+            }
+            spreadOptions={optionsAt(current).map((o) => ({ label: optionLabel(o), onSelect: () => applyOption(current, o) }))}
+            seriesPinned={!!seriesId0 && hasSeriesLook(seriesId0)}
+            onResetSeries={() => {
+              if (!seriesId0) return;
+              setPrefs(resetSeriesLook(seriesId0, prefs, seriesSource?.id, libraryLook));
+              setShowSettings(false);
+            }}
           />
         )}
       </AnimatePresence>
@@ -1892,7 +2198,7 @@ function ReaderInner() {
       )}
 
       {!ready && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-ink-950">
+        <div role="status" className="absolute inset-0 z-50 flex items-center justify-center bg-ink-950">
           <div className="animate-pulse-soft text-fog-500">{tr('Loading chapter…')}</div>
         </div>
       )}

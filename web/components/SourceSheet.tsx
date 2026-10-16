@@ -72,7 +72,7 @@ function ageNote(s: OverviewSource): string {
   }
 }
 
-export function SourceSheet({ target, overview, evidence, testMs, status, actions, installed, hiddenLangs, onClose, onReplace, onLanguages, onChanged }: {
+export function SourceSheet({ target, overview, evidence, testMs, status, actions, installed, hiddenLangs, onClose, onReplace, onBackup, onLanguages, onChanged }: {
   target: SheetTarget;
   overview: SourcesOverview | undefined;
   /** GET /api/admin/sources, by source id: the stored evidence behind Details. */
@@ -87,6 +87,8 @@ export function SourceSheet({ target, overview, evidence, testMs, status, action
   onClose: () => void;
   /** Replace this source: the panel closes this sheet and opens the Replace dialog. */
   onReplace: (s: OverviewSource) => void;
+  /** Add backup sources to its series, keeping it: the panel closes this sheet and opens that dialog. */
+  onBackup: (s: OverviewSource) => void;
   /** The languages hidden in every extension: the panel closes this sheet and opens that one. */
   onLanguages: () => void;
   /** After anything here changed: the lists and Health are asked again. */
@@ -207,7 +209,7 @@ export function SourceSheet({ target, overview, evidence, testMs, status, action
             <button type="button" onClick={remove} disabled={!!busy} className="btn-key border-red-500/50 bg-red-500/20 text-red-100 hover:border-red-400 hover:text-red-50" data-source-remove-yes>
               {busy === 'remove' ? <Busy tone="red">{tr('Removing…')}</Busy> : tr('Remove')}
             </button>
-            <button type="button" onClick={() => setAsking(null)} disabled={!!busy} className="btn-key">{tr('Cancel')}</button>
+            <button type="button" autoFocus onClick={() => setAsking(null)} disabled={!!busy} className="btn-key">{tr('Cancel')}</button>
           </div>
         </div>
       )}
@@ -239,6 +241,7 @@ export function SourceSheet({ target, overview, evidence, testMs, status, action
             )}
             <div className="mt-3 flex flex-wrap items-center gap-2" data-source-keys>
               {keys.includes('replace') && key('replace', tr('Replace'), () => onReplace(s), 'btn-key btn-key-primary')}
+              {keys.includes('backup') && key('backup', tr('Add backups'), () => onBackup(s), 'btn-key', { 'data-source-backup': s.id })}
               {keys.includes('test') && key('test', busy === 'test' ? testClock(now - testFrom, testMs) : tr('Test'), test, 'btn-key', { 'data-source-test': s.id })}
               {keys.includes('unblock') && key('unblock', tr('Clear block'), () => void unblock())}
               {keys.includes('turn-on') && key('turn-on', busy === 'turn-on' ? <Busy tone="muted">{tr('Turning on…')}</Busy> : tr('Turn on'), () => void turnOn(), 'btn-key btn-key-accent')}
@@ -312,7 +315,7 @@ export function SourceSheet({ target, overview, evidence, testMs, status, action
               </div>
             ) : (
               <form className="mt-1.5 flex flex-wrap gap-2" onSubmit={(e) => { e.preventDefault(); moveTo(address.trim()); }}>
-                <input value={address} onChange={(e) => setAddress(e.target.value)} dir="ltr" autoCapitalize="none" autoCorrect="off" spellCheck={false}
+                <input value={address} onChange={(e) => setAddress(e.target.value)} dir="ltr" type="url" inputMode="url" autoComplete="off" autoCapitalize="none" autoCorrect="off" spellCheck={false}
                   placeholder="https://site.com" aria-label={tr('Address')} className="field min-w-0 flex-1 basis-48" />
                 <button type="submit" disabled={!!busy || !address.trim()} className="btn-key">{busy === 'address' ? <Busy tone="muted">{tr('Saving…')}</Busy> : tr('Save')}</button>
                 <button type="button" onClick={() => { setAsking(null); setRefusal(null); }} className="btn-key">{tr('Cancel')}</button>

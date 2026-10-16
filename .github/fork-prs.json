@@ -1,0 +1,70 @@
+{
+  "upstream": "AngeloSha/uchiyomi",
+  "prs": [
+    {
+      "pr": 229,
+      "branch": "pr/spread-joins",
+      "title": "Join double-page spreads that a source served as two pages",
+      "base": "4b44ed815b4f55fe900f6671504c291f6950a8ca",
+      "head": "a876eb9a4bba61df1b80f26ea08656e9812d921c"
+    },
+    {
+      "pr": 232,
+      "branch": "pr/reader-tap-focus",
+      "title": "Reader: tap a page of a double page to bring it into frame; no gap between the pages",
+      "base": "4b44ed815b4f55fe900f6671504c291f6950a8ca",
+      "head": "d977f428371755cf1055e065fd0c78a6146757bf"
+    },
+    {
+      "pr": 233,
+      "branch": "pr/reader-column-width",
+      "title": "Reader: a column width for this device",
+      "base": "4b44ed815b4f55fe900f6671504c291f6950a8ca",
+      "head": "a4b1f23cdfcb8f704d218665a7f8c1f2891c1392"
+    },
+    {
+      "pr": 234,
+      "branch": "pr/reader-page-fit",
+      "title": "Reader: ask for pages at the width they are shown at",
+      "base": "4b44ed815b4f55fe900f6671504c291f6950a8ca",
+      "head": "a8cc2e4461aac1002c2e5c4ff01a62f35e48d442"
+    },
+    {
+      "pr": 236,
+      "branch": "pr/reader-chapter-gap-warning",
+      "title": "Reader: warn when the next chapter skips numbers that are missing from the library",
+      "base": "4b44ed815b4f55fe900f6671504c291f6950a8ca",
+      "head": "024e560de8451d07f56f23e9e0e020f8dbf262b6"
+    },
+    {
+      "pr": 249,
+      "branch": "pr/you-page-insights",
+      "title": "You page insights",
+      "base": "4b44ed815b4f55fe900f6671504c291f6950a8ca",
+      "head": "c4de08f73bc574aaf3e7d09c77e97743ebc52bec"
+    },
+    {
+      "pr": 261,
+      "branch": "pr/reader-keyboard-focus",
+      "title": "Reader: Z brings one page of a double page into frame, arrows step between its pages",
+      "base": "d977f428371755cf1055e065fd0c78a6146757bf",
+      "head": "907916124481ecd66e8c6d76d0a8f0f0e718998c",
+      "stackedOn": 232
+    },
+    {
+      "pr": 262,
+      "branch": "pr/spread-marks",
+      "title": "Reader: merge two pages into a spread, or take a spread apart, per account",
+      "base": "a876eb9a4bba61df1b80f26ea08656e9812d921c",
+      "head": "ff28bf01124b8a4a78323c0b76a1bd7d9ceeab14",
+      "stackedOn": 229
+    },
+    {
+      "pr": 263,
+      "branch": "pr/reader-resume",
+      "title": "Reader: keep the reader's place through a window resize and a refresh",
+      "base": "4b44ed815b4f55fe900f6671504c291f6950a8ca",
+      "head": "7c32b33f54553e1c6ca95f74d89bf14021962db0"
+    }
+  ]
+}

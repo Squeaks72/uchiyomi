@@ -99,7 +99,7 @@ test('it covers every admin tab, every section of Admin → Settings, the profil
     assert.ok(DESTINATIONS.some((d) => d.href === `/admin/?tab=Settings&section=${id}`), `the section ${id} is not a destination`);
   }
   assert.ok(DESTINATIONS.some((d) => d.href === '/admin/import/' && d.label === 'Import a list'), 'the import page is not a destination');
-  for (const name of ['Check for updates', 'Notice chapters', '18+ filter', 'Source order', 'Slow archive', 'Backup time', 'Delete read chapters',
+  for (const name of ['Check for updates', 'Notice chapters', '18+ filter', 'Downloads & politeness', 'Source order', 'Slow archive', 'Backup time', 'Delete read chapters',
     'Scanlators', 'Cloudflare solver', 'Version', 'Rescan everything']) {
     assert.ok(DESTINATIONS.some((d) => d.label === name), `"${name}" is not found by name`);
   }

@@ -172,3 +172,4 @@ test('the page: four keys under the button, More by width, the sheet closed befo
     assert.ok(page.includes(`case '${id}': ${call}; break;`), `${id} does not run ${call}`);
   }
 });
+

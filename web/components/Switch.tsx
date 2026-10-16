@@ -8,11 +8,13 @@
  * them drew "off" exactly where a reader looks for "on" -- a toggle that lies about its own state. The knob
  * is placed with `start-*` here, and there is one copy so a fourth cannot drift.
  */
-export function Switch({ on, onChange, disabled, label }: {
+export function Switch({ on, onChange, disabled, label, describedBy }: {
   on: boolean;
   onChange: (next: boolean) => void;
   disabled?: boolean;
   label: string;
+  /** Id of the help text under the label, so it is read with the switch. */
+  describedBy?: string;
 }) {
   return (
     <button
@@ -20,6 +22,7 @@ export function Switch({ on, onChange, disabled, label }: {
       role="switch"
       aria-checked={on}
       aria-label={label}
+      aria-describedby={describedBy}
       disabled={disabled}
       onClick={() => onChange(!on)}
       className={`relative h-7 w-12 shrink-0 rounded-full transition disabled:opacity-40 ${on ? 'bg-accent' : 'bg-ink-600'}`}

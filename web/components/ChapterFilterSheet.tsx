@@ -28,8 +28,8 @@ export function ChapterFilterSheet({ groupNames, group, onGroup, hasGhosts, show
     <Sheet title={tr('Filter chapters')} onClose={onClose} overBottomNav>
       {groupNames.length > 0 && (
         <section>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-fog-500">{tr('Translated by')}</p>
-          <div className="flex flex-wrap gap-1.5">
+          <p id="chapter-filter-by" className="mb-2 text-xs font-semibold uppercase tracking-wider text-fog-500">{tr('Translated by')}</p>
+          <div role="group" aria-labelledby="chapter-filter-by" className="flex flex-wrap gap-1.5">
             <button type="button" onClick={() => onGroup(ALL_GROUPS)} aria-pressed={group === ALL_GROUPS}
               className={`chip text-xs ${group === ALL_GROUPS ? 'chip-active' : ''}`}>{tr('All')}</button>
             {groupNames.map((n) => (

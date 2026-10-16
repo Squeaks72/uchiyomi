@@ -316,9 +316,9 @@ test('each Needs-you item has its one key: its page, its card, or Admin → Sett
   const keyOf = (body: string) => /data-fix-key="([a-z]+)"/.exec(body)?.[1] ?? null;
   assert.deepEqual(items.map((m) => [m[1], keyOf(m[2])]), [['chapter-gaps', 'open'], ['solver', 'health'], ['extension-cap', 'settings']], 'an item has no key');
   // A page of the app's own is a client-side link (Next's Link, which writes the address without the slash).
-  assert.match(items[0][2], /<a class="btn-key shrink-0" data-fix-key="open" href="\/series\/?\?id=s6">Open<\/a>/);
-  assert.match(items[2][2], /<a href="\/admin\/\?tab=Settings" class="btn-key shrink-0" data-fix-key="settings">Settings<\/a>/, 'Admin → Settings is not a whole page load');
-  assert.match(items[1][2], /<button type="button" class="btn-key shrink-0" data-fix-key="health">Show the card<\/button>/);
+  assert.match(items[0][2], /<a aria-label="Open: [^"]+" class="btn-key shrink-0" data-fix-key="open" href="\/series\/?\?id=s6">Open<\/a>/);
+  assert.match(items[2][2], /<a href="\/admin\/\?tab=Settings" aria-label="Settings: [^"]+" class="btn-key shrink-0" data-fix-key="settings">Settings<\/a>/, 'Admin → Settings is not a whole page load');
+  assert.match(items[1][2], /<button type="button" aria-label="Show the card: [^"]+" class="btn-key shrink-0" data-fix-key="health">Show the card<\/button>/);
   // Sentences in the reader's language take the page's direction: `dir="auto"` read an Arabic sentence opening on a name
   // ("Omniscient Reader، الفصول 12–14…") left-to-right, the name at its far end (the Arabic 390 screenshot). Reintroduce
   // `dir="auto"` on the item's text: this fails.
