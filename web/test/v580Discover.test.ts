@@ -41,7 +41,7 @@ test('the wall asks every source in the pool, best first, in Newest and Popular 
   assert.match(page, /const pool = useMemo\(\(\) => budgetForMode\(sources, listMode, Infinity\), \[sources, listMode\]\);/);
   assert.match(page, /const budget = pool;/, 'the wall asks a slice of the pool');
   assert.doesNotMatch(page, /pool\.slice\(|\branked\b|6 \+ emptied|emptiedCount/, 'a cap on the sources asked is back');
-  assert.match(page, /\{mode === 'newest' && budget\.map\(\(s, i\) => \(\s*<SourceLatest key=\{`\$\{listMode\}:\$\{s\.id\}:\$\{page\}`\} source=\{s\} listMode=\{listMode\}\s*page=\{page\} enabled=\{i < gate\} onSettled=\{onSettled\} \/>/,
+  assert.match(page, /\{mode === 'newest' && browsing && budget\.map\(\(s, i\) => \(\s*<SourceLatest key=\{`\$\{listMode\}:\$\{s\.id\}:\$\{page\}`\} source=\{s\} listMode=\{listMode\}\s*page=\{page\} enabled=\{i < gate\} onSettled=\{onSettled\} \/>/,
     'not every source asked has its request');
   // The pool: all 29 for Newest, every one that can rank its own titles for Popular, the most used first.
   const newest = budgetForMode(OWNERS, 'newest', Infinity);
@@ -82,7 +82,7 @@ test('the burst does not grow: four sources asking at once, on every page, and a
   assert.match(page, /setUpTo\(\(prev\) => \(\(prev\[id\] \?\? 0\) >= at \? prev : \{ \.\.\.prev, \[id\]: at \}\)\);/, 'a settle does not record the page it answered');
   assert.match(page, /const answered = answeredPage\(budget\.map\(\(s\) => kOf\(s\.id\)\), upTo, page\);\s*const gate = WALL_IN_FLIGHT \+ answered;/,
     'the gate does not count the page being fetched');
-  assert.match(page, /const canPage = mode === 'newest' && answered >= budget\.length && budget\.length > 0 && page < 5;/,
+  assert.match(page, /const canPage = mode === 'newest' && browsing && answered >= budget\.length && budget\.length > 0 && page < 5;/,
     'a page starts while the last one is still being asked: the sources the gate had not reached are skipped');
   assert.match(code(read('components/SourcePicker.tsx')),
     /if \(isSuccess\) onSettled\(key, data\?\.content \?\? \[\], true, page\);\s*else if \(isError\) onSettled\(key, \[\], false, page\);/,

@@ -87,8 +87,9 @@ export interface SourceChapter {
 }
 
 /**
- * Optional adapter metadata on a `listChapters` answer (#115): how many chapters the source listed that the
- * adapter DROPPED because they carry no usable number. Non-enumerable, so spreads, JSON and every caller that
+ * Optional adapter metadata on a `listChapters` answer (#115): how many chapters the source listed that carry no
+ * usable number: the ones the adapter DROPPED, or (fork change) all of them when it numbered the list 1..K by the
+ * source's own order instead. Non-enumerable, so spreads, JSON and every caller that
  * only iterates are unaffected. It lets the smoke test say "lists its chapters without numbers" instead of
  * "lists no chapters", which sends an admin to a different fix. Absent means none were dropped, or the adapter
  * does not say.
