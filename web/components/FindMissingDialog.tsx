@@ -10,7 +10,7 @@
  * Sources that were checked and rejected are shown too, with the reason and the measured overlap, because
  * "MangaDex has this but numbers it differently" is worth knowing and a silently shortened list is not.
  */
-import { useMemo, useRef, useState } from 'react';
+import { useId, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/lib/api';
 import { Modal, msgOf } from '@/components/ConfirmDialog';
@@ -123,8 +123,8 @@ function ChapterPicker({ numbers, selected, onChange }: {
                 <bdi>{r.lo === r.hi ? tr('Ch. {n}', { n: r.lo }) : tr('Ch. {a}–{b}', { a: r.lo, b: r.hi })}</bdi>
               </button>
               {r.nums.length > 1 && (
-                <button type="button" aria-label={tr('Pick chapters one by one')} aria-expanded={open === r.lo}
-                  onClick={() => setOpen(open === r.lo ? null : r.lo)} className="chip px-2 text-xs text-fog-400">⋯</button>
+                <button type="button" aria-label={`${tr('Pick chapters one by one')}: ${r.lo === r.hi ? tr('Ch. {n}', { n: r.lo }) : tr('Ch. {a}–{b}', { a: r.lo, b: r.hi })}`} aria-expanded={open === r.lo}
+                  onClick={() => setOpen(open === r.lo ? null : r.lo)} className="chip px-2 text-xs text-fog-400"><span aria-hidden>⋯</span></button>
               )}
             </span>
           );
@@ -154,6 +154,7 @@ export function FindMissingDialog({ seriesId, onClose, onAddEdition }: {
   const toast = useToast();
   const qc = useQueryClient();
   const { isAdmin } = useAuth();
+  const altId = useId();
   const [altTitle, setAltTitle] = useState('');
   const [term, setTerm] = useState('');
   const [started, setStarted] = useState<string | null>(null);
@@ -342,7 +343,8 @@ export function FindMissingDialog({ seriesId, onClose, onAddEdition }: {
     if (!isAdmin || !followable(c)) return null;
     const already = !!scan.data?.following?.includes(c.source);
     return (
-      <button disabled={busy || already} onClick={() => follow(c)} className="btn-ghost mt-2 w-full text-sm disabled:opacity-50">
+      <button disabled={busy || already} onClick={() => follow(c)} aria-label={`${already ? tr('Already followed') : tr('Also follow this source')}: ${c.name}`}
+        className="btn-ghost mt-2 w-full text-sm disabled:opacity-50">
         {already ? tr('Already followed') : tr('Also follow this source')}
       </button>
     );
@@ -459,6 +461,7 @@ export function FindMissingDialog({ seriesId, onClose, onAddEdition }: {
                     <button
                       disabled={busy || !n}
                       onClick={() => download(c, mode, chosen)}
+                      aria-label={mode === 'fetch' ? `${n === 1 ? tr('Download 1 chapter') : tr('Download {n} chapters', { n })}: ${c.name}` : undefined}
                       className="btn-accent mt-3 w-full text-sm disabled:opacity-50"
                     >
                       {mode === 'follow'
@@ -497,11 +500,15 @@ export function FindMissingDialog({ seriesId, onClose, onAddEdition }: {
 
           {/* The series that prompted this is listed elsewhere under a completely different English name. */}
           <div className="mt-5">
-            <label className="text-xs text-fog-500">{tr('Known under another name?')}</label>
+            <label htmlFor={altId} className="text-xs text-fog-500">{tr('Known under another name?')}</label>
             <div className="mt-1 flex gap-2">
               <input
+                id={altId}
                 value={altTitle}
                 onChange={(e) => setAltTitle(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') setTerm(altTitle.trim()); }}
+                autoComplete="off"
+                enterKeyHint="search"
                 placeholder={tr('Search under a different title')}
                 className="min-w-0 flex-1 rounded-full border border-ink-700 bg-transparent px-3 py-2 text-sm"
               />
@@ -513,7 +520,7 @@ export function FindMissingDialog({ seriesId, onClose, onAddEdition }: {
 
           {alsoFollow.length > 0 && (
             <div className="mt-5">
-              <p className="text-xs uppercase tracking-wide text-fog-600">{tr('Could also be followed')}</p>
+              <p className="text-xs uppercase tracking-wide text-fog-500">{tr('Could also be followed')}</p>
               <p className="mt-1 text-xs text-fog-500">{tr('Has everything you have and nothing newer yet. Following one means new chapters are taken from whichever source has them first.')}</p>
               {alsoFollow.map((c) => (
                 <div key={`${c.source}:${c.sourceSeriesId}`} className="mt-2 rounded-2xl border border-ink-700 p-3">
@@ -537,7 +544,7 @@ export function FindMissingDialog({ seriesId, onClose, onAddEdition }: {
 
           {rejected.length > 0 && (
             <div className="mt-5">
-              <p className="text-xs uppercase tracking-wide text-fog-600">{tr('Checked, not usable')}</p>
+              <p className="text-xs uppercase tracking-wide text-fog-500">{tr('Checked, not usable')}</p>
               <ul className="mt-2 space-y-1">
                 {rejected.map((c) => (
                   <li key={`${c.source}:${c.sourceSeriesId}`} className="text-xs text-fog-500">

@@ -411,7 +411,12 @@ export interface Provider { source: string; name: string; sourceId: string; cove
  * `rating` (v0.55.4; weighed by cardRating since v0.55.5): 18+, safe, or absent when nothing says. `work` (v0.56.0): the
  * key the card was folded by, when the caller gave one (groupByTitle's keyOf).
  */
-export interface TitleGroup { title: string; coverUrl?: string; updatedAt?: string; providers: Provider[]; rating?: Rating; work?: string }
+export interface TitleGroup {
+  title: string; coverUrl?: string; updatedAt?: string;
+  /** The first description any provider gave, cut short: the card shows its first lines. */
+  summary?: string;
+  providers: Provider[]; rating?: Rating; work?: string;
+}
 export interface SourceRail { source: string; name: string; lang: string | null; results: Array<SourceSeries & { name: string; rating?: Rating }> }
 
 /**
@@ -444,6 +449,7 @@ export function groupByTitle(
       }
       if (!g.coverUrl && r.coverUrl) g.coverUrl = r.coverUrl;
       if (!g.updatedAt && r.updatedAt) g.updatedAt = r.updatedAt;
+      if (!g.summary && r.summary?.trim()) g.summary = r.summary.trim().slice(0, 400);
       if (!g.providers.some((p) => p.source === r.source)) {
         const j = rated?.of(r, src);
         const rating = answered(j);

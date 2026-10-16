@@ -19,7 +19,8 @@ const LABELS = keys(
   // The admin tabs.
   'Overview', 'Tasks', 'Settings', 'Members', 'Sessions', 'Activity', 'Library', 'Health', 'Art', 'Sources',
   // The sections of Admin → Settings, in their order.
-  'Server', 'Updates & schedules', 'Library housekeeping', 'Scanlators', 'Notifications', 'Downloads', '18+ filter',
+  'Server', 'Updates & schedules', 'Library housekeeping', 'Scanlators', 'Notifications', 'Downloads', 'Downloads & politeness',
+  '18+ filter',
   'Source order', 'Notice chapters',
   // Settings people ask for by name.
   'Check for updates', 'Open registration', 'Backup time', 'Delete read chapters', 'Show missing chapters in Mihon',
@@ -94,6 +95,8 @@ export const DESTINATIONS: readonly Destination[] = [
     keywords: ['chapters an hour', 'pace', 'free space'] },
   { key: 'settings-adult', label: '18+ filter', where: ADMIN_SETTINGS, href: settings('adult-filter'), admin: true,
     keywords: ['adult', 'nsfw', 'mature', 'show 18+'] },
+  { key: 'settings-politeness', label: 'Downloads & politeness', where: ADMIN_SETTINGS, href: settings('politeness'), admin: true,
+    keywords: ['limits', 'environment variables', 'concurrency', 'timeout', 'blocked sources', 'unblock', 'cache size', 'backup keep'] },
   { key: 'settings-source-order', label: 'Source order', where: ADMIN_SETTINGS, href: settings('source-order'), admin: true,
     keywords: ['priority', 'preferred source'] },
   { key: 'settings-notice', label: 'Notice chapters', where: ADMIN_SETTINGS, href: settings('notice-chapters'), admin: true,

@@ -54,6 +54,21 @@ CREATE TABLE IF NOT EXISTS collection_items (
   PRIMARY KEY (collection_id, series_id)
 );
 
+ALTER TABLE collections ADD COLUMN IF NOT EXISTS description text;
+
+-- Titles on a list that the library does not hold yet ("save for later"). Keyed by the normalised title, the one
+-- thing every discover card has; they move into collection_items when the library gains the title.
+CREATE TABLE IF NOT EXISTS collection_wants (
+  collection_id uuid NOT NULL REFERENCES collections(id) ON DELETE CASCADE,
+  title_key     text NOT NULL,
+  title         text NOT NULL,
+  cover_url     text,
+  position      int  NOT NULL DEFAULT 0,
+  created_at    timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (collection_id, title_key)
+);
+ALTER TABLE collection_wants ADD COLUMN IF NOT EXISTS sources jsonb;
+
 CREATE TABLE IF NOT EXISTS ratings (
   user_id    uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   series_id  text NOT NULL,
@@ -837,6 +852,8 @@ ALTER TABLE libraries ADD COLUMN IF NOT EXISTS age_rating int;
 -- Per-library privacy boundary for implicit AniList enrichment (#168). Existing and rollback-created libraries keep
 -- the historical behaviour; switching it off never clears art, tracker links, direction or type already learned.
 ALTER TABLE libraries ADD COLUMN IF NOT EXISTS anilist_lookup boolean NOT NULL DEFAULT true;
+-- Whether the library view starts with this library selected. The default library ignores it (always visible).
+ALTER TABLE libraries ADD COLUMN IF NOT EXISTS default_visible boolean NOT NULL DEFAULT true;
 
 -- Reading defaults for the whole library (mode, theme, spread, direction); null = none, the reader's own apply.
 ALTER TABLE libraries ADD COLUMN IF NOT EXISTS reader_prefs jsonb;
@@ -1575,6 +1592,9 @@ ALTER TABLE lib_series       ADD COLUMN IF NOT EXISTS series_type_from text;
 ALTER TABLE lib_series       ADD COLUMN IF NOT EXISTS hide_notices     boolean;
 ALTER TABLE series_overrides ADD COLUMN IF NOT EXISTS series_type      text;
 ALTER TABLE server_settings  ADD COLUMN IF NOT EXISTS hide_notice_types jsonb NOT NULL DEFAULT '[]'::jsonb;
+-- Whether the shipped default (hide short fractional chapters, every type) has been applied once: lib/noticeSettings.ts
+-- applyNoticeDefault, at boot. After that the admin's switches are never touched, an empty list included.
+ALTER TABLE server_settings  ADD COLUMN IF NOT EXISTS notice_default_applied boolean NOT NULL DEFAULT false;
 -- The chapters whose file number has a fraction, by series: the few rows a notice can be among (lib/noticeChapters.ts
 -- mayBeNotice, hiddenBookCount), so the hidden counts and the read-progress roll-ups do not visit every chapter of
 -- the library while a switch is on (about 1,800 of 48,000 on the owner's). Partial and small; nothing else reads it.
@@ -1632,6 +1652,15 @@ ALTER TABLE series_trackers ADD COLUMN IF NOT EXISTS checked_at timestamptz;
 ALTER TABLE series_art      ADD COLUMN IF NOT EXISTS checked_at timestamptz;
 ALTER TABLE server_settings ADD COLUMN IF NOT EXISTS match_check_last_run    timestamptz;
 ALTER TABLE server_settings ADD COLUMN IF NOT EXISTS match_check_last_result jsonb;
+-- The English, romanised and Japanese titles of a series' linked AniList entry, shown on the series page
+-- (lib/otherTitles.ts). One row per series; a row with all three NULL records an answer with no names, asked again later.
+CREATE TABLE IF NOT EXISTS series_other_titles (
+  series_id  text PRIMARY KEY REFERENCES lib_series(id) ON DELETE CASCADE,
+  english    text,
+  romaji     text,
+  native     text,
+  fetched_at timestamptz NOT NULL DEFAULT now()
+);
 --
 -- (#150) The file a scan last read a series' ComicInfo from -- its first chapter archive -- as JSON [how it was
 -- read, path, mtime ms, size] (lib/library.ts infoReadOf). A scan opens that archive again only when the file is no
@@ -1740,6 +1769,34 @@ CREATE TABLE IF NOT EXISTS anilist_scores (
   fetched_at  timestamptz NOT NULL DEFAULT now()
 );
 
+-- RETIRED (no longer read or written; the data is left in place): titles an admin marked 18+ from a card's menu on Discover, where a listing is not a library row and has no
+-- series id to put a rating on. Keyed on the folded title (the folded title), so every source's copy of it and
+-- the trending and recommendation rows hide together while the 18+ reveal is off. The reveal still shows them.
+CREATE TABLE IF NOT EXISTS adult_titles (
+  key        text PRIMARY KEY,
+  title      text NOT NULL,
+  marked_by  uuid REFERENCES users(id) ON DELETE SET NULL,
+  marked_at  timestamptz NOT NULL DEFAULT now()
+);
+
+-- "Remove from Keep reading": the series stays in the library, it only leaves that Home row. A row hides the series
+-- until it is read again (read_progress.updated_at moves past hidden_at), so reading it brings it back by itself.
+CREATE TABLE IF NOT EXISTS keep_reading_hidden (
+  user_id    uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  series_id  text NOT NULL,
+  hidden_at  timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, series_id)
+);
+
+-- "Ignore" on a title that is not in the library: this person never sees it on Discover again. Per person;
+-- keyed on the folded title (routes/personal.ts titleKey) so every source's copy goes.
+CREATE TABLE IF NOT EXISTS ignored_titles (
+  user_id     uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  key         text NOT NULL,
+  title       text NOT NULL,
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, key)
+);
 -- v0.61.0: what AniList relates an entry to (lib/anilistRelated.ts): its sequels, prequels, main story, side stories,
 -- spin-offs and alternative versions (relations), and the entries its readers recommend (recs), keyed like
 -- anilist_scores by the AniList id a series is linked to. Each item keeps AniList's own adult flag and genres: the 18+

@@ -204,7 +204,7 @@ Appearance → Type anywhere to search** switches the typing, and the **/** shor
 
 **Search finds pages and settings too** (since v0.55.4). Type two letters or more and, under the series, **Pages and
 settings** lists what the words name: every admin tab, each section of **Admin → Settings**, the profile's tabs and
-cards, the import, and settings by name — *Notice chapters*, *18+ filter*, *Source order*, *Slow archive*, *Backup
+cards, the import, and settings by name — *Notice chapters*, *Content ratings*, *Source order*, *Slow archive*, *Backup
 time*, *Delete read chapters*, *Scanlators*, *Check for updates*, the *Cloudflare solver* and the *Version* on Health,
 *Rescan everything* on Tasks, *Language*, *API tokens*, *Two-factor authentication* and more. A name works in your
 language and in English, and so do a few words people type instead (*flaresolverr*, *mihon*, *2fa*). Each row says
@@ -1283,6 +1283,7 @@ row too), and the bar at the bottom shows what can be done with the selection. *
   are still live. Marking a backlog read this way does not count towards streaks, as on the Library page.
 - **Save offline** — saves the ticked chapters to this device, skipping any already saved and any the
   server has deleted.
+  offers it until then. The same switch covers *Download as zip* on a series, on the Library's selection and on a list.
 - **Fetch** — for grey rows, downloads them to the server now. Anyone who may download (the same permission
   as *Find missing chapters*) can. A manual fetch takes the best copy the sources offer today rather than
   waiting out the patience window, and it retries a chapter that had failed three times; it never takes a
@@ -1805,6 +1806,10 @@ sheet, or for every extension at once with **Languages**) and they fold away.
 
 - a source that is offline, failing or switched off and still the **main source** of some series, with how many,
   and how many of those already follow a working source: **Replace** ([below](#replace-a-source));
+  **Add backups** sits beside it: it never replaces anything or turns the source off, it only adds
+  redundancy. It runs *Find other sources* over every series that source is the main source of and, by default,
+  shows what it found before anything is followed: for each series **Follow**, **Follow and make main** (the failing
+  source stays on as a backup, so a temporary outage costs nothing) or **Skip**;
 - the failing sources nothing uses, by name, with **Turn off all**, which asks first;
 - an extension update, with **Update** (**Update all** for several).
 
@@ -2001,7 +2006,7 @@ read in Mihon stays marked in Mihon. Needs Uchiyomi v0.29.0 or newer.
 to the *Komga* extension and speaks a small set of Komga's endpoints, and Uchiyomi now answers
 them. Mint a token with **read + write** (tick *Allow changes*; a read-only token browses and reads, but
 nothing syncs in either direction: Mihon retries a failed push a few times with backoff, then gives up
-quietly until the next chapter read), tick **Include 18+ content** on it if 18+ libraries and series should show
+quietly until the next chapter read), tick **Show 18+ content (this token only)** on it if 18+ libraries and series should show
 on the phone, then in Mihon install the **Komga** extension, set its **Address** to your
 Uchiyomi URL exactly as you reach it (no trailing slash) and its **API key** to the token, and switch the
 Komga tracker on under **Settings → Tracking** *before* adding series — a series added earlier has no link
@@ -2044,7 +2049,8 @@ version alone. In the desktop app it is the app's own version.
 ### Health
 
 **Content → Health** audits your library and tells you what is wrong before you run into it: series with missing
-chapters, chapters that downloaded as one or two images, the same title sitting in the library twice, chapter
+chapters, chapters that downloaded as one or two images (not a manhwa, manhua or webtoon whose pages are all very tall, which is
+just how a strip is cut), the same title sitting in the library twice, chapter
 numbers that can't be real, series waiting for a renumbering review, any source that is failing or blocked, and the
 extension engine. Each check says what it found and what it cannot see. Hit **Re-check** to run them again. Since
 v0.49.1 the page says the server's findings in your language, with dates and times in your own time zone.
@@ -2671,7 +2677,7 @@ what makes an exception possible. Unrated stays visible to everyone on purpose.
 everybody, until somebody asks for it. It stays out of the home rails, the library grid, search, browse,
 your collections, updates, history, bookmarks and the OPDS feeds, and its tab does not appear on the Library
 page. (An OPDS reader has no button to press, so for it the choice sits on its own credential:
-**Profile → Connections → External readers → Include 18+ content in this reader**, off by default.) A **Show 18+** button sits beside the sorts on the Library page and brings it all back; the reveal
+**Profile → Connections → External readers → Include 18+ content in this reader**, off by default.) A **Show 18+ content** button sits beside the sorts on the Library page and brings it all back; the reveal
 lasts until you close the browser and then it hides itself again. The button only appears for accounts that
 actually have such a library, and never for one whose age limit is below 18. While the reveal is on, a line above
 every page says *18+ titles are showing* with a **Hide 18+** key, as Incognito reading's does, so a series page or
@@ -2898,7 +2904,7 @@ source's own cover are never touched. Its line says how many it checked and how 
 
 **Repair library** is the nightly that fixes what Health used to only report (the Health section above lists
 what it does and the two things it never does). Its schedule reads *every 24h · never during a chapter
-sweep*, or *switched off · on demand* when the switch under **Admin → Settings → Library housekeeping** is
+sweep*, or *switched off · on demand* when the switch under **Admin → Settings → Updates & schedules** is
 off — and *Run now* works either way, because nothing it does deletes, merges or renumbers anything. Like
 the sweep it is detached, so the message only says it started; its line shows what it did when it is done and
 keeps it across restarts, for example: *2000 page counts stamped, 28625 still to count · short: 3 replaced,
@@ -3032,7 +3038,7 @@ this server, the Cloudflare solver, extensions: the notices admins also get as w
 when web push is not configured) — and **who it is for**: the whole server, or one person, who then hears
 only about their own favourites, and about server problems only if they are an admin. **Include 18+ series**
 is off by default: titles from libraries rated 18+ are left out of the digest unless you tick it, the way an
-OPDS link and an API token have their own *Include 18+ content* (the web app's *Show 18+* button lives in
+OPDS link and an API token have their own *Show 18+ content* (the web app's *Show 18+* button lives in
 the browser, so a target carries its own choice). A target aimed at a person is bounded by that person's own
 libraries and age limit whatever the box says — those are permissions, not a reveal — so it never names a
 series they could not open themselves.

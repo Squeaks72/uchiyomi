@@ -44,7 +44,8 @@ import type { FastifyRequest } from 'fastify';
 import { q, one } from './db';
 import { runtime } from './runtime';
 import { logAudit } from './audit';
-import { say, saidOf, type Part, type Said } from './said';
+import { notifyAdmins } from './push';
+import { say, saidOf, own, type Part, type Said } from './said';
 import { SYSTEM_CTX, visibleToAll, type ViewCtx } from './visibility';
 import { beginRun, endRun, stopRequested, type RunCard } from './downloadJobs';
 import { repairState, repairForAutofix, REPAIR_STEPS, type AutofixDrive, type RepairCurrent, type RepairResult, type RepairStep } from './repair';
@@ -71,7 +72,7 @@ import { switchMainSource } from './mainSource';
 import { carries, standingOf, standingRows, standingsOf, EXTENSION_OFF, EXTENSION_OFF_BY, type StandingRow } from './sourceStanding';
 import { currentFailures } from './sourceEvidence';
 import {
-  runHealthChecks, sourceTrouble, frozenSeries, duplicateSeries, savedTwiceGroups, impossibleLimit, gapsAnswered, plausibleNumbers,
+  runHealthChecks, recheckCheck, sourceTrouble, frozenSeries, duplicateSeries, savedTwiceGroups, impossibleLimit, gapsAnswered, plausibleNumbers,
   type HealthCheck, type HealthItem, type HealthReport, type StoredGaps,
 } from './health';
 import { gapsOf, splitAtFloor } from './fill';
@@ -111,7 +112,7 @@ export const AFTER_NIGHTLY_AUTOFIX: readonly RepairStep[] = REPAIR_STEPS.filter(
 
 export type DoneKind = 'replaced' | 'retired' | 'tested' | 'unblocked' | 'linked' | 'merged' | 'renumbered' | 'fetched' | 'refetched'
   | 'shortFixed' | 'shortConfirmed' | 'failuresCleared' | 'installed' | 'uninstalled' | 'deletedTwice' | 'deletedOdd' | 'scanned'
-  | 'resumedRenumber' | 'solverReset' | 'engineConnected';
+  | 'resumedRenumber' | 'solverReset' | 'engineConnected' | 'groupsUpgraded' | 'named' | 'directions';
 export type NeedsYouAction = { kind: 'open'; href: string } | { kind: 'health'; check: string } | { kind: 'settings'; key: string };
 export type AutofixStatus = 'running' | 'done' | 'stopped' | 'failed' | 'interrupted';
 
@@ -372,7 +373,7 @@ function drive(a: Run): AutofixDrive {
       a.repairCur = cur;
       const words: Partial<Record<RepairStep, Part>> = {
         count: say('autofix.now.scanning'), failures: say('autofix.now.failures'), short: say('autofix.now.short'), gaps: say('autofix.now.gaps'),
-        solver: say('autofix.now.solver'),
+        solver: say('autofix.now.solver'), groups: say('autofix.now.groups'), names: say('autofix.now.names'), directions: say('autofix.now.directions'),
       };
       const p = step ? words[step] : null;
       a.current = p ? { said: saidOf(p) } : a.current;
@@ -437,6 +438,16 @@ async function runAll(a: Run, from?: FastifyRequest): Promise<void> {
       },
       req: from,
     }).catch(() => {});
+    // The nightly has nobody watching it: a run that ends with something only a person can fix says so, by count alone
+    // (a push body can land on a lock screen, and a series name could be 18+).
+    if (a.origin === 'nightly' && summary?.needsYou.length) {
+      const n = summary.needsYou.length;
+      void notifyAdmins(
+        n === 1 ? 'Fix everything left 1 card for you' : `Fix everything left ${n} cards for you`,
+        'The nightly run is done. Open Health to see what needs a decision.',
+        '/admin/?tab=Health', 'autofix',
+      ).catch(() => {});
+    }
     if (active === a) active = null;
     runtime.autofixing = false;
     scheduleHealthSummaryRefresh();
@@ -1010,9 +1021,13 @@ async function chapters(a: Run): Promise<void> {
   // fetched or hunted through it (repair.ts AutofixDrive.resting). Reintroduce by driving without it: "a 429 failure is
   // not retried by the run" in autofix.int.test.ts finds its row reset and the site asked.
   const rest = await restingSources();
-  const r: RepairResult = await held(() => repairForAutofix(a.log, { only: ['failures', 'short', 'gaps'], userId: a.by },
+  const r: RepairResult = await held(() => repairForAutofix(a.log,
+    { only: ['failures', 'short', 'gaps', 'groups', 'names', 'directions'], userId: a.by },
     { ...drive(a), resting: (id) => rest.has(id) }));
   a.repairCur = null;
+  did(a, 'groupsUpgraded', r.groups.replaced);
+  did(a, 'named', r.names.named);
+  did(a, 'directions', r.directions.learned);
   did(a, 'failuresCleared', r.failures.reset);
   did(a, 'refetched', r.failures.retried?.added ?? 0);
   did(a, 'shortFixed', r.short.replaced);
@@ -1407,8 +1422,8 @@ async function files(a: Run): Promise<void> {
       } finally { claim.release(); }
     }
     // Impossible numbers: the Health check's own findings (an ignored one is left), every such chapter of each series.
-    const report = await runHealthChecks().catch(() => null);
-    const odd = report?.checks.find((c) => c.id === 'outliers')?.items.filter((i) => !i.info && i.seriesId) ?? [];
+    const oddCheck = await recheckCheck('outliers').catch(() => null);
+    const odd = oddCheck?.items.filter((i) => !i.info && i.seriesId) ?? [];
     for (const it of odd) {
       if (halted(a)) return;
       const have = await haveNumbers(it.seriesId!).catch(() => [] as number[]);
@@ -1452,7 +1467,7 @@ async function recheckReport(a: Run): Promise<HealthReport> {
 const DONE_ORDER: DoneKind[] = [
   'replaced', 'installed', 'merged', 'fetched', 'refetched', 'shortFixed', 'renumbered', 'deletedTwice', 'deletedOdd', 'linked',
   'retired', 'unblocked', 'failuresCleared', 'shortConfirmed', 'resumedRenumber', 'engineConnected', 'solverReset', 'uninstalled',
-  'tested', 'scanned',
+  'groupsUpgraded', 'named', 'directions', 'tested', 'scanned',
 ];
 
 /** A list of names as the done lines carry it: the first three, and how many more. */
@@ -1479,6 +1494,16 @@ function doneLines(a: Run): AutofixSummary['done'] {
   }
   return out;
 }
+
+/** The checks `summarise` reads by name; an amber one outside this set is said by the fallback at its end. */
+export const SUMMARISED = new Set([
+  'solver', 'extension-engine', 'folders-twice', 'extension-cap', 'library-scan', 'downloads-missing', 'files', 'covers', 'details',
+  'disk', 'trackers', 'frozen-series', 'sources', 'duplicates', 'numbering', 'outliers', 'saved-twice', 'short-chapters',
+  'chapter-failures', 'chapter-gaps',
+]);
+
+/** The amber cards `summarise` has no line of its own for. */
+export const strayChecks = (checks: readonly HealthCheck[]): HealthCheck[] => checks.filter((c) => c.status !== 'ok' && !SUMMARISED.has(c.id));
 
 /** A finding row: an item that is not `info`. */
 const findings = (c: HealthCheck | undefined): HealthItem[] => (c && c.status !== 'ok' ? c.items.filter((i) => !i.info) : []);
@@ -1652,6 +1677,11 @@ function summarise(a: Run, report: HealthReport): AutofixSummary {
   if (trackers) need('trackers', say('autofix.needs.trackers', { n: counted('trackers', trackers) }));
 
   if (leftover) clear(say('autofix.clears.nextRun', { n: leftover }));
+
+  // Any amber card this function has no line for -- one added later -- is a person's, said with the card's own summary,
+  // so the end never reads "All green" over it. Reintroduce by dropping this loop: "an amber card nobody names is
+  // Needs you" in autofixStray.test.ts finds none.
+  for (const c of strayChecks(report.checks)) need(c.id, c.summarySaid?.[0] ? own(c.summarySaid[0], c.summary) : say('autofix.needs.other', { title: c.title }));
 
   const green = clears.length === 0;
   // Run again is worth it while a run has something left to change; a cooldown, the sweep or Needs you alone is not that.
