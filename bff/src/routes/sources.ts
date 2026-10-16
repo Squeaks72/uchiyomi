@@ -1465,6 +1465,8 @@ export async function addSeriesFromSource(opts: {
    * checked that `of` is a series its viewer may open.
    */
   edition?: { of: string; lang?: string; ofLang?: string };
+  /** File the series under this library's first folder, so the folder rule puts it there. Absent: the root, as ever. */
+  libraryId?: string;
 }): Promise<AddResult> {
   const { source, sourceId, force, chapterCount, chapterFrom, autoUpdate } = opts;
   const src = source ? getSource(source) : null;
@@ -1522,13 +1524,18 @@ export async function addSeriesFromSource(opts: {
     }
     edition = { of: of.id, lang, ...(opts.edition.ofLang ? { ofLang: opts.edition.ofLang } : {}) };
   }
-  // ⚠️ Windows: the source's name is the first folder, and a custom site's name is whatever the admin typed --
-  // `Site: EN` is not a legal Windows name at all (the colon names a data stream) and `CON` or a trailing dot
-  // is one Explorer cannot open -- so there it gets the same treatment as the title. Linux keeps the name
-  // exactly: every folder already on a server is spelled that way.
-  const srcDir = process.platform === 'win32' ? sanitize(src.name) : src.name;
+  // A series can hold chapters from several sources, so its folder is the title alone, straight under the
+  // library root: no source-name level. Two different works that share a title would share the folder -- the
+  // same trade the edition suffix below already makes for languages.
   // An edition's folder carries its language (lib/editions.ts editionFolder), so it never lands in the original's.
-  let folder = edition ? editionFolder(srcDir, title, edition.lang) : `${srcDir}/${sanitize(title)}`;
+  // A chosen library files the title under that library's own first folder, so the folder rule (libraryIdFor) keeps
+  // it there and the files land in that library's root. The default library has no folder to name.
+  const libFolder = opts.libraryId
+    ? (await one<{ path: string }>(
+        `SELECT lp.path FROM library_paths lp JOIN libraries l ON l.id = lp.library_id
+          WHERE l.id = $1 ORDER BY lp.path <> l.path, lp.path LIMIT 1`, [opts.libraryId]))?.path ?? ''
+    : '';
+  let folder = edition ? editionFolder('', title, edition.lang) : sanitize(title);
   // ⚠️ Desktop, case-insensitive disks (NTFS, APFS): a source that now spells the title `Solo leveling`
   // still downloads into the existing `Solo Leveling` folder, and the scanner reads that folder back with
   // its on-disk spelling -- so a row keyed on the new spelling never met its own chapters, and the series
@@ -1539,6 +1546,7 @@ export async function addSeriesFromSource(opts: {
       'SELECT folder FROM lib_series WHERE lower(folder) = lower($1) ORDER BY (deleted_at IS NOT NULL), created_at LIMIT 1', [folder]);
     folder = stored?.folder ?? await diskSpelling([DL_ROOT, LIBRARY_ROOT], folder);
   }
+  if (libFolder) folder = `${libFolder}/${folder}`;
 
   // A deleted series does not count as present: re-adding it is how you undo a delete from the app side.
   const existing = await one<{ id: string; deleted_at: string | null }>(
@@ -1856,6 +1864,31 @@ export async function addSeriesFromSource(opts: {
     };
   }
 
+  /**
+   * The row is written NOW, as the nothing-yet branch does, rather than minted by persistScan from chapter one: until
+   * then Discover and every title lookup found nothing and offered the same series as new, though the Library
+   * already showed it downloading. persistScan's `ON CONFLICT (library_id, folder)` lands on this row when the
+   * first chapter arrives. A row that was there before (revived above) is left as it is. If the first chapter
+   * never lands the row is removed again below, so a refused download leaves no empty series behind.
+   */
+  let mintedId: string | undefined;
+  if (!existing) {
+    const libs = await libraryRows();
+    mintedId = (await q<{ id: string }>(
+      `INSERT INTO lib_series (id, source, title, summary, author, status, genres, web, folder, books_count, library_id, scanned_at,
+                               auto_update, source_id, source_series_id, chapter_floor, lang)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,0,$10,now(),$11,$12,$13,$14,$15)
+       ON CONFLICT (library_id, folder) DO NOTHING
+       RETURNING id`,
+      [newSeriesId(), src.name, title, meta.summary || null, meta.author ?? null, meta.status ?? null, meta.genres ?? [], meta.url ?? null,
+       folder, libraryIdFor(folder, libs), autoUpdate !== false, source, sourceId, floor, stateLang],
+    ).catch(() => []))[0]?.id;
+    if (mintedId && series?.coverUrl) {
+      await q(`INSERT INTO series_art (series_id, cover, checked_at) VALUES ($1, $2, NULL)
+        ON CONFLICT (series_id) DO UPDATE SET cover = COALESCE(series_art.cover, EXCLUDED.cover)`, [mintedId, series.coverUrl]).catch(() => {});
+    }
+  }
+
   // The cover is for the Downloads view, which draws this card before chapter one is scanned in and the series
   // has a thumbnail of its own.
   jobs.set(folder, { title, total: toFetch.length, done: 0, status: 'downloading', startedAt: Date.now(), origin: 'add', ...(opts.userId ? { by: opts.userId } : {}),
@@ -1925,6 +1958,7 @@ export async function addSeriesFromSource(opts: {
         ? say('job.refusing', { source: src.name, status: blockReason })
         : say('job.undownloadable');
       const why = whyPart.text;
+      if (mintedId) await q('DELETE FROM lib_series WHERE id = $1 AND books_count = 0 AND NOT EXISTS (SELECT 1 FROM lib_books WHERE series_id = $1)', [mintedId]).catch(() => {});
       if (opts.wait === false) {
         // Detached: the caller has already been told the download started, so this card IS the failure
         // report. It is deliberately not swept -- see sweepJobs -- and is dismissed by hand.
@@ -2101,7 +2135,7 @@ export async function addSeriesFromSource(opts: {
   // everything else reads it off the job card once chapter one is scanned (`Job.seriesId`).
   void withOrigin('add', opts.userId ?? null, run).catch(() => {});
   return {
-    ok: true, status: 200, title, folder, chapters: toFetch.length, started: true, seriesId: existing?.id,
+    ok: true, status: 200, title, folder, chapters: toFetch.length, started: true, seriesId: existing?.id ?? mintedId,
     ...(opts.archive ? { archive: archiveOpt ? 'later' as const : 'nothing' as const } : {}),
     // The link waits for the row, which persistScan mints from chapter one: the job card carries the outcome.
     ...(edition ? { edition: { lang: edition.lang } } : {}),
@@ -2320,6 +2354,17 @@ export default async function sourceRoutes(app: FastifyInstance) {
     // server_settings.adult_sources drops out too, even though its extension does not flag itself.
     const ctx = vc(req);
     return reachable(req).filter((s) => sourceBrowsableFor(s, ctx));
+  };
+  /**
+   * One source's titles as this viewer may be shown them. Only while "Show 18+" is off: the titles the source (or the
+   * admin's genre list) says are 18+ are left out, and everything else stays, including titles nothing speaks for --
+   * a listing carries few genres, so unknown is shown rather than the whole site dropped. This reaches only a source the admin set to
+   * "Mixed": any other flagged source is already out of the list (lib/visibility.ts sourceBrowsableFor).
+   */
+  const tame = async <T extends SourceSeries>(req: FastifyRequest, src: SourceAdapter, items: T[]): Promise<T[]> => {
+    if (!vc(req).hideAdultLibraries) return items;
+    const lists = await adultFilter();
+    return items.filter((r) => ratingOf(r, src, lists) !== 'adult');
   };
 
   app.get('/api/sources', async (req) => {
@@ -3562,7 +3607,9 @@ export default async function sourceRoutes(app: FastifyInstance) {
   // what this route always answered), JP (manga) or CN (manhua), v0.61.0.
   app.get('/api/discover/trending', async (req, reply) => {
     reply.header('cache-control', 'no-store'); // never let a stale/empty copy get pinned client-side
-    const asked = (req.query as { country?: unknown }).country;
+    // Fork: `?kind=manhwa|manga|manhua` (the fork's own parameter before v0.61.0) still works, as the same three countries.
+    const { country: askedCountry, kind: askedKind } = req.query as { country?: unknown; kind?: unknown };
+    const asked = askedCountry ?? (typeof askedKind === 'string' ? ({ manhwa: 'KR', manga: 'JP', manhua: 'CN' } as Record<string, string>)[askedKind.toLowerCase()] : undefined);
     const country = (asked === undefined ? 'KR' : typeof asked === 'string' ? asked.toUpperCase() : '') as TrendCountry;
     if (!TREND_COUNTRIES.includes(country)) return reply.code(400).send({ error: 'bad_request', message: 'country is one of KR, JP, CN' });
     const items = await trendingFor(country);
@@ -3798,6 +3845,8 @@ export default async function sourceRoutes(app: FastifyInstance) {
       source: z.string(), sourceId: z.string(), force: z.boolean().optional(),
       chapterCount: z.number().int().positive().optional(), chapterFrom: z.enum(['oldest', 'newest', 'none']).optional(),
       autoUpdate: z.boolean().optional(),
+      // The library to file it in (absent: the root, which the default library holds).
+      libraryId: z.string().min(1).max(64).optional(),
       alsoFollow: z.array(z.object({ source: z.string().min(1).max(200), sourceId: z.string().min(1).max(200) })).max(MAX_AUTO_CANDIDATES).optional(),
       // "Archive the rest slowly" (#117): what the selection leaves is queued for the slow archive.
       archive: z.boolean().optional(),
@@ -3824,6 +3873,11 @@ export default async function sourceRoutes(app: FastifyInstance) {
     // through exactly as if the switch had been off (no judgement, no carrier card). The dialog hides the
     // switch from members; this is the server's half of that.
     const alsoFollow = roleOf(req) === 'admin' ? b.data.alsoFollow : undefined;
+    if (b.data.libraryId) {
+      if (!(await one('SELECT 1 FROM libraries WHERE id = $1', [b.data.libraryId]))) return reply.code(404).send({ error: 'no_such_library' });
+      const allowed = vc(req).libraryIds;
+      if (allowed && !allowed.includes(b.data.libraryId)) return reply.code(403).send({ error: 'forbidden' });
+    }
     // canDownload is now checked for the whole plugin in the preHandler above, including this route.
     if (!sourceAllowedFor(getSource(source), vc(req).maxAgeRating)) return denySource(reply);
     // `wait: false` -- answer once the decision is made and download afterwards. Everything that decides
@@ -3839,7 +3893,7 @@ export default async function sourceRoutes(app: FastifyInstance) {
       source, sourceId, force, chapterCount, chapterFrom, autoUpdate, wait: false,
       alsoFollow, userId: userIdOf(req), req, sourceAllowed: (s) => sourceAllowedFor(getSource(s), maxAge),
       refuseAdultTitle: cappedBelowAdult(req),
-      numbering: b.data.numbering,
+      numbering: b.data.numbering, libraryId: b.data.libraryId,
       ...(b.data.archive ? { archive: { by: userIdOf(req), ctx: vc(req) } } : {}),
       ...(b.data.edition ? { edition: b.data.edition } : {}),
     });

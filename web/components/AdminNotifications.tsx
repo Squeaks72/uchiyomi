@@ -412,7 +412,7 @@ function TargetDialog({ target, onClose, onSaved }: { target: NotifyTarget | nul
 
         {events.includes('new_chapters') && (
           <Field label={tr('Message')}
-            help={<>{tr('{count} chapters added · {series} the series’ title, or “3 series” · {list} up to ten titles')}</>}>
+            help={<>{tr('You can use {count} for the number of chapters added, {series} for the series title (or “3 series”) and {list} for up to ten titles.')}</>}>
             <input value={template} onChange={(e) => setTemplate(e.target.value)} maxLength={500} autoComplete="off"
               placeholder={DEFAULT_TEMPLATE} className="field" dir="auto" />
             {/* A span, not a <p>: this sits inside the field's <label>, which may hold phrasing content only. */}

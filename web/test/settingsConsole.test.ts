@@ -671,7 +671,7 @@ test('Admin → Settings has a key for every card above them, each to its own ca
   // pointing a key at an id that no card has: "a key goes nowhere" fails.
   const files = ['components/AdminSettings.tsx', 'components/AdminNotifications.tsx', 'components/ArchiveSettings.tsx'];
   const cards = files.flatMap((f) => [...code(read(f)).matchAll(/<Section id="([^"]+)" title=\{tr\('([^']+)'\)\}/g)].map((m) => `${m[1]} ${m[2]}`));
-  assert.equal(cards.length, 9, 'the cards are not where this test looks');
+  assert.equal(cards.length, 10, 'the cards are not where this test looks');
   const admin = code(read('components/AdminSettings.tsx'));
   const index = admin.slice(admin.indexOf('<SectionIndex '), admin.indexOf(']} />', admin.indexOf('<SectionIndex ')));
   const keys = [...index.matchAll(/\['([^']+)', tr\('([^']+)'\)\]/g)].map((m) => `${m[1]} ${m[2]}`);

@@ -179,7 +179,7 @@ export function ExtensionSettingsBody({ sourceId, onSourceId, note = false }: {
                 <div className="min-w-0 flex-1">
                   <p className="text-sm text-fog-100">{p.title || p.key}</p>
                   {summary && <p className="mt-0.5 text-[11px] leading-relaxed text-fog-500">{summary}</p>}
-                  {!p.enabled && <p className="mt-0.5 text-[11px] text-fog-600">{tr('Not available in this version of the extension.')}</p>}
+                  {!p.enabled && <p className="mt-0.5 text-[11px] text-fog-500">{tr('Not available in this version of the extension.')}</p>}
                 </div>
                 {control === 'switch' && (
                   <Switch on={p.value === true} disabled={off} label={p.title || p.key} onChange={(v) => change(p, v)} />
@@ -216,8 +216,8 @@ export function ExtensionSettingsBody({ sourceId, onSourceId, note = false }: {
                         onChange={(e) => setTexts((t) => ({ ...t, [p.key]: e.target.value }))}
                         onKeyDown={(e) => { if (e.key === 'Enter' && dirty && !off) change(p, draft); }}
                         autoCapitalize="none" autoCorrect="off" spellCheck={false}
-                        className="min-w-0 flex-1 rounded-lg border border-ink-700 bg-ink-850 px-2.5 py-1.5 text-xs text-fog-100 outline-hidden focus:border-accent" />
-                      <button type="button" onClick={() => change(p, draft)} disabled={off || !dirty} className="btn-key btn-key-primary">
+                        className="min-w-0 flex-1 rounded-lg border border-ink-700 bg-ink-850 px-2.5 py-1.5 text-xs text-fog-100 outline-hidden focus-visible:outline-accent focus-visible:outline-offset-0 focus:border-accent" />
+                      <button type="button" onClick={() => change(p, draft)} disabled={off || !dirty} aria-label={busy ? undefined : `${tr('Save')}: ${p.dialogTitle || p.title || p.key}`} className="btn-key btn-key-primary">
                         {busy ? tr('Saving…') : tr('Save')}
                       </button>
                     </div>

@@ -35,7 +35,7 @@ import { startArchive } from './lib/archive';
 import { startHeroWarmup } from './lib/autoHero';
 import { closeInterruptedFindRuns, findSettledWithin } from './lib/findSources';
 import { loadUnstatedLang } from './lib/seriesLang';
-import { refreshNoticesActive } from './lib/noticeSettings';
+import { applyNoticeDefault, refreshNoticesActive } from './lib/noticeSettings';
 import { loadAdultSources } from './lib/visibility';
 import { loadMangadexLangs } from './lib/sources/mangadexLangs';
 import { runChapterCleanup, unpruneRestored } from './lib/chapterCleanup';
@@ -66,6 +66,7 @@ import opdsRoutes from './routes/opds';
 import komgaCompatRoutes from './routes/komgaCompat';
 import notifyRoutes from './routes/notify';
 import { isDesktop } from './lib/desktop';
+import { healFolderCase } from './lib/libraryFolders';
 import { installDesktopGuards } from './lib/desktopGuard';
 import { ensureDesktopUser } from './lib/desktopUser';
 import { initialiseBulkChapterDeleteRuns } from './lib/bulkChapterDelete';
@@ -82,11 +83,13 @@ async function main() {
     process.exit(1);
   }
   for (const w of await authModeWarnings()) console.warn(`[auth] ${w}`);
+  await healFolderCase().catch((e) => console.warn(`[library] could not respell renamed folders: ${(e as Error)?.message || e}`));
   // The language of sources and series that do not say (lib/lang.ts), before anything compares languages. A
   // database that cannot be read here leaves English, the default, and never stops the boot.
   await loadUnstatedLang().catch((e) => console.warn(`[lang] could not read the unstated language: ${(e as Error)?.message || e}`));
   // Whether any notice-chapter switch is on (lib/noticeChapters.ts), before the first query is built: while none is,
   // every query is the one the previous release ran. Unreadable leaves them off, as they were before the feature.
+  await applyNoticeDefault();
   await refreshNoticesActive().catch((e) => console.warn(`[notices] could not read the switches: ${(e as Error)?.message || e}`));
   // The sources the admin rated Adult only (lib/visibility.ts sourceRatedAdult), before anything asks which sources an
   // account may reach. Unreadable, the first read of the 18+ lists loads them.

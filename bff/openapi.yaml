@@ -171,7 +171,7 @@ components:
                   kind:
                     type: string
                     enum: [replaced, retired, tested, unblocked, linked, merged, renumbered, fetched, refetched, shortFixed, shortConfirmed,
-                           failuresCleared, installed, uninstalled, deletedTwice, deletedOdd, scanned, resumedRenumber, solverReset, engineConnected]
+                           failuresCleared, installed, uninstalled, deletedTwice, deletedOdd, scanned, resumedRenumber, solverReset, engineConnected, groupsUpgraded, named, directions]
                   n: { type: integer }
                   said: { $ref: '#/components/schemas/AutofixSaid' }
                   items: { type: array, items: { $ref: '#/components/schemas/AutofixSaid' } }
@@ -361,7 +361,7 @@ components:
         error: { type: [string, "null"] }
     AdminLibrary:
       type: object
-      required: [id, name, path, paths, age_rating, anilist_lookup, n, pinned, members]
+      required: [id, name, path, paths, age_rating, anilist_lookup, default_visible, n, pinned, members]
       properties:
         id: { type: string }
         name: { type: string }
@@ -374,6 +374,7 @@ components:
             Whether automatic art, title/id matching, type/direction repair, startup match checks and scheduled
             AniList enrichment may contact AniList for series currently in this library. Manual actions remain
             available and existing metadata is preserved when false.
+        default_visible: { type: boolean, description: Whether the library view starts with this library selected. The default library is always visible. }
         n: { type: integer, minimum: 0, description: Visible series in the library. }
         pinned: { type: integer, minimum: 0, description: Series filed into this library by hand. }
         members: { type: array, items: { type: string } }
@@ -1583,7 +1584,7 @@ paths:
     get:
       tags:
         - library
-      summary: The libraries the caller may see; adult:true marks an 18+ one the client can reveal.
+      summary: The libraries the caller may see; adult:true marks an 18+ one the client can reveal, and defaultVisible:true one the library view starts with selected.
       operationId: getApiLibraries
       security:
         - bearer: []
@@ -2905,9 +2906,12 @@ paths:
       operationId: getApiSources
       description: >-
         Since v0.42.0 this list honours the 18+ reveal as well as the age cap: without `adult=1` a source
-        whose extension declares itself adult is left out, the same way an 18+ library is left off every
-        other listing. The age cap is unchanged and is the permission — a source above the caller's
-        `max_age_rating` is absent whatever `adult` says, and every by-id route still answers 403 for it.
+        the admin has named on the 18+ source list is left out, the same way an 18+ library is left off every
+        other listing. A source that merely CAN carry 18+ titles (its extension declares `isNsfw`, which Suwayomi
+        does for a whole extension) stays in the list: its titles are filtered one by one instead (fork change; see
+        search-all, latest and popular). The age cap is unchanged and is the permission — a source above the
+        caller's `max_age_rating`, declared adult or not, is absent whatever `adult` says, and every by-id route
+        still answers 403 for it.
       parameters:
         - name: adult
           in: query
@@ -2974,9 +2978,10 @@ paths:
       summary: Search one source.
       operationId: getApiSourcesSearch
       description: >-
-        Since v0.42.0 an adult source answers `{ content: [] }` without being asked while the 18+ reveal is
-        off — an empty page, deliberately not a 403, because the hide is a preference and the same account
-        with `adult=1` gets the results. A source above the caller's age cap is still refused with 403.
+        Since v0.42.0 an adult source (one the admin named on the 18+ source list) answers `{ content: [] }` without
+        being asked while the 18+ reveal is off — an empty page, deliberately not a 403, because the hide is a preference
+        and the same account with `adult=1` gets the results. A source above the caller's age cap is still refused with
+        403. With the reveal off, the titles of any other source that its genres or rating mark 18+ are left out.
       parameters:
         - name: source
           in: query
@@ -3281,14 +3286,18 @@ paths:
         neither asked nor listed in `sources`, so no outbound query goes to it and nothing it answered for
         another account is read back here.
         Since v0.55.4 (#158) `rating` filters the answer for 18+ (Discover's All / Hide 18+ / 18+ only). A result is
-        18+ when its source is adult (declared, or on the admin's 18+ source list), MangaDex rates it erotica or
+        18+ when its source is on the admin's 18+ source list (or, unless the viewer is hiding 18+, declares itself adult),
+        MangaDex rates it erotica or
         pornographic, or a genre is on the admin's 18+ genre list (trimmed, case-blind); safe when MangaDex rates it
         safe or suggestive, or it names genres, the list has some and none match; else unknown, kept by `all` and
         `safe` and left out of `adult`. A card is 18+ when any provider is, else safe when any is -- except that since
         v0.55.5 a provider 18+ only by its extension's own flag counts only when every provider is one; cards, providers and
         rail results carry `rating` when known. Filtered per caller before the 30-card cap, never in the shared entry.
         An account capped below 18, and any request without `adult=1`, is held to `safe` -- so with Show 18+ off an
-        18+ title from a source that is not adult itself (MangaDex's erotica) no longer shows.
+        18+ title from a source that is not adult itself (MangaDex's erotica) no longer shows. Under `safe` a source's
+        own extension flag is not a verdict (fork change): the source stays in the fan-out and a title is left out only
+        for its own reason -- an 18+ genre, an erotica or pornographic rating, or a source the admin named. A title
+        nothing speaks for is shown.
       parameters:
         - name: q
           in: query
@@ -4326,6 +4335,12 @@ paths:
                   type: boolean
                 force:
                   type: boolean
+                libraryId:
+                  type: string
+                  description: >-
+                    File the series in this library, under its first folder, so its files land in that library's
+                    root. Absent (or the default library) keeps the root. 404 no_such_library when unknown, 403 when
+                    the account may not open that library.
                 numbering:
                   type: string
                   enum: [auto, source, posting_order]
@@ -4930,6 +4945,19 @@ paths:
           description: Malformed body or parameter
         "401":
           description: Not authenticated
+  /api/favorites/ids:
+    get:
+      tags:
+        - personal
+      summary: The ids of the caller's favourite series.
+      operationId: getApiFavoritesIds
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Not authenticated
   /api/favorites/{seriesId}:
     delete:
       tags:
@@ -4951,6 +4979,81 @@ paths:
           description: Not authenticated
         "404":
           description: Not found, or not visible to this account
+  /api/keep-reading/{seriesId}:
+    put:
+      tags:
+        - personal
+      summary: Take a series out of the Keep reading row, or put it back.
+      description: The series stays in the library and keeps its progress. Reading it again brings it back by itself.
+      operationId: putApiKeepReadingSeriesid
+      parameters:
+        - name: seriesId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - hidden
+              properties:
+                hidden:
+                  type: boolean
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Invalid body
+        "401":
+          description: Not authenticated
+  /api/ignored-titles:
+    get:
+      tags:
+        - personal
+      summary: The titles the caller has chosen never to see on Discover.
+      operationId: getApiIgnoredTitles
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Not authenticated
+    put:
+      tags:
+        - personal
+      summary: Ignore a title that is not in the library, or stop ignoring it.
+      description: Per account, matched on the folded title so every source's copy goes together.
+      operationId: putApiIgnoredTitles
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+                - ignored
+              properties:
+                title:
+                  type: string
+                ignored:
+                  type: boolean
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Invalid body
+        "401":
+          description: Not authenticated
   /api/collections:
     get:
       tags:
@@ -5005,6 +5108,8 @@ paths:
               properties:
                 name:
                   type: string
+                description:
+                  type: string
                 accent:
                   type: string
                 query:
@@ -5024,7 +5129,7 @@ paths:
     patch:
       tags:
         - personal
-      summary: Rename a collection, change a smart list's search, or share it.
+      summary: Rename a collection, change its description, change a smart list's search, or share it.
       description: >-
         The owner's only: someone else's list, shared or not, is 404. Since v0.61.0 `query` replaces a smart list's
         search (400 `not_smart` on a hand-picked list) and `shared` shares the list with the household or stops it.
@@ -5088,7 +5193,7 @@ paths:
         - personal
       summary: One collection and its series.
       description: >-
-        `{id, name, accent, sort_order, items}`: the series in the list's own order, enriched like every listing
+        `{id, name, accent, sort_order, description, items}`: the series in the list's own order, enriched like every listing
         (`yomi.unread` is the unread badge), a series hidden by the 18+ switch or an age cap left out. Since v0.55.7 (#164)
         each item also carries `lastReadAt` (when the caller last read in it, their own progress only; null if never)
         and `latestChapterAt` (when its newest chapter arrived; null without one), for the list's sorts. Since v0.61.0
@@ -5225,6 +5330,44 @@ paths:
           description: Not found, or not visible to this account
         "409":
           description: "`smart_list`: a smart list holds what its search finds (v0.61.0)"
+  /api/ratings/loved:
+    get:
+      tags:
+        - personal
+      summary: The series you most recently gave four or five stars, for Home's "Because you rated" rail.
+      operationId: getApiRatingsLoved
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: "`{series: {id, name, stars} | null}`, only a series you may see."
+        "401":
+          description: Not authenticated
+        "403":
+          description: "Forbidden: token scope, account permission or age limit"
+  /api/series/{id}/other-titles:
+    get:
+      tags:
+        - library
+      summary: The English and romaji names a series goes by.
+      operationId: getApiSeriesIdOtherTitles
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: Latin-script other names of the series.
+        "401":
+          description: Not authenticated
+        "403":
+          description: "Forbidden: token scope, account permission or age limit"
+        "404":
+          description: not_found
   /api/ratings/{seriesId}:
     put:
       tags:
@@ -5762,6 +5905,124 @@ paths:
           description: Malformed body or parameter
         "401":
           description: Not authenticated
+  /api/collections/{id}/export:
+    get:
+      tags:
+        - personal
+      summary: Download a list as a file another Uchiyomi user can import.
+      operationId: getApiCollectionsIdExport
+      description: >-
+        `{format: "uchiyomi-list", version: 1, name, description, items: [{title, coverUrl?}]}`, sent as an
+        attachment. Titles, not ids, so it works on any server: the library's own series first, then the titles saved
+        for later.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: The list file.
+        "401":
+          description: Not authenticated
+        "404":
+          description: Not found
+  /api/collections/import:
+    post:
+      tags:
+        - personal
+      summary: Import an exported list into a new list of the same name, or into one of yours.
+      operationId: postApiCollectionsImport
+      description: >-
+        Body `{list, collectionId?}`, `list` being the exported file. Without `collectionId` a new list is made with
+        the file's name and description. Titles the library holds are linked; the others are saved on the list for
+        later. Answers `{ok, id, name, added, saved, total, toAdd}`; `toAdd` lists the saved titles whose exported sources this
+        server can use (`[{title, sources:[{source, sourceId}]}]`), for a client that offers to add them.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                list:
+                  type: object
+                collectionId:
+                  type: string
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Not an exported list
+        "401":
+          description: Not authenticated
+        "404":
+          description: Not found
+  /api/collections/{id}/wants:
+    post:
+      tags:
+        - personal
+      summary: Save a title the library does not hold yet to a collection.
+      operationId: postApiCollectionsIdWants
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                coverUrl:
+                  type: string
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Malformed body or parameter
+        "401":
+          description: Not authenticated
+        "404":
+          description: Not found
+  /api/collections/{id}/wants/{key}:
+    delete:
+      tags:
+        - personal
+      summary: Drop a saved title from a collection.
+      operationId: deleteApiCollectionsIdWantsKey
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Not authenticated
+        "404":
+          description: Not found
   /api/collections/{id}/items/bulk:
     post:
       tags:
@@ -6190,9 +6451,11 @@ paths:
         reader's edges) and, since v0.55.7, `listSorts` (list id to `az`, `za`, `read`, `unread` or `latest`: the order
         each list is shown in; a list's own order is not stored). Since v0.55.8 the validated keys are `librarySort`,
         `homeCollections` and `showAllChapters` (since v0.60.0 also `librarySortDir`, since v0.61.0 `incognito`, a
-        boolean, and since v0.68.0 `trackerPlanOnAdd`, a boolean). Unknown keys remain accepted and retained for compatibility -- since v0.66.0 the web app's `homeRails`
-        (`{order, hidden}`, Home's rails as the reader arranged them; null is the default order) and `tone` (`oled`,
-        `graphite` or `midnight`, the background) among them.
+        boolean). Fork change: `compactChapters`, `showGhosts` and `alsoFollow` are account settings now (they were
+        per-device); each must be a boolean when present, else 400. Since v0.68.0 `trackerPlanOnAdd` is a boolean too. Unknown keys remain accepted and retained for
+        compatibility -- since v0.66.0 the web app's `homeRails` (`{order, hidden}`, Home's rails as the reader
+        arranged them; null is the default order) and `tone` (`oled`, `graphite` or `midnight`, the background)
+        among them.
       operationId: putApiSettings
       requestBody:
         required: false
@@ -7152,6 +7415,26 @@ paths:
           description: Not authenticated
         "403":
           description: "Forbidden: token scope, account permission or age limit"
+  /api/admin/limits:
+    get:
+      tags:
+        - admin
+      summary: The environment-only numeric knobs and what this server is running on.
+      operationId: getApiAdminLimits
+      description: >-
+        Fork change. Requires an admin account and a token carrying the admin scope. Scopes only ever
+        restrict. Read-only: returns {limits: [{key, value, unit}], note} for SUWAYOMI_PAGE_CONCURRENCY,
+        SOURCE_LATEST_TIMEOUT_MS, SOURCE_TEST_TIMEOUT_MS, SCAN_CONCURRENCY, BACKUP_KEEP and CACHE_MAX_BYTES.
+        Numbers only; no secret is ever returned. Change them with environment variables and a restart.
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Not authenticated
+        "403":
+          description: "Forbidden: token scope, account permission or age limit"
   /api/admin/settings:
     get:
       tags:
@@ -7438,6 +7721,7 @@ paths:
                     minLength: 1
                     maxLength: 60
                 adultSources:
+                  deprecated: true
                   description: >-
                     The source ids rated Adult only, on top of the ones whose extension declares itself NSFW,
                     replaced whole (PUT /api/admin/sources/{id}/age-rating rates one at a time). Since v0.73.0 a
@@ -8939,6 +9223,52 @@ paths:
           description: "Forbidden: token scope, account permission or age limit"
         "404":
           description: The series was not following that source
+  /api/admin/series/{id}/sources/{sourceId}/url:
+    get:
+      tags:
+        - admin
+      summary: "**Fork change.** The source's own web page for this series."
+      operationId: getApiAdminSeriesIdSourcesSourceIdUrl
+      description: >-
+        Requires an admin account and a token carrying the admin scope. Scopes only ever restrict. The address
+        is the source's own, read from it live (the Sources sheet opens a source's name with it), never stored:
+        a source that renumbers or rehosts its series would otherwise hand out a dead link forever. The source
+        must be one this series already follows, and it is asked under the id the follow stored, within 20
+        seconds. Only `http`/`https` is answered; an extension source that gives no address of its own is a
+        404, not an error, because many simply have none.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: sourceId
+          in: path
+          required: true
+          schema:
+            type: string
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: The source's page for this series.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [url]
+                properties:
+                  url:
+                    type: string
+                    description: An absolute http(s) address on the source itself.
+        "401":
+          description: Not authenticated
+        "403":
+          description: "Forbidden: token scope, account permission or age limit"
+        "404":
+          description: The series does not follow that source (`not_found`), or the source gave no address (`no_url`)
+        "502":
+          description: The source did not answer (`unavailable`)
   /api/admin/series/{id}/check:
     post:
       tags:
@@ -9004,6 +9334,32 @@ paths:
           description: "Forbidden: token scope, account permission or age limit"
         "404":
           description: Not found, or not visible to this account
+  /api/admin/series/{id}/banner/refresh:
+    post:
+      tags:
+        - admin
+      summary: Refresh a series banner.
+      description: Looks the series up online again and makes its automatic banner again from the art it has now. An uploaded banner answers 409.
+      operationId: postApiAdminSeriesIdBannerRefresh
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Not authenticated
+        "403":
+          description: Admin only
+        "404":
+          description: No such series
+        "409":
+          description: The banner is an uploaded file
   /api/admin/series/{id}/numbering:
     get:
       tags:
@@ -10147,6 +10503,9 @@ paths:
               properties:
                 libraryId:
                   type: string
+                moveFiles:
+                  type: boolean
+                  description: Also move the series folder into the library's first folder on disk (default true). A move that cannot be done answers 409 move_failed (one series) or lists `problems` (many), and leaves that series where it was.
       security:
         - bearer: []
       responses:
@@ -10154,6 +10513,8 @@ paths:
           description: OK
         "400":
           description: Malformed body or parameter
+        "409":
+          description: The files could not be moved
         "401":
           description: Not authenticated
         "403":
@@ -10180,6 +10541,9 @@ paths:
                     type: string
                 libraryId:
                   type: string
+                moveFiles:
+                  type: boolean
+                  description: Also move the series folder into the library's first folder on disk (default true). A move that cannot be done answers 409 move_failed (one series) or lists `problems` (many), and leaves that series where it was.
       security:
         - bearer: []
       responses:
@@ -10309,6 +10673,10 @@ paths:
                   type: boolean
                   default: true
                   description: Permit automatic AniList enrichment for series currently in this library.
+                defaultVisible:
+                  type: boolean
+                  default: true
+                  description: The library view starts with this library selected. The default library ignores it.
                 readerPrefs:
                   description: Reading defaults for the library's series (mode, spread, pagedDirection); null clears them. Layered under a source's and a series' own. No theme, which stays each reader's own; an unknown key is dropped.
                   type: [object, "null"]
@@ -10414,6 +10782,136 @@ paths:
           description: Not authenticated
         "403":
           description: "Forbidden: token scope, account permission or age limit"
+  /api/admin/series/bulk/genres:
+    post:
+      tags:
+        - admin
+      summary: Add and/or remove genres on a selection of series.
+      operationId: postApiAdminSeriesBulkGenres
+      description: Requires an admin account and a token carrying the admin scope. Written to the series overrides, which a scan never overwrites.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [seriesIds]
+              properties:
+                seriesIds:
+                  type: array
+                  items: { type: string }
+                  minItems: 1
+                  maxItems: 500
+                add:
+                  type: array
+                  items: { type: string }
+                remove:
+                  type: array
+                  items: { type: string }
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: "`{applied, skipped}`."
+        "400":
+          description: bad_request -- nothing to add or remove.
+        "401":
+          description: Not authenticated
+        "403":
+          description: "Forbidden: token scope, account permission or age limit"
+  /api/admin/libraries/{id}/consolidate:
+    post:
+      tags:
+        - admin
+      summary: Gather every series of a library under one folder, dropping the source-name level.
+      operationId: postApiAdminLibrariesIdConsolidate
+      description: >-
+        Requires an admin account and a token carrying the admin scope. Each series folder becomes
+        `<target>/<last segment of its folder>`, renamed on disk in every root it occupies. `dryRun: true` answers
+        what would move and changes nothing. Series that would clash or leave the library are left alone and listed
+        under `problems`.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [target]
+              properties:
+                target:
+                  type: string
+                  maxLength: 300
+                  description: A folder under the library root; empty for the root itself.
+                dryRun:
+                  type: boolean
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: "`{dryRun, target, planned, moved, same, problems, sample}`."
+        "400":
+          description: bad_request, bad_path, or outside_library -- the target is not inside this library.
+        "401":
+          description: Not authenticated
+        "403":
+          description: "Forbidden: token scope, account permission or age limit"
+        "404":
+          description: not_found -- no such library.
+  /api/admin/libraries/{id}/relocate:
+    post:
+      tags:
+        - admin
+      summary: Move the series of folders about to leave a library into a new folder.
+      operationId: postApiAdminLibrariesIdRelocate
+      description: >-
+        Requires an admin account and a token carrying the admin scope. The series of this library that live in
+        `folders` (and in none of `keep`) are renamed on disk to `<target>/<last segment of their folder>`.
+        `dryRun: true` answers what would move and changes nothing. Series that would clash are left alone and
+        listed under `problems`.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [folders, target]
+              properties:
+                folders:
+                  type: array
+                  items: { type: string, maxLength: 300 }
+                keep:
+                  type: array
+                  items: { type: string, maxLength: 300 }
+                target:
+                  type: string
+                  maxLength: 300
+                dryRun:
+                  type: boolean
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: "`{dryRun, target, total, planned, moved, problems, sample}`."
+        "400":
+          description: bad_request or bad_path.
+        "401":
+          description: Not authenticated
+        "403":
+          description: "Forbidden: token scope, account permission or age limit"
+        "404":
+          description: not_found -- no such library.
   /api/admin/libraries/{id}:
     patch:
       tags:
@@ -10458,6 +10956,9 @@ paths:
                 anilistLookup:
                   type: boolean
                   description: Permit automatic AniList enrichment for series currently in this library.
+                defaultVisible:
+                  type: boolean
+                  description: The library view starts with this library selected. The default library ignores it.
                 readerPrefs:
                   description: Reading defaults for the library's series (mode, spread, pagedDirection); null clears them. Layered under a source's and a series' own. No theme, which stays each reader's own; an unknown key is dropped.
                   type: [object, "null"]
@@ -11040,6 +11541,26 @@ paths:
           description: "Forbidden: token scope, account permission or age limit"
         "502":
           description: The extension engine did not answer
+  /api/admin/extensions/match:
+    post:
+      tags:
+        - admin
+      summary: Find the catalogue extensions that would supply sources a list import lacked.
+      operationId: postApiAdminExtensionsMatch
+      description: Requires an admin account and a token carrying the admin scope. Scopes only ever restrict.
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Not authenticated
+        "403":
+          description: "Forbidden: token scope, account permission or age limit"
+        "502":
+          description: The extension engine did not answer
   /api/admin/extensions/solver:
     post:
       tags:
@@ -11434,6 +11955,39 @@ paths:
           description: "Forbidden: token scope, account permission or age limit"
         "404":
           description: The finding is no longer there
+  /api/admin/health/recheck:
+    post:
+      tags:
+        - admin
+      summary: "Run one Health check again, on its own."
+      operationId: postApiAdminHealthRecheck
+      description: >-
+        Requires an admin account and a token carrying the admin scope. Scopes only ever restrict.
+        Body {check}: a check id as GET /api/admin/health reports it. Answers {generatedAt, check} where `check` is
+        that one check as the next full run would report it (same ignores), or null when it has nothing to report
+        any more. Read-only: it does not refresh the header summary.
+      security:
+        - bearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [check]
+              properties:
+                check:
+                  type: string
+                  enum: [chapter-gaps, numbering, short-chapters, outliers, saved-twice, duplicates, sources, chapter-failures, frozen-series, solver, update, library-scan, downloads-missing, folders-twice, extension-cap, extension-engine, files, covers, details, disk, stalled, orphans, trackers]
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Not authenticated
+        "403":
+          description: "Forbidden: token scope, account permission or age limit"
   /api/admin/health/autofix:
     post:
       tags:
@@ -12331,7 +12885,9 @@ paths:
         Requires an admin account and a token carrying the admin scope. Scopes only ever restrict. Body {seriesId,
         sourceId}; what is promoted is the run's own record. A follower's proposal is switched to as POST
         /api/admin/series/{id}/main-source switches (the replaced source dropped); a search's is checked again as a
-        follow is, followed under the cap -- dead followers making room -- and then switched to. The proposal reads
+        follow is, followed under the cap -- dead followers making room -- and then switched to. In a review run over
+        one source's series that is not a Replace (Sources -> Add backups) the old main source is kept as a follower,
+        and a proposal already followed can be made main too. The proposal reads
         `promoted`, and the series' result carries `promoted` (and, for a search's, `followed` gains it). Audited as
         `series.main_source` with `via: review` (and the follow as `series.follow_source` with `via: replace_review`).
       parameters:

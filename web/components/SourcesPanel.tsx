@@ -57,7 +57,7 @@ import { MangadexLanguages, UnstatedLanguageRow } from '@/components/MangadexCar
 import { SourceSheet, type SheetTarget } from '@/components/SourceSheet';
 import { SourceTile } from '@/components/SourceTile';
 import { ReplaceDialog } from '@/components/ReplaceDialog';
-import { FindResultsSheet } from '@/components/FindSources';
+import { BackupStartDialog, FindResultsSheet } from '@/components/FindSources';
 import { IcChevronRight, IcInfo, IcRefresh } from '@/components/icons';
 
 /** The view, from `?view=` (or `card=mangadex`) once on arrival, and written back on a switch (lib/useTabParam.ts's rule). */
@@ -96,6 +96,7 @@ export function SourcesPanel() {
     return arrived ? { id: arrived } : null;
   });
   const [replacing, setReplacing] = useState<{ id: string; name: string } | null>(null);
+  const [backing, setBacking] = useState<{ id: string; name: string } | null>(null);
   const [aside, setAside] = useState<'langs' | 'repos' | 'results' | null>(null);
 
   const { data: status } = useQuery({ queryKey: ['ext-status'], queryFn: () => api<ExtStatus>('/api/admin/extensions/status') });
@@ -132,6 +133,16 @@ export function SourcesPanel() {
 
   const closeSheet = () => { setSheet(null); dropSettingsParam(); };
   const openReplace = (s: OverviewSource) => { setSheet(null); setReplacing({ id: s.id, name: s.name }); };
+  const openBackup = (s: OverviewSource) => { setSheet(null); setBacking({ id: s.id, name: s.name }); };
+  // Starts the run, then shows it in the results sheet, where a review's matches are decided. A refusal stays in the dialog.
+  const startBackup = async (review: boolean): Promise<string | null> => {
+    if (!backing || !fr) return null;
+    const slot = await fr.start(`backup:${backing.id}`, { sourceId: backing.id, ...(review ? { review: true } : {}) });
+    if (slot.phase === 'refused' || slot.phase === 'failed') return slot.reason ?? tr('Could not start the search');
+    setBacking(null);
+    setAside('results');
+    return null;
+  };
   // A settings link to a source the overview does not hold (an extension's source the engine lists but Uchiyomi does
   // not know yet): its settings alone, as before. A `source=` link to one (v0.55.0): no sheet -- the list is the place.
   const unknown = !!sheet && 'id' in sheet && !!overview && !overview.sources.some((s) => s.id === sheet.id);
@@ -148,7 +159,7 @@ export function SourcesPanel() {
 
       {overview && needsAttention(overview.attention) && (
         <Attention overview={overview} evidence={evidence} installed={installed} actions={actions}
-          onOpen={(id) => setSheet({ id })} onReplace={openReplace} onChanged={changed} />
+          onOpen={(id) => setSheet({ id })} onReplace={openReplace} onBackup={openBackup} onChanged={changed} />
       )}
 
       <section aria-label={tr('Sources')} className="space-y-4">
@@ -180,7 +191,7 @@ export function SourcesPanel() {
       {sheet && !lostSettings && !lostSource && (
         <OnBody>
           <SourceSheet target={sheet} overview={overview} evidence={evidence} testMs={adminRows?.testMs} status={status} actions={actions}
-            installed={installed} hiddenLangs={srcs?.hiddenLangs ?? []} onClose={closeSheet} onReplace={openReplace}
+            installed={installed} hiddenLangs={srcs?.hiddenLangs ?? []} onClose={closeSheet} onReplace={openReplace} onBackup={openBackup}
             onLanguages={() => { closeSheet(); setAside('langs'); }} onChanged={changed} />
         </OnBody>
       )}
@@ -193,6 +204,7 @@ export function SourcesPanel() {
             onClose={() => setReplacing(null)} onResults={() => { setReplacing(null); setAside('results'); }} />
         </OnBody>
       )}
+      {backing && <BackupStartDialog sourceId={backing.id} name={backing.name} onStart={startBackup} onClose={() => setBacking(null)} />}
       {aside === 'results' && <FindResultsSheet onClose={() => setAside(null)} poll={false} />}
       {aside === 'langs' && <OnBody><LanguagesSheet onClose={() => setAside(null)} /></OnBody>}
       {aside === 'repos' && <OnBody><ReposSheet repos={repos?.content ?? []} onClose={() => setAside(null)} /></OnBody>}
@@ -216,7 +228,7 @@ function AttentionRow({ lead, title, tag, line, hook, onOpen, children }: {
         {/* A sentence wraps on a phone, where "1 extension has an update" was cut to "1 extension has …". */}
         <span className="flex min-w-0 items-center gap-1.5">
           <span className="min-w-0 break-words text-sm font-medium text-fog-100">{title}</span>
-          {tag && <span className="shrink-0 rounded-[4px] bg-ink-800 px-1.5 text-[10px] font-semibold leading-4 text-fog-400">{tag}</span>}
+          {tag && <span className="shrink-0 rounded-[4px] bg-ink-800 px-1.5 text-[11px] font-semibold leading-4 text-fog-400">{tag}</span>}
         </span>
         <span className="mt-0.5 block text-[12px] leading-snug text-fog-500">{line}</span>
       </span>
@@ -248,13 +260,14 @@ function Names({ names }: { names: string[] }) {
   return <>{names.map((n, i) => <span key={`${n}-${i}`}>{i > 0 && sep}<bdi>{n}</bdi></span>)}</>;
 }
 
-export function Attention({ overview, evidence, installed, actions, onOpen, onReplace, onChanged }: {
+export function Attention({ overview, evidence, installed, actions, onOpen, onReplace, onBackup, onChanged }: {
   overview: SourcesOverview;
   evidence: ReadonlyMap<string, SourceEvidenceRow>;
   installed: ReturnType<typeof installedList>;
   actions: ReturnType<typeof useExtensionActions>;
   onOpen: (id: string) => void;
   onReplace: (s: OverviewSource) => void;
+  onBackup: (s: OverviewSource) => void;
   onChanged: () => Promise<unknown>;
 }) {
   const a = overview.attention;
@@ -278,7 +291,8 @@ export function Attention({ overview, evidence, installed, actions, onOpen, onRe
               lead={<SourceTile id={s.id} name={s.name} icon={s.icon} tone="warn" size={40} />}
               title={<bdi dir="auto">{s.name}</bdi>} tag={kindLabel(s.kind)}
               line={<><span className="font-medium text-amber-300">{why}</span>{rest.map((r) => <span key={r}> · {r}</span>)}</>}>
-              <button type="button" onClick={() => onReplace(s)} className="btn-key btn-key-primary" data-sources-replace={s.id}>{tr('Replace')}</button>
+              <button type="button" onClick={() => onBackup(s)} aria-label={`${tr('Add backups')}: ${s.name}`} className="btn-key" data-sources-backup={s.id}>{tr('Add backups')}</button>
+              <button type="button" onClick={() => onReplace(s)} aria-label={`${tr('Replace')}: ${s.name}`} className="btn-key btn-key-primary" data-sources-replace={s.id}>{tr('Replace')}</button>
             </AttentionRow>
           );
         })}
@@ -290,7 +304,7 @@ export function Attention({ overview, evidence, installed, actions, onOpen, onRe
             title={updatesTitle(a.updates)}
             line={updating.length ? <Names names={updating.map((e) => e.name)} /> : null}>
             {a.updates === 1 && updating.length === 1 ? (
-              <button type="button" onClick={() => void actions.act(updating[0], 'update')} disabled={!!actions.busy[updating[0].pkgName]} data-ext-update
+              <button type="button" onClick={() => void actions.act(updating[0], 'update')} disabled={!!actions.busy[updating[0].pkgName]} aria-label={`${tr('Update')}: ${updating[0].name}`} data-ext-update
                 className={`btn-key border-amber-500/35 bg-amber-500/10 text-amber-300 hover:border-amber-400/70 hover:text-amber-200 ${busyKey(actions.busy[updating[0].pkgName] === 'update')}`}>
                 {actions.busy[updating[0].pkgName] === 'update' ? <Busy tone="amber">{tr('Updating…')}</Busy> : tr('Update')}
               </button>
@@ -474,7 +488,7 @@ export function YourSources({ overview, failed, evidence, onRetry, onOpen, onCha
   if (!overview) {
     return failed ? (
       <div className="card px-4 py-6 text-center" data-sources-error>
-        <p className="text-sm font-medium text-fog-100">{tr('Could not read your sources')}</p>
+        <p role="alert" className="text-sm font-medium text-fog-100">{tr('Could not read your sources')}</p>
         <button type="button" onClick={onRetry} className="btn-key mt-3">{tr('Try again')}</button>
       </div>
     ) : (
@@ -561,7 +575,7 @@ function SourceRow({ s, since, action, onOpen, onChanged }: {
         <span className="min-w-0 flex-1">
           <span className="flex min-w-0 items-center gap-1.5">
             <bdi dir="auto" className="truncate text-sm font-medium text-fog-100">{s.name}</bdi>
-            <span className="shrink-0 rounded-[4px] bg-ink-800 px-1.5 text-[10px] font-semibold leading-4 text-fog-400" data-source-kind={s.kind}>{kindLabel(s.kind)}</span>
+            <span className="shrink-0 rounded-[4px] bg-ink-800 px-1.5 text-[11px] font-semibold leading-4 text-fog-400" data-source-kind={s.kind}>{kindLabel(s.kind)}</span>
           </span>
           <span className="mt-0.5 block text-[12px] leading-snug text-fog-500" data-source-line>
             <span className={WORD[says.tone] ?? TONE_TEXT.info}>{says.word}</span>
@@ -572,7 +586,7 @@ function SourceRow({ s, since, action, onOpen, onChanged }: {
         {!action && <IcChevronRight aria-hidden width={16} height={16} className="shrink-0 text-fog-600 rtl:-scale-x-100" />}
       </button>
       {action === 'turn-on' && (
-        <button type="button" onClick={() => void turnOn()} disabled={busy} className={`btn-key btn-key-accent relative ${busyKey(busy)}`} data-sources-turn-on={s.id}>
+        <button type="button" onClick={() => void turnOn()} disabled={busy} aria-label={`${tr('Turn on')}: ${s.name}`} className={`btn-key btn-key-accent relative ${busyKey(busy)}`} data-sources-turn-on={s.id}>
           {busy ? <Busy>{tr('Turning on…')}</Busy> : tr('Turn on')}
         </button>
       )}
@@ -634,7 +648,7 @@ function SourcePacksRow({ onDone }: { onDone: () => Promise<unknown> }) {
   };
   return (
     <Row label={tr('Source packs')}
-      help={tr('Mount a compiled source pack at the server’s {dir}, then reload: it is picked up with no restart.', { dir: 'SOURCES_DIR' })}>
+      help={tr('Put a compiled source pack in the server’s {dir} folder, then press Reload sources. No restart is needed.', { dir: 'SOURCES_DIR' })}>
       <button type="button" onClick={() => void reload()} disabled={reloading} className={`btn-key ${busyKey(reloading)}`} data-sources-reload>
         {reloading ? <Busy tone="muted">{tr('Reloading…')}</Busy> : tr('Reload sources')}
       </button>
@@ -685,12 +699,12 @@ function AddSite({ onAdded }: { onAdded: () => Promise<unknown> }) {
         {/* 32 px to tap; the negative margins keep the heading's line as tall as its words. */}
         <button type="button" onClick={() => setHelp(!help)} aria-expanded={help} aria-controls="sources-add-site-help" aria-label={tr('About adding a site')}
           className="-my-1.5 grid h-8 w-8 place-items-center rounded-full text-fog-500 transition hover:text-fog-200" data-sources-add-site-help>
-          <IcInfo width={14} height={14} />
+          <IcInfo aria-hidden width={14} height={14} />
         </button>
       </div>
       {help && (
         <p id="sources-add-site-help" className="mt-1 max-w-prose text-[11px] leading-relaxed text-fog-500">
-          {tr('Paste a site’s homepage address: its engine is found by itself, or pick it. Works for sites on the Madara, MangaThemesia or Manganato engines, at once and with no restart.')}
+          {tr('Paste the site’s homepage address. Uchiyomi finds its engine, or you can pick it. Works with Madara, MangaThemesia and Manganato sites, straight away and with no restart.')}
         </p>
       )}
       <form className="mt-2 flex flex-wrap gap-2" onSubmit={(e) => { e.preventDefault(); void add(); }}>
@@ -700,8 +714,8 @@ function AddSite({ onAdded }: { onAdded: () => Promise<unknown> }) {
           <option value="mangathemesia">{tr('MangaThemesia')}</option>
           <option value="manganato">{tr('Manganato')}</option>
         </select>
-        <input value={name} onChange={(e) => setName(e.target.value)} placeholder={tr('Name')} aria-label={tr('Name')} className="field min-w-[110px] flex-1" />
-        <input value={base} onChange={(e) => setBase(e.target.value)} placeholder="https://site.com" aria-label={tr('Address')} dir="ltr"
+        <input value={name} onChange={(e) => setName(e.target.value)} placeholder={tr('Name')} aria-label={tr('Name')} autoComplete="off" className="field min-w-[110px] flex-1" />
+        <input value={base} onChange={(e) => setBase(e.target.value)} placeholder="https://site.com" aria-label={tr('Address')} dir="ltr" type="url" inputMode="url" autoComplete="off"
           autoCapitalize="none" autoCorrect="off" spellCheck={false} className="field min-w-[170px] flex-[2]" />
         <button type="submit" disabled={adding || !name.trim() || !base.trim()} className={`btn-key ${busyKey(adding)}`} data-sources-add-site-go>
           {adding ? <Busy tone="muted">{tr('Adding…')}</Busy> : tr('Add')}

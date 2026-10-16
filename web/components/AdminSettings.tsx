@@ -20,7 +20,11 @@
 // ("Thank you — counted" / "No longer counted", because opting out destroys the identifier) and the
 // read-chapter cleanup ("Read chapters will be deleted" / "Read chapters are kept", because it deletes
 // files). Every other row's outcome is its own state plus the tick.
+import { ToggleChip } from '@/components/ui';
+import { NoSourceMatch, SourceTools, useSourceTools } from '@/components/SourceTools';
+import { arrangeSources, SOURCE_TOOLS_MIN } from '@/lib/sourceList';
 import { useEffect, useState, type ReactNode } from 'react';
+import Link from 'next/link';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useToast } from '@/components/Toast';
@@ -35,11 +39,12 @@ import { SERIES_TYPES, seriesTypeKey } from '@/lib/seriesTypes';
 import { hasGroup, normGroup, reorder, withoutGroup } from '@/lib/scanlators';
 import { suggestGroups } from '@/lib/groupSuggest';
 import { NotificationsSection } from '@/components/AdminNotifications';
-import { DownloadsSection } from '@/components/ArchiveSettings';
+import { DownloadsSection, PolitenessSection } from '@/components/ArchiveSettings';
 import { isDesktop } from '@/lib/desktop';
 import { ssoOnly, useAuthConfig } from '@/lib/authConfig';
 import { adultShown } from '@/lib/adult';
 import { addable, moveIn, orderRows } from '@/lib/sourceOrder';
+import { OVERVIEW_KEY, OVERVIEW_URL, type SourcesOverview } from '@/lib/sourcesPanel';
 
 /** One PATCH. Resolves once the server has answered, so the row that called it can show its tick. */
 type Save = (body: Record<string, unknown>) => Promise<unknown>;
@@ -73,6 +78,7 @@ export function AdminSettings() {
       <SectionIndex label={tr('Settings')} className="col-span-full" sections={[
         ['server', tr('Server')], ['schedules', tr('Updates & schedules')], ['housekeeping', tr('Library housekeeping')],
         ['scanlators', tr('Scanlators')], ['notifications', tr('Notifications')], ['downloads', tr('Downloads')],
+        ['politeness', tr('Downloads & politeness')],
         ['adult-filter', tr('18+ filter')], ['source-order', tr('Source order')], ['notice-chapters', tr('Notice chapters')],
       ]} />
       <ServerSection data={data} save={save} />
@@ -84,11 +90,28 @@ export function AdminSettings() {
           their order. Its rows and its one dialog live in their own file; it reads its own endpoint. */}
       <NotificationsSection />
       {/* v0.49.0 (#117): the slow archive's pause and pace, in its own file. After the pinned sections, the
-          four above and Notifications right behind them (adminNotifications.test.ts). */}
+          four above and Notifications right behind them (adminNotifications.test.ts). Its second card, Downloads &
+          politeness, is the env-only knobs read-only and the sources that are blocked right now. */}
       <DownloadsSection data={data} save={save} />
+      <PolitenessSection />
       <AdultFilterSection data={data} save={save} />
       <SourceOrderSection data={data} save={save} />
       <NoticeChaptersSection data={data} save={save} />
+    </div>
+  );
+}
+
+/**
+ * A titled part of one card: a heading, a sentence, and its controls, as ONE divider group in the section's `divide-y`.
+ * Content ratings holds three groups, and a Section inside a Section is a card in a card; a Block keeps each one
+ * separate without a second frame.
+ */
+function Block({ id, title, description, children }: { id?: string; title: string; description?: string; children: ReactNode }) {
+  return (
+    <div id={id} className="scroll-mt-4 py-3 first:pt-1 lg:scroll-mt-20">
+      <h3 className="text-sm font-semibold text-fog-100">{title}</h3>
+      {description && <p className="mt-0.5 max-w-prose text-[11px] leading-relaxed text-fog-500">{description}</p>}
+      {children}
     </div>
   );
 }
@@ -105,7 +128,7 @@ export function AdminSettings() {
  * numbered like 12.5 of the types switched on is hidden, real chapters a site split into parts included -- which its
  * help says before it is flipped, and the section's own sentence says which rule is in force.
  *
- * Held locally and saved whole on every flip, re-seeded from the refetch, for the reason AdultFilterSection says:
+ * Held locally and saved whole on every flip, re-seeded from the refetch, for the reason ContentRatingsSection says:
  * two quick flips must not both start from the list as it was before either landed.
  */
 function NoticeChaptersSection({ data, save }: { data: any; save: Save }) {
@@ -121,8 +144,9 @@ function NoticeChaptersSection({ data, save }: { data: any; save: Save }) {
   return (
     <Section id="notice-chapters" title={tr('Notice chapters')} icon={<IcFilter width={18} height={18} />}
       description={shortOnly
-        ? tr('Sources often post notices for readers as a short chapter numbered after the latest one, like 100.5. For each type switched on, chapters numbered like 12.5 with 3 pages or fewer are hidden from the library, the reader, OPDS and Mihon; longer ones, and any whose pages are not counted yet, stay. A chapter a source already lists with 3 pages or fewer is not downloaded. Nothing is deleted: switching a type off shows them again. A series can override this in its Sources & translations sheet.')
-        : tr('Sources often post notices for readers as a short chapter numbered after the latest one, like 100.5. For each type switched on, every chapter numbered like 12.5 is hidden from the library, the reader, OPDS and Mihon, and one a source lists is not downloaded. Nothing is deleted: switching a type off shows them again. A series can override this in its Sources & translations sheet.')}>
+        ? tr('Some sources post notices as a short chapter numbered like 100.5. For each type switched on, chapters numbered like 12.5 with 3 pages or fewer are hidden from the library, reader, OPDS and Mihon. Longer ones stay, and so do any whose pages are not counted yet. A hidden chapter is not downloaded. Nothing is deleted; switching a type off shows them again. A series can override this in its Sources & translations sheet.')
+        : tr('Some sources post notices as a short chapter numbered like 100.5. For each type switched on, every chapter numbered like 12.5 is hidden from the library, reader, OPDS and Mihon, and is not downloaded. Nothing is deleted; switching a type off shows them again. A series can override this in its Sources & translations sheet.')}>
+      <p className="mt-1 max-w-prose text-[11px] leading-relaxed text-fog-500">{tr('A chapter numbered 0 counts as one too, and is judged the same way.')}</p>
       <div data-notice-types>
         {SERIES_TYPES.map((t) => (
           <SwitchRow key={t} label={tr(seriesTypeKey(t))} on={types.includes(t)} onChange={(next) => flip(t, next)} />
@@ -230,7 +254,7 @@ function AdultFilterSection({ data, save }: { data: any; save: Save }) {
  * Nothing already downloaded is replaced because of it, and the help says so: #93's switch that re-fetched
  * held chapters from a better-ranked source was not taken (lib/sourcePrefs.ts says why).
  *
- * Held locally and saved whole on every change, re-seeded when the settings refetch, like the 18+ filter
+ * Held locally and saved whole on every change, re-seeded when the settings refetch, like the genre list
  * above: read straight from `data`, two quick arrows both moved the list as it was before either save
  * landed, and the second quietly undid the first. EVERY STORED ID IS KEPT (lib/sourceOrder.ts): the list of
  * sources is the registry's, which has no extensions while the engine restarts, and #93 saved an order built
@@ -255,6 +279,8 @@ function SourceOrderSection({ data, save }: { data: any; save: Save }) {
   const all = srcList?.content ?? [];
   const rows = orderRows(order, all);
   const rest = addable(order, all);
+  const tools = useSourceTools();
+  const choices = arrangeSources(rest, tools.query, tools.sort);
   // A failed save puts the list back and says so, rather than leaving an order on screen that is not stored.
   const commit = (next: string[]) => {
     const was = order;
@@ -280,11 +306,11 @@ function SourceOrderSection({ data, save }: { data: any; save: Save }) {
                 : <span className="truncate text-sm text-fog-500" title={r.id}>{tr('Not available right now')}</span>}
               <span className="ms-auto flex shrink-0 gap-1">
                 <button type="button" onClick={() => commit(moveIn(order, i, -1))} disabled={i === 0}
-                  aria-label={tr('Move up')} className="chip px-2 py-0.5 text-xs disabled:opacity-30">↑</button>
+                  aria-label={`${tr('Move up')}: ${r.name || r.id}`} className="chip px-2 py-0.5 text-xs disabled:opacity-30"><span aria-hidden>↑</span></button>
                 <button type="button" onClick={() => commit(moveIn(order, i, 1))} disabled={i === rows.length - 1}
-                  aria-label={tr('Move down')} className="chip px-2 py-0.5 text-xs disabled:opacity-30">↓</button>
+                  aria-label={`${tr('Move down')}: ${r.name || r.id}`} className="chip px-2 py-0.5 text-xs disabled:opacity-30"><span aria-hidden>↓</span></button>
                 <button type="button" onClick={() => commit(order.filter((x) => x !== r.id))}
-                  aria-label={tr('Remove')} className="chip px-2 py-0.5 text-xs">✕</button>
+                  aria-label={tr('Remove {name}', { name: r.name || r.id })} className="chip px-2 py-0.5 text-xs"><span aria-hidden>✕</span></button>
               </span>
             </li>
           ))}
@@ -293,8 +319,13 @@ function SourceOrderSection({ data, save }: { data: any; save: Save }) {
       {rest.length > 0 && (
         <div className="pb-3">
           <p className="mb-1.5 text-[11px] text-fog-500">{tr('Add a source to the order')}</p>
+          {rest.length >= SOURCE_TOOLS_MIN && (
+            <SourceTools className="mb-2" query={tools.query} onQuery={tools.setQuery} sort={tools.sort} onSort={tools.setSort}
+              defaultLabel={tr('Install order')} shown={choices.length} total={rest.length} />
+          )}
+          {choices.length === 0 && <NoSourceMatch query={tools.query} />}
           <div className="flex flex-wrap gap-1.5">
-            {rest.map((x) => (
+            {choices.map((x) => (
               <button key={x.id} type="button" onClick={() => commit([...order, x.id])} className="chip text-xs">{x.name}</button>
             ))}
           </div>
@@ -584,7 +615,7 @@ function HousekeepingSection({ data, save: patch }: { data: any; save: Save }) {
               : tr('Counted from the moment the last reader finished. Re-opening the chapter starts the wait again.')}
           </p>
           <p className="mt-1 max-w-prose text-[11px] leading-relaxed text-fog-500">
-            {tr('Only chapters Uchiyomi downloaded itself are removed — nothing in a library you built by hand is touched. The chapter stays listed and everyone keeps their reading history; the pages are what goes. It is not downloaded again by itself; Fetch again on the series page brings it back.')}
+            {tr('Only chapters Uchiyomi downloaded itself are removed. Chapters in a library you built by hand are never touched. The chapter stays listed and everyone keeps their reading history; only the pages go. It is not downloaded again automatically. Use Fetch again on the series page to bring it back.')}
           </p>
         </div>
         {/* v0.41.0: the nightly repair. ON by default (`repair_enabled NOT NULL DEFAULT true`), which
@@ -608,7 +639,7 @@ function HousekeepingSection({ data, save: patch }: { data: any; save: Save }) {
         {/* Only the Komga-compatible API reads it, and desktop does not serve that API (lib/desktop.ts). */}
         {!isDesktop() && (
           <SwitchRow label={tr('Show missing chapters in Mihon')} on={!!data.komga_ghost_chapters}
-            help={tr('List the chapters this server has not downloaded, and those whose files were deleted, alongside the ones it holds — so Mihon and your trackers count the whole series rather than only what is on disk. These rows cannot be opened; they are marked “not downloaded”. Only the Mihon extension sees them.')}
+            help={tr('Show chapters this server hasn’t downloaded, or whose files were deleted, next to the ones it has. Mihon and your trackers then count the whole series, not just what is on disk. These rows can’t be opened and are marked “not downloaded”. Only the Mihon extension sees them.')}
             onChange={(next) => patch({ komgaGhostChapters: next })} />
         )}
         {/* Display only (bff lib/deletedGhosts.ts): a deleted chapter keeps its row, its progress and its place; it is
@@ -691,11 +722,11 @@ function GroupChips({ label, hint, value, ordered, onChange, suggestions }: {
             {g}
             {ordered && (
               <>
-                <button type="button" onClick={() => onChange(reorder(value, i, -1))} disabled={i === 0} aria-label={tr('Move up')} className="text-fog-500 hover:text-fog-200 disabled:opacity-30">▲</button>
-                <button type="button" onClick={() => onChange(reorder(value, i, 1))} disabled={i === value.length - 1} aria-label={tr('Move down')} className="text-fog-500 hover:text-fog-200 disabled:opacity-30">▼</button>
+                <button type="button" onClick={() => onChange(reorder(value, i, -1))} disabled={i === 0} aria-label={`${tr('Move up')}: ${g}`} className="-m-1 p-1 text-fog-500 hover:text-fog-200 disabled:opacity-30"><span aria-hidden>▲</span></button>
+                <button type="button" onClick={() => onChange(reorder(value, i, 1))} disabled={i === value.length - 1} aria-label={`${tr('Move down')}: ${g}`} className="-m-1 p-1 text-fog-500 hover:text-fog-200 disabled:opacity-30"><span aria-hidden>▼</span></button>
               </>
             )}
-            <button type="button" onClick={() => onChange(withoutGroup(value, g))} aria-label={tr('Remove {name}', { name: g })} className="text-fog-500 hover:text-rose-400">×</button>
+            <button type="button" onClick={() => onChange(withoutGroup(value, g))} aria-label={tr('Remove {name}', { name: g })} className="-m-1 p-1 text-fog-500 hover:text-rose-400"><span aria-hidden>×</span></button>
           </span>
         ))}
         <input
@@ -707,7 +738,7 @@ function GroupChips({ label, hint, value, ordered, onChange, suggestions }: {
           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add(draft); }
                               else if (e.key === 'Backspace' && !draft && value.length) onChange(value.slice(0, -1)); }}
           placeholder={tr('Add a group…')}
-          className="min-w-[8rem] flex-1 bg-transparent px-1 py-1 text-sm text-fog-50 outline-hidden"
+          className="min-w-[8rem] flex-1 bg-transparent px-1 py-1 text-sm text-fog-50 outline-hidden focus-visible:outline-accent focus-visible:outline-offset-0"
         />
       </div>
       {/* Names the server has actually seen, filtered by what is being typed: the exact spelling a source
@@ -782,12 +813,12 @@ function ScanlatorsSection({ data, save }: { data: any; save: Save }) {
           hint={tr('Tried in this order. A series with its own ranking ignores this list.')} />
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <label className="text-xs font-semibold uppercase tracking-wider text-fog-500" htmlFor="scanlator-patience">{tr('Patience (days)')}</label>
-          <input id="scanlator-patience" type="number" min={0} max={30} step={1} inputMode="numeric" placeholder="2"
+          <input id="scanlator-patience" type="number" min={0} max={30} step={1} inputMode="numeric" placeholder="2" aria-describedby="scanlator-patience-help"
             value={cur.patienceDays ?? ''}
             onChange={(e) => set({ patienceDays: e.target.value === '' ? null : Math.max(0, Math.min(30, Math.floor(Number(e.target.value)))) })}
             className="field w-24" />
         </div>
-        <p className="mt-1 max-w-prose text-[11px] text-fog-500">
+        <p id="scanlator-patience-help" className="mt-1 max-w-prose text-[11px] text-fog-500">
           {tr('How long a new chapter waits for a ranked group before the best available copy is fetched instead. 0 takes the best copy at once; blank means 2.')}
         </p>
         <div className="mt-3 flex items-center justify-end gap-3">
@@ -802,7 +833,7 @@ function ScanlatorsSection({ data, save }: { data: any; save: Save }) {
       {/* Off by default: outbound traffic to sources that carry nothing else for a series. A series can
           switch it for itself on its Sources & translations sheet. */}
       <SwitchRow label={tr('Borrow chapter names from other sources')}
-        help={tr('Off by default. When a series’ own source only ever says “Chapter 12”, take the names from another source whose numbering was checked against this one — a source that numbers the chapters differently is never used, and the names go into the chapter name only, never the file. The chapter’s own source naming it later wins, and switching this off takes the borrowed names back.')}
+        help={tr('Off by default. If a series’ own source only says “Chapter 12”, use the chapter name from another source whose numbering matches. A source that numbers chapters differently is never used. Only the displayed name changes, never the file. If the series’ own source names the chapter later, that name wins. Switching this off removes borrowed names.')}
         on={data.borrow_names === true} onChange={(next) => save({ borrowNames: next })} />
       {/* v0.73.0 (#257 and #245 from @Squeaks72): the nightly repair's ninth step. Off by default: it asks sources about
           series, and AniList's text is English. What it fills in sits below a series' own details, never over them. */}
@@ -815,7 +846,7 @@ function ScanlatorsSection({ data, save }: { data: any; save: Save }) {
         help={tr('On by default. Titles shown in Discover are looked up on AniList, MangaDex and MangaUpdates, once each and in the background, so that a series several sources name differently shows as one card and one you already have stays hidden. Off, only the names themselves are compared and nothing is sent anywhere.')}
         on={data.discover_lookups !== false} onChange={(next) => save({ discoverLookups: next })} />
       <SwitchRow label={tr('Upgrade chapters to a preferred group')}
-        help={tr('Off by default. Once a night, a chapter you already have from another group is replaced when a group you rank higher releases it on a source the series follows — only files Uchiyomi downloaded itself, never with a copy that has fewer pages, never a chapter someone picked a version for by hand, and at most ten a night unless the server is told otherwise. Reading progress is kept.')}
+        help={tr('Off by default. Each night, a chapter you have from one group is replaced if a group you rank higher releases it on a source the series follows. Only files Uchiyomi downloaded itself are replaced. A copy with fewer pages never replaces one with more, a chapter you picked a version for by hand is never touched, and at most ten are replaced a night. Reading progress is kept.')}
         on={data.group_upgrade === true} onChange={(next) => save({ groupUpgrade: next })} />
     </Section>
   );

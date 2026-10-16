@@ -90,6 +90,9 @@ export type HealthAction =
   // v0.55.0: a frozen row whose source is dropped by SUWAYOMI_MAX_SOURCES -- open Admin → Sources on `sourceId` to free
   // a slot (no server action). Offered in place of Replace there: the source works, the limit is the cause.
   | 'free_slot'
+  // v0.56.0: a frozen series, removed from the library right there (DELETE /api/admin/series/{id}): hidden, files kept,
+  // everyone's progress kept, and Admin → Library puts it back.
+  | 'remove_series'
   // v0.72.0, the Chapter files card (lib/healthFiles.ts): Fetch again for the row's `bookIds` -- the series page's own
   // route (POST /api/admin/series/{id}/chapters/refetch), which sets each old file aside until the new copy lands and
   // puts it back when it does not. Only on files Uchiyomi downloaded and named itself.
@@ -131,6 +134,11 @@ export interface HealthItem {
    * for -- every series whose main source it is (lib/findScope.ts), the run's own `total`.
    */
   findSeries?: number;
+  /**
+   * v0.56.0, beside a `find_sources` action on a "Series that can no longer update" row: the run is over THIS row's
+   * series alone (POST /api/admin/sources/find {seriesIds: [seriesId]}), not every series of `sourceId`.
+   */
+  findScope?: 'series';
   /**
    * Of `seriesIds`, the one the merge should keep (lib/libraryAdmin.ts keepOrder, v0.57.0): one in a work, then the one
    * whose main source still works, then more live chapters, more readers, the older.
@@ -1063,6 +1071,8 @@ export async function frozenSeries(
   // Reintroduce `source: r.source_id`: "a switched-off source is said to be switched off" and "the engine is the
   // reason" in health.int.test.ts read the id.
   const named = (r: typeof rows[number]): string => (r.source_id ? sourceLabel(r.source_id, r.engine_name) : '');
+  const withFind = (k: { sourceId?: string; actions?: HealthAction[]; findSeries?: number }) =>
+    ({ ...k, actions: [...(k.actions ?? []), 'remove_series' as const, 'find_sources' as const] as HealthAction[] });
   const found: HealthItem[] = frozen.map((r) => {
     const p = { n: r.books_count, source: named(r) };
     return {
@@ -1074,7 +1084,14 @@ export async function frozenSeries(
         : engineWhy(r)
           ? say(engine === 'unreachable' ? 'frozen.engineDown' : engine === 'incompatible' ? 'frozen.engineIncompatible' : 'frozen.engineOff', p)
           : why(r, p)]),
-      ...keysFor(r, ['replace_source', 'find_sources']),
+      // v0.56.0: every frozen series can be searched for another source, whatever the reason -- including one with no
+      // source at all -- and the run is over THIS series (`findScope: 'series'`), not every series of its source.
+      // Reintroduce the source-wide key by dropping `findScope`: "the find key of a frozen row is for that series
+      // alone" in findSources.int.test.ts finds the web starting a run over the whole source.
+      // Replace is not offered per series: it moves EVERY series of the source, which is not what reviewing one is for
+      // (Admin → Sources and the source's own Health row have it). Reintroduce by adding 'replace_source' here.
+      ...withFind(keysFor(r, [])),
+      findScope: 'series' as const,
     };
   });
   const ignored = applyIgnores('frozen-series', found, ctx, !readFailed);
@@ -1089,7 +1106,7 @@ export async function frozenSeries(
         ? say('frozen.followingDown', { source: named(r), state: stall, names: followed.get(r.id)! })
         : say('frozen.following', { source: r.source_id ? named(r) : null, names: followed.get(r.id)! })]),
       info: true,
-      ...keysFor(r, ['replace_source']),
+      ...keysFor(r, []),
     });
   }
   return withAll({
@@ -2214,4 +2231,38 @@ export async function findingOf(check: IgnorableCheck, key: string): Promise<Fin
     case 'files': await chapterFiles(ctx); break;
   }
   return ctx.found.get(`${check}\u0000${key}`) ?? null;
+}
+
+export const RECHECKABLE_CHECKS = [
+  'chapter-gaps', 'numbering', 'short-chapters', 'outliers', 'saved-twice', 'duplicates', 'sources',
+  'chapter-failures', 'frozen-series', 'solver', 'update', 'library-scan', 'downloads-missing',
+  'folders-twice', 'extension-cap', 'extension-engine',
+] as const;
+export type RecheckableCheck = typeof RECHECKABLE_CHECKS[number];
+
+/**
+ * One check, run again on its own: what a row's Recheck asks. The same function the full run calls, with the same
+ * ignore list, so the answer is what the next full run would say about this check. Null when the check has nothing
+ * to say any more (numbering with no series left to renumber, the two folders no longer side by side).
+ */
+export async function recheckCheck(id: RecheckableCheck): Promise<HealthCheck | null> {
+  const ctx = await loadIgnores();
+  switch (id) {
+    case 'chapter-gaps': return chapterGaps(await heldBySeries(), ctx);
+    case 'outliers': return outlierChapters(await heldBySeries(), ctx);
+    case 'numbering': return numberingCheck();
+    case 'short-chapters': return shortChapters();
+    case 'saved-twice': return savedTwice();
+    case 'duplicates': return duplicateSeries(ctx);
+    case 'sources': return sourceTrouble(ctx);
+    case 'chapter-failures': return chapterFailures(ctx);
+    case 'frozen-series': return frozenSeries(ctx);
+    case 'solver': return solverHealth();
+    case 'update': return updateCheck();
+    case 'library-scan': return libraryScan();
+    case 'downloads-missing': return downloadsMissing(ctx);
+    case 'folders-twice': return foldersScannedTwice().catch(() => null);
+    case 'extension-cap': return suwayomiConfigured() ? extensionCap() : null;
+    case 'extension-engine': return extensionEngineCheck().catch(() => null);
+  }
 }

@@ -19,7 +19,7 @@ import { editionNames } from '@/lib/editions';
 import Link from 'next/link';
 import { useToast } from '@/components/Toast';
 import { msgOf } from '@/components/ConfirmDialog';
-import { Sheet } from '@/components/ui';
+import { Sheet, FIELD_BASE } from '@/components/ui';
 import { GroupAvatar } from '@/components/GroupAvatar';
 import { ActivityDots } from '@/components/ActivityDots';
 import { SourceIcon } from '@/components/SourcePicker';
@@ -47,7 +47,7 @@ import { MigrateSourceSheet } from '@/components/MigrateSourceSheet';
 // section began 9 px BELOW the scroller's bottom -- the only place Prefer and Block live, out of sight on
 // exactly the phone the owner complained from. The two sentences are the field's `title` and its
 // `aria-describedby` now, and the (i) explainer says the same in more words.
-const fld = 'w-14 rounded-lg border border-ink-700 bg-ink-900/60 px-2 py-1.5 text-sm text-fog-100 outline-hidden transition focus:border-accent/60';
+const fld = `w-14 px-2 py-1.5 text-fog-100 ${FIELD_BASE}`;
 
 /** The admin scanlators route: the stored override, the server defaults, what results, and the groups with their stats. */
 export interface ScanlatorInfo {
@@ -256,7 +256,7 @@ function OtherNames({ id }: { id: string }) {
                 {altOriginLabel(a.origin) && <span className="block text-[11px] text-fog-500">{altOriginLabel(a.origin)}</span>}
               </span>
               <button type="button" onClick={() => remove(a)} disabled={busy} aria-label={tr('Remove {name}', { name: a.title })}
-                className="shrink-0 px-1 text-fog-500 hover:text-rose-400 disabled:opacity-50">×</button>
+                className="-me-1 shrink-0 px-2.5 py-1.5 text-fog-500 hover:text-rose-400 disabled:opacity-50"><span aria-hidden>×</span></button>
             </li>
           ))}
         </ul>
@@ -267,7 +267,7 @@ function OtherNames({ id }: { id: string }) {
         <input dir="auto" value={draft} onChange={(e) => { setDraft(e.target.value); setRefusal(null); }} maxLength={200}
           placeholder={tr('Add another name…')} aria-label={tr('Add another name…')}
           aria-invalid={refusal ? true : undefined} aria-describedby={refusal ? `alt-refusal-${id}` : undefined}
-          className="min-w-0 flex-1 rounded-lg border border-ink-700 bg-ink-900/60 px-2.5 py-1.5 text-sm text-fog-100 outline-hidden transition focus:border-accent/60" />
+          className={`min-w-0 flex-1 px-2.5 py-1.5 text-fog-100 ${FIELD_BASE}`} />
         <button type="submit" disabled={busy || !draft.trim()} className="btn-key">{tr('Add')}</button>
       </form>
       {refusal && <p id={`alt-refusal-${id}`} role="alert" data-alt-refusal className="mt-1 text-[11px] leading-relaxed text-rose-300">{refusal}</p>}
@@ -324,11 +324,11 @@ function Languages({ series, onAdd, onChange, onUnlink, onOpen }: {
                   <span className="text-[11px] text-fog-500"> · {e.booksCount === 1 ? tr('1 chapter') : tr('{n} chapters', { n: e.booksCount })}</span>
                 </span>
                 {e.current
-                  ? <span className="shrink-0 rounded-[4px] border border-accent/40 px-1.5 text-[10px] leading-4 text-accent">{tr('this edition')}</span>
+                  ? <span className="shrink-0 rounded-[4px] border border-accent/40 px-1.5 text-[11px] leading-4 text-accent">{tr('this edition')}</span>
                   : <Link href={`/series/?id=${encodeURIComponent(e.seriesId)}`} onClick={onOpen} className="btn-key">{tr('Open')}</Link>}
                 {onUnlink && (
                   <button type="button" onClick={() => onUnlink(e)} aria-label={tr('Unlink the {language} edition', { language: languageName(e.lang) })}
-                    className="grid size-7 shrink-0 place-items-center rounded-lg text-fog-500 hover:text-rose-300">×</button>
+                    className="grid size-8 shrink-0 place-items-center rounded-lg text-fog-500 hover:text-rose-300"><span aria-hidden>×</span></button>
                 )}
               </div>
             ))}
@@ -347,8 +347,28 @@ function Languages({ series, onAdd, onChange, onUnlink, onOpen }: {
  * × that stops following it and (v0.54.0) Make main on a follower that works: it asks first, in one line, what becomes
  * of the main source it replaces (lib/mainSource.ts).
  */
-export function SourceRow({ s, onUnfollow, unfollowing, makeMain }: {
-  s: SeriesSource; onUnfollow?: () => void; unfollowing?: boolean;
+/** The source's name, as a link to this series' own page on that source (an admin read; the address comes from the source). */
+function SourcePageLink({ seriesId, s }: { seriesId: string; s: SeriesSource }) {
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+  const go = async () => {
+    // Opened at once, on the click, so a popup blocker allows it; pointed at the page when the source has answered.
+    const w = window.open('about:blank', '_blank');
+    setBusy(true);
+    try {
+      const r = await api<{ url: string }>(`/api/admin/series/${encodeURIComponent(seriesId)}/sources/${encodeURIComponent(s.sourceId)}/url`);
+      if (w) { w.opener = null; w.location.href = r.url; } else window.open(r.url, '_blank', 'noopener');
+    } catch (e) { w?.close(); toast(msgOf(e, tr('Could not find that page')), 'error'); }
+    setBusy(false);
+  };
+  return (
+    <button type="button" onClick={go} disabled={busy} aria-busy={busy} title={tr('Open on {s}', { s: s.name })}
+      className="truncate text-fog-100 hover:text-accent hover:underline disabled:opacity-60">{s.name}</button>
+  );
+}
+
+export function SourceRow({ s, seriesId, onUnfollow, unfollowing, makeMain }: {
+  s: SeriesSource; seriesId?: string; onUnfollow?: () => void; unfollowing?: boolean;
   makeMain?: { question: string; busy: boolean; refusal: string | null; asking: boolean; onAsk: () => void; onCancel: () => void; onConfirm: () => void };
 }) {
   // ⚠️ The server names an adapter it no longer loads by its id, and an extension's id is nineteen digits
@@ -360,14 +380,16 @@ export function SourceRow({ s, onUnfollow, unfollowing, makeMain }: {
       <SourceIcon id={s.sourceId} name={unknown ? '?' : s.name} size={24} registered={s.registered} />
       <span className="min-w-0 flex-1">
         <span className="flex min-w-0 items-center gap-1.5">
-          <span className={`truncate ${s.registered ? 'text-fog-100' : 'text-fog-500'}`}>{unknown ? tr('Source not installed') : s.name}</span>
+          {seriesId && s.registered
+            ? <SourcePageLink seriesId={seriesId} s={s} />
+            : <span className={`truncate ${s.registered ? 'text-fog-100' : 'text-fog-500'}`}>{unknown ? tr('Source not installed') : s.name}</span>}
           {/* ONE chip carries the role. A follower the add itself judged in (v0.36.0, `auto`) reads
               "followed for you" in the same chip, never as a third span: at 390 px the name line is ~316 px,
               and "also checked" + "followed automatically" + × left ~90 px for the name -- "MangaKakalot"
               truncated on exactly the row whose name you need to read before pressing ×. The × keeps its
               plain "Stop following {s}" label; undoing an automatic follow is the same act. */}
-          <span className="chip shrink-0 px-2 py-0.5 text-[10px]">{s.primary ? tr('main') : s.auto ? tr('followed for you') : tr('also checked')}</span>
-          {!s.registered && !unknown && <span className="shrink-0 text-[11px] text-fog-600">{tr('not installed')}</span>}
+          <span className="chip shrink-0 px-2 py-0.5 text-[11px]">{s.primary ? tr('main') : s.auto ? tr('followed for you') : tr('also checked')}</span>
+          {!s.registered && !unknown && <span className="shrink-0 text-[11px] text-fog-500">{tr('not installed')}</span>}
         </span>
         <span className="block truncate text-[11px] text-fog-500">
           {s.chapters != null && tr('{n} chapters listed', { n: s.chapters })}
@@ -382,7 +404,7 @@ export function SourceRow({ s, onUnfollow, unfollowing, makeMain }: {
       )}
       {onUnfollow && (
         <button type="button" onClick={onUnfollow} disabled={unfollowing} aria-label={tr('Stop following {s}', { s: s.name })}
-          className="shrink-0 px-1 text-fog-500 hover:text-rose-400 disabled:opacity-50">×</button>
+          className="-me-1 shrink-0 px-2.5 py-1.5 text-fog-500 hover:text-rose-400 disabled:opacity-50"><span aria-hidden>×</span></button>
       )}
     </div>
     {/* Asked in one line under the row, inside the sheet: a dialog opened over a Sheet paints under it. */}
@@ -455,7 +477,7 @@ function GroupRow({ g, blocked, serverBlocked, haveNumbers, seriesStatus, contro
             {controls}
             {g.chapters.length > 0 && (
               <button type="button" onClick={() => setShowChapters((s) => !s)} aria-expanded={showChapters}
-                className="chip shrink-0 px-2 py-0.5 text-[10px]">
+                className="chip shrink-0 px-2 py-0.5 text-[11px]">
                 {showChapters ? tr('Hide chapters') : tr('Show chapters')}
               </button>
             )}
@@ -466,7 +488,7 @@ function GroupRow({ g, blocked, serverBlocked, haveNumbers, seriesStatus, contro
         <div className="mt-1.5 flex flex-wrap gap-1">
           {g.chapters.map((n) => (
             <button key={n} type="button" onClick={() => onJump(n)}
-              className={`rounded-full border px-1.5 text-[10px] leading-4 ${haveNumbers.has(n) ? 'border-ink-600 bg-ink-800 text-fog-200' : 'border-ink-800 text-fog-600'}`}>
+              className={`rounded-full border px-1.5 text-[11px] leading-4 ${haveNumbers.has(n) ? 'border-ink-600 bg-ink-800 text-fog-200' : 'border-ink-800 text-fog-600'}`}>
               {chapterLabel({ number: n })}
             </button>
           ))}
@@ -605,10 +627,11 @@ export function SourcesSheet({ id, title: seriesTitle, series, groups, admin, er
     ? { ...stored, blocked: withoutGroup(stored.blocked, name) }
     : { blocked: [...stored.blocked, name], priority: withoutGroup(stored.priority, name) });
   const move = (name: string, dir: -1 | 1) => apply({ ...stored, priority: reorder(stored.priority, rankIn(stored.priority, name), dir) });
-  const savePatience = () => {
+  // Save is the footer's "done": once it is stored the sheet closes (the controls above apply at once and stay open).
+  const savePatience = async () => {
     const n = patienceDays();
     if (n === false) return;
-    return patch({ priority: stored.priority, blocked: stored.blocked, patienceDays: n });
+    if (await patch({ priority: stored.priority, blocked: stored.blocked, patienceDays: n })) onClose();
   };
   const useDefaults = async () => { if (await patch(null)) { setLocal({ priority: [], blocked: [] }); setPatience(''); } };
 
@@ -754,7 +777,7 @@ export function SourcesSheet({ id, title: seriesTitle, series, groups, admin, er
       action={
         <button type="button" onClick={onExplain} aria-label={tr('What are sources and translations?')}
           className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-ink-800/80 text-fog-300">
-          <IcInfo width={16} height={16} />
+          <IcInfo aria-hidden width={16} height={16} />
         </button>
       }>
       <section>
@@ -762,7 +785,7 @@ export function SourcesSheet({ id, title: seriesTitle, series, groups, admin, er
         {sources.length > 0
           ? <div className="divide-y divide-ink-800/70">
               {sources.map((s) => (
-                <SourceRow key={s.sourceId} s={{ ...s, checkedAt: s.checkedAt ?? (s.primary ? checkedAt : null) }}
+                <SourceRow key={s.sourceId} seriesId={isAdmin ? id : undefined} s={{ ...s, checkedAt: s.checkedAt ?? (s.primary ? checkedAt : null) }}
                   onUnfollow={isAdmin ? (s.primary ? () => setDetachAsk(true) : () => unfollow(s)) : undefined} unfollowing={unfollowing === s.sourceId}
                   makeMain={adminAccount && mayMakeMain(s) ? {
                     question: makeMainQuestion(s, main?.primary ? main : null),
@@ -851,6 +874,7 @@ export function SourcesSheet({ id, title: seriesTitle, series, groups, admin, er
                 {series.hideNoticeShortOnly === false
                   ? tr('Hide notice chapters (numbered like 12.5) here, in Mihon and everywhere else. Switching this off shows them again.')
                   : tr('Hide notice chapters (numbered like 12.5, with 3 pages or fewer) here, in Mihon and everywhere else. Switching this off shows them again.')}
+                {' '}{tr('A chapter numbered 0 counts as one too, and is judged the same way.')}
                 {series.hideNoticesEffective && (
                   <span className="text-fog-400"> {tr('Hidden now: {n}.', { n: series.hiddenNotices ?? 0 })}</span>
                 )}
@@ -859,7 +883,7 @@ export function SourcesSheet({ id, title: seriesTitle, series, groups, admin, er
             {series.hideNotices !== null && series.hideNotices !== undefined
               ? <button type="button" disabled={hidingNotices} onClick={() => setHideNotices(null)}
                   className="mt-1 ms-6 text-[11px] text-fog-500 underline disabled:opacity-50">{tr('Use the server default')}</button>
-              : <p className="mt-1 ms-6 text-[11px] text-fog-600">{tr('Following the switch for {type} in Settings.', { type: tr(seriesTypeKey(series.seriesType ?? 'unknown')) })}</p>}
+              : <p className="mt-1 ms-6 text-[11px] text-fog-500">{tr('Following the switch for {type} in Settings.', { type: tr(seriesTypeKey(series.seriesType ?? 'unknown')) })}</p>}
           </div>
         )}
       </section>
@@ -881,18 +905,20 @@ export function SourcesSheet({ id, title: seriesTitle, series, groups, admin, er
             <>
               {rank >= 0 && (
                 <span className="flex shrink-0 items-center">
-                  <button onClick={() => move(g.name, -1)} disabled={busy || rank === 0} aria-label={tr('Move up')} className="px-1 text-fog-400 disabled:opacity-30">▲</button>
-                  <button onClick={() => move(g.name, 1)} disabled={busy || rank === stored.priority.length - 1} aria-label={tr('Move down')} className="px-1 text-fog-400 disabled:opacity-30">▼</button>
+                  <button onClick={() => move(g.name, -1)} disabled={busy || rank === 0} aria-label={`${tr('Move up')}: ${g.name}`} className="px-2 py-1 text-fog-400 disabled:opacity-30"><span aria-hidden>▲</span></button>
+                  <button onClick={() => move(g.name, 1)} disabled={busy || rank === stored.priority.length - 1} aria-label={`${tr('Move down')}: ${g.name}`} className="px-2 py-1 text-fog-400 disabled:opacity-30"><span aria-hidden>▼</span></button>
                 </span>
               )}
               <button onClick={() => togglePrefer(g.name)} disabled={busy || (serverBlocked && rank < 0)}
-                className={`chip shrink-0 px-2 py-0.5 text-[10px] disabled:opacity-40 ${rank >= 0 ? 'chip-active' : ''}`}>
+                aria-pressed={rank >= 0} aria-label={`${rank >= 0 ? `#${rank + 1}` : tr('Prefer')}: ${g.name}`}
+                className={`chip shrink-0 px-2 py-0.5 text-[11px] disabled:opacity-40 ${rank >= 0 ? 'chip-active' : ''}`}>
                 {rank >= 0 ? `#${rank + 1}` : tr('Prefer')}
               </button>
               {serverBlocked
-                ? <span className="shrink-0 text-[10px] text-fog-600">{tr('blocked on server')}</span>
+                ? <span className="shrink-0 text-[11px] text-fog-500">{tr('blocked on server')}</span>
                 : <button onClick={() => toggleBlock(g.name)} disabled={busy}
-                    className={`chip shrink-0 px-2 py-0.5 text-[10px] disabled:opacity-40 ${blocked ? 'border-rose-500/40 text-rose-300' : ''}`}>
+                    aria-pressed={blocked} aria-label={`${blocked ? tr('Blocked') : tr('Block')}: ${g.name}`}
+                    className={`chip shrink-0 px-2 py-0.5 text-[11px] disabled:opacity-40 ${blocked ? 'border-rose-500/40 text-rose-300' : ''}`}>
                     {blocked ? tr('Blocked') : tr('Block')}
                   </button>}
             </>
