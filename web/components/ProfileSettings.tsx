@@ -10,6 +10,7 @@ import { bytes } from '@/lib/format';
 import { readShownOnce } from '@/lib/shownOnce';
 import { setTypeToSearchOn, typeToSearchOn } from '@/lib/typeToSearch';
 import { showAllChaptersOn } from '@/lib/showAllChapters';
+import { contextMenusOn, setContextMenusOn } from '@/lib/contextMenus';
 import { compactChaptersOn, setCompactChaptersOn } from '@/lib/compactChapters';
 import { useBanners } from '@/lib/bannerPref';
 import { ReaderPrefs, loadPrefs, savePrefs, syncPrefsFromServer } from '@/lib/readerPrefs';
@@ -141,6 +142,8 @@ function AppearanceSection() {
   const [banners, setBanners] = useBanners();
   const [compactList, setCompactList] = useState(false);
   useEffect(() => { setCompactList(compactChaptersOn()); }, []);
+  const [contextMenus, setContextMenus] = useState(true);
+  useEffect(() => { setContextMenus(contextMenusOn()); }, []);
   // Show all chapters at once (lib/showAllChapters.ts): on the account like Reduce effects, so every device the
   // reader signs in on opens the whole list; optimistic, and put back when the server refuses.
   const showAllChapters = showAllChaptersOn(user?.settings);
@@ -237,7 +240,11 @@ function AppearanceSection() {
 
       {/* This device only, and only a computer's rows change: lib/compactChapters.ts. Off by default -- the
           default chapter row is the deliberate look, and taking part of it away is the reader's choice. */}
-
+      {/* This device only, like the two above (lib/contextMenus.ts, #100). On by default: the menus only take the
+          right-click where the browser's offers nothing worth keeping, and Shift+right-click still gets it. */}
+      <SwitchRow label={tr('Right-click menus')}
+        help={tr('Right-click a series or a chapter, or press and hold one on a touchscreen, for its actions. Shift+right-click still opens the browser’s own menu. This device only.')}
+        on={contextMenus} onChange={(next) => { setContextMenusOn(next); setContextMenus(next); }} />
 
       <SwitchRow label={tr('Compact chapter list')}
         help={tr('On a computer, chapter rows without thumbnails, and their buttons appear when you point at a row. Phones and tablets are unchanged. This device only.')}

@@ -4,7 +4,7 @@ import {
   Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState,
   type CSSProperties, type KeyboardEvent, type MouseEvent, type PointerEvent, type ReactNode,
 } from 'react';
-import { placeMenu, wantsOwnMenu, LONG_PRESS_MS, LONG_PRESS_SLOP } from '@/lib/contextMenus';
+import { contextMenusOn, placeMenu, wantsOwnMenu, LONG_PRESS_MS, LONG_PRESS_SLOP } from '@/lib/contextMenus';
 
 // One menu, opened four ways (#100). lib/contextMenus.ts says when the browser's own menu is left alone.
 //
@@ -157,6 +157,9 @@ export function useContextMenu(getItems: () => MenuItem[], { label }: { label: s
   const press = useRef<{ x: number; y: number; timer: ReturnType<typeof setTimeout> } | null>(null);
   // The click a long-press's release would send the card: swallowed, or the menu opens and the card opens too.
   const swallowClick = useRef(false);
+  // Read after mount: the static export renders without storage, and the first client render must match it.
+  const [on, setOn] = useState(true);
+  useEffect(() => { setOn(contextMenusOn()); }, []);
 
   const close = useCallback((refocus: boolean) => {
     setAt(null);
@@ -179,7 +182,7 @@ export function useContextMenu(getItems: () => MenuItem[], { label }: { label: s
         editable: !!t.closest('input, textarea, select, [contenteditable="true"]'),
         selection: sel?.toString() ?? '',
         inSelection: !!sel && !sel.isCollapsed && sel.containsNode(t, true),
-      });
+      }, contextMenusOn());
       if (!own) return;
       e.preventDefault();
       cancelPress();
@@ -189,7 +192,7 @@ export function useContextMenu(getItems: () => MenuItem[], { label }: { label: s
     // which lands on the handler above at the same point; iOS sends nothing, which is why this exists.
     onPointerDown: (e: PointerEvent<HTMLElement>) => {
       swallowClick.current = false;
-      if (e.pointerType === 'mouse') return;
+      if (e.pointerType === 'mouse' || !contextMenusOn()) return;
       const { clientX: x, clientY: y } = e;
       const el = e.currentTarget;
       cancelPress();
@@ -211,7 +214,7 @@ export function useContextMenu(getItems: () => MenuItem[], { label }: { label: s
       if ((e.shiftKey && e.key === 'F10') || e.key === 'ContextMenu') { e.preventDefault(); openFrom(e.currentTarget); }
     },
     // iOS draws its own link preview on a long-press; with the menu on, that is what the press is for instead.
-    style: { WebkitTouchCallout: 'none' } as CSSProperties,
+    style: (on ? { WebkitTouchCallout: 'none' } : undefined) as CSSProperties | undefined,
   };
 
   const element = at ? <Menu items={getItems()} at={at} label={label} onClose={close} /> : null;
