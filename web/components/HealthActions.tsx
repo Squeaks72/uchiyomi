@@ -247,15 +247,27 @@ function useRowRecheck(check: HealthCheck, item: HealthItem) {
  * lib/healthKeys.ts: its state -- a Fix working, a Test's verdict -- must follow the finding when a re-check
  * removes the row above it.
  */
-export function HealthRow({ check, item, rowKey, links, children, compact }: {
+/** Keys that act on a whole source, not on one series: left out of the By series view (HealthRow `bySeries`). */
+const SOURCE_WIDE_ACTIONS: readonly HealthAction[] = ['replace_source', 'free_slot', 'test', 'unblock', 'disable'];
+
+export function HealthRow({ check, item: itemIn, rowKey, links, children, compact, bySeries }: {
   check: HealthCheck;
   item: HealthItem;
+  /**
+   * The By series view (fork): the row is one SERIES' finding, so its keys are about fixing that series -- Find other source searches for
+   * this series alone, and the keys that act on a whole source (Replace, Test, Unblock, Turn off, Free a slot) are left to the By check
+   * view. A row with no series (a source, a folder) is unchanged.
+   */
+  bySeries?: boolean;
   rowKey: string;
   links?: ReactNode;
   children: ReactNode;
   /** v0.53.0: Source health's compact row. The actions, their states and their confirmations are this row's own either way. */
   compact?: CompactRow;
 }) {
+  const item: HealthItem = bySeries && itemIn.seriesId
+    ? { ...itemIn, findScope: 'series', actions: (itemIn.actions || []).filter((a) => !SOURCE_WIDE_ACTIONS.includes(a)) }
+    : itemIn;
   const toast = useToast();
   const qc = useQueryClient();
   const rr = useRepairRun();
