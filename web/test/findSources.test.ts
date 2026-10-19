@@ -328,7 +328,7 @@ test('a Health row: Find other sources posts the source, and its run has a key g
   assert.match(arm, /\.\.\.findGate\(fr\?\.status, findNow\.kind === 'working' \|\| findNow\.kind === 'starting'\),/, 'the key starts while another run goes');
   assert.match(arm, /state: findNow,\s*(?:\/\/[^\n]*\n\s*)?\.\.\.\(item\.findScope === 'series'/, 'the key does not carry its run');
   assert.match(arm, /: \{ what: copy\.what\(\{ \.\.\.ctx, n: item\.findSeries \}\)/, 'the key does not carry its count');
-  assert.match(row, /const specs = all\.filter\(\(s\) => s\.id !== 'find_sources'\);\s*const finds = all\.filter\(\(s\) => s\.id === 'find_sources'\);/,
+  assert.match(row, /const specs = all\.filter\(\(s\) => s\.id !== 'find_sources'\);\s*const byHand: ActionSpec\[\] = [\s\S]*?const finds = \[\.\.\.all\.filter\(\(s\) => s\.id === 'find_sources'\), \.\.\.byHand\];/,
     'the find key shares the row\'s group');
   assert.match(row, /\{specs\.length > 0 && <ActionKeys actions=\{specs\} \/>\}\s*\{finds\.length > 0 && <ActionKeys actions=\{finds\} \/>\}/);
   assert.match(row, /<ActionStatus state=\{rowNow\} \/>\s*\{finds\.length > 0 && <ActionStatus state=\{findNow\} \/>\}/, 'the run has no status line on its row');
@@ -868,4 +868,10 @@ test('a frozen series\' Find key can be searched by hand, and its row can remove
   assert.match(health, /api\(`\/api\/admin\/series\/\$\{encodeURIComponent\(item\.seriesId \|\| ''\)\}`, \{ method: 'DELETE' \}\)/, 'the row does not remove the series');
   const dialog = slice(code(read('components/FindSources.tsx')), 'export function FindStartDialog(', 'export function BackupStartDialog(');
   assert.match(dialog, /\{onHand && \(/, 'the start dialog has no hand search');
+});
+
+test('a series-scoped Health row also has "Search by hand" as a key of its own, beside Find other source', () => {
+  const row = readFileSync(join(__dirname, '..', 'components/HealthActions.tsx'), 'utf8');
+  assert.match(row, /item\.findScope === 'series' && item\.seriesId && actions\.includes\('find_sources'\)/, 'the by-hand key is not limited to a series row');
+  assert.match(row, /id: 'search_by_hand', label: tr\('Search by hand'\)[\s\S]*?onRun: \(\) => setAsking\('hand'\)/, 'the key does not open the manual search');
 });
