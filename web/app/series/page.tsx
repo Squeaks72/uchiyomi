@@ -36,6 +36,8 @@ import { clampPage, pageCount, pageLabel, pageOf, pageSizeFor, pageSlice } from 
 import { openRuns, showAllChaptersOn } from '@/lib/showAllChapters';
 import { hideReadOn, setHideReadOn } from '@/lib/hideRead';
 import { buttonsClass, compactChaptersOn, dotHide, rowClass, thumbHide } from '@/lib/compactChapters';
+import { CHAPTER_COL_MIN, CHAPTER_COL_STRETCH, chapterColumnWidth, rowChrome } from '@/lib/chapterColumns';
+import { resetTextWidth, textWidth } from '@/lib/textWidth';
 import { chapterRowsClass, chapterViewOn, setChapterView, type ChapterView } from '@/lib/chapterView';
 import { PhoneHeroCover } from '@/components/PhoneHeroCover';
 import { Segmented } from '@/components/settings';
@@ -1117,6 +1119,37 @@ function SeriesInner() {
   const pages = pageCount(rows.length, pageSize);
   const listedChapters = useMemo(() => rows.filter((r) => r.kind === 'book' || r.kind === 'ghost').length, [rows]);
   const pageRows = useMemo(() => pageSlice(rows, shownPage, pageSize), [rows, shownPage, pageSize]);
+  // The columns' width, from the titles on THIS page (lib/chapterColumns.ts): a series of short names keeps its many
+  // columns, long names get fewer, wider ones, up to a limit. Measured after mount and once the fonts are in, because
+  // the static export has no canvas and the first measure may be in the fallback font; null is the old fixed 250 px.
+  const [colW, setColW] = useState<number | null>(null);
+  useEffect(() => {
+    if (view !== 'columns') { setColW(null); return; }
+    let dead = false;
+    const measure = () => {
+      let widest = 0;
+      for (const r of pageRows) {
+        let title = '';
+        let caption = '';
+        if (r.kind === 'book') {
+          const n = chapterName(r.book);
+          title = chapterLabel(r.book) + (n ? ` · ${n}` : '');
+          caption = r.book.scanlator ?? '';
+        } else if (r.kind === 'ghost') {
+          const t = r.ghost.title?.trim() ?? '';
+          title = chapterLabel({ number: r.ghost.number, numberEnd: r.ghost.numberEnd }) + (t && !/^(ch(apter)?\.?\s*)?[\d.]+$/i.test(t) ? ` · ${t}` : '');
+          caption = r.ghost.scanlator ?? '';
+        } else continue;
+        widest = Math.max(widest, textWidth(title, 14), textWidth(caption, 11));
+      }
+      const pointer = typeof window !== 'undefined' && window.matchMedia?.('(pointer: fine)').matches === true;
+      if (!dead) setColW(chapterColumnWidth(widest, rowChrome(compact && pointer)));
+    };
+    measure();
+    const fonts = typeof document !== 'undefined' ? document.fonts : undefined;
+    if (fonts && fonts.status !== 'loaded') void fonts.ready.then(() => { resetTextWidth(); if (!dead) measure(); });
+    return () => { dead = true; };
+  }, [pageRows, view, compact]);
   // A chip in Sources & translations jumps to a chapter's row, which may be on another page: turn to it
   // first. A number with no row (folded into a run, or filtered out) leaves the page as it is.
   const showChapter = (n: number) => {
@@ -1990,7 +2023,7 @@ function SeriesInner() {
         </p>
       )}
       {pages > 1 && <ChapterPager page={shownPage} pages={pages} rows={rows} asc={asc} total={filteredBooks.length + filteredGhosts.length} onPage={(p) => goPage(p, false)} />}
-      <div className={chapterRowsClass(view)} data-chapter-rows={view}>
+      <div className={chapterRowsClass(view)} data-chapter-rows={view} style={colW && colW > CHAPTER_COL_MIN ? ({ '--chap-col': `${colW}px`, ...(colW > CHAPTER_COL_STRETCH ? { '--chap-max': `${Math.round(colW * 1.15)}px` } : {}) } as React.CSSProperties) : undefined}>
         {pageRows.map((r) => {
           if (r.kind === 'book') {
             const b = r.book;
