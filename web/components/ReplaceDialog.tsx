@@ -128,12 +128,12 @@ function AskView({ sourceId, name, fr, slot, refusal, onClose }: {
             <legend className="sr-only">{tr('Replace {name}', { name })}</legend>
             <label htmlFor={`${ids}-off`} className={`flex items-start gap-2.5 text-[13px] ${review ? 'text-fog-500' : 'text-fog-200'}`}>
               <input id={`${ids}-off`} type="checkbox" checked={turnOff && !review} disabled={review} onChange={(e) => setTurnOff(e.target.checked)}
-                className="mt-0.5 h-4 w-4 shrink-0 accent-[rgb(var(--accent))]" data-replace-turnoff />
+                className="mt-0.5 h-4 w-4 shrink-0 pointer-coarse:size-5 accent-[rgb(var(--accent))]" data-replace-turnoff />
               <span>{tr('Turn it off when done')}</span>
             </label>
             <label htmlFor={`${ids}-review`} className="flex items-start gap-2.5 text-[13px] text-fog-200">
               <input id={`${ids}-review`} type="checkbox" checked={review} onChange={(e) => setReview(e.target.checked)}
-                className="mt-0.5 h-4 w-4 shrink-0 accent-[rgb(var(--accent))]" data-replace-review />
+                className="mt-0.5 h-4 w-4 shrink-0 pointer-coarse:size-5 accent-[rgb(var(--accent))]" data-replace-review />
               <span className="min-w-0">
                 {tr('Let me review each match first')}
                 {review && <span className="mt-0.5 block text-[11px] leading-relaxed text-fog-500">{tr('Nothing moves until you choose: each series’ match waits in the results, with Make main.')}</span>}

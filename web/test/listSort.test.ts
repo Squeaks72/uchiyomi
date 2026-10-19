@@ -133,6 +133,6 @@ test("the Lists index card's accent and delete key sit by the reading direction,
   // where English puts them (left-0, right-3). Reintroduce `left-0` or `right-3` anywhere on the page: this fails.
   const src = read('app/collections/page.tsx');
   assert.match(src, /className="relative h-36 overflow-hidden border-t-\[3px\]" style=\{\{ borderTopColor: tint \}\}/, 'the list\'s colour is not its covers\' top edge');
-  assert.match(src, /className="btn-key btn-key-danger ms-auto w-8 px-0"/, 'the delete key is not at the row\'s trailing end');
+  assert.match(src, /className="btn-key btn-key-danger ms-auto w-8 px-0 pointer-coarse:w-10"/, 'the delete key is not at the row\'s trailing end');
   assert.doesNotMatch(src, /\b(?:left|right)-\d/, 'a physical left/right is left on the Lists index');
 });

@@ -343,12 +343,12 @@ function RowCaption({ group, via, versions, tone = 'text-fog-500', pruned, lead,
             cleanup, and the row cannot tell which, so "to free space" blamed a job that is off on most installs. A
             file Rescan everything found gone from a library built by hand has words of its own (prunedLabel,
             v0.55.4): nothing deleted it. */}
-        <span data-tombstone className="max-w-full break-words rounded-[4px] border border-ink-700 px-1 text-[10px] leading-4 text-fog-600">
+        <span data-tombstone className="max-w-full break-words rounded-[4px] border border-ink-700 px-1 text-[10px] leading-4 text-fog-600 pointer-coarse:text-[11px]">
           <span aria-hidden="true" className="lg:hidden">{pruned.full}</span>
           <span aria-hidden="true" className="hidden lg:inline">{pruned.short}</span>
           <span className="sr-only">{pruned.full}</span>
         </span>
-        {short && <span className="max-w-full truncate rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 text-[10px] leading-4 text-amber-300">{short}</span>}
+        {short && <span className="max-w-full truncate rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 text-[10px] leading-4 text-amber-300 pointer-coarse:text-[11px]">{short}</span>}
         {parts.length > 0 && <span className="min-w-12 flex-1 basis-0 truncate">{caption}</span>}
       </div>
     );
@@ -541,7 +541,7 @@ function ChapterRow({ book, downloaded, sourceNames, primarySource, versions, on
         // `pruned` already excludes a chapter saved on this device, so removing that copy still works --
         // which matters, because it is the only copy left.
         disabled={pruned}
-        className={`grid h-9 w-9 place-items-center rounded-lg border disabled:opacity-30 ${downloaded ? 'border-accent/40 text-accent' : 'border-ink-700 text-fog-500'}`}
+        className={`grid h-9 w-9 place-items-center pointer-coarse:h-10 pointer-coarse:w-10 rounded-lg border disabled:opacity-30 ${downloaded ? 'border-accent/40 text-accent' : 'border-ink-700 text-fog-500'}`}
         // "Save offline", not "Download": the ☁ on a ghost row brings a chapter onto the server, this arrow
         // copies one to this device, and one word for both promised the wrong thing on one of them.
         aria-label={downloaded ? tr('Saved on this device') : tr('Save offline')}
@@ -550,7 +550,7 @@ function ChapterRow({ book, downloaded, sourceNames, primarySource, versions, on
       </button>}
       <div className="relative shrink-0">
         <button onClick={(e) => menu.openFrom(e.currentTarget)} aria-label={tr('Chapter actions')} aria-haspopup="menu" aria-expanded={menu.open}
-          className="grid h-9 w-9 place-items-center rounded-lg border border-ink-700 text-fog-500">
+          className="grid h-9 w-9 place-items-center pointer-coarse:h-10 pointer-coarse:w-10 rounded-lg border border-ink-700 text-fog-500">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8" /><circle cx="12" cy="12" r="1.8" /><circle cx="19" cy="12" r="1.8" /></svg>
         </button>
       </div>
@@ -676,7 +676,7 @@ function GhostRow({ ghost, sourceNames, primarySource, selectable, selected, onT
             setBusy(true);
             try { await onFetch(); } finally { setBusy(false); }
           }}
-          className={`grid h-9 w-9 shrink-0 place-items-center rounded-full border text-fog-500 disabled:opacity-60 ${fetching ? 'border-accent/50 !opacity-100' : 'border-ink-700'}`}>
+          className={`grid h-9 w-9 shrink-0 place-items-center pointer-coarse:h-10 pointer-coarse:w-10 rounded-full border text-fog-500 disabled:opacity-60 ${fetching ? 'border-accent/50 !opacity-100' : 'border-ink-700'}`}>
           {fetching || busy
             ? <span aria-hidden className="h-4 w-4 rounded-full border-2 border-accent/30 border-t-accent motion-safe:animate-spin" />
             : <IcCloudDownload width={16} height={16} />}
@@ -686,7 +686,7 @@ function GhostRow({ ghost, sourceNames, primarySource, selectable, selected, onT
       {hasMenu && !selectable && (
         <div className="relative shrink-0">
           <button type="button" onClick={(e) => menu.openFrom(e.currentTarget)} aria-label={tr('Chapter actions')} aria-haspopup="menu" aria-expanded={menu.open}
-            className="grid h-9 w-9 place-items-center rounded-lg border border-ink-700 text-fog-500">
+            className="grid h-9 w-9 place-items-center pointer-coarse:h-10 pointer-coarse:w-10 rounded-lg border border-ink-700 text-fog-500">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8" /><circle cx="12" cy="12" r="1.8" /><circle cx="19" cy="12" r="1.8" /></svg>
           </button>
         </div>
@@ -715,14 +715,14 @@ interface SourceJob { folder: string; status: string; reason?: string; reasonSai
 function ChapterPager({ page, pages, rows, asc, total, onPage }: { page: number; pages: number; rows: readonly Row[]; asc: boolean; total: number; onPage: (p: number) => void }) {
   const range = (p: number) => pageLabel(rows, p, asc);
   return (
-    <nav aria-label={tr('Chapter pages')} data-chapter-pager className="my-2 flex items-center justify-center gap-2 text-xs">
+    <nav aria-label={tr('Chapter pages')} data-chapter-pager className="my-2 flex flex-wrap items-center justify-center gap-2 text-xs">
       <button type="button" onClick={() => onPage(0)} disabled={page === 0} className="btn-key px-2.5" aria-label={tr('First page')}>«</button>
       <button type="button" onClick={() => onPage(page - 1)} disabled={page === 0} className="btn-key">{tr('Previous')}</button>
       <select value={page} onChange={(e) => onPage(Number(e.target.value))} aria-label={tr('Chapter pages')}
-        className="h-8 rounded-lg border border-ink-700 bg-ink-850 px-2.5 text-fog-100">
+        className="h-8 rounded-lg border border-ink-700 bg-ink-850 px-2.5 text-fog-100 pointer-coarse:h-10">
         {Array.from({ length: pages }, (_, p) => <option key={p} value={p}>{range(p)}</option>)}
       </select>
-      <span className="text-fog-500">{tr('of {n}', { n: total })}</span>
+      <span className="text-fog-500 max-sm:hidden">{tr('of {n}', { n: total })}</span>
       <button type="button" onClick={() => onPage(page + 1)} disabled={page >= pages - 1} className="btn-key">{tr('Next')}</button>
       <button type="button" onClick={() => onPage(pages - 1)} disabled={page >= pages - 1} className="btn-key px-2.5" aria-label={tr('Last page')}>»</button>
     </nav>
@@ -743,7 +743,7 @@ function EditionChips({ editions, onAdd, className = '' }: { editions: EditionRo
         ? <span key={e.seriesId} aria-current="page" className="chip chip-active text-xs">{labels[i]}</span>
         : <Link key={e.seriesId} href={`/series/?id=${encodeURIComponent(e.seriesId)}`} className="chip text-xs">{labels[i]}</Link>))}
       {onAdd && (
-        <button type="button" onClick={onAdd} aria-label={tr('Add a language')} className="btn-key h-7 text-[11px]">{tr('+ Language')}</button>
+        <button type="button" onClick={onAdd} aria-label={tr('Add a language')} className="btn-key h-7 text-[11px] pointer-coarse:h-10">{tr('+ Language')}</button>
       )}
     </div>
   );
@@ -1933,7 +1933,7 @@ function SeriesInner() {
             <button onClick={() => setFilterOpen(true)} aria-haspopup="dialog" className={`btn-key relative ${activeFilters > 0 ? 'btn-key-accent' : ''}`}>
               {tr('Filter')}
               {activeFilters > 0 && (
-                <span data-testid="filter-count" className="absolute -end-1.5 -top-1.5 grid h-4 min-w-4 place-items-center rounded-[4px] bg-accent px-[3px] text-[10px] font-bold leading-none text-black">{activeFilters}</span>
+                <span data-testid="filter-count" className="absolute -end-1.5 -top-1.5 grid h-4 min-w-4 place-items-center rounded-[4px] bg-accent px-[3px] text-[10px] font-bold leading-none text-black pointer-coarse:text-[11px]">{activeFilters}</span>
               )}
             </button>
           )}
@@ -2026,7 +2026,7 @@ function SeriesInner() {
                     </button>
                   )}
                   {!archiving && mayArchive && numbers.length > 0 && (
-                    <button type="button" onClick={archiveSlowly} disabled={acting} data-archive-slowly className="btn-key h-7 shrink-0 px-2.5 text-[11px]">
+                    <button type="button" onClick={archiveSlowly} disabled={acting} data-archive-slowly className="btn-key h-7 shrink-0 px-2.5 text-[11px] pointer-coarse:h-10">
                       <IcHourglass width={14} height={14} />{tr('Archive slowly')}
                     </button>
                   )}
@@ -2066,7 +2066,7 @@ function SeriesInner() {
   // it reads "Remove 3 chapters" now, and with nothing ticked says how to use it and where the series' own Remove is.
   // UI refresh: keys, as the Library's select bar has been since v0.60.0 -- they act on the picked chapters.
   const Toolbar = selecting && (
-    <div ref={toolbarRef} className="fixed inset-x-0 bottom-[calc(5.75rem+env(safe-area-inset-bottom))] z-40 border-t border-ink-700 bg-ink-950/95 px-4 pb-3 pt-3 backdrop-blur-xl lg:bottom-0 lg:start-[var(--rail-w)] lg:pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+    <div ref={toolbarRef} className="fixed inset-x-0 bottom-[calc(5.75rem+env(safe-area-inset-bottom))] z-40 max-h-[45dvh] overflow-y-auto overscroll-contain lg:max-h-none lg:overflow-visible border-t border-ink-700 bg-ink-950/95 px-4 pb-3 pt-3 backdrop-blur-xl lg:bottom-0 lg:start-[var(--rail-w)] lg:pb-[max(0.75rem,env(safe-area-inset-bottom))]" data-lenis-prevent>
       <div className="mx-auto flex max-w-3xl flex-wrap items-center gap-2">
         <span role="status" className="me-auto text-sm font-medium text-fog-100">{acting ? '…' : selectedText(pickedCount)}</span>
         <button disabled={acting || !pickedCount} onClick={() => bulkMark(true)} className="btn-key">{tr('Mark read')}</button>
@@ -2219,7 +2219,7 @@ function SeriesInner() {
           {editions && <EditionChips editions={editions} onAdd={addLanguage} className="mt-3 lg:hidden" />}
           {/* The supply line, phone form. The desktop form is the first row of the right column (the title block over the
               banner is `pointer-events-none`, so a button cannot live there). */}
-          <div className="mt-3 lg:hidden"><SupplyLine parts={supplyPhone} loaded={supplyLoaded} wide={false} onOpen={() => setSourcesOpen(true)} /></div>
+          <div className="mt-3 lg:hidden pointer-coarse:[&>button]:min-h-10"><SupplyLine parts={supplyPhone} loaded={supplyLoaded} wide={false} onOpen={() => setSourcesOpen(true)} /></div>
         </div>
 
         {/* info + chapters */}

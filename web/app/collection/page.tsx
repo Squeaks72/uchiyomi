@@ -267,7 +267,7 @@ function CollectionInner() {
               <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex aspect-[2/3] flex-col justify-between p-1.5">
                 <div className="flex justify-end">
                   <button type="button" onClick={() => removeItem(s)} aria-label={tr('Remove from collection')}
-                    className="pointer-events-auto grid h-8 w-8 place-items-center rounded-full bg-black/70 text-fog-100 backdrop-blur hover:text-white">
+                    className="pointer-events-auto grid h-8 w-8 place-items-center pointer-coarse:h-10 pointer-coarse:w-10 rounded-full bg-black/70 text-fog-100 backdrop-blur hover:text-white">
                     <IcTrash width={14} height={14} />
                   </button>
                 </div>
@@ -275,11 +275,11 @@ function CollectionInner() {
                   <div className="flex justify-between">
                     {/* Earlier is toward the start of the line, so in Arabic the pair mirrors. */}
                     <button type="button" onClick={() => move(s, -1)} disabled={i === 0} aria-label={tr('Move earlier')}
-                      className="pointer-events-auto grid h-8 w-8 place-items-center rounded-full bg-black/70 text-white backdrop-blur disabled:invisible">
+                      className="pointer-events-auto grid h-8 w-8 place-items-center pointer-coarse:h-10 pointer-coarse:w-10 rounded-full bg-black/70 text-white backdrop-blur disabled:invisible">
                       {rtl ? <IcChevronRight width={16} height={16} /> : <IcChevronLeft width={16} height={16} />}
                     </button>
                     <button type="button" onClick={() => move(s, 1)} disabled={i === shown.length - 1} aria-label={tr('Move later')}
-                      className="pointer-events-auto grid h-8 w-8 place-items-center rounded-full bg-black/70 text-white backdrop-blur disabled:invisible">
+                      className="pointer-events-auto grid h-8 w-8 place-items-center pointer-coarse:h-10 pointer-coarse:w-10 rounded-full bg-black/70 text-white backdrop-blur disabled:invisible">
                       {rtl ? <IcChevronLeft width={16} height={16} /> : <IcChevronRight width={16} height={16} />}
                     </button>
                   </div>
@@ -324,7 +324,7 @@ function CollectionInner() {
       )}
 
       {selecting && picked.size > 0 && (
-        <div className="fixed inset-x-0 bottom-[calc(5.75rem+env(safe-area-inset-bottom))] z-40 border-t border-ink-700 bg-ink-950/95 px-4 pb-3 pt-3 backdrop-blur-xl lg:bottom-0 lg:pb-[max(0.75rem,env(safe-area-inset-bottom))]" data-list-selection>
+        <div className="fixed inset-x-0 bottom-[calc(5.75rem+env(safe-area-inset-bottom))] z-40 max-h-[45dvh] overflow-y-auto overscroll-contain lg:max-h-none lg:overflow-visible border-t border-ink-700 bg-ink-950/95 px-4 pb-3 pt-3 backdrop-blur-xl lg:bottom-0 lg:pb-[max(0.75rem,env(safe-area-inset-bottom))]" data-list-selection data-lenis-prevent>
           <div className="mx-auto flex max-w-3xl flex-wrap items-center gap-2 lg:max-w-5xl">
             <span role="status" className="me-auto text-sm font-medium text-fog-100">{selectedText(picked.size)}</span>
             {canEditItems && <button type="button" onClick={() => void removePicked()} data-list-remove-selected className="btn-key">{tr('Remove from this list')}</button>}

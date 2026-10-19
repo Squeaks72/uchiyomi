@@ -259,13 +259,13 @@ export function SeriesEditor({ id, series, tab: opening = 'details', onClose, on
               inside itself, never the page; the underline sits on the row's own inset line, which a scroller would
               clip if it hung over a border below it. */}
           <div role="tablist" aria-label={tr('Edit details')} data-lenis-prevent-horizontal
-            className="hide-scrollbar mt-3 flex shrink-0 items-end gap-5 overflow-x-auto px-4 shadow-[inset_0_-1px_0_var(--color-ink-800)] md:gap-6 md:px-6">
+            className="hide-scrollbar mt-3 flex shrink-0 items-end gap-5 overflow-x-auto px-4 shadow-[inset_0_-1px_0_var(--color-ink-800)] pointer-coarse:[mask-image:linear-gradient(to_right,#000_94%,transparent)] md:gap-6 md:px-6">
             {TABS.map((t, i) => {
               const on = t === tab;
               return (
                 <button key={t} type="button" role="tab" id={tabId(t)} aria-selected={on} aria-controls={t === 'art' ? `${uid}-art` : paneId(t)}
                   tabIndex={on ? 0 : -1} data-edit-tab={t} onClick={() => open(t)} onKeyDown={onTabKey}
-                  className={`relative shrink-0 whitespace-nowrap pb-2.5 pt-1 text-sm font-semibold transition-colors ${on ? 'text-fog-50' : 'text-fog-500 hover:text-fog-200'} ${t === 'art' ? 'md:hidden' : ''}`}>
+                  className={`relative shrink-0 whitespace-nowrap pb-2.5 pt-1 pointer-coarse:pt-2.5 text-sm font-semibold transition-colors ${on ? 'text-fog-50' : 'text-fog-500 hover:text-fog-200'} ${t === 'art' ? 'md:hidden' : ''}`}>
                   {tr(TAB_LABELS[i])}
                   {on && (
                     <motion.span layoutId={`${uid}-underline`} aria-hidden className="absolute inset-x-0 bottom-0 h-0.5 rounded-sm bg-accent"

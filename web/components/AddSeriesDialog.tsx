@@ -774,11 +774,18 @@ export function AddSeriesDialog({ seed, sources, mayFollow, onClose, onAdded }: 
           "takes forever" the owner reported, and it hid the Change chip exactly when a slow source made it
           the thing to tap. Reintroduce by wrapping the body in `!detail ? <p>Loading…</p> : …`. */}
       <div className="sm:flex sm:gap-4">
-        <div className="mb-3 shrink-0 sm:mb-0 sm:w-40">
+        <div className="mb-3 hidden shrink-0 sm:mb-0 sm:block sm:w-40">
           <Img src={sourceCover(picked.source, coverUrl)} alt="" fallbackSrc={coverUrl || undefined}
             className="aspect-[2/3] w-28 rounded-xl border border-ink-700 sm:w-40" />
         </div>
         <div className="min-w-0 flex-1">
+          {/* On a phone a small cover sits beside the source and count instead of a 112 px one stacked above the whole
+              body (which pushed the picker and "Add to library" below the fold); from sm up the tall cover beside the
+              body above is the layout. */}
+          <div className="mb-2 flex gap-3 sm:mb-0 sm:block">
+          <Img src={sourceCover(picked.source, coverUrl)} alt="" fallbackSrc={coverUrl || undefined}
+            className="aspect-[2/3] w-20 shrink-0 self-start rounded-xl border border-ink-700 sm:hidden" />
+          <div className="min-w-0 flex-1">
           {/* Where it comes from, named with its favicon, before anything else about it -- and the way
               back to the other providers as a small chip, only when there are any. */}
           <p className="mb-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-fog-500">
@@ -804,6 +811,8 @@ export function AddSeriesDialog({ seed, sources, mayFollow, onClose, onAdded }: 
           ) : (
             <p className="text-xs text-fog-500" aria-live="polite" data-detail="loading">{tr('Loading chapter list…')}</p>
           )}
+          </div>
+          </div>
           {/* A new language for a title the library has (v0.52.0): before the chapters, because it changes what the
               add is. Rendered from the pick, like the switches: nothing in it waits for the chapter list. */}
           {asEdition && held && (

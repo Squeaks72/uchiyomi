@@ -601,7 +601,7 @@ function LibraryInner() {
   const series = view === 'series';
   return (
     <PullToRefresh onRefresh={series ? onRefresh : () => kickDownloads(qc)}>
-    <div className={`min-h-screen-d ${selecting && picked.size > 0 ? 'pb-40 lg:pb-0' : ''}`}>
+    <div className={`min-h-screen-d ${selecting && picked.size > 0 ? 'pb-[max(10rem,30dvh)] lg:pb-0' : ''}`}>
       {/* The filter column beside the grid from xl up (UI refresh: below 1280 the sidebar's 72 px left the grid too narrow
           beside it, and the toolbar's Filters key opens the same filters in a sheet there). `min-w-0` on the grid column
           is load-bearing -- a flex child defaults to `min-width:auto`, so without it the grid refuses to shrink and pushes
@@ -630,7 +630,7 @@ function LibraryInner() {
         <div className="min-w-0 flex-1">
       {/* Sticky on a phone, title and toolbar together. From lg up it is `contents`: its rows sit in the column as they
           are, and the toolbar alone sticks under the top bar -- a sticky child of a box that ends with it could not. */}
-      <header className="safe-top sticky top-0 z-30 bg-ink-950/85 px-4 pb-3 backdrop-blur-xl lg:contents">
+      <header className="safe-top sticky top-0 z-30 bg-ink-950/85 px-4 backdrop-blur-xl lg:contents">
         {/* The title gives way before the keys do: with the admin's import a fourth round key, "Bibliothèque" and
             "Библиотека" pushed the row 25-29 px past a 320 px screen. */}
         <div className="flex items-center justify-between gap-3 lg:pt-6">
@@ -663,7 +663,10 @@ function LibraryInner() {
           </div>
         </div>
         {mayDownload && <ViewSwitch view={view} onView={(v) => setParam('view', v === 'series' ? '' : v)} />}
-        {series && <>
+      </header>
+      {/* Phone: only the title and tabs above stick; the count, toolbar and chips scroll away (they were ~200-260 px of
+          pinned header). From lg up this is `contents`, so its children sit in the column exactly as before. */}
+        {series && <div className="px-4 pb-3 lg:contents">
         {/* How many there are, or match: the order is the toolbar's Sort key now, which says it on its face. Dimmed while
             the count is the shelf being replaced. */}
         <p className={`${mayDownload ? 'mt-2' : 'mt-0.5'} text-xs text-fog-500 ${refreshing ? 'opacity-60' : ''}`} data-library-count>
@@ -732,8 +735,7 @@ function LibraryInner() {
               suggested={suggestListName(shownQuery, { lib: (id) => libs.find((l) => l.id === id)?.name || id, source: sourceName })} />
           </div>
         )}
-        </>}
-      </header>
+        </div>}
 
       {/* Closing the detail window never loses the server-owned job. This small, persistent row is its way back; the
           id also survives a full reload in localStorage and is checked against the persisted admin run. */}
@@ -835,7 +837,7 @@ function LibraryInner() {
           returns to the bottom. Reintroduce with `bottom-0`: on a 390 px phone the Cancel chip is under
           the nav. */}
       {series && selecting && picked.size > 0 && (
-        <div ref={toolbarRef} className="fixed inset-x-0 bottom-[calc(5.75rem+env(safe-area-inset-bottom))] z-40 border-t border-ink-700 bg-ink-950/95 px-4 pb-3 pt-3 backdrop-blur-xl lg:bottom-0 lg:start-[var(--rail-w)] lg:pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+        <div ref={toolbarRef} className="fixed inset-x-0 bottom-[calc(5.75rem+env(safe-area-inset-bottom))] z-40 max-h-[45dvh] overflow-y-auto overscroll-contain lg:max-h-none lg:overflow-visible border-t border-ink-700 bg-ink-950/95 px-4 pb-3 pt-3 backdrop-blur-xl lg:bottom-0 lg:start-[var(--rail-w)] lg:pb-[max(0.75rem,env(safe-area-inset-bottom))]" data-lenis-prevent>
           {/* ⚠️ Two rows at 390 px, no more: a third row covers a third of the grid. Seven keys plus the
               count do not fit in two, so on a phone the admin actions live behind `More` (a Sheet). (The bar's
               bottom padding was `pb-8` until v0.49.0, clearance for the floating downloads pill, which is gone.)
@@ -958,7 +960,7 @@ function LibraryInner() {
               <p className="mt-2">{tr('The chapters stay listed and everyone keeps their reading history. Fetch again on the series page brings a chapter back.')}</p>
               <p className="mt-2 font-medium text-amber-300">{tr('Deleting a chapter being read can lose its reading position.')}</p>
               <label className="mt-3 flex items-start gap-2 text-sm text-fog-200">
-                <input type="checkbox" className="mt-0.5" checked={alsoPause} onChange={(e) => setAlsoPause(e.target.checked)} data-also-pause />
+                <input type="checkbox" className="mt-0.5 pointer-coarse:size-5 pointer-coarse:shrink-0" checked={alsoPause} onChange={(e) => setAlsoPause(e.target.checked)} data-also-pause />
                 <span>
                   {tr('Also stop updates for these series')}
                   <span className="block text-xs text-fog-500">{tr('Otherwise the next check downloads their newest chapters again.')}</span>

@@ -65,7 +65,7 @@ function CollectionRail({ col }: { col: CollectionRow }) {
   if (!items.length) return null;
   return (
     <section className="rail-section pt-8">
-      <SectionTitle action={<Link href={`/collection/?id=${col.id}`} aria-label={tr('See all {title}', { title: col.name })} className="text-xs text-accent">{tr('See all')}</Link>}>
+      <SectionTitle action={<Link href={`/collection/?id=${col.id}`} aria-label={tr('See all {title}', { title: col.name })} className="text-xs text-accent pointer-coarse:-my-3 pointer-coarse:py-3 pointer-coarse:ps-3">{tr('See all')}</Link>}>
         <span className="inline-flex items-center gap-2">
           <span aria-hidden className="h-4 w-1.5 rounded-full" style={{ background: safeColor(col.accent, 'rgb(var(--accent))') }} />
           {col.name}
@@ -152,7 +152,7 @@ export default function HomePage() {
         // For you
         return (foryou?.content?.length ?? 0) > 0 && (
           <section className="rail-section pt-8">
-            <SectionTitle action={<Link href="/library" className="text-xs text-accent">{tr('Library')}</Link>}>{tr('For you')}</SectionTitle>
+            <SectionTitle action={<Link href="/library" className="text-xs text-accent pointer-coarse:-my-3 pointer-coarse:py-3 pointer-coarse:ps-3">{tr('Library')}</Link>}>{tr('For you')}</SectionTitle>
             <ScrollRail label={tr('For you')} className={CARD_RAIL}>
               {foryou!.content.map((s) => <SeriesCard key={s.id} series={s} />)}
             </ScrollRail>
@@ -172,7 +172,7 @@ export default function HomePage() {
         // New episodes
         return (
           <section className="rail-section pt-8">
-            <SectionTitle action={<Link href="/library?sort=updated" className="text-xs text-accent">{tr('See all')}</Link>}>{tr('New episodes')}</SectionTitle>
+            <SectionTitle action={<Link href="/library?sort=updated" className="text-xs text-accent pointer-coarse:-my-3 pointer-coarse:py-3 pointer-coarse:ps-3">{tr('See all')}</Link>}>{tr('New episodes')}</SectionTitle>
             {isLoading ? <RailSkeleton /> : (
               <ScrollRail label={tr('New episodes')} className={CARD_RAIL}>
                 {(data?.updated ?? []).map((s, i) => <SeriesCard key={s.id} series={s} eager={i < 8} />)}
@@ -184,7 +184,7 @@ export default function HomePage() {
         // Favorites
         return (data?.favorites?.length ?? 0) > 0 && (
           <section className="rail-section pt-8">
-            <SectionTitle action={<Link href="/profile" className="text-xs text-accent">{tr('Manage')}</Link>}>{tr('Your favorites')}</SectionTitle>
+            <SectionTitle action={<Link href="/profile" className="text-xs text-accent pointer-coarse:-my-3 pointer-coarse:py-3 pointer-coarse:ps-3">{tr('Manage')}</Link>}>{tr('Your favorites')}</SectionTitle>
             <ScrollRail label={tr('Your favorites')} className={CARD_RAIL}>
               {data!.favorites.map((s) => <SeriesCard key={s.id} series={s} />)}
             </ScrollRail>
@@ -210,7 +210,7 @@ export default function HomePage() {
         // Recently added
         return (
           <section className="rail-section pt-8">
-            <SectionTitle action={<Link href="/library?sort=new" className="text-xs text-accent">{tr('See all')}</Link>}>{tr('Recently added')}</SectionTitle>
+            <SectionTitle action={<Link href="/library?sort=new" className="text-xs text-accent pointer-coarse:-my-3 pointer-coarse:py-3 pointer-coarse:ps-3">{tr('See all')}</Link>}>{tr('Recently added')}</SectionTitle>
             {isLoading ? <RailSkeleton /> : (
               <ScrollRail label={tr('Recently added')} className={CARD_RAIL}>
                 {(data?.new ?? []).map((s) => <SeriesCard key={s.id} series={s} />)}
@@ -225,7 +225,7 @@ export default function HomePage() {
         // nothing.
         return (data?.popular?.length ?? 0) > 0 && (
           <section className="rail-section pt-8">
-            <SectionTitle action={<Link href="/library?sort=popular" className="text-xs text-accent">{tr('See all')}</Link>}>{tr('Most popular in your library')}</SectionTitle>
+            <SectionTitle action={<Link href="/library?sort=popular" className="text-xs text-accent pointer-coarse:-my-3 pointer-coarse:py-3 pointer-coarse:ps-3">{tr('See all')}</Link>}>{tr('Most popular in your library')}</SectionTitle>
             <ScrollRail label={tr('Most popular in your library')} className={CARD_RAIL}>
               {data!.popular!.map((s) => <SeriesCard key={s.id} series={s} note={sortValue(s, 'score')} />)}
             </ScrollRail>
@@ -236,7 +236,7 @@ export default function HomePage() {
         // something in it. See all is the Library's own answer to the same question, best first and not started.
         return (data?.gems?.length ?? 0) > 0 && (
           <section className="rail-section pt-8" data-home-gems>
-            <SectionTitle action={<Link href="/library?sort=score&read=UNREAD" className="text-xs text-accent">{tr('See all')}</Link>}>{tr('Hidden gems')}</SectionTitle>
+            <SectionTitle action={<Link href="/library?sort=score&read=UNREAD" className="text-xs text-accent pointer-coarse:-my-3 pointer-coarse:py-3 pointer-coarse:ps-3">{tr('See all')}</Link>}>{tr('Hidden gems')}</SectionTitle>
             <ScrollRail label={tr('Hidden gems')} className={CARD_RAIL}>
               {data!.gems!.map((s) => <SeriesCard key={s.id} series={s} note={sortValue(s, 'score')} />)}
             </ScrollRail>
@@ -272,7 +272,7 @@ export default function HomePage() {
           <Link href="/updates" className="relative grid h-10 w-10 place-items-center rounded-full border border-ink-700 bg-ink-850/70 text-fog-300 backdrop-blur">
             <IcBell width={19} height={19} />
             {/* Squared, as the desktop bar's: a round tag grows into a capsule at "9+". */}
-            {(data?.updatesCount ?? 0) > 0 && <span className="absolute -end-1.5 -top-1 grid h-4 min-w-4 place-items-center rounded-[4px] bg-accent px-[3px] text-[10px] font-bold leading-none tabular-nums text-black">{(data!.updatesCount ?? 0) > 9 ? '9+' : data!.updatesCount}</span>}
+            {(data?.updatesCount ?? 0) > 0 && <span className="absolute -end-1.5 -top-1 grid h-4 min-w-4 place-items-center rounded-[4px] bg-accent px-[3px] text-[10px] pointer-coarse:text-[11px] font-bold leading-none tabular-nums text-black">{(data!.updatesCount ?? 0) > 9 ? '9+' : data!.updatesCount}</span>}
           </Link>
           <button type="button" aria-label={tr('You')} aria-haspopup="dialog" onClick={() => setQuickOpen(true)} className="grid h-10 w-10 place-items-center rounded-full transition active:opacity-80">
             <Avatar avatar={user?.avatar} size={40} />

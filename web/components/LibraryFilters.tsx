@@ -124,7 +124,7 @@ function FilterSection({ id, title, help, picked, fold, children }: {
   return (
     <section data-filter-section={id}>
       <button type="button" onClick={() => fold.toggle(id)} aria-expanded={open}
-        className="group flex w-full items-center gap-2 rounded-md py-1 text-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60">
+        className="group flex w-full items-center gap-2 rounded-md py-1 pointer-coarse:py-3 text-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60">
         <span className="shrink-0 text-xs font-semibold uppercase tracking-wider text-fog-500 transition group-hover:text-fog-300">{title}</span>
         {!open && picked && <span className="min-w-0 truncate text-xs font-medium text-accent">{picked}</span>}
         <IcChevronRight width={14} height={14} aria-hidden
@@ -220,7 +220,7 @@ function SourceSection({ id, fold, title, help, rows, none, count, value, onPick
           lead={<Glyph k="NONE" />} label={tr('No source')} count={none} attrs={{ 'data-source-none': '' }} />
       )}
       {hidden > 0 && (
-        <button type="button" onClick={() => setAll(true)} className="mt-1 px-1.5 text-xs text-accent">{tr('Show all')} ({hidden})</button>
+        <button type="button" onClick={() => setAll(true)} className="mt-1 px-1.5 pointer-coarse:py-2 text-xs text-accent">{tr('Show all')} ({hidden})</button>
       )}
     </FilterSection>
   );
@@ -385,7 +385,7 @@ export function LibraryFilters({ read, status, genres, libSel, libs, mainSrc, an
           </p>
         )}
         {hidden > 0 && (
-          <button type="button" onClick={() => setShowAll(true)} className="mt-1 px-1.5 text-xs text-accent">
+          <button type="button" onClick={() => setShowAll(true)} className="mt-1 px-1.5 pointer-coarse:py-2 text-xs text-accent">
             {tr('Show all')} ({hidden})
           </button>
         )}

@@ -110,7 +110,7 @@ function SearchInner() {
           )}
         </div>
         {/* A phone has no Ctrl+K or "/": this opens the same command palette (pages, settings, actions). */}
-        <button type="button" onClick={() => openPalette(q)} data-search-palette className="chip mt-2 text-xs lg:hidden">
+        <button type="button" onClick={() => openPalette(q)} data-search-palette className="btn-key mt-2 h-11 w-full justify-center text-sm lg:hidden">
           <IcSparkle width={14} height={14} aria-hidden />{tr('Search pages, settings and actions')}
         </button>
       </header>
