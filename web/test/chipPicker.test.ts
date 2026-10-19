@@ -38,3 +38,12 @@ test('it draws the chosen chips and a search box, and none of the other options 
   assert.match(none, /gone/, 'a stored choice the list no longer has is still shown, so it can be taken off');
   assert.doesNotMatch(none, /type="search"/, 'no search box over an empty list');
 });
+
+test('Discover\'s Sources sheet lets an admin include a source Show 18+ keeps out (Mixed), through the same picker as Settings', () => {
+  const r = (p: string) => readFileSync(join(__dirname, '..', p), 'utf8');
+  assert.match(r('components/SourceListSheet.tsx'), /\{isAdmin && \(\s*<section[^>]*data-include-sources>[\s\S]*<MixedSourcesPicker \/>/, 'the sheet has no way to include a hidden source');
+  assert.match(r('components/AdminSettings.tsx'), /import \{ MixedSourcesPicker \} from '@\/components\/MixedSourcesPicker';/, 'Settings lost the picker');
+  const p = r('components/MixedSourcesPicker.tsx');
+  assert.match(p, /\/age-rating`, \{ method: 'PUT', json: ageRequest\(mixed \? 'mixed' : 'default'\) \}/, 'the picker does not rate the source on the server');
+  assert.match(p, /\(s\.ageRating \?\? 0\) >= 18 \|\| s\.mixed/, 'a source rated Adult only cannot be included');
+});

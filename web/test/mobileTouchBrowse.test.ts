@@ -87,6 +87,7 @@ test('Show 18+ can be remembered per device, Discover says how many sources it h
   assert.match(readFileSync(join(root, 'app/discover/page.tsx'), 'utf8'), /data-hidden-sources/, 'Discover does not say sources are hidden');
   assert.match(readFileSync(join(root, 'components/SourcesPanel.tsx'), 'utf8'), /\/api\/admin\/extensions\/backups\/keep-all/, 'Keep all is gone');
   const settings = readFileSync(join(root, 'components/AdminSettings.tsx'), 'utf8');
-  assert.match(settings, /function MixedSourcesPicker/, 'no bulk Mixed picker');
+  assert.match(settings, /<MixedSourcesPicker \/>/, 'no bulk Mixed picker');
+  assert.match(readFileSync(join(root, 'components/MixedSourcesPicker.tsx'), 'utf8'), /export function MixedSourcesPicker/, 'the picker is gone');
   assert.match(settings, /save\(\{ mixedShowUnknown: next \}\)/, 'no switch for unjudgeable titles');
 });

@@ -2,7 +2,7 @@
   "_meta": {
     "language": "ru",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 4973
+    "strings": 4975
   },
   "1 check found something": "1 проверка нашла проблему",
   "1 member": "1 участник",
@@ -4976,5 +4976,7 @@
   "Browsing": "Просмотр",
   "1 source blocked": "Заблокирован 1 источник",
   "{n} sources blocked": "Заблокировано источников: {n}",
-  "Nothing blocked": "Ничего не заблокировано"
+  "Nothing blocked": "Ничего не заблокировано",
+  "Sources kept out while Show 18+ is off": "Источники, исключённые при выключенном «Показывать 18+»",
+  "Sources their extension marks 18+. Include the ones that are mostly not, to keep them in this search and in Discover: each title is judged on its own. This changes the source’s setting on the server.": "Источники, которые их расширение помечает как 18+. Включите те, что в основном таковыми не являются, чтобы оставить их в этом поиске и в «Обзоре»: каждое название оценивается отдельно. Это меняет настройку источника на сервере."
 }
