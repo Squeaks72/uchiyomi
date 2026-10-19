@@ -5,6 +5,7 @@
 // `/api/sources/search-all` normally returns — Discover wants "who has this title", this wants "what does
 // THIS provider call it", so a `groupBy=source` mode was added to the same endpoint (same fan-out, different
 // shaping) instead of building a second search route.
+import { sourceWithLang } from '@/lib/sourceLabel';
 import { useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
@@ -244,7 +245,7 @@ export function ImportMatchSheet({ batchId, candidate, onClose }: {
             <div key={g.source}>
               <p className="mb-1.5 flex items-center gap-1.5 px-0.5 text-xs font-semibold text-fog-300">
                 <SourceIcon id={g.source} name={g.name} size={16} />
-                <span className="truncate">{g.name}{g.lang ? ` (${g.lang.toUpperCase()})` : ''}</span>
+                <span className="truncate">{sourceWithLang(g.name, g.lang)}</span>
               </p>
               {/* `flex` is what makes this a rail: ScrollRail only adds `overflow-x-auto`, and without it the
                   cards sat as inline-blocks -- edge to edge (gap does nothing on a block), baseline-aligned
