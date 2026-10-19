@@ -2315,6 +2315,6 @@ export async function recheckCheck(id: RecheckableCheck): Promise<HealthCheck | 
     case 'trackers': return trackerSync(ctx).catch(() => null);
     // Recheck here means looking again: the flagged files are counted again first (a few hundred), so a file that was stamped
     // unreadable by a failed read, not by being broken, leaves the card.
-    case 'files': await recountUnreadable({ max: 400 }).catch(() => null); return chapterFiles(ctx).catch(() => null);
+    case 'files': await recountUnreadable({ max: 1000 }).catch(() => null); return chapterFiles(ctx).catch(() => null);
   }
 }
