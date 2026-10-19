@@ -21,6 +21,7 @@ import { scheduleFingerprintBackfill } from './lib/fingerprintJob';
 import { schedulePageHashBackfill } from './lib/pageHashJob';
 import { solverHealth } from './lib/health';
 import { refreshHealthSummary } from './lib/healthSummary';
+import { recountUnreadable } from './lib/healthFiles';
 import { scheduleMatchCheck } from './lib/matchCheck';
 import { startTitleWorks } from './lib/discoverIdentity';
 import { scheduleMergeLeftovers } from './lib/mergeLeftovers';
@@ -265,6 +266,13 @@ async function main() {
   // rest of audit_log is evidence other code reads back). Shortly after boot, then once a day.
   const pruneRefusals = () => { pruneAudit().catch((e) => app.log.warn({ err: e }, 'audit prune failed')); };
   setTimeout(pruneRefusals, 10 * 60_000).unref();
+  // Chapter files flagged "no page can be read" by a failed read, not a broken file (lib/pageCount.ts countPagesOrNull): counted
+  // again once, a few minutes after boot, slowly. Real zeros stay; the rest leave Health's card.
+  setTimeout(() => {
+    recountUnreadable({ max: 50_000, conc: 3 })
+      .then((r) => { if (r.fixed) app.log.info(`health: ${r.fixed} of ${r.checked} flagged chapter files can be read after all`); })
+      .catch((e) => app.log.warn({ err: e }, 'recount of flagged chapter files failed'));
+  }, 4 * 60_000).unref();
   setInterval(pruneRefusals, 24 * 60 * 60_000).unref();
 
   // Periodic new-chapter check (owned mode), self-rescheduling so the admin can change the interval live.
