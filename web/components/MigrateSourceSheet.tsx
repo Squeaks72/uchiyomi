@@ -7,6 +7,7 @@
 // the series lists now -- before anything is written. POST /api/admin/series/:id/attach-source has no overlap gate, but it
 // asks the source what the pick is called: when that is not the series' title or one of its other names it says so
 // (`title_differs`), and only then does the footer offer Attach anyway, which sends `force`.
+import { sourceWithLang } from '@/lib/sourceLabel';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api, ApiError } from '@/lib/api';
@@ -214,7 +215,7 @@ export function MigrateSourceSheet({ id, title, attached, mainId, listed, onDone
                   <label key={s.id} className="flex items-center gap-2 rounded-lg px-1 py-1.5 text-xs text-fog-200">
                     <input type="checkbox" checked={pickedIds.includes(s.id)} onChange={() => toggleSource(s.id)} className="pointer-coarse:size-5 pointer-coarse:shrink-0 accent-[rgb(var(--accent))]" />
                     <SourceIcon id={s.id} name={s.name} size={16} />
-                    <span className="truncate">{s.name}{s.lang ? ` (${s.lang.toUpperCase()})` : ''}</span>
+                    <span className="truncate">{sourceWithLang(s.name, s.lang)}</span>
                     {attached.includes(s.id) && <Marker main={s.id === mainId} />}
                   </label>
                 ))}
@@ -248,7 +249,7 @@ export function MigrateSourceSheet({ id, title, attached, mainId, listed, onDone
             <div key={g.source}>
               <p className="mb-1.5 flex items-center gap-1.5 px-0.5 text-xs font-semibold text-fog-300">
                 <SourceIcon id={g.source} name={g.name} size={16} />
-                <span className="truncate">{g.name}{g.lang ? ` (${g.lang.toUpperCase()})` : ''}</span>
+                <span className="truncate">{sourceWithLang(g.name, g.lang)}</span>
                 {attached.includes(g.source) && <Marker main={g.source === mainId} />}
               </p>
               <ScrollRail className="flex gap-2.5 pb-3">
