@@ -158,21 +158,19 @@ test('a Modal keeps clear of the phone bottom nav', () => {
   assert.match(modal, /max-h-\[calc\(100dvh-7\.5rem-env\(safe-area-inset-bottom\)\)\] w-full lg:max-h-\[88vh\]/, 'the panel is capped under that band, 88vh from lg up');
 });
 
-test('a row caption carries its text as a title, and the desktop grid shows the short date', () => {
-  // A 287-px grid cell leaves the caption ≈71 px beside "3d ago" and a group name is ≈90: the hover reads
-  // what the ellipsis hid, and "3d" gives the caption the word back. Reintroduce by dropping `title=` from
-  // RowCaption's <p>: "the caption has a title" fails; or by rendering one span with relativeTime in both
-  // forms: "the grid gets the short form" fails.
-  // v0.49.0: the short form is lib/format.ts relativeTimeShort (format.test.ts holds its words). Cutting
-  // " ago" off the sentence matched nothing once every other language spoke through Intl, and the grid said
-  // "vor 3 Tagen". Reintroduce that cut: "the grid cuts the sentence" fails.
+test('a row caption carries its text as a title, and the date sits on its own line under it', () => {
+  // The date used to be a column beside the title and caption (short "3d" in the grid): ~50 px off every row, and the
+  // title was what got cut. It is now a line of its own under the title and "translated by", so both get the width
+  // and the full date fits. Reintroduce the column (RowDate after the row's button, `shrink-0`): "the date is a
+  // column again" fails; drop `title=` from RowCaption's <p>: "the caption has a title" fails.
   const page = code(read('app/series/page.tsx'));
   const cap = page.slice(page.indexOf('function RowCaption('), page.indexOf('function RowDate('));
   assert.match(cap, /<p className=\{`mt-0\.5 truncate[^>]*title=\{title\}/, 'the caption has a title');
   const date = page.slice(page.indexOf('function RowDate('), page.indexOf('function ChapterRow('));
-  assert.doesNotMatch(date, /replace\(\/ ago/, 'the grid cuts the sentence');
-  assert.match(date, /className="hidden lg:inline">\{relativeTimeShort\(iso\)\}/, 'the grid gets the short form');
-  assert.match(date, /className="lg:hidden">\{relativeTime\(iso\)\}/, 'the phone keeps the long one');
+  assert.match(date, /<p className=\{`truncate text-\[11px\] text-fog-500 \$\{className\}`\}>\{relativeTime\(iso\)\}<\/p>/, 'the date is not a line of text');
+  assert.doesNotMatch(date, /shrink-0/, 'the date is a column again');
+  assert.match(page, /<RowCaption group=\{book\.scanlator\}[\s\S]*?\{book\.metadata\?\.releaseDate && <RowDate iso=\{book\.metadata\.releaseDate\} \/>\}\s*<\/div>\s*<\/button>/, 'a chapter\'s date is not under its caption');
+  assert.match(page, /\{ghost\.publishedAt && <RowDate iso=\{ghost\.publishedAt\}[^>]*\/>\}\s*<\/div>\s*<\/button>/, 'a ghost\'s date is not under its caption');
 });
 
 test("a tombstone's words are read whole at every width: a tag of their own that wraps (v0.55.7)", () => {

@@ -10,7 +10,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, img } from '@/lib/api';
 import { Book, EditionRow, Ghost, Listing, Page, Series, VersionCopy, Versions } from '@/lib/types';
-import { bookCountText, chapterLabel, chapterName, isVolumeName, languageName, relativeTime, relativeTimeShort } from '@/lib/format';
+import { bookCountText, chapterLabel, chapterName, isVolumeName, languageName, relativeTime } from '@/lib/format';
 import { listDownloads, downloadChapter, deleteDownload } from '@/lib/downloads';
 import { applyCover, clearCover } from '@/lib/theme';
 import { Img, Backdrop, SectionTitle, useWideViewport } from '@/components/ui';
@@ -390,12 +390,10 @@ function RowCaption({ group, via, versions, tone = 'text-fog-500', pruned, lead,
  * the grid showed the whole of it.
  */
 function RowDate({ iso, className = '' }: { iso: string; className?: string }) {
-  return (
-    <span className={`shrink-0 text-[11px] text-fog-500 ${className}`}>
-      <span className="lg:hidden">{relativeTime(iso)}</span>
-      <span className="hidden lg:inline">{relativeTimeShort(iso)}</span>
-    </span>
-  );
+  // Under the title and its "translated by" line, not in a column of its own beside them: that column took ~50 px
+  // from every row, and in the columns layout the title is what is read first and what got cut. With the whole width
+  // there is no need for the short form either.
+  return <p className={`truncate text-[11px] text-fog-500 ${className}`}>{relativeTime(iso)}</p>;
 }
 
 /**
@@ -520,9 +518,9 @@ function ChapterRow({ book, downloaded, sourceNames, primarySource, versions, on
           {state === 'reading' && rp && (
             <p className="text-[11px] text-accent">{tr('Page {n} of {m}', { n: rp.page, m: book.media.pagesCount })}</p>
           )}
+          {book.metadata?.releaseDate && <RowDate iso={book.metadata.releaseDate} />}
         </div>
       </button>
-      {book.metadata?.releaseDate && <RowDate iso={book.metadata.releaseDate} />}
       {!selectable && <ButtonsWrap compact={!!compact} menuOpen={menu.open}>
       {fresh && (
         <span role="img" aria-label={tr('Fetched')} data-fetched
@@ -663,9 +661,9 @@ function GhostRow({ ghost, sourceNames, primarySource, selectable, selected, onT
               other reasons, where the caption would otherwise not say who has it. */}
           <RowCaption lead={label ? { text: tr(label.key, label.args), amber: ghost.why === 'failed', ...(label.full ? { full: tr(label.full.key, label.full.args) } : {}) } : null}
             group={ghost.why === 'held' && label?.args.g ? null : ghost.scanlator} via={altSource} />
+          {ghost.publishedAt && <RowDate iso={ghost.publishedAt} className={selected ? '' : 'opacity-60'} />}
         </div>
       </button>
-      {ghost.publishedAt && <RowDate iso={ghost.publishedAt} className={selected ? '' : 'opacity-60'} />}
       <ButtonsWrap compact={!!compact} menuOpen={menu.open}>
       {/* The cloud, not the ⬇ of the row above: that arrow saves a chapter to THIS DEVICE, this one brings
           it onto the server, and the same glyph for both would promise the wrong thing on one of them. */}
