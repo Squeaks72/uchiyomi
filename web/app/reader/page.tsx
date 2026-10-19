@@ -1351,6 +1351,22 @@ function ReaderInner() {
     staleTime: 5 * 60 * 1000,
   });
   const activeChapter = chapters[flat[current]?.ci ?? 0];
+  // Paged mode has no strip between chapters: crossing into another one says so, briefly, so a chapter with no title page is still
+  // plainly a new chapter. (The webtoon column has its own divider.) Not on the first chapter opened, and not while the chapter's
+  // own page is being jumped to.
+  const [chapterNote, setChapterNote] = useState<string | null>(null);
+  const lastChapterId = useRef<string | null>(null);
+  useEffect(() => {
+    const id = activeChapter?.id ?? null;
+    if (!id) return;
+    const was = lastChapterId.current;
+    lastChapterId.current = id;
+    if (was === null || was === id || prefs.mode !== 'paged') return;
+    setChapterNote(activeChapter?.title || tr('Next chapter'));
+    const t = setTimeout(() => setChapterNote(null), 2400);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeChapter?.id]);
   const { data: activeTalk } = useChapterTalk(talkOn ? activeChapter?.id : null);
   /** On a chapter's last page (the last page of a slide, paged): where a paged track shows the chapter's talk. */
   const atChapterEnd = !!flat[current] && (current === flat.length - 1 || flat[current + 1]?.ci !== flat[current].ci);
@@ -2185,6 +2201,7 @@ function ReaderInner() {
             {flat.map((p, i) => (
               <ReaderPageRow key={p.key} item={p} height={heights[i]} gap={prefs.gap}
                 divider={p.firstOfChapter && p.ci > 0 ? (chapters[p.ci]?.title || tr('Next chapter')) : null}
+                dividerPrev={p.firstOfChapter && p.ci > 0 ? (chapters[p.ci - 1]?.title || null) : null}
                 seam={talkOn && p.firstOfChapter && p.ci > 0 ? chapters[p.ci - 1]?.id ?? null : null}
                 seamLabel={p.firstOfChapter && p.ci > 0 ? chapters[p.ci - 1]?.title ?? null : null}
                 seamSeries={p.firstOfChapter && p.ci > 0 ? chapters[p.ci - 1]?.seriesId ?? null : null}
@@ -2332,6 +2349,14 @@ function ReaderInner() {
       {prefs.mode === 'paged' && talkOn && !chrome && !focus && atChapterEnd && activeChapter && !talkFor && (
         <div dir={uiDir} className="pointer-events-none absolute inset-x-0 bottom-[max(0.9rem,calc(env(safe-area-inset-bottom)+0.4rem))] z-30 flex justify-center" data-talk-end>
           <TalkKey bookId={activeChapter.id} onOpen={openTalk} />
+        </div>
+      )}
+
+      {chapterNote && (
+        <div role="status" data-chapter-note className="pointer-events-none absolute inset-x-0 top-[max(4.5rem,calc(env(safe-area-inset-top)+3.5rem))] z-30 flex justify-center px-6">
+          <p dir="auto" className="max-w-full truncate rounded-xl border border-accent/40 bg-black/75 px-4 py-2 text-sm font-medium text-fog-50 backdrop-blur">
+            <span className="me-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-accent">{tr('Next chapter')}</span>{chapterNote}
+          </p>
         </div>
       )}
 

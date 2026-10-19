@@ -2,7 +2,7 @@
   "_meta": {
     "language": "es",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 4978
+    "strings": 4979
   },
   "1 check found something": "1 comprobación encontró algo",
   "1 member": "1 miembro",
@@ -4981,5 +4981,6 @@
   "Sources their extension marks 18+. Include the ones that are mostly not, to keep them in this search and in Discover: each title is judged on its own. This changes the source’s setting on the server.": "Fuentes que su extensión marca como 18+. Incluye las que en su mayoría no lo son para mantenerlas en esta búsqueda y en Descubrir: cada título se juzga por separado. Esto cambia el ajuste de la fuente en el servidor.",
   "Pick a series to search for": "Elige una serie para buscar",
   "Series whose main source is {name}.": "Series cuya fuente principal es {name}.",
-  "Search these series…": "Buscar en estas series…"
+  "Search these series…": "Buscar en estas series…",
+  "End of {chapter}": "Fin de {chapter}"
 }
