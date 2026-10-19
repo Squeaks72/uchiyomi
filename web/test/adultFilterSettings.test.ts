@@ -61,7 +61,7 @@ test('a toggle is saved from local state, and a failed save puts the chip back',
   // `onClick={() => save({ adultGenres: toggle(genres, g.key) })}` over `data.adult_genres`: fails.
   const s = section();
   assert.match(s, /const \[genres, setGenres\] = useState<string\[\]>/, 'the genre list is not held locally');
-  assert.match(s, /onClick=\{\(\) => flip\('adultGenres', genres, setGenres, g\.key\)\}/);
+  assert.match(s, /onToggle=\{\(k\) => flip\('adultGenres', genres, setGenres, k\)\}/);
   assert.match(s, /\.catch\(\(\) => \{ set\(list\); toast\(tr\('Could not save'\), 'error'\); \}\);/,
     'a failed save leaves the chip lit over a list that was not stored');
 });

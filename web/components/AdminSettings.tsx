@@ -32,6 +32,7 @@ import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { Switch } from '@/components/Switch';
 import { IcFilter, IcRefresh, IcSettings, IcSliders, IcTrash } from '@/components/icons';
 import { ageRequest } from '@/lib/sourceAge';
+import { ChipPicker } from '@/components/ChipPicker';
 import { Disclosure, NumberRow, Row, SETTINGS_GRID, SaveState, Section, SectionIndex, Segmented, SwitchRow, TextRow, useAutosave } from '@/components/settings';
 import { nightlyModeOf, type NightlyMode } from '@/lib/autofix';
 import { t as tr } from '@/lib/i18n';
@@ -224,17 +225,9 @@ function AdultFilterSection({ data, save }: { data: any; save: Save }) {
         <p className="mb-2 max-w-prose text-[11px] leading-relaxed text-fog-500">
           {tr('Genres to keep off the shelf while “Show 18+” is off. This hides nothing from anyone who goes looking: links, bookmarks, downloads and reading progress are unaffected.')}
         </p>
-        <div className="flex flex-wrap gap-1.5">
-          {allGenres.length === 0 && <span className="text-[11px] text-fog-500">{tr('No genres yet.')}</span>}
-          {allGenres.map((g) => (
-            <button key={g.key} type="button"
-              onClick={() => flip('adultGenres', genres, setGenres, g.key)}
-              aria-pressed={has(genres, g.key)}
-              className={`chip whitespace-nowrap ${has(genres, g.key) ? 'chip-active' : ''}`}>
-              {g.label || g.key}
-            </button>
-          ))}
-        </div>
+        {allGenres.length === 0 && genres.length === 0 && <span className="text-[11px] text-fog-500">{tr('No genres yet.')}</span>}
+        <ChipPicker label={tr('Genres')} options={allGenres.map((g) => ({ key: g.key, label: g.label || g.key }))} selected={genres}
+          onToggle={(k) => flip('adultGenres', genres, setGenres, k)} />
       </div>
       <MixedSourcesPicker />
       <p className="max-w-prose py-3 text-[11px] leading-relaxed text-fog-500" data-source-ratings-note>
@@ -282,14 +275,9 @@ function MixedSourcesPicker() {
       <p className="mb-2 max-w-prose text-[11px] leading-relaxed text-fog-500">
         {tr('Sources their extension marks 18+. Tick the ones that are mostly not, to keep searching them while “Show 18+” is off: each title is judged on its own.')}
       </p>
-      <div className="flex flex-wrap gap-1.5">
-        {flagged.map((s) => (
-          <button key={s.id} type="button" disabled={busy === s.id} onClick={() => void set(s, !s.mixed)} aria-pressed={!!s.mixed}
-            className={`chip whitespace-nowrap disabled:opacity-50 ${s.mixed ? 'chip-active' : ''}`}>
-            {s.name}
-          </button>
-        ))}
-      </div>
+      <ChipPicker label={tr('Sources')} disabled={busy !== null} options={flagged.map((s) => ({ key: s.id, label: s.name }))}
+        selected={flagged.filter((s) => s.mixed).map((s) => s.id)}
+        onToggle={(k) => { const s = flagged.find((x) => x.id === k); if (s) void set(s, !s.mixed); }} />
     </div>
   );
 }

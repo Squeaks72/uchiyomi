@@ -2,7 +2,7 @@
   "_meta": {
     "language": "ja",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 4838
+    "strings": 4842
   },
   "1 check found something": "1 件のチェックで問題を検出",
   "1 member": "メンバー 1 人",
@@ -4841,5 +4841,9 @@
   "Could not keep them": "保持できませんでした",
   "Keep all": "すべて保持",
   "Make every extension Uchiyomi added by itself yours: shown in Discover and never removed for being unused.": "Uchiyomiが自動で追加した拡張機能をすべて自分のものにします。Discoverに表示され、未使用でも削除されません。",
-  "Sources their extension marks 18+. Tick the ones that are mostly not, to keep searching them while “Show 18+” is off: each title is judged on its own.": "拡張機能が18+とマークしているソースです。大半がそうでないものを選ぶと、「18+を表示」がオフでも検索対象に残り、各タイトルが個別に判定されます。"
+  "Sources their extension marks 18+. Tick the ones that are mostly not, to keep searching them while “Show 18+” is off: each title is judged on its own.": "拡張機能が18+とマークしているソースです。大半がそうでないものを選ぶと、「18+を表示」がオフでも検索対象に残り、各タイトルが個別に判定されます。",
+  "Search {n}…": "{n}件から検索…",
+  "Search: {name}": "検索: {name}",
+  "No matches.": "一致するものはありません。",
+  "{n} more — keep typing to narrow them.": "ほかに{n}件。入力を続けて絞り込めます。"
 }

@@ -2,7 +2,7 @@
   "_meta": {
     "language": "pt-BR",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 4838
+    "strings": 4842
   },
   "1 check found something": "1 verificação encontrou algo",
   "1 member": "1 membro",
@@ -4841,5 +4841,9 @@
   "Could not keep them": "Não foi possível mantê-las",
   "Keep all": "Manter todas",
   "Make every extension Uchiyomi added by itself yours: shown in Discover and never removed for being unused.": "Tornar sua cada extensão que o Uchiyomi adicionou por conta própria: visível em Descobrir e nunca removida por falta de uso.",
-  "Sources their extension marks 18+. Tick the ones that are mostly not, to keep searching them while “Show 18+” is off: each title is judged on its own.": "Fontes que a extensão marca como 18+. Marque as que, em sua maioria, não são, para continuar pesquisando-as com “Mostrar 18+” desativado: cada título é avaliado individualmente."
+  "Sources their extension marks 18+. Tick the ones that are mostly not, to keep searching them while “Show 18+” is off: each title is judged on its own.": "Fontes que a extensão marca como 18+. Marque as que, em sua maioria, não são, para continuar pesquisando-as com “Mostrar 18+” desativado: cada título é avaliado individualmente.",
+  "Search {n}…": "Pesquisar entre {n}…",
+  "Search: {name}": "Pesquisar: {name}",
+  "No matches.": "Nenhuma correspondência.",
+  "{n} more — keep typing to narrow them.": "mais {n} — continue digitando para refinar."
 }

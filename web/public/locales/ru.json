@@ -2,7 +2,7 @@
   "_meta": {
     "language": "ru",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 4838
+    "strings": 4842
   },
   "1 check found something": "1 проверка нашла проблему",
   "1 member": "1 участник",
@@ -4841,5 +4841,9 @@
   "Could not keep them": "Не удалось сохранить",
   "Keep all": "Сохранить все",
   "Make every extension Uchiyomi added by itself yours: shown in Discover and never removed for being unused.": "Сделать своим каждое расширение, добавленное самим Uchiyomi: оно видно в «Обзоре» и не удаляется из-за неиспользования.",
-  "Sources their extension marks 18+. Tick the ones that are mostly not, to keep searching them while “Show 18+” is off: each title is judged on its own.": "Источники, которые их расширение помечает как 18+. Отметьте те, что в основном таковыми не являются, чтобы искать в них и при выключенном «Показывать 18+»: каждое название оценивается отдельно."
+  "Sources their extension marks 18+. Tick the ones that are mostly not, to keep searching them while “Show 18+” is off: each title is judged on its own.": "Источники, которые их расширение помечает как 18+. Отметьте те, что в основном таковыми не являются, чтобы искать в них и при выключенном «Показывать 18+»: каждое название оценивается отдельно.",
+  "Search {n}…": "Поиск среди {n}…",
+  "Search: {name}": "Поиск: {name}",
+  "No matches.": "Совпадений нет.",
+  "{n} more — keep typing to narrow them.": "Ещё {n} — продолжайте ввод, чтобы сузить."
 }
