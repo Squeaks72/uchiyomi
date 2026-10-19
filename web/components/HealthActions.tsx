@@ -31,7 +31,7 @@ import { Disclosure } from '@/components/settings';
 import { StatusMark } from '@/components/StatusMark';
 import { OnBody } from '@/components/ui';
 import { NumberingSheet } from '@/components/NumberingSheet';
-import { FindStartDialog, ManualMatch, RunReviewSheet } from '@/components/FindSources';
+import { FindStartDialog, ManualMatch, PickSeriesSheet, RunReviewSheet } from '@/components/FindSources';
 import { ReplaceDialog } from '@/components/ReplaceDialog';
 import { t as tr } from '@/lib/i18n';
 import { deletedText, skippedBookmarkedText, skippedNotOursText } from '@/lib/counted';
@@ -282,7 +282,9 @@ export function HealthRow({ check, item, rowKey, links, children, compact }: {
   const slot = slots[slotKey];
   // Answers-at-once actions keep their own state: pressed, asked, re-checked, then what they said.
   const [sync, setSync] = useState<{ action: HealthAction; state: ActionState; at: number } | null>(null);
-  const [asking, setAsking] = useState<'delete' | 'disable' | 'merge' | 'link' | 'find' | 'hand' | 'replace' | 'remove' | 'keep_one' | null>(null);
+  const [asking, setAsking] = useState<'delete' | 'disable' | 'merge' | 'link' | 'find' | 'hand' | 'pick' | 'hand-picked' | 'replace' | 'remove' | 'keep_one' | null>(null);
+  // The series an admin picked from a source row to search by hand for ('pick' -> 'hand-picked').
+  const [handSeries, setHandSeries] = useState<{ id: string; title: string } | null>(null);
   // #116: the renumbering plan a numbering key opened, and which key opened it (its row state is that key's).
   const [plan, setPlan] = useState<{ action: HealthAction; mode: PlanMode } | null>(null);
   const [keepFirst, setKeepFirst] = useState(() => keptIndex(item) === 0);
@@ -616,15 +618,7 @@ export function HealthRow({ check, item, rowKey, links, children, compact }: {
     return { ...sp, buttonProps: { ...sp.buttonProps, 'aria-label': `${shown.stop ? shown.label : (sp.runLabel ?? sp.label)}: ${rowName}` } as ActionSpec['buttonProps'] };
   });
   const specs = all.filter((s) => s.id !== 'find_sources');
-  // "Search by hand" on the row itself, beside "Find other source" (it was only inside that key's dialog, where it is easy to miss):
-  // for a series-scoped row, the same search-and-pick sheet the dialog opens. A source row covers many series, so it has none.
-  const byHand: ActionSpec[] = item.findScope === 'series' && item.seriesId && actions.includes('find_sources') ? [{
-    id: 'search_by_hand', label: tr('Search by hand'),
-    what: tr('Change what is searched, look through the sources yourself and pick the match.'),
-    onRun: () => setAsking('hand'),
-    buttonProps: { 'data-health-action': 'search_by_hand', 'data-find-by-hand-key': '', 'aria-label': `${tr('Search by hand')}: ${rowName}` } as ActionSpec['buttonProps'],
-  }] : [];
-  const finds = [...all.filter((s) => s.id === 'find_sources'), ...byHand];
+  const finds = all.filter((s) => s.id === 'find_sources');
   // The stored outcome, unless the status line under the keys already says the same thing ("Every source has
   // the same short copy" twice, one above the other, read as two findings).
   const stored = outcomeLine(item.outcome);
@@ -681,8 +675,8 @@ export function HealthRow({ check, item, rowKey, links, children, compact }: {
       )}
 
       {asking === 'find' && (
-        <FindStartDialog onClose={() => setAsking(null)}
-          onHand={item.findScope === 'series' && item.seriesId ? () => setAsking('hand') : undefined}
+        <FindStartDialog onClose={() => setAsking(null)} single={item.findScope === 'series'}
+          onHand={item.findScope === 'series' && item.seriesId ? () => setAsking('hand') : item.sourceId ? () => setAsking('pick') : undefined}
           onStart={(review) => { setAsking(null); const scope = findScopeOf(item); if (scope) void fr?.start(slotKey, { ...scope, ...(review ? { review } : {}) }); }} />
       )}
 
@@ -692,6 +686,15 @@ export function HealthRow({ check, item, rowKey, links, children, compact }: {
 
       {asking === 'hand' && item.seriesId && (
         <ManualMatch seriesId={item.seriesId} title={itemTitle(item)} onClose={() => setAsking(null)}
+          onDone={() => { setAsking(null); void rr.recheck().catch(() => {}); }} />
+      )}
+      {/* A source row covers many series: pick the one to search for by hand, then the same search-and-attach sheet. */}
+      {asking === 'pick' && item.sourceId && (
+        <PickSeriesSheet sourceId={item.sourceId} sourceName={itemTitle(item)} onClose={() => setAsking(null)}
+          onPick={(s) => { setHandSeries(s); setAsking('hand-picked'); }} />
+      )}
+      {asking === 'hand-picked' && handSeries && (
+        <ManualMatch seriesId={handSeries.id} title={handSeries.title} onClose={() => setAsking(null)}
           onDone={() => { setAsking(null); void rr.recheck().catch(() => {}); }} />
       )}
 

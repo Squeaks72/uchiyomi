@@ -2,7 +2,7 @@
   "_meta": {
     "language": "zh",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 4957
+    "strings": 4960
   },
   "1 check found something": "1 项检查发现问题",
   "1 member": "1 位成员",
@@ -4960,5 +4960,8 @@
   "{n} sources blocked": "{n} 个来源被阻止",
   "Nothing blocked": "没有被阻止的",
   "Sources kept out while Show 18+ is off": "关闭“显示18+”时被排除的来源",
-  "Sources their extension marks 18+. Include the ones that are mostly not, to keep them in this search and in Discover: each title is judged on its own. This changes the source’s setting on the server.": "其扩展标记为18+的来源。将其中大多数内容并非成人向的来源纳入，使其保留在此搜索和发现页中：每个标题会被单独判断。这会更改服务器上该来源的设置。"
+  "Sources their extension marks 18+. Include the ones that are mostly not, to keep them in this search and in Discover: each title is judged on its own. This changes the source’s setting on the server.": "其扩展标记为18+的来源。将其中大多数内容并非成人向的来源纳入，使其保留在此搜索和发现页中：每个标题会被单独判断。这会更改服务器上该来源的设置。",
+  "Pick a series to search for": "选择要搜索的系列",
+  "Series whose main source is {name}.": "主要来源为 {name} 的系列。",
+  "Search these series…": "搜索这些系列…"
 }

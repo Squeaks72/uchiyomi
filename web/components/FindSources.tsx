@@ -305,11 +305,12 @@ export function FindModeChoice({ review, onChange }: { review: boolean; onChange
  * admin's last one on this device, and Start. On <body>, as Health's own confirmations are: a `.card` would hold it.
  */
 /** `onHand`: also offers the series searched by hand instead (a one-series start, where there is a series to pick for). */
-export function FindStartDialog({ onStart, onClose, onHand }: { onStart: (review: boolean) => void; onClose: () => void; onHand?: () => void }) {
+export function FindStartDialog({ onStart, onClose, onHand, single }: { onStart: (review: boolean) => void; onClose: () => void; onHand?: () => void; single?: boolean }) {
   const [review, setReview] = useState(findReviewFirst);
   return (
     <OnBody>
-      <Modal title={tr('Find other sources')} onClose={onClose}>
+      {/* `single`: a row about ONE series, whose key says "Find other source" -- so does its dialog. */}
+      <Modal title={single ? tr('Find other source') : tr('Find other sources')} onClose={onClose}>
         {onHand && (
           <div className="mb-4 rounded-xl border border-ink-700 bg-ink-900/50 p-3">
             <p className="text-[13px] leading-relaxed text-fog-300">{tr('Change what is searched, look through the sources yourself and pick the match.')}</p>
@@ -570,6 +571,46 @@ function ReviewSeries({ r, act, head = true, onOpen, replace = false, makeMain =
 }
 
 interface StepState { ids: string[]; at: number; handled: string[] }
+
+/**
+ * Pick the series to search by hand for, from a source row (fork): the series whose main source this is, with a title search over
+ * them. A source row stands for many series, so "Search by hand" first asks which one; the pick then opens ManualMatch, the same
+ * search-and-attach sheet a one-series row opens straight away.
+ */
+export function PickSeriesSheet({ sourceId, sourceName, onPick, onClose }: {
+  sourceId: string; sourceName: string; onPick: (s: { id: string; title: string }) => void; onClose: () => void;
+}) {
+  const [q, setQ] = useState('');
+  const list = useQuery({
+    queryKey: ['pick-series', sourceId, q.trim()],
+    queryFn: () => api<{ content: Array<{ id: string; name?: string; metadata?: { title?: string } }> }>('/api/series/search', {
+      json: { page: 0, size: 60, sort: 'metadata.titleSort,asc', condition: { allOf: [{ mainSource: { operator: 'is', value: sourceId } }] }, query: q.trim() || undefined },
+    }),
+    staleTime: 30_000,
+    placeholderData: (prev) => prev,
+  });
+  const rows = (list.data?.content ?? []).map((s) => ({ id: s.id, title: s.metadata?.title || s.name || s.id }));
+  return (
+    <OnBody>
+      <Sheet title={tr('Pick a series to search for')} onClose={onClose} overBottomNav>
+        <p className="mb-2 text-xs text-fog-500">{tr('Series whose main source is {name}.', { name: sourceName })}</p>
+        <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={tr('Search these series…')} data-no-autofocus
+          aria-label={tr('Search these series…')} autoComplete="off" className="field mb-2 w-full" />
+        {list.isPending && <LoadingBlock className="h-16 rounded-xl" />}
+        {list.isError && <p role="alert" className="text-xs text-rose-300">{tr('Could not load the results')}</p>}
+        {list.isSuccess && rows.length === 0 && <p className="py-4 text-center text-sm text-fog-500">{tr('No matches.')}</p>}
+        <ul className="divide-y divide-ink-800/70">
+          {rows.map((s) => (
+            <li key={s.id}>
+              <button type="button" onClick={() => onPick(s)} data-pick-series={s.id}
+                className="w-full truncate px-1 py-2.5 text-start text-sm text-fog-100 hover:text-accent pointer-coarse:py-3.5" dir="auto">{s.title}</button>
+            </li>
+          ))}
+        </ul>
+      </Sheet>
+    </OnBody>
+  );
+}
 
 /** The series by hand: its page's own data (sources and chapter count), then the same search-and-attach sheet. */
 export function ManualMatch({ seriesId, title, onDone, onClose }: { seriesId: string; title: string; onDone: () => void; onClose: () => void }) {
