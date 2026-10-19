@@ -414,7 +414,7 @@ export function Segmented<T extends string>({ label, value, options, disabled, s
             onClick={() => pick(i)}
             onKeyDown={(e) => onKey(e, i)}
             title={o.icon ? o.label : undefined}
-            className={`relative ${o.icon ? 'px-2' : 'px-3'} py-1.5 text-xs disabled:cursor-not-allowed ${square ? 'rounded-lg' : 'rounded-full'}`}
+            className={`relative ${o.icon ? 'px-2 pointer-coarse:px-3' : 'px-3'} py-1.5 pointer-coarse:py-2.5 text-xs disabled:cursor-not-allowed ${square ? 'rounded-lg' : 'rounded-full'}`}
           >
             {selected && (
               <motion.span aria-hidden layoutId={id} className={`absolute inset-0 bg-accent-soft ${square ? 'rounded-lg' : 'rounded-full'}`}

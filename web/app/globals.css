@@ -600,3 +600,21 @@ html.lenis, html.lenis body { height: auto; }
 [dir='rtl'] .rail-scrim {
   background-image: linear-gradient(to left, rgb(0 0 0 / 0.82), rgb(0 0 0 / 0.55) 55%, rgb(0 0 0 / 0));
 }
+
+/* ── Phones and tablets (a finger is the primary pointer) ─────────────────────────────────────────────────────────
+   Unlayered on purpose: it must beat the Tailwind utilities (`text-sm`, `h-8`, `h-7`) that every field and key sets
+   for itself. Desktop and mouse laptops (`pointer: fine`) are untouched.
+   - Fields are 16 px. Below that iOS Safari zooms the page when one is focused and never zooms back out.
+   - Keys and chips are at least 40 / 36 px tall. They were 32 / 28, and the dense rows (Admin, the sources sheet,
+     the series chapter bar) were a game of aim. `.btn-key` and `.chip` keep their own bodies (noPills.test.ts pins
+     them); only the floor is raised here.
+   - While a dialog or sheet is open the page behind it does not scroll under a dragging thumb. */
+@media (pointer: coarse) {
+  input:not([type='checkbox'], [type='radio'], [type='range'], [type='file'], [type='color'], [type='hidden']),
+  select,
+  textarea { font-size: 16px; }
+  :is(.btn-key) { min-height: 2.5rem; }
+  :is(.chip) { min-height: 2.25rem; }
+  html:has([role='dialog'][aria-modal='true']) { overflow: hidden; }
+  [role='dialog'][aria-modal='true'] { overscroll-behavior: contain; }
+}

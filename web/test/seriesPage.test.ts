@@ -134,7 +134,7 @@ test('hiding an older-chapters run drops its ghosts from the selection', () => {
   assert.match(page, /toggleRun\(r\.from, keys\)/, 'the row hands the run its stable ghost keys');
 });
 
-test('the admin footer of the sources sheet is one row, and a sheet with a footer may take 85vh', () => {
+test('the admin footer of the sources sheet is one row, and a sheet with a footer may take 85dvh', () => {
   // ⚠️ Measured at 390×667: a 172-px footer (two helper sentences, the field, the buttons) under a 75vh
   // sheet left the Translated by section -- the only place Prefer and Block live -- below the fold.
   // Reintroduce by rendering either sentence in a visible `<p>` again (not `sr-only`, not the field's
@@ -145,7 +145,7 @@ test('the admin footer of the sources sheet is one row, and a sheet with a foote
   assert.match(footer, /aria-describedby=\{`patience-help-/, 'the field points at its description');
   assert.doesNotMatch(footer.replace(/<p id=\{`patience-help-[^>]*sr-only[^>]*>[^<]*<\/p>/, ''), /<p\b/, 'the helper sentences are the field\'s description, not rows');
   const ui = code(read('components/ui.tsx'));
-  assert.match(ui, /footer \? 'max-h-\[85vh\]' : 'max-h-\[75vh\]'/, 'a footered sheet grows');
+  assert.match(ui, /footer \? 'max-h-\[85dvh\]' : 'max-h-\[75dvh\]'/, 'a footered sheet grows');
 });
 
 test('a Modal keeps clear of the phone bottom nav', () => {

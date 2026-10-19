@@ -1041,7 +1041,7 @@ function ViewSwitch({ view, onView }: { view: LibraryView; onView: (v: LibraryVi
         const on = v === view;
         return (
           <button key={v} type="button" role="tab" aria-selected={on} data-view-tab={v} onClick={() => { if (!on) onView(v); }}
-            className={`relative -mb-px flex items-center gap-1.5 pb-2 pt-1 text-sm font-semibold transition-colors ${on ? 'text-fog-50' : 'text-fog-500 hover:text-fog-200'}`}>
+            className={`relative -mb-px flex items-center gap-1.5 pb-2.5 pt-2.5 text-sm font-semibold transition-colors ${on ? 'text-fog-50' : 'text-fog-500 hover:text-fog-200'}`}>
             {label}
             {v === 'downloads' && ring.show && ring.progress !== 'idle' && (
               <ProgressRing progress={ring.progress} size={16} tone={ring.slow ? 'amber' : 'accent'} static={ring.slow} />

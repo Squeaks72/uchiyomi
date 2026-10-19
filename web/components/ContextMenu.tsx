@@ -62,12 +62,17 @@ function Menu({ items, at, label, onClose }: { items: MenuItem[]; at: At; label:
   // Anything that moves the page under a menu makes its position a lie.
   useEffect(() => {
     const away = () => onClose(false);
-    window.addEventListener('resize', away);
-    window.addEventListener('scroll', away, true);
+    // A phone's URL bar sliding away resizes the viewport's HEIGHT only; that is not the page moving. And a
+    // scroll inside the menu itself (a tall one on a short screen) must not close it under the finger.
+    const w0 = window.innerWidth;
+    const onResize = () => { if (window.innerWidth !== w0) away(); };
+    const onScroll = (e: Event) => { if (!(e.target instanceof Node && ref.current?.contains(e.target))) away(); };
+    window.addEventListener('resize', onResize);
+    window.addEventListener('scroll', onScroll, true);
     window.addEventListener('blur', away);
     return () => {
-      window.removeEventListener('resize', away);
-      window.removeEventListener('scroll', away, true);
+      window.removeEventListener('resize', onResize);
+      window.removeEventListener('scroll', onScroll, true);
       window.removeEventListener('blur', away);
     };
   }, [onClose]);
@@ -105,7 +110,7 @@ function Menu({ items, at, label, onClose }: { items: MenuItem[]; at: At; label:
                 <button type="button" role="menuitem" aria-haspopup="menu" aria-expanded={group === k}
                   tabIndex={-1} disabled={it.disabled} data-menu-item={it.hook} title={it.title}
                   onClick={() => setGroup(group === k ? null : k)}
-                  className={`flex w-full items-center gap-2.5 px-3.5 py-2.5 text-start text-xs hover:bg-ink-800 focus:bg-ink-800 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent disabled:opacity-40 ${
+                  className={`flex w-full items-center gap-2.5 px-3.5 py-2.5 text-start text-xs pointer-coarse:py-3 pointer-coarse:text-sm hover:bg-ink-800 focus:bg-ink-800 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent disabled:opacity-40 ${
                     it.divider && !it.heading && k > 0 ? 'border-t border-ink-800' : ''} ${it.danger ? 'text-red-300' : 'text-fog-200'}`}>
                   <span className="min-w-0 flex-1">{it.label}</span>
                   <svg aria-hidden viewBox="0 0 24 24" width={14} height={14} fill="none" stroke="currentColor" strokeWidth={2.2}
@@ -116,7 +121,7 @@ function Menu({ items, at, label, onClose }: { items: MenuItem[]; at: At; label:
                     {it.children.map((c, j) => (
                       <button key={j} type="button" role="menuitem" tabIndex={-1} disabled={c.disabled} data-menu-item={c.hook} title={c.title}
                         onClick={() => { onClose(true); void c.onSelect(); }}
-                        className={`flex w-full items-center gap-2.5 py-2.5 ps-7 pe-3.5 text-start text-xs hover:bg-ink-800 focus:bg-ink-800 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent disabled:opacity-40 ${c.danger ? 'text-red-300' : 'text-fog-200'}`}>
+                        className={`flex w-full items-center gap-2.5 py-2.5 ps-7 pe-3.5 text-start text-xs pointer-coarse:py-3 pointer-coarse:text-sm hover:bg-ink-800 focus:bg-ink-800 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent disabled:opacity-40 ${c.danger ? 'text-red-300' : 'text-fog-200'}`}>
                         <span className="min-w-0 flex-1">{c.label}</span>
                       </button>
                     ))}
@@ -128,7 +133,7 @@ function Menu({ items, at, label, onClose }: { items: MenuItem[]; at: At; label:
               aria-checked={it.checked === undefined ? undefined : it.checked}
               tabIndex={-1} disabled={it.disabled} data-menu-item={it.hook} title={it.title}
               onClick={() => { onClose(true); void it.onSelect(); }}
-              className={`flex w-full items-center gap-2.5 px-3.5 py-2.5 text-start text-xs hover:bg-ink-800 focus:bg-ink-800 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent disabled:opacity-40 ${
+              className={`flex w-full items-center gap-2.5 px-3.5 py-2.5 text-start text-xs pointer-coarse:py-3 pointer-coarse:text-sm hover:bg-ink-800 focus:bg-ink-800 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent disabled:opacity-40 ${
                 it.divider && !it.heading && k > 0 ? 'border-t border-ink-800' : ''} ${it.danger ? 'text-red-300' : it.checked ? 'text-accent' : 'text-fog-200'}`}>
               {it.icon && <span aria-hidden className="grid w-4 shrink-0 place-items-center">{it.icon}</span>}
               <span className="min-w-0 flex-1">{it.label}</span>

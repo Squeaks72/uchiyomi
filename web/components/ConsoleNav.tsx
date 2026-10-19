@@ -110,7 +110,7 @@ export function ConsoleNav<T extends string>({
               {group.tabs.map((t) => (
                 <button key={t} onClick={() => onTab(t)}
                   aria-current={tab === t ? 'page' : undefined}
-                  className={`relative shrink-0 pb-2.5 pt-1 text-sm font-medium transition ${
+                  className={`relative shrink-0 pb-3 pt-2.5 text-sm font-medium transition lg:pb-2.5 lg:pt-1 ${
                     tab === t ? 'text-fog-50' : 'text-fog-500 hover:text-fog-200'
                   }`}>
                   {tr(t)}
@@ -175,11 +175,11 @@ function GroupSheet<T extends string>({ groups, ariaLabel, current, footer, onPi
   }, []);
   return (
     <div className={`fixed inset-0 z-50 flex items-end justify-center ${BACKDROP_CLS} sm:items-center`} onClick={onClose}>
-      <div ref={ref} className="glass max-h-[80vh] w-full overflow-y-auto rounded-t-2xl border border-ink-700 p-5 pb-[calc(5.5rem+env(safe-area-inset-bottom))] sm:pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:max-w-md sm:rounded-2xl"
+      <div ref={ref} className="glass max-h-[80dvh] w-full overflow-y-auto overscroll-contain rounded-t-2xl border border-ink-700 p-5 pb-[calc(5.5rem+env(safe-area-inset-bottom))] sm:pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:max-w-md sm:rounded-2xl"
         role="dialog" aria-modal="true" aria-label={ariaLabel} data-lenis-prevent onClick={(e) => e.stopPropagation()}>
         <div className="mb-4 flex items-start justify-between gap-3">
           <h3 className="font-display text-lg font-semibold leading-tight">{ariaLabel}</h3>
-          <button onClick={onClose} aria-label={tr('Close')} className="-m-1.5 shrink-0 p-1.5 text-fog-300 hover:text-fog-100"><span aria-hidden>✕</span></button>
+          <button onClick={onClose} aria-label={tr('Close')} className="-m-2.5 grid h-11 w-11 shrink-0 place-items-center text-fog-300 hover:text-fog-100"><span aria-hidden>✕</span></button>
         </div>
         <div className="space-y-4">
           {groups.map((g) => (

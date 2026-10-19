@@ -232,7 +232,7 @@ export function CommandPalette({ open, seed = '', onClose }: { open: boolean; se
     <AnimatePresence>
       {open && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: still ? 0 : 0.15 }}
-          className={`fixed inset-0 z-[70] ${BACKDROP_CLS} p-4 pt-[12vh]`} onClick={onClose}>
+          className={`fixed inset-0 z-[70] ${BACKDROP_CLS} p-4 pt-[max(0.75rem,env(safe-area-inset-top))] sm:pt-[12vh]`} onClick={onClose}>
           <motion.div ref={panelRef} initial={{ opacity: 0, y: still ? 0 : -10, scale: still ? 1 : 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: still ? 0 : -8, scale: still ? 1 : 0.98 }}
             transition={{ duration: still ? 0 : 0.18, ease: [0.22, 0.61, 0.36, 1] }}
             onKeyDown={(e: React.KeyboardEvent) => trapTab(e, panelRef.current)}
@@ -261,7 +261,7 @@ export function CommandPalette({ open, seed = '', onClose }: { open: boolean; se
             <div role="status" aria-live="polite" className="sr-only">
               {searching ? tr('Searching…') : query.length >= 2 && results.length === 0 ? tr('No series match “{query}”.', { query: q.trim() }) : ''}
             </div>
-            <div id={listId} role="listbox" aria-label={tr('Search')} className="max-h-[52vh] overflow-y-auto py-1.5" data-lenis-prevent>
+            <div id={listId} role="listbox" aria-label={tr('Search')} className="max-h-[max(10rem,calc(100dvh-26rem))] overflow-y-auto overscroll-contain py-1.5 sm:max-h-[52vh]" data-lenis-prevent>
               {searching && <p aria-hidden className="px-4 py-3 text-xs text-fog-400">{tr('Searching…')}</p>}
               {!searching && query.length >= 2 && results.length === 0 && (
                 <p aria-hidden className="px-4 py-3 text-xs text-fog-400">{tr('No series match “{query}”.', { query: `\u2068${q.trim()}\u2069` })}</p>

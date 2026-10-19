@@ -7,6 +7,7 @@
 //
 // `confirmText` asks the user to type the name of what they are about to change. Worth the friction only
 // where the action moves other people's data — deleting a series a household is reading, merging two.
+import { coarsePointer } from '@/lib/touch';
 import { useEffect, useId, useRef, useState } from 'react';
 import { t as tr } from '@/lib/i18n';
 import { saidText } from '@/lib/said';
@@ -61,9 +62,11 @@ export function Modal({
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeRef.current(); };
     document.addEventListener('keydown', onKey);
     // A field if there is one; the close button only when there is nothing to type into.
-    const first = (fieldFirst.current ? ref.current?.querySelector<HTMLElement>('input, textarea, select') : null)
+    const first = (fieldFirst.current && !coarsePointer() ? ref.current?.querySelector<HTMLElement>('input, textarea, select') : null)
       ?? ref.current?.querySelector<HTMLElement>('button');
-    first?.focus();
+    // On a phone a focused field raises the keyboard over the panel's own buttons: focus the panel instead.
+    const target = first ?? (coarsePointer() ? ref.current : null);
+    target?.focus();
     return () => { document.removeEventListener('keydown', onKey); opener?.focus(); };
   }, []);
 
@@ -84,12 +87,12 @@ export function Modal({
         tabIndex={-1}
         onKeyDown={(e) => trapTab(e, ref.current)}
         data-lenis-prevent
-        className={`glass outline-none max-h-[calc(100dvh-7.5rem-env(safe-area-inset-bottom))] w-full lg:max-h-[88vh] ${xwide ? 'max-w-xl' : wide ? 'max-w-lg' : 'max-w-md'} overflow-y-auto rounded-2xl border border-ink-700 p-5`}
+        className={`glass outline-none max-h-[calc(100dvh-7.5rem-env(safe-area-inset-bottom))] w-full lg:max-h-[88vh] ${xwide ? 'max-w-xl' : wide ? 'max-w-lg' : 'max-w-md'} overflow-y-auto overscroll-contain rounded-2xl border border-ink-700 p-5`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-3 flex items-start justify-between gap-3">
           <h3 className="font-display text-lg font-semibold leading-tight">{title}</h3>
-          <button onClick={onClose} aria-label={tr('Close')} className="-m-2 shrink-0 p-2 text-fog-500 hover:text-fog-200"><span aria-hidden>✕</span></button>
+          <button onClick={onClose} aria-label={tr('Close')} className="-m-3 grid h-11 w-11 shrink-0 place-items-center text-fog-500 hover:text-fog-200"><span aria-hidden>✕</span></button>
         </div>
         {children}
       </div>

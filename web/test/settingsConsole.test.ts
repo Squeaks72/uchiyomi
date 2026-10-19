@@ -471,7 +471,7 @@ test('a dialog and the phone group sheet give focus back to what opened them', (
   assert.match(effect, /const opener = document\.activeElement as HTMLElement \| null;/, 'the Modal does not remember what opened it');
   assert.match(effect, /return \(\) => \{ document\.removeEventListener\('keydown', onKey\); opener\?\.focus\(\); \};/, 'the Modal does not return focus');
   // `opener` is read BEFORE the first field takes focus, or it would remember the dialog's own ✕.
-  assert.ok(effect.indexOf('const opener') < effect.indexOf('first?.focus()'), 'the opener is read after the dialog took focus');
+  assert.ok(effect.indexOf('const opener') < effect.indexOf('target?.focus()'), 'the opener is read after the dialog took focus');
   const nav = code(read('components/ConsoleNav.tsx'));
   const sheet = nav.slice(nav.indexOf('function GroupSheet<'));
   assert.ok(sheet.length > 0, 'no GroupSheet');
