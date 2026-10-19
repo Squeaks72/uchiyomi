@@ -93,6 +93,9 @@ export async function onDeckPicks(uid: string, ctx: ViewCtx, o: { window: DeckWi
      )
      SELECT book_id, series_id, last_read FROM pick
       WHERE book_id IS NOT NULL      -- a series you have finished entirely drops out, correctly
+        -- "Remove from Keep reading" (fork): hidden until it is read again (read_progress.updated_at moves past hidden_at)
+        AND NOT EXISTS (SELECT 1 FROM keep_reading_hidden h
+                         WHERE h.user_id = ${uidP} AND h.series_id = pick.series_id AND h.hidden_at >= pick.last_read)
       ORDER BY last_read DESC
       LIMIT ${p.add(o.limit)}`,
     p.values as any[],

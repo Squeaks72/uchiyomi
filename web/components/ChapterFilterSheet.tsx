@@ -9,6 +9,7 @@
 import { Sheet } from '@/components/ui';
 import { Switch } from '@/components/Switch';
 import { GroupAvatar } from '@/components/GroupAvatar';
+import { ChipPicker } from '@/components/ChipPicker';
 import { ALL_GROUPS } from '@/lib/groupFilter';
 import { t as tr } from '@/lib/i18n';
 
@@ -28,18 +29,12 @@ export function ChapterFilterSheet({ groupNames, group, onGroup, hasGhosts, show
     <Sheet title={tr('Filter chapters')} onClose={onClose} overBottomNav>
       {groupNames.length > 0 && (
         <section>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-fog-500">{tr('Translated by')}</p>
-          <div className="flex flex-wrap gap-1.5">
-            <button type="button" onClick={() => onGroup(ALL_GROUPS)} aria-pressed={group === ALL_GROUPS}
-              className={`chip text-xs ${group === ALL_GROUPS ? 'chip-active' : ''}`}>{tr('All')}</button>
-            {groupNames.map((n) => (
-              <button key={n} type="button" onClick={() => onGroup(n)} aria-pressed={group === n}
-                className={`chip text-xs ${group === n ? 'chip-active' : ''}`}>
-                <GroupAvatar name={n} size={14} />
-                <span className="max-w-[12rem] truncate">{n}</span>
-              </button>
-            ))}
-          </div>
+          <p id="chapter-filter-by" className="mb-2 text-xs font-semibold uppercase tracking-wider text-fog-500">{tr('Translated by')}</p>
+          {/* One group at a time: All, the chosen one, and a search over the rest (a series can have dozens of groups). */}
+          <ChipPicker single label={tr('Translated by')} allLabel={tr('All')} onAll={() => onGroup(ALL_GROUPS)}
+            options={groupNames.map((n) => ({ key: n, label: n, icon: <GroupAvatar name={n} size={14} /> }))}
+            selected={group === ALL_GROUPS ? [] : [group]}
+            onToggle={(k) => onGroup(k === group ? ALL_GROUPS : k)} />
         </section>
       )}
       {hasGhosts && (

@@ -1,6 +1,6 @@
 'use client';
+import { BackLink, Breadcrumb } from '@/components/BackLink';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, img } from '@/lib/api';
 import { Series } from '@/lib/types';
@@ -10,7 +10,7 @@ import { useToast } from '@/components/Toast';
 import { CheckForNew } from '@/components/CheckForNew';
 import { EmptyState } from '@/components/EmptyState';
 import { ART } from '@/lib/art';
-import { IcChevronLeft, IcBell, IcCheck } from '@/components/icons';
+import { IcBell, IcCheck } from '@/components/icons';
 import { t as tr } from '@/lib/i18n';
 import { byExpected, radarText } from '@/lib/radar';
 
@@ -50,7 +50,6 @@ function ExpectedThisWeek() {
 }
 
 export default function UpdatesPage() {
-  const router = useRouter();
   const qc = useQueryClient();
   const toast = useToast();
   const { data, isLoading, refetch } = useQuery({ queryKey: ['updates'], queryFn: () => api<{ content: UpdateItem[] }>('/api/updates') });
@@ -65,10 +64,9 @@ export default function UpdatesPage() {
 
   return (
     <div className="min-h-screen-d">
+      <div className="px-4 lg:px-0"><Breadcrumb trail={[{ label: tr('Home'), href: '/' }]} current={tr('Updates')} /></div>
       <header className="safe-top flex items-center gap-2 px-4 pb-2 lg:px-0">
-        <button onClick={() => router.back()} className="grid h-10 w-10 place-items-center rounded-full bg-ink-800/70 text-fog-100 lg:hidden">
-          <IcChevronLeft width={22} height={22} />
-        </button>
+        <BackLink fallback="/" phoneOnly />
         <h1 className="font-display text-2xl font-bold lg:text-3xl">{tr('Updates')}</h1>
         <div className="ms-auto flex flex-wrap items-center justify-end gap-2">
           <CheckForNew />
@@ -85,7 +83,7 @@ export default function UpdatesPage() {
         </div>
       ) : items.length === 0 ? (
         <EmptyState art={ART.emptyUpdates} title={tr('You’re all caught up')}
-          sub={tr('Favorite some series and new chapters will appear here as Uchiyomi downloads them.')}
+          sub={tr('Favorite a series and its new chapters show up here.')}
           cta={{ href: '/library', label: tr('Browse library') }} />
       ) : (
         // The page's width, in columns (UI refresh: it was a 672 px column in the middle of a wide screen).
@@ -93,7 +91,7 @@ export default function UpdatesPage() {
           {items.map(({ series, newCount, latestAt }) => (
             <Link key={series.id} href={`/series/?id=${series.id}`} className="card flex items-center gap-3 p-3 transition-colors hover:border-ink-600">
               <div className="h-20 w-14 shrink-0 overflow-hidden rounded-xl border border-ink-700">
-                <Img src={img.seriesThumb(series.id)} alt={series.name} className="h-full w-full" />
+                <Img src={img.seriesThumb(series.id)} alt="" className="h-full w-full" />
               </div>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium text-fog-100">{series.metadata?.title || series.name}</p>

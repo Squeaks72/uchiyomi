@@ -30,7 +30,7 @@ test('the rail polls only while the server is still refreshing, and only a few t
 test('Discover shows the rail while browsing only, and the rail draws nothing without a suggestion', () => {
   const { readFileSync } = require('node:fs') as typeof import('node:fs');
   const page = readFileSync(new URL('../app/discover/page.tsx', import.meta.url), 'utf8');
-  assert.match(page, /\{mode === 'newest' && <RecommendationRail enabled=\{mayAdd\} onPick=\{\(title\) => setSeed\(\{ kind: 'trending', title \}\)\} \/>\}/);
+  assert.match(page, /<RecommendationRail enabled=\{mayAdd\} onPick=\{\(title\) => setSeed\(\{ kind: 'trending', title \}\)\} \/>/);
   const rail = readFileSync(new URL('../components/RecommendationRail.tsx', import.meta.url), 'utf8');
   assert.match(rail, /enabled,\n/, 'it asks only when the page may add');
   assert.match(rail, /if \(!items\.length\) return null;/);

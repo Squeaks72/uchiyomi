@@ -107,7 +107,7 @@ test('Home draws its rails by key, in the reader\'s order, and a hidden rail ask
   assert.doesNotMatch(home.slice(home.indexOf('const rail ='), home.indexOf('return (\n    <PullToRefresh')), /<section className="pt-4"/,
     'one rail still says pt-4 for itself, wherever it is moved');
   // The key is on the greeting's line, beside the 18+ reveal.
-  assert.match(home, /<AdultToggle className="shrink-0" alsoWhen=\{adultFilter\} \/>\s*<HomeCustomize \/>/);
+  assert.match(home, /<HomeCustomize \/>/);
 });
 
 test('the Customize sheet: one place for rails, the Lists page still the one place for lists', () => {

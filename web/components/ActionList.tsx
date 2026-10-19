@@ -166,6 +166,7 @@ export function ActionRow(a: ActionSpec) {
           // Busy disables it -- except as Stop, which is the one thing a running action's button is for.
           disabled={a.disabled || stopping || (isBusy(state) && !btn.stop)}
           title={a.disabled ? a.disabledWhy : undefined}
+          aria-label={a.runLabel && a.runLabel !== a.label ? `${btn.label}: ${a.label}` : undefined}
           onClick={btn.stop && state.kind === 'working' ? state.onStop : a.onRun}>
           {btn.label}
         </button>
@@ -182,6 +183,8 @@ export function ActionRow(a: ActionSpec) {
  */
 export function ActionKeys({ actions, className }: { actions: ActionSpec[]; className?: string }) {
   const anyBusy = actions.some((a) => isBusy(a.state));
+  // Why a key waits, said on the page: a title shows on hover only, and a phone has no hover.
+  const waiting = [...new Set(actions.filter((a) => a.disabled && a.disabledWhy).map((a) => a.disabledWhy as string))];
   return (
     <div data-action-keys className={`flex flex-wrap items-center gap-1.5 ${className ?? ''}`}>
       {actions.map((a) => {
@@ -200,6 +203,7 @@ export function ActionKeys({ actions, className }: { actions: ActionSpec[]; clas
           </button>
         );
       })}
+      {waiting.length > 0 && <p data-action-wait className="basis-full text-[11px] leading-snug text-amber-300">{waiting.join(' · ')}</p>}
     </div>
   );
 }

@@ -54,8 +54,8 @@ export function HealthBanner() {
       <IcAlert width={14} height={14} className="shrink-0" />
       <span dir="auto" className="min-w-0">{headlineText(data) ?? countLine(data.count)}</span>
       {data.count > 1 && <span className="text-fog-400">{countLine(data.count)}</span>}
-      <Link href={HEALTH_HREF} onClick={dismiss} className="font-semibold underline-offset-2 hover:underline">{tr('Take a look')}</Link>
-      <button type="button" onClick={dismiss} className="text-fog-400 hover:text-fog-100">{tr('Not now')}</button>
+      <Link href={HEALTH_HREF} onClick={dismiss} className="inline-flex min-h-6 items-center pointer-coarse:min-h-10 pointer-coarse:px-1.5 font-semibold underline-offset-2 hover:underline">{tr('Take a look')}</Link>
+      <button type="button" onClick={dismiss} className="inline-flex min-h-6 items-center pointer-coarse:min-h-10 pointer-coarse:px-1.5 text-fog-400 hover:text-fog-100">{tr('Not now')}</button>
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import { otherTitlesFor } from '../lib/otherTitles';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { q, one } from '../lib/db';
@@ -9,7 +10,7 @@ import { komgaImage } from '../lib/komga';
 import { content as komga, NATIVE_PROGRESS, OWNED } from '../lib/backend';
 import { UnsupportedFilter, owned } from '../lib/ownedCatalog';
 import { cleanDescription } from '../lib/htmlText';
-import { viewCtxFor, SYSTEM_CTX, type ViewCtx, hideAdult, browsableIds, browsable, Params, adultFilterConfigured, seriesVisible } from '../lib/visibility';
+import { viewCtxFor, SYSTEM_CTX, type ViewCtx, hideAdult, seriesVisible, browsableIds, browsable, Params, adultFilterConfigured } from '../lib/visibility';
 
 /** The viewer attached by the preHandler above. */
 const vc = (req: FastifyRequest): ViewCtx => (req as any).viewCtx as ViewCtx;
@@ -337,6 +338,20 @@ export default async function catalogRoutes(app: FastifyInstance) {
     };
   });
 
+  // "Remove from Keep reading": the series stays in the library and only leaves that row, until it is read again.
+  app.put('/api/keep-reading/:seriesId', async (req) => {
+    const uid = userIdOf(req);
+    const { seriesId } = req.params as { seriesId: string };
+    const { hidden } = z.object({ hidden: z.boolean() }).parse(req.body);
+    if (hidden) {
+      await q(`INSERT INTO keep_reading_hidden (user_id, series_id) VALUES ($1, $2)
+               ON CONFLICT (user_id, series_id) DO UPDATE SET hidden_at = now()`, [uid, seriesId]);
+    } else {
+      await q('DELETE FROM keep_reading_hidden WHERE user_id = $1 AND series_id = $2', [uid, seriesId]);
+    }
+    return { ok: true, hidden };
+  });
+
   app.get('/api/home', async (req) => {
     const uid = userIdOf(req);
     const admin = NATIVE_PROGRESS && actsAsAdmin(req);
@@ -350,7 +365,17 @@ export default async function catalogRoutes(app: FastifyInstance) {
 
     let onDeckP: Promise<any[]>;
     if (admin) {
-      onDeckP = komga.booksOnDeck(vc(req), 0, 20).then((r: any) => r.content).catch(() => []);
+      onDeckP = komga.booksOnDeck(vc(req), 0, 20).then((r: any) => r.content).catch(() => [])
+        .then(async (books: any[]) => {
+          if (!books.length) return books;
+          const gone = await q<{ series_id: string }>(
+            `SELECT h.series_id FROM keep_reading_hidden h
+              WHERE h.user_id = $1 AND h.hidden_at >= COALESCE((SELECT max(updated_at) FROM read_progress rp WHERE rp.user_id = h.user_id AND rp.series_id = h.series_id), '-infinity')`,
+            [uid],
+          ).catch(() => []);
+          const hide = new Set(gone.map((r) => r.series_id));
+          return hide.size ? books.filter((b) => !hide.has(b.seriesId)) : books;
+        });
     } else {
       // The pick itself is lib/onDeck.ts (v0.61.0: shared with Pick back up and the OPDS Keep reading shelf).
       onDeckP = onDeckPicks(uid, vc(req), { window: 'recent', limit: ON_DECK_LIMIT }).then(resolvePicks);
@@ -451,6 +476,13 @@ export default async function catalogRoutes(app: FastifyInstance) {
       if (e instanceof UnsupportedFilter) return reply.code(400).send({ error: 'unsupported_filter', predicate: e.predicate });
       throw e;
     }
+  });
+
+  // The English / romanised / Japanese titles of the series' AniList entry, for the series page.
+  app.get('/api/series/:id/other-titles', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    if (!(await seriesVisible(id, vc(req)))) return reply.code(404).send({ error: 'not_found' });
+    return { titles: await otherTitlesFor(id) };
   });
 
   app.get('/api/series/:id', async (req) => {
@@ -1033,6 +1065,8 @@ export default async function catalogRoutes(app: FastifyInstance) {
 
   // Mark or un-mark one page by hand. A person's call outranks the heuristic in both directions.
   app.put('/api/books/:id/pages/:n/junk', async (req, reply) => {
+    // The flag is shared by every account, so only an admin may set it.
+    if (roleOf(req) !== 'admin') return reply.code(403).send({ error: 'forbidden' });
     const { id, n } = req.params as { id: string; n: string };
     const page = Number(n);
     const body = (req.body ?? {}) as { junk?: boolean | null };
