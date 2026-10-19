@@ -32,7 +32,7 @@ const ADMIN_TABS = keysOf(read('app/admin/page.tsx'));
 const PROFILE_TABS = keysOf(read('app/profile/page.tsx'));
 /** Where each console tab's cards are drawn: the files whose `id="…"` a `?section=` on that tab may name. */
 const TAB_FILES: Record<string, string[]> = {
-  '/admin/ Settings': ['components/AdminSettings.tsx', 'components/AdminNotifications.tsx', 'components/ArchiveSettings.tsx', 'components/TranslateSettings.tsx'],
+  '/admin/ Settings': ['components/AdminSettings.tsx', 'components/AdminNotifications.tsx', 'components/ArchiveSettings.tsx', 'components/PolitenessSettings.tsx', 'components/TranslateSettings.tsx'],
   // The hero's weekly goal is drawn by the page itself (v0.86.0: its one home).
   '/profile/ You': ['components/ProfileYou.tsx', 'app/profile/page.tsx'],
   '/profile/ Insights': ['components/ProfileInsights.tsx'],

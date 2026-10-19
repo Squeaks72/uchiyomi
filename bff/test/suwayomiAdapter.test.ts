@@ -136,15 +136,15 @@ test('an absolute page url is left alone', async () => {
 
 test('junk in a response produces nothing, never invented entries', async () => {
   const { makeSuwayomiAdapter } = await load();
-  // a series with no title, or a chapter with no usable number, cannot be acted on. Dropping them is the
-  // only safe answer: a fabricated "Chapter 0" would collide with a real one and corrupt the library.
+  // a series with no title, or a chapter with no id, cannot be acted on. Dropping them is the only safe answer.
   const a = makeSuwayomiAdapter(LOCAL, fakeGql({
     fetchSourceManga: { fetchSourceManga: { mangas: [
       { id: 1, title: '   ' }, { id: 2 }, { title: 'no id' }, null,
     ] } },
     fetchChapters: { fetchMangaAndChapters: { chapters: [
-      { id: 1, chapterNumber: null }, { id: 2, chapterNumber: NaN }, { chapterNumber: 4 },
-      { id: 3, chapterNumber: -1 }, null,
+      // All of these lack an id, so none can be acted on. An id-bearing row with no number is NOT junk
+      // in this fork: listChapters numbers such a list 1..K (see the numbering tests below).
+      { chapterNumber: 4 }, { chapterNumber: null }, null,
     ] } },
     fetchChapterPages: { fetchChapterPages: { pages: ['', '   ', null, 42] } },
   }));
@@ -304,21 +304,22 @@ test('against the pinned engine: Istrevelia arrives with its posting order, its 
 });
 
 test('chapters with no usable number are counted on the answer, not silently lost (#115)', async () => {
-  // Reintroduce by dropping the Object.defineProperty(out, UNNUMBERED, ...) in listChapters: the count reads 0 and
-  // the smoke test calls an extension that numbers nothing "lists no chapters" (sourceProbe.test.ts).
+  // Reintroduce by dropping the Object.defineProperty(out, UNNUMBERED, ...) in listChapters: the count reads 0.
+  // (A list where NO row has a number is numbered by order instead, tested below.)
   const { makeSuwayomiAdapter } = await load();
   const { UNNUMBERED, unnumberedOf } = await import('../src/lib/sources/types');
   const a = makeSuwayomiAdapter(LOCAL, fakeGql({
     fetchChapters: { fetchMangaAndChapters: { chapters: [
       { id: 1, chapterNumber: -1, name: 'Prologue' }, { id: 2, chapterNumber: -1, name: 'Notice' }, { id: 3, chapterNumber: null, name: 'Extra' },
+      { id: 4, chapterNumber: 1, name: 'One' },
     ] } },
   }));
   const list = await a.listChapters('7');
-  assert.deepEqual([...list], []);
+  assert.deepEqual(list.map((c) => c.number), [1]);
   assert.equal((list as any)[UNNUMBERED], 3);
   assert.equal(unnumberedOf(list), 3);
-  assert.deepEqual(Object.keys(list), [], 'non-enumerable: spreads and JSON never see it');
-  assert.equal(JSON.stringify(list), '[]');
+  assert.deepEqual(Object.keys(list), ['0'], 'non-enumerable: spreads and JSON never see it');
+  assert.equal(JSON.stringify(list).includes('uchiyomi'), false);
   // A normal list carries nothing.
   const b = makeSuwayomiAdapter(LOCAL, fakeGql({ fetchChapters: { fetchMangaAndChapters: { chapters: [{ id: 1, chapterNumber: 1, name: 'One' }] } } }));
   assert.equal(unnumberedOf(await b.listChapters('7')), 0);

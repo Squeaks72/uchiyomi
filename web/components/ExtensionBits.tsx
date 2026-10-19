@@ -4,21 +4,18 @@
 import { Fragment, useState, type ReactNode } from 'react';
 import { t as tr } from '@/lib/i18n';
 import type { CatalogExt } from '@/lib/extensions';
+import { IconImg } from '@/components/IconImg';
 import { ProgressRing } from '@/components/ProgressRing';
 
 /** An extension's icon, served by Uchiyomi (the engine is not reachable from a browser), or its initial on a tile. */
 export function ExtIcon({ url, name, size = 40 }: { url: string | null; name: string; size?: number }) {
-  const [failed, setFailed] = useState(false);
   const box = { width: size, height: size };
-  if (!url || failed) {
-    return (
-      <span aria-hidden style={box} className="grid shrink-0 place-items-center rounded-xl border border-ink-600 bg-ink-800 font-display text-sm font-semibold text-fog-300">
-        {[...name.trim()][0]?.toUpperCase() ?? '?'}
-      </span>
-    );
-  }
-  // eslint-disable-next-line @next/next/no-img-element
-  return <img src={url} alt="" width={size} height={size} loading="lazy" onError={() => setFailed(true)} style={box} className="shrink-0 rounded-xl bg-ink-800 object-cover" />;
+  const letter = (
+    <span aria-hidden style={box} className="grid shrink-0 place-items-center rounded-xl border border-ink-600 bg-ink-800 font-display text-sm font-semibold text-fog-300">
+      {[...name.trim()][0]?.toUpperCase() ?? '?'}
+    </span>
+  );
+  return <IconImg src={url ?? ''} size={size} skip={!url} fallback={letter} style={box} className="shrink-0 rounded-xl bg-ink-800 object-cover" />;
 }
 
 /**
@@ -32,9 +29,9 @@ export function ExtTags({ e }: { e: Pick<CatalogExt, 'nsfw' | 'obsolete'> & { ba
         <span className="shrink-0 rounded-[4px] border border-ink-600 px-1 text-[10px] font-medium leading-[15px] text-fog-400" data-ext-backup>{tr('Backup')}</span>
       )}
       {/* dir="ltr": in an Arabic line the "+" of a bare "18+" printed on the wrong side ("+18"). */}
-      {e.nsfw && <span dir="ltr" className="shrink-0 rounded-[4px] border border-red-400/30 px-1 text-[10px] font-semibold leading-[15px] text-red-300">18+</span>}
+      {e.nsfw && <span dir="ltr" className="shrink-0 rounded-[4px] border border-red-400/30 px-1 text-[11px] font-semibold leading-[15px] text-red-300">18+</span>}
       {e.obsolete && (
-        <span className="shrink-0 rounded-[4px] border border-amber-400/30 px-1 text-[10px] font-medium leading-[15px] text-amber-300">{tr('Not in any repository')}</span>
+        <span className="shrink-0 rounded-[4px] border border-amber-400/30 px-1 text-[11px] font-medium leading-[15px] text-amber-300">{tr('Not in any repository')}</span>
       )}
     </>
   );

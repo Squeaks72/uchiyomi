@@ -39,13 +39,30 @@ export function onAdultChange(fn: () => void): () => void {
   return () => { listeners.delete(fn); };
 }
 
+/**
+ * "Keep Show 18+ on this device" (fork): with it, turning Show 18+ on sets a cookie that lasts a year instead of the browser
+ * session, so the reveal does not quietly reset every time the browser is closed (which, on a phone, is all the time) and take
+ * every source the extensions flag 18+ out of Discover with it. Per device, off by default: the session cookie above stays the
+ * rule for everyone who never asked for this. The preference itself is localStorage -- it is a choice about THIS device,
+ * never a credential, and the cookie is still what the page and the `adult=1` URLs read.
+ */
+const KEEP_KEY = 'uchiyomi.keepAdult';
+export function keepAdultOn(): boolean {
+  try { return localStorage.getItem(KEEP_KEY) === 'on'; } catch { return false; }
+}
+export function setKeepAdultOn(on: boolean): void {
+  try { if (on) localStorage.setItem(KEEP_KEY, 'on'); else localStorage.removeItem(KEEP_KEY); } catch { /* a private window */ }
+  // Re-write the cookie it governs, so switching this on while the reveal is on keeps it, and off puts it back to the session's.
+  if (adultShown()) setAdultShown(true);
+}
+
 export function setAdultShown(on: boolean): void {
   if (typeof document === 'undefined') return;
   // No Max-Age and no Expires: that is what makes it a session cookie. Secure only over https, because the
   // app is commonly reached over plain http on a LAN and a Secure cookie would simply never be stored.
   const secure = typeof location !== 'undefined' && location.protocol === 'https:' ? '; secure' : '';
   document.cookie = on
-    ? `${COOKIE}=1; path=/; samesite=lax${secure}`
+    ? `${COOKIE}=1; path=/; samesite=lax${secure}${keepAdultOn() ? '; max-age=31536000' : ''}`
     : `${COOKIE}=; path=/; max-age=0; samesite=lax${secure}`;
   listeners.forEach((f) => f());
 }
@@ -56,7 +73,12 @@ export function setAdultShown(on: boolean): void {
  * Only when ON, so the common case is byte-for-byte the URLs the app has always used and nothing already
  * cached is invalidated by shipping this.
  */
-export function withAdult(path: string): string {
-  if (!adultShown()) return path;
+export function withAdult(path: string, force = false): string {
+  // Admin tooling is not a browsing surface (Health, Find other sources, the library's repair screens): the filter tidies
+  // what is put in front of a reader unasked, and an admin fixing a series has asked for it by name. `force` is the same
+  // for an admin sheet that calls the browsing routes (the source search of "Add or move source").
+  const admin = path.startsWith('/api/admin/');
+  if (!force && !admin && !adultShown()) return path;
+  if (/[?&]adult=1(&|$)/.test(path)) return path;
   return `${path}${path.includes('?') ? '&' : '?'}adult=1`;
 }

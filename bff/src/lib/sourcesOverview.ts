@@ -22,7 +22,7 @@ import { leftOutByLimit } from './sources/suwayomi/register';
 import { MANGADEX_GROUP } from './sources/mangadex';
 import { readSites } from './sources/customSites';
 import { extensionsGeneration, listExtensions } from './sources/suwayomi/extensions';
-import { ADULT_RATING, sourceRatedAdult, visibleToAll } from './visibility';
+import { ADULT_RATING, sourceRatedAdult, sourceRatedMixed, visibleToAll } from './visibility';
 import { mainSourceCounts } from './findScope';
 import { sourceTrouble, sourceLabel, type HealthItem } from './health';
 import { loadIgnores } from './healthIgnore';
@@ -63,6 +63,8 @@ export interface OverviewSource {
    */
   ageRating: number | null;
   defaultAgeRating: number | null;
+  /** Fork: rated Mixed -- flagged 18+ by its extension, but asked with Show 18+ off and judged title by title (lib/visibility.ts sourceRatedMixed). */
+  mixed?: boolean;
   /**
    * v0.55.1: not loaded because the engine's source limit is full -- switched on, offered, and left out by the last load
    * (register.ts leftOutByLimit), with the limit it is over. Not broken, and Replace is not its fix: room under the limit
@@ -200,6 +202,7 @@ export async function sourcesOverview(): Promise<SourcesOverview> {
       icon: !!src?.iconUrl,
       ...(site?.base ? { address: site.base } : {}),
       ageRating: sourceRatedAdult({ id }) ? ADULT_RATING : null,
+      ...(sourceRatedMixed({ id }) ? { mixed: true } : {}),
       // A loaded source's own flag, else what the engine last said of an extension's source that is not loaded now.
       defaultAgeRating: (src ? !!src.isNsfw : !!ext?.nsfw) ? ADULT_RATING : null,
       // Health's frozen row for its series offers Free a slot by the same record (lib/health.ts frozenSeries), and lands

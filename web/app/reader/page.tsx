@@ -5,7 +5,7 @@ import { isWide, joinedOrder, pageHeight, pairSlides, type WidePages } from '@/l
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, apiWithHeaders, img } from '@/lib/api';
 import { fetchAllBooks } from '@/lib/seriesBooks';
 import { chapterOutcome } from '@/lib/readerState';
@@ -13,7 +13,7 @@ import { openableChapters } from '@/lib/chapterRows';
 import { buildFlow, startIndex, renderWindow } from '@/lib/readerFlow';
 import { drawnWidth, fitWidth, neverSofter } from '@/lib/readerFit';
 import { AHEAD_SCREENS, APPEND_SCREENS, BEHIND_SCREENS, KEEP_SCREENS, MAX_WINDOW_PAGES, anchorAt, nearEnd, prefetchList, screenRange, scrollTopFor, windowSet, type IndexRange } from '@/lib/readerWindow';
-import { readTap, undoLeft, undoWindow, type TapZone } from '@/lib/readerGesture';
+import { isCatch, readTap, undoLeft, undoWindow, type TapZone } from '@/lib/readerGesture';
 import { PAGE_ACTIONS, READER_ACTIONS, actionForKey, keyMapFor, type ReaderAction } from '@/lib/readerKeys';
 import { padMapFor } from '@/lib/readerPad';
 import { useGamepad } from '@/lib/useGamepad';
@@ -24,6 +24,8 @@ import { activeLocale, chapterLabel, languageName } from '@/lib/format';
 import { editionChipLabels, readerTarget } from '@/lib/editions';
 import { numLabel } from '@/lib/numbering';
 import { useToast } from '@/components/Toast';
+import { msgOf } from '@/components/ConfirmDialog';
+import { kickDownloads } from '@/lib/useServerDownloads';
 import { deviceId } from '@/lib/device';
 import { ReaderEndLabel, ReaderEndRadar } from '@/components/ReaderEndRadar';
 import { getOfflineChapter, getPageBlob, queueProgress, noteOfflineProgress, listSeriesDownloads, setOfflinePageJunk } from '@/lib/downloads';
@@ -266,7 +268,8 @@ function ReaderInner() {
   const openTalk = useCallback((id: string) => setTalkFor(id), []);
   const hasKeyboard = useHasKeyboard();
   const [current, setCurrent] = useState(0);
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
+  const qc = useQueryClient();
   /** Source id -> display name from the series' own followed sources (set with the reading direction). */
   const [seriesSourceNames, setSeriesSourceNames] = useState<Record<string, string>>({});
   // The series' PRIMARY source, which keys the per-source reader default (lib/readerPrefs.ts seriesSourceOf).
@@ -296,7 +299,14 @@ function ReaderInner() {
   const noMore = useRef(false);
   const tap = useRef<{ x: number; y: number; t: number } | null>(null);
   const lastTapAt = useRef(0);
+  const lastTapPt = useRef<{ x: number; y: number } | null>(null);
   const tapTimer = useRef<any>(null);
+  /** What the pending single tap will do when its timer fires, so a second tap that is not a double can run it at once. */
+  const pendingTap = useRef<(() => void) | null>(null);
+  /** The press that is down right now landed on a moving track: it stopped a fling, which is not a tap. */
+  const caughtFling = useRef(false);
+  /** Paged mode, zoomed: how far the page has been dragged from centre (CSS vars on the track keep it off React's render path). */
+  const pan = useRef({ x: 0, y: 0 });
   /**
    * What a tap did, and when -- so a `dblclick` that arrives after it can take it back. Only a mouse gets
    * that far: the OS decides how long a double-click may take (Windows defaults to 500 ms), so the single
@@ -1494,10 +1504,13 @@ function ReaderInner() {
 
   // ---- auto-hide chrome ----
   useEffect(() => {
-    if (!chrome || showSettings) return;
+    // Not while the slider is being dragged: the bar vanished under the finger a few seconds in, and the page preview
+    // then stayed stuck on, because the pointer-up it waits for went to an element that no longer existed.
+    if (!chrome || showSettings || scrubbing) return;
     const t = setTimeout(() => setChrome(false), 3800);
     return () => clearTimeout(t);
-  }, [chrome, showSettings]);
+  }, [chrome, showSettings, scrubbing]);
+  useEffect(() => { if (!chrome) setScrubbing(false); }, [chrome]);
 
   // ---- one place that does what a key, a controller button or a tap asks (v0.61.0) ----
   /**
@@ -1610,6 +1623,7 @@ function ReaderInner() {
     // it used to count as a tap here too: a right click on the edge of a page turned it, and one in the middle toggled the controls.
     if (e.pointerType === 'mouse' && e.button !== 0) { tap.current = null; return; }
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    caughtFling.current = e.pointerType === 'touch' && isCatch(lastMoved.current, Date.now());
     if (pointers.current.size === 2) {
       const p = [...pointers.current.values()];
       pinch.current = { dist: Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y), zoom };
@@ -1620,12 +1634,17 @@ function ReaderInner() {
     }
   };
   const onPointerMove = (e: React.PointerEvent) => {
-    if (!pointers.current.has(e.pointerId)) return;
+    const before = pointers.current.get(e.pointerId);
+    if (!before) return;
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (pinch.current && pointers.current.size === 2) {
       const p = [...pointers.current.values()];
       const dist = Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y);
       setZoom(Math.max(1, Math.min(3, pinch.current.zoom * (dist / pinch.current.dist))));
+    } else if (zoom > 1 && prefs.mode === 'paged' && pointers.current.size === 1) {
+      // A zoomed page is dragged around under the finger. The track itself cannot scroll sideways to do it: that
+      // is what turns the page, and a swipe on a page you are looking closely at must not.
+      panBy(e.clientX - before.x, e.clientY - before.y);
     }
   };
   const onPointerEnd = (e: React.PointerEvent) => {
@@ -1640,6 +1659,8 @@ function ReaderInner() {
     if (wasPinch) return;
     const s = tap.current; tap.current = null;
     if (!s) return;
+    // The press that stopped a fling is the reader catching the page, not asking for the controls.
+    if (caughtFling.current) { caughtFling.current = false; return; }
     const now = Date.now();
     // A mouse is NOT double-detected here: `onTrackDoubleClick` below takes it, because the interval that
     // defines a double-click is an OS setting this page cannot read. Two detectors for one gesture zoom in
@@ -1652,6 +1673,7 @@ function ReaderInner() {
       layout: device.tapLayout,
       mode: prefs.mode,
       lastTapAt: lastTapAt.current,
+      lastTapPoint: lastTapPt.current ?? undefined,
       doubleDetect: e.pointerType !== 'mouse',
       lastDoubleAt: lastDoubleAt.current,
     });
@@ -1666,23 +1688,58 @@ function ReaderInner() {
     }
     // ⚠️ Cancel first. A mouse's second click also lands here (it is not double-detected), and leaving the
     // first one's timer running would turn the page from a gesture that only ever meant zoom.
-    cancelPendingTap();
+    // A mouse's second click is half of a double-click the browser reports itself, so the first one's timer is dropped.
+    // A finger's second tap that did NOT make a double (an edge, or elsewhere) is a second tap: the first one goes
+    // ahead now instead of being swallowed, or two quick taps on the edge turned one page.
+    if (e.pointerType === 'mouse') cancelPendingTap(); else flushPendingTap();
     lastTapAt.current = now;
+    lastTapPt.current = { x: e.clientX, y: e.clientY };
     const zone = act.zone;
     // #232, Tap a page of a pair to see it alone (this device, off until chosen): a tap ON a page of a pair brings that
     // page into frame instead of what its zone does. Off, this is never asked, and every tap is the tap layout's.
     const target = device.tapFocus ? pageOfPairAt(e.clientX, e.clientY) : null;
     if (target) {
       const prev = focus;
-      tapTimer.current = setTimeout(() => { tapTimer.current = null; acted.current = { kind: 'focus', prev, at: Date.now() }; setFocus(target); }, act.after);
+      const run = () => { acted.current = { kind: 'focus', prev, at: Date.now() }; setFocus(target); };
+      pendingTap.current = run;
+      tapTimer.current = setTimeout(() => { tapTimer.current = null; pendingTap.current = null; run(); }, act.after);
       return;
     }
-    tapTimer.current = setTimeout(() => { tapTimer.current = null; runTap(zone); }, act.after);
+    const run = () => runTap(zone);
+    pendingTap.current = run;
+    tapTimer.current = setTimeout(() => { tapTimer.current = null; pendingTap.current = null; run(); }, act.after);
   };
 
   const cancelPendingTap = () => {
     if (tapTimer.current) { clearTimeout(tapTimer.current); tapTimer.current = null; }
+    pendingTap.current = null;
   };
+  /** Run the waiting single tap now rather than dropping it (a second tap arrived that is not its double). */
+  const flushPendingTap = () => {
+    const run = pendingTap.current;
+    cancelPendingTap();
+    run?.();
+  };
+
+  /** Drag a zoomed paged page by (dx, dy), kept inside what the zoom has made reachable, and put it on the track as CSS vars. */
+  const panBy = (dx: number, dy: number) => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const mx = ((zoom - 1) * el.clientWidth) / 2;
+    const my = ((zoom - 1) * el.clientHeight) / 2;
+    const x = Math.max(-mx, Math.min(mx, pan.current.x + dx));
+    const y = Math.max(-my, Math.min(my, pan.current.y + dy));
+    pan.current = { x, y };
+    el.style.setProperty('--pan-x', `${x}px`);
+    el.style.setProperty('--pan-y', `${y}px`);
+  };
+  // A new page, or the zoom put away, starts centred; a changed zoom keeps the drag inside its new reach.
+  useEffect(() => {
+    pan.current = { x: 0, y: 0 };
+    scrollRef.current?.style.removeProperty('--pan-x');
+    scrollRef.current?.style.removeProperty('--pan-y');
+  }, [current, prefs.mode]);
+  useEffect(() => { if (zoom <= 1) { pan.current = { x: 0, y: 0 }; scrollRef.current?.style.removeProperty('--pan-x'); scrollRef.current?.style.removeProperty('--pan-y'); } else panBy(0, 0); }, [zoom]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /** The slide the paged track is on, the way `onScroll` reads it -- an RTL track counts in negative px. */
   const slideNow = () => {
@@ -1782,8 +1839,10 @@ function ReaderInner() {
    * Undo that: a double-click is one gesture, and this one means zoom. See lib/readerGesture.ts.
    */
   const onTrackDoubleClick = (e: React.MouseEvent) => {
-    // A touch double-tap raises this too, and the pointer path has already zoomed for it.
+    // A touch double-tap raises this too, and the pointer path has already decided what it is: a zoom from the middle
+    // of the screen, or two taps (two page turns) anywhere else. Only a mouse's double-click is this handler's.
     if (Date.now() - handledDouble.current < 700) return;
+    if (lastPointer.current !== 'mouse') return;
     // A repeated-page strip owns its own clicks (it stops the pointer gesture for the same reason).
     if ((e.target as HTMLElement).closest?.('button, a')) return;
     cancelPendingTap();
@@ -1933,6 +1992,20 @@ function ReaderInner() {
    * the "You finished" card mid-series. Both told them to stop looking.
    */
   const retry = () => { setFailed(null); setReady(false); setReloadKey((k) => k + 1); };
+  const [redownloading, setRedownloading] = useState(false);
+  const redownload = async () => {
+    const c = activeChapter;
+    if (!c || redownloading) return;
+    setRedownloading(true);
+    try {
+      const res = await api<{ total: number; skipped: Array<{ reason: string }> }>(`/api/admin/series/${c.seriesId}/chapters/refetch`, { method: 'POST', json: { bookIds: [c.id] } });
+      if (res.total > 0) { void kickDownloads(qc); toast(tr('Downloading this chapter again. Try it in a minute.'), 'info'); }
+      else toast(tr('This chapter cannot be downloaded again from here. Use the series page.'), 'error');
+    } catch (e) {
+      toast(msgOf(e, tr('Could not start.')), 'error');
+    }
+    setRedownloading(false);
+  };
   const failureCard = (
     <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}
       className="mx-auto w-full max-w-3xl px-6 py-16 text-center">
@@ -1956,6 +2029,7 @@ function ReaderInner() {
         {/* No Try again for a pruned chapter: there is nothing to retry, and a button that cannot work is
             worse than no button. */}
         {failed !== 'pruned' && <button onClick={retry} className="btn-accent text-sm">{tr('Try again')}</button>}
+        {isAdmin && !activeChapter?.offline && <button onClick={redownload} disabled={redownloading} className="btn-ghost text-sm">{tr('Redownload this chapter')}</button>}
         <button onClick={() => (seriesHref ? router.push(seriesHref) : back())} className={`text-sm ${failed === 'pruned' ? 'btn-accent' : 'btn-ghost'}`}>{tr('Back to series')}</button>
       </div>
     </motion.div>
@@ -2032,7 +2106,7 @@ function ReaderInner() {
           content in view desynchronises it from `current` with no symptom and no way to detect it. */}
       {prefs.mode === 'vertical' ? (
         <div ref={scrollRef} data-lenis-prevent style={{ overflowAnchor: 'none' }} onScroll={onScroll} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerEnd} onPointerCancel={onPointerEnd} onDoubleClick={onTrackDoubleClick} {...menuBind}
-          className={`h-screen-d touch-pan-y overflow-y-auto overscroll-contain ${zoom > 1 ? 'overflow-x-auto' : 'overflow-x-hidden'}`}>
+          className={`h-screen-d overflow-y-auto overscroll-contain ${zoom > 1 ? 'touch-pan-x touch-pan-y overflow-x-auto' : 'touch-pan-y overflow-x-hidden'}`}>
           <div className="mx-auto" style={{ width: colW || '100%', filter: THEME_FILTER[prefs.theme] }}>
             <div className="h-2" />
             {flat.map((p, i) => (
@@ -2058,7 +2132,7 @@ function ReaderInner() {
       ) : (
         <div ref={scrollRef} data-lenis-prevent onScroll={onScroll} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerEnd} onPointerCancel={onPointerEnd} onDoubleClick={onTrackDoubleClick} {...menuBind}
           dir={pagedRtl ? 'rtl' : 'ltr'}
-          className="hide-scrollbar flex h-screen-d snap-x snap-mandatory overflow-x-auto overflow-y-hidden" style={{ filter: THEME_FILTER[prefs.theme] }}>
+          className={`hide-scrollbar flex h-screen-d snap-x snap-mandatory overflow-y-hidden overscroll-x-contain ${zoom > 1 ? 'touch-none overflow-x-hidden' : 'touch-pan-x overflow-x-auto'}`} style={{ filter: THEME_FILTER[prefs.theme] }}>
           {slides.map((slideIdxs, s) => {
             // One page of the pair brought into frame (#232/#261, `focus`): the slide holds just it, and everything below
             // lays it out as a single page.
@@ -2075,8 +2149,12 @@ function ReaderInner() {
             // v0.61.0: one half of a wide page (Wide pages → Split) is a slide of its own, keyed apart from its twin.
             const halfOf = half[s];
             return (
-              <div key={halfOf ? `${flat[idxs[0]].key}:${halfOf}` : flat[slideIdxs[0]].key} dir={isJoined ? 'ltr' : undefined} data-joined={isJoined || undefined}
-                className={`relative flex h-full w-full shrink-0 snap-center snap-always items-center justify-center${isJoined ? '' : ' gap-1'}`}>
+              <div key={halfOf ? `${flat[idxs[0]].key}:${halfOf}` : flat[slideIdxs[0]].key} data-joined={isJoined || undefined}
+                className="relative h-full w-full shrink-0 snap-center snap-always overflow-hidden">
+                {/* The clip stays put and the page inside it is what a zoomed drag moves (panBy): a zoomed page used to spill
+                    over its neighbours, and could not be dragged to its edges at all. */}
+                <div className={`flex h-full w-full items-center justify-center${isJoined ? '' : ' gap-1'}`} dir={isJoined ? 'ltr' : undefined}
+                  style={zoom > 1 ? { translate: 'var(--pan-x, 0px) var(--pan-y, 0px)' } : undefined}>
                 {turnedPair ? (
                   // Both pages, or neither: half a spread turned on its side is no page at all.
                   shown.every((i) => activeSet.has(i) && srcFor(i) && flat[i].width && flat[i].height)
@@ -2145,6 +2223,7 @@ function ReaderInner() {
                       style={{ transform: zoom !== 1 ? `scale(${zoom})` : undefined }} filter={imgFilter} />
                   );
                 })}
+                </div>
               </div>
             );
           })}
@@ -2194,7 +2273,7 @@ function ReaderInner() {
         {chrome && (
           <>
             <motion.header initial={{ y: -64, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -64, opacity: 0 }}
-              className="absolute inset-x-0 top-0 z-40 flex items-center gap-2 bg-linear-to-b from-black/90 via-black/55 to-transparent px-3 pb-8 pt-[max(0.9rem,calc(env(safe-area-inset-top)+0.55rem))] before:pointer-events-none before:absolute before:inset-x-0 before:bottom-full before:h-16 before:bg-black/90">
+              className="pointer-events-none absolute inset-x-0 top-0 z-40 flex items-center gap-2 [&>*]:pointer-events-auto bg-linear-to-b from-black/90 via-black/55 to-transparent pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))] pb-8 landscape:pb-3 pt-[max(0.9rem,calc(env(safe-area-inset-top)+0.55rem))] before:pointer-events-none before:absolute before:inset-x-0 before:bottom-full before:h-16 before:bg-black/90">
               <button onClick={back} className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-black/45 text-white backdrop-blur">
                 <IcChevronLeft width={22} height={22} />
               </button>
@@ -2255,14 +2334,14 @@ function ReaderInner() {
             </motion.header>
 
             <motion.footer initial={{ y: 64, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 64, opacity: 0 }}
-              className="absolute inset-x-0 bottom-0 z-40 bg-linear-to-t from-black/90 via-black/55 to-transparent px-4 pt-10 pb-[max(0.9rem,calc(env(safe-area-inset-bottom)+0.4rem))] after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-16 after:bg-black/90">
+              className="pointer-events-none absolute inset-x-0 bottom-0 z-40 bg-linear-to-t from-black/90 via-black/55 to-transparent pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] pt-10 landscape:pt-4 pb-[max(0.9rem,calc(env(safe-area-inset-bottom)+0.4rem))] after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-16 after:bg-black/90">
               {/* In paged mode the bar follows the TRACK, both ways: on a right-to-left read the previous chapter
                   is on the right, next on the left, and the slider fills from the right, so dragging it moves the
                   way the pages do. On a left-to-right read it is stated LTR rather than inherited -- under the
                   Arabic interface it used to inherit RTL and run opposite to its own pages. The chevrons swap to
                   keep pointing outwards; the counter stays LTR so "12/40" never reorders. The webtoon column
                   has no horizontal direction, so there the bar inherits the page's, as it always has. */}
-              <div dir={prefs.mode === 'paged' ? (pagedRtl ? 'rtl' : 'ltr') : undefined} className="relative mx-auto flex max-w-3xl items-center gap-2">
+              <div dir={prefs.mode === 'paged' ? (pagedRtl ? 'rtl' : 'ltr') : undefined} className="pointer-events-auto relative mx-auto flex max-w-3xl items-center gap-2">
                 {/* scrubber preview: a small render of the target page while dragging */}
                 {scrubbing && flat[current] && (() => {
                   const it = flat[current];
@@ -2282,13 +2361,13 @@ function ReaderInner() {
                   );
                 })()}
                 <button onClick={() => goChapter(prevId, true)} disabled={!prevId} aria-label={tr('Previous chapter')}
-                  className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-black/45 text-white backdrop-blur disabled:opacity-30">
+                  className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-black/45 text-white backdrop-blur disabled:opacity-30">
                   {pagedRtl ? <IcChevronRight width={18} height={18} /> : <IcChevronLeft width={18} height={18} />}
                 </button>
                 {/* The counter is the button. A long-press would be invisible on a phone, which this repo
                     already learned once from a hover-only affordance nobody found. */}
                 <button dir="ltr" onClick={() => setShowPages(true)} aria-label={tr('Jump to a page')}
-                  className="shrink-0 rounded-full px-1.5 py-0.5 text-[11px] tabular-nums text-fog-300 transition hover:bg-white/10 hover:text-white">
+                  className="grid min-h-10 shrink-0 place-items-center rounded-full px-2.5 text-xs tabular-nums text-fog-300 transition hover:bg-white/10 hover:text-white">
                   {chapterPageCount ? `${pageInChapter}/${chapterPageCount}` : `${current + 1}/${total}`}
                 </button>
                 <input type="range" min={0} max={Math.max(0, total - 1)} value={current}
@@ -2296,11 +2375,11 @@ function ReaderInner() {
                   // Let go of focus after a drag: a slider that keeps it owns Space and the arrows, so in the
                   // webtoon column Space stopped scrolling until the controls hid. Tab still reaches it.
                   onPointerUp={(e) => { setScrubbing(false); e.currentTarget.blur(); }}
-                  onPointerCancel={() => setScrubbing(false)}
+                  onPointerCancel={() => setScrubbing(false)} onBlur={() => setScrubbing(false)}
                   onChange={(e) => jumpTo(Number(e.target.value))}
-                  className="h-1 flex-1 accent-[rgb(var(--accent))]" />
+                  className="h-10 min-w-0 flex-1 touch-none accent-[rgb(var(--accent))]" />
                 <button onClick={goNext} disabled={!nextId} aria-label={armedNext != null ? tr('Tap again to skip to the next chapter') : tr('Next chapter')}
-                  className={`grid h-9 w-9 shrink-0 place-items-center rounded-full text-white backdrop-blur disabled:opacity-30 ${armedNext != null ? 'bg-accent' : 'bg-black/45'}`}>
+                  className={`grid h-10 w-10 shrink-0 place-items-center rounded-full text-white backdrop-blur disabled:opacity-30 ${armedNext != null ? 'bg-accent' : 'bg-black/45'}`}>
                   {pagedRtl ? <IcChevronLeft width={18} height={18} /> : <IcChevronRight width={18} height={18} />}
                 </button>
               </div>

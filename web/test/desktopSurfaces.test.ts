@@ -91,7 +91,7 @@ test('the admin and profile consoles hide tabs by filtering what the rail receiv
   assert.match(profile, /\{hiddenTab \? null : panel\}/, 'the Account panel renders on desktop');
   // Sign out: the rail's button, gated; the Account tab's own row goes with the tab.
   const rail = slice(profile, 'function RailActions(', 'function GoalModal(');
-  assert.match(rail, /\{!isDesktop\(\) && \(\s*<button onClick=\{logout\}/, 'the rail offers Sign out on desktop');
+  assert.match(rail, /\{!isDesktop\(\) && \(\s*<button (?:type="button" )?onClick=\{logout\}/, 'the rail offers Sign out on desktop');
 });
 
 test('the Overview does not ask for sessions on desktop, and the hero does not count members', () => {
@@ -115,7 +115,7 @@ test('per-person library access is hidden on desktop, and Extensions becomes the
   const admin = code(read('app/admin/page.tsx'));
   const libs = slice(admin, 'function LibrariesSection(', 'function LibraryAccessDialog(');
   assert.match(libs, /const desktopLibs = isDesktop\(\);/);
-  assert.match(libs, /\{!desktopLibs && <button onClick=\{\(\) => setAccess\(l\)\} className="chip text-xs">\{tr\('Access'\)\}<\/button>\}/, 'the Access chip shows on desktop');
+  assert.match(libs, /\{!desktopLibs && <button onClick=\{\(\) => setAccess\(l\)\} aria-describedby=\{`library-name-\$\{l\.id\}`\} className="chip text-xs">\{tr\('Access'\)\}<\/button>\}/, 'the Access chip shows on desktop');
   assert.match(libs, /\{!desktopLibs && <>\{' · '\}\{!anyMembers \? tr\('admins only'\)/, 'the "who can open it" fact shows on desktop');
   // v0.54.0: the engine's card is the top of Admin → Sources (components/SourcesPanel.tsx), above the rest of the
   // sources -- never instead of them; the desktop gate is its own, before the server's setup card.
@@ -217,7 +217,7 @@ test('"Save offline" and the Offline tab are hidden on desktop, and smart offlin
     'Save all offline shows on desktop');
   assert.equal(offlineKeyShown({ nothingYet: false, desktop: true }), false, 'Save all offline shows on desktop');
   assert.equal(offlineKeyShown({ nothingYet: false, desktop: false }), true, 'Save all offline is gone from the server build too');
-  assert.match(series, /\{!isDesktop\(\) && <button\s+onClick=\{async \(\) => \{\s*if \(busy\) return;\s*setBusy\(true\);\s*try \{ await onToggleDownload\(\); \}/, 'a chapter row offers Save offline on desktop');
+  assert.match(series, /\{!isDesktop\(\) && <button\s+type="button"\s+onClick=\{async \(\) => \{\s*if \(busy\) return;\s*setBusy\(true\);\s*try \{ await onToggleDownload\(\); \}/, 'a chapter row offers Save offline on desktop');
   assert.match(series, /\{!isDesktop\(\) && <button disabled=\{acting \|\| !saveable\.length\} onClick=\{bulkSave\}/, 'select mode offers Save offline on desktop');
   // The nav and the palette keep the entries (the server build shows them) and filter them on desktop.
   assert.deepEqual([...DESKTOP_HIDDEN.navHrefs], ['/downloads']);
@@ -259,7 +259,7 @@ test('copy that explains a hidden feature has a desktop arm, and the server keep
   // Reintroduce by dropping the `desktopLibs ?` arm: "the Libraries line offers access control on desktop" fails.
   const admin = code(read('app/admin/page.tsx'));
   const libs = slice(admin, 'function LibrariesSection(', 'function LibraryAccessDialog(');
-  assert.match(libs, /\{desktopLibs\s*\? tr\('A library is one or more folders, plus any series you file into it by hand\. Give it an age rating and everything in it inherits that\.'\)\s*: tr\('A library is one or more folders, plus any series you file into it by hand\. Give it an age rating and everything in it inherits that, and choose who can open it\.'\)\}/, 'the Libraries line offers access control on desktop');
+  assert.match(libs, /\{desktopLibs\s*\? tr\('A library is one or more folders, plus any series you add to it by hand\. Give it an age rating\.'\)\s*: tr\('A library is one or more folders, plus any series you add to it by hand\. Give it an age rating and choose who can open it\.'\)\}/, 'the Libraries line offers access control on desktop');
   // v0.54.0: Admin → Sources' empty state, in the reader's words on both arms (the server's was bare English).
   const empty = slice(code(read('components/SourcesPanel.tsx')), 'data-sources-empty', '</div>');
   assert.match(empty, /\{isDesktop\(\)\s*\? tr\('Add a site, or download the extension engine and add an extension, under Add sources\. With none, Uchiyomi reads only the library you already own\.'\)\s*: tr\('Add a site or an extension under Add sources, or mount a source pack at the server’s \{dir\}\. With none, Uchiyomi reads only the library you already own\.', \{ dir: 'SOURCES_DIR' \}\)\}/,

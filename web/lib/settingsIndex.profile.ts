@@ -29,6 +29,10 @@ export const PROFILE_SETTINGS: SettingsIndex = {
     { id: 'compact-chapters', cat: 'general', label: 'Compact chapter list', when: ['pointer'], keywords: ['thumbnails', 'dense', 'chapter rows'] },
     { id: 'type-to-search', cat: 'general', label: 'Type anywhere to search', when: ['pointer'], keywords: ['shortcut', 'keyboard', 'slash'] },
     { id: 'context-menus', cat: 'general', label: 'Right-click menus', keywords: ['context menu', 'long press', 'press and hold'] },
+    { id: 'big-banners', cat: 'general', label: 'Big banners', keywords: ['banner', 'hero', 'home', 'discover', 'trending'],
+      help: 'Shows the large banner at the top of Home (the daily pick) and of Discover (trending now). Off by default.' },
+    { id: 'remember-adult', cat: 'general', label: 'Remember Show 18+ on this device', keywords: ['18+', 'adult', 'nsfw', 'session', 'cookie'],
+      help: 'Show 18+ normally switches itself off when the browser session ends. With this on, turning it on stays on for a year on this device. Off by default; this device only.' },
     { id: 'incognito', cat: 'general', label: INCOGNITO_TEXT[0], help: INCOGNITO_TEXT[1], keywords: ['private', 'history', 'hide reading'] },
 
     // ---- Appearance ----

@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { motion } from 'framer-motion';
 import { useReduceEffects } from '@/lib/effects';
 import { useLayer } from '@/lib/layers';
+import { BACKDROP_CLS } from '@/components/ui';
 import { t as tr } from '@/lib/i18n';
 
 export interface NavGroup<T extends string> {
@@ -55,6 +56,11 @@ export function ConsoleNav<T extends string>({
 }) {
   const [sheet, setSheet] = useState(false);
   const reduced = useReduceEffects();
+  // The phone's tab row scrolls sideways with its bar hidden: keep the current tab in view (Profile's last tab sat at the edge).
+  const stripRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    stripRef.current?.querySelector<HTMLElement>('[aria-current="page"]')?.scrollIntoView({ inline: 'nearest', block: 'nearest' });
+  }, [tab]);
   const group = groups.find((g) => (g.tabs as readonly string[]).includes(tab)) ?? groups[0];
 
   return (
@@ -67,7 +73,7 @@ export function ConsoleNav<T extends string>({
             {groups.map((g) => (
               <div key={g.id}>
                 {!flat && (
-                  <p className="mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-wider text-fog-600">{tr(g.label)}</p>
+                  <p className="mb-1.5 px-3 text-xs font-semibold uppercase tracking-wider text-fog-400">{tr(g.label)}</p>
                 )}
                 <div className="space-y-0.5">
                   {g.tabs.map((t) => (
@@ -97,19 +103,19 @@ export function ConsoleNav<T extends string>({
               <button onClick={() => setSheet(true)}
                 className="btn-key shrink-0 gap-1" aria-haspopup="dialog">
                 {tr(group.label)}
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+                <svg aria-hidden width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
               </button>
             )}
             {/* Underlined tabs (UI refresh: they were pills), like the Library's Series | Downloads switch. On a phone this
                 row is the only tab navigation, so the current tab says so the way the desktop rail does -- the line
                 alone is invisible to a screen reader. */}
             {/* A landmark of its own: in strip mode there is no desktop rail to be one (only one of the two is ever shown). */}
-            <div role="navigation" aria-label={ariaLabel}
-              className={`-me-4 flex min-w-0 flex-1 gap-5 overflow-x-auto border-b border-ink-800/80 pe-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${strip ? 'lg:me-0 lg:pe-0' : ''}`}>
+            <div role="navigation" aria-label={ariaLabel} ref={stripRef}
+              className={`-me-4 ltr:pointer-coarse:[mask-image:linear-gradient(to_right,#000_90%,transparent)] flex min-w-0 flex-1 gap-5 overflow-x-auto border-b border-ink-800/80 pe-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${strip ? 'lg:me-0 lg:pe-0' : ''}`}>
               {group.tabs.map((t) => (
                 <button key={t} onClick={() => onTab(t)}
                   aria-current={tab === t ? 'page' : undefined}
-                  className={`relative shrink-0 pb-2.5 pt-1 text-sm font-medium transition ${
+                  className={`relative shrink-0 pb-3 pt-2.5 text-sm font-medium transition lg:pb-2.5 lg:pt-1 ${
                     tab === t ? 'text-fog-50' : 'text-fog-500 hover:text-fog-200'
                   }`}>
                   {tr(t)}
@@ -173,20 +179,21 @@ function GroupSheet<T extends string>({ groups, ariaLabel, current, footer, onPi
     return () => { document.removeEventListener('keydown', onKey); opener?.focus(); };
   }, []);
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink-950/70 backdrop-blur-xs sm:items-center" onClick={onClose}>
-      <div ref={ref} className="glass max-h-[80vh] w-full overflow-y-auto rounded-t-2xl border border-ink-700 p-5 pb-[calc(5.5rem+env(safe-area-inset-bottom))] sm:pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:max-w-md sm:rounded-2xl"
+    <div className={`fixed inset-0 z-50 flex items-end justify-center ${BACKDROP_CLS} sm:items-center`} onClick={onClose}>
+      <div ref={ref} className="glass max-h-[80dvh] w-full overflow-y-auto overscroll-contain rounded-t-2xl border border-ink-700 p-5 pb-[calc(5.5rem+env(safe-area-inset-bottom))] sm:pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:max-w-md sm:rounded-2xl"
         role="dialog" aria-modal="true" aria-label={ariaLabel} data-lenis-prevent onClick={(e) => e.stopPropagation()}>
         <div className="mb-4 flex items-start justify-between gap-3">
           <h3 className="font-display text-lg font-semibold leading-tight">{ariaLabel}</h3>
-          <button onClick={onClose} aria-label={tr('Close')} className="shrink-0 text-fog-500 hover:text-fog-200">✕</button>
+          <button onClick={onClose} aria-label={tr('Close')} className="-m-2.5 grid h-11 w-11 shrink-0 place-items-center text-fog-300 hover:text-fog-100"><span aria-hidden>✕</span></button>
         </div>
         <div className="space-y-4">
           {groups.map((g) => (
             <div key={g.id}>
-              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-fog-600">{tr(g.label)}</p>
+              <p className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-fog-400">{tr(g.label)}</p>
               <div className="flex flex-wrap gap-1.5">
                 {g.tabs.map((t) => (
                   <button key={t} onClick={() => onPick(t)}
+                    aria-current={current === t ? 'page' : undefined}
                     className={`chip text-xs ${current === t ? 'chip-active' : ''}`}>{tr(t)}</button>
                 ))}
               </div>

@@ -38,10 +38,14 @@ import { hasGroup, normGroup, reorder, withoutGroup } from '@/lib/scanlators';
 import { suggestGroups } from '@/lib/groupSuggest';
 import { NotificationsSection } from '@/components/AdminNotifications';
 import { SlowArchiveRow } from '@/components/ArchiveSettings';
+import { PolitenessRow } from '@/components/PolitenessSettings';
 import { TranslateRow } from '@/components/TranslateSettings';
 import { isDesktop } from '@/lib/desktop';
 import { ssoOnly, useAuthConfig } from '@/lib/authConfig';
 import { adultShown } from '@/lib/adult';
+import { ChipPicker } from '@/components/ChipPicker';
+import { ageRequest } from '@/lib/sourceAge';
+import { OVERVIEW_KEY, OVERVIEW_URL, type OverviewSource, type SourcesOverview } from '@/lib/sourcesPanel';
 import { addable, moveIn, orderRows } from '@/lib/sourceOrder';
 import { discoverSources } from '@/lib/sourceGroups';
 import { memberDefaultsOf } from '@/lib/memberDefaults';
@@ -172,6 +176,41 @@ function NoticeChaptersSection({ data, save }: { data: any; save: Save }) {
  * One row that names the genres (v0.86.0), and an editor where each genre is a square key that stays lit while it is
  * hidden.
  */
+/**
+ * Mixed sources, in one place (fork): every source its extension flags 18+, with a switch for each. A flagged source is out of
+ * Discover and search while Show 18+ is off, mainstream ones like MangaDex EN, Weeb Central or Tapas included, because an extension
+ * flags the WHOLE site if it can carry anything adult. Mixed keeps it in, and judges each title (adult genres and ratings stay out).
+ * The same PUT as the source's own sheet (Age rating); Adult only is that sheet's.
+ */
+function MixedSourcesPicker() {
+  const toast = useToast();
+  const qc = useQueryClient();
+  const { data } = useQuery({ queryKey: OVERVIEW_KEY, queryFn: () => api<SourcesOverview>(OVERVIEW_URL), staleTime: 30_000 });
+  const [busy, setBusy] = useState<string | null>(null);
+  const flagged = (data?.sources ?? []).filter((s) => !s.backup && ((s.defaultAgeRating ?? 0) >= 18 || s.mixed) && (s.ageRating ?? 0) < 18);
+  if (!flagged.length) return null;
+  const set = async (s: OverviewSource, mixed: boolean) => {
+    setBusy(s.id);
+    try {
+      await api(`/api/admin/sources/${encodeURIComponent(s.id)}/age-rating`, { method: 'PUT', json: ageRequest(mixed ? 'mixed' : 'default') });
+      await qc.invalidateQueries({ queryKey: OVERVIEW_KEY });
+      void qc.invalidateQueries({ queryKey: ['sources'] });
+      void qc.invalidateQueries({ queryKey: ['adult-filter'] });
+    } catch { toast(tr('Could not save'), 'error'); }
+    setBusy(null);
+  };
+  return (
+    <div className="py-3" data-mixed-sources>
+      <p className="mb-2 max-w-prose text-[11px] leading-relaxed text-fog-500">
+        {tr('Sources their extension marks 18+. Tick the ones that are mostly not, to keep searching them while “Show 18+” is off: each title is judged on its own.')}
+      </p>
+      <ChipPicker label={tr('Sources')} disabled={busy !== null} options={flagged.map((s) => ({ key: s.id, label: s.name }))}
+        selected={flagged.filter((s) => s.mixed).map((s) => s.id)}
+        onToggle={(k) => { const s = flagged.find((x) => x.id === k); if (s) void set(s, !s.mixed); }} />
+    </div>
+  );
+}
+
 function AdultFilterSection({ data, save }: { data: any; save: Save }) {
   const toast = useToast();
   const qc = useQueryClient();
@@ -223,24 +262,26 @@ function AdultFilterSection({ data, save }: { data: any; save: Save }) {
           <p className="mb-2 max-w-prose text-[12px] leading-relaxed text-fog-400">
             {tr('Genres to keep off the shelf while “Show 18+” is off. This hides nothing from anyone who goes looking: links, bookmarks, downloads and reading progress are unaffected.')}
           </p>
-          <div className="flex flex-wrap gap-1.5" data-adult-genres>
-            {allGenres.length === 0 && <span className="text-[11px] text-fog-500">{tr('No genres yet.')}</span>}
-            {allGenres.map((g) => (
-              <button key={g.key} type="button"
-                onClick={() => flip('adultGenres', genres, setGenres, g.key)}
-                aria-pressed={has(genres, g.key)}
-                className={`btn-key whitespace-nowrap ${has(genres, g.key) ? 'btn-key-accent' : ''}`}>
-                {g.label || g.key}
-              </button>
-            ))}
+          <div data-adult-genres>
+            {allGenres.length === 0 && genres.length === 0 && <span className="text-[11px] text-fog-500">{tr('No genres yet.')}</span>}
+            <ChipPicker label={tr('Genres')} options={allGenres.map((g) => ({ key: g.key, label: g.label || g.key }))} selected={genres}
+              onToggle={(k) => flip('adultGenres', genres, setGenres, k)} />
           </div>
         </div>
+        <MixedSourcesPicker />
         <p className="max-w-prose py-3 text-[11px] leading-relaxed text-fog-500" data-source-ratings-note>
           {tr('A whole source is rated on its own sheet: Sources ▸ the source ▸ Age rating. Adult only also keeps it from accounts limited below 18.')}
         </p>
         <p className="py-3 text-[11px] leading-relaxed text-fog-500">
           {tr('One series can be let through on its own page — Edit details ▸ “Always show”.')}
         </p>
+        {/* Fork: Mixed sources (Sources ▸ a source ▸ Age rating ▸ Mixed). Off, a title from one that nothing can judge -- no genres, no
+            rating, as most extensions return in a search -- stays out while Show 18+ is off: the safe default. */}
+        <div data-mixed-unknown>
+          <SwitchRow id="mixed-unknown" label={tr('Show titles from Mixed sources that cannot be judged')}
+            help={tr('A Mixed source is searched while “Show 18+” is off and each title is judged by its genres and rating. Titles with neither are hidden unless this is on.')}
+            on={data.mixedShowUnknown === true} onChange={(next) => save({ mixedShowUnknown: next })} />
+        </div>
       </EditorSheet>
     </>
   );
@@ -326,11 +367,9 @@ function SourceOrderSection({ data, save }: { data: any; save: Save }) {
         {rest.length > 0 && (
           <div className="py-3">
             <p className="mb-1.5 text-[11px] text-fog-500">{tr('Add a source to the order')}</p>
-            <div className="flex flex-wrap gap-1.5">
-              {rest.map((x) => (
-                <button key={x.id} type="button" onClick={() => commit([...order, x.id])} className="btn-key">{x.name}</button>
-              ))}
-            </div>
+            {/* A search over the sources not yet in the order (there can be dozens), not a wall of keys. */}
+            <ChipPicker label={tr('Sources')} options={rest.map((x) => ({ key: x.id, label: x.name }))} selected={[]}
+              onToggle={(k) => commit([...order, k])} chipClass="text-xs" />
           </div>
         )}
       </EditorSheet>
@@ -560,6 +599,7 @@ function SchedulesSection({ data, save }: { data: any; save: Save }) {
         {/* Which languages MangaDex is a source in lives with the sources (components/MangadexCard.tsx); this row goes there, unfolded (`?card=mangadex`, v0.52.0). */}
         <SummaryRow id="mangadex-languages" label={tr('MangaDex languages')} href="/admin/?tab=Sources&card=mangadex" />
         <MoreOptions id="downloads-more">
+          <PolitenessRow />
           {/* v0.61.0, the release radar's other half (bff lib/releaseRadar.ts isDue): the scheduled sweep asks a long-quiet
               series less often and a due one as usual. Off by default, and `=== true` reads a server that does not send the
               key as off; the help says the limit and that Check now is never kept waiting. */}
