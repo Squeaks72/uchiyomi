@@ -54,7 +54,7 @@ import type { ListingCopy } from './seriesListing';
 import { ALL_ROWS, DAY_MS, MAX_BOOK_IDS, MAX_ITEMS, allRows, hiddenPart, ignoredPart, truncate, verdict, withAll } from './healthKit';
 import { diskAndFolders } from './healthDisk';
 import { trackerSync } from './healthTrackers';
-import { chapterFiles } from './healthFiles';
+import { chapterFiles, recountUnreadable } from './healthFiles';
 
 export type HealthStatus = 'ok' | 'warn' | 'problem';
 
@@ -2318,6 +2318,9 @@ export const RECHECKABLE_CHECKS = [
   'chapter-gaps', 'numbering', 'short-chapters', 'outliers', 'saved-twice', 'duplicates', 'sources',
   'chapter-failures', 'frozen-series', 'solver', 'update', 'library-scan', 'downloads-missing',
   'folders-twice', 'extension-cap', 'extension-engine',
+  // The row's Recheck on these three used to answer "Invalid option": they are in the full run and have rows with a Recheck, but were
+  // never in this list.
+  'disk', 'trackers', 'files',
 ] as const;
 export type RecheckableCheck = typeof RECHECKABLE_CHECKS[number];
 
@@ -2345,5 +2348,10 @@ export async function recheckCheck(id: RecheckableCheck): Promise<HealthCheck | 
     case 'folders-twice': return foldersScannedTwice().catch(() => null);
     case 'extension-cap': return suwayomiConfigured() ? extensionCap() : null;
     case 'extension-engine': return extensionEngineCheck().catch(() => null);
+    case 'disk': return diskAndFolders(ctx).catch(() => null);
+    case 'trackers': return trackerSync(ctx).catch(() => null);
+    // Recheck here means looking again: the flagged files are counted again first (a few hundred), so a file that was stamped
+    // unreadable by a failed read, not by being broken, leaves the card.
+    case 'files': await recountUnreadable({ max: 400 }).catch(() => null); return chapterFiles(ctx).catch(() => null);
   }
 }

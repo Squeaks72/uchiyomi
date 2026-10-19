@@ -49,7 +49,7 @@ import { q, one } from './db';
 import { runtime } from './runtime';
 import { logAudit } from './audit';
 import { containedPath } from './fsGuard';
-import { countPages } from './pageCount';
+import { countPagesOrNull } from './pageCount';
 import { haveNumbers } from './libraryNumbers';
 import { atHiddenNumber } from './noticeChapters';
 import { numberHiddenNow } from './hiddenChapters';
@@ -660,7 +660,9 @@ async function stepCount(r: RepairResult, opts: RepairOpts, log?: Log): Promise<
     // unstamped as well as uncounted, exactly as the verify task leaves it out of `checked`.
     const abs = containedPath(b.root, b.file);
     if (!abs) { cur.done!++; return; }
-    const pages = await countPages(abs);
+    const pages = await countPagesOrNull(abs);
+    // The read itself failed (not the file): leave it unstamped, so it is counted again rather than reported for good.
+    if (pages === null) { cur.done!++; return; }
     const done = await q(
       'UPDATE lib_books SET pages = $1, pages_checked_at = now() WHERE id = $2 AND pages = 0 RETURNING id',
       [pages, b.id],

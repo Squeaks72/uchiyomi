@@ -22,6 +22,8 @@ import { q } from './db';
 import { visibleToAll } from './visibility';
 import { DL_ROOT } from './library';
 import { chapterFileRel } from './downloader';
+import { containedPath } from './fsGuard';
+import { countPagesOrNull } from './pageCount';
 import { numKey } from './postingOrder';
 import { atHiddenNumber } from './noticeChapters';
 import { applyIgnores, noIgnores, type IgnoreCtx } from './healthIgnore';
@@ -33,6 +35,37 @@ import type { HealthAction, HealthCheck, HealthItem } from './health';
 const NAMED = 5;
 
 interface Unreadable { id: string; series_id: string; title: string; folder: string; number: number; root: string | null; file: string }
+
+/**
+ * Count the flagged files again, and take back the ones that turn out to be readable. The card is built from stamps alone (above), and
+ * until v0.87 a failed READ stamped 0 like a broken file, so a night with trouble left thousands of good chapters on it. This opens
+ * each flagged file (bounded: `max`, `conc` at a time) and stamps what it finds: pages when it can now be read, the same 0 (and a fresh
+ * date) when it truly cannot, nothing when the read fails again. Recheck on the card runs a few hundred; boot runs the rest, once.
+ */
+export async function recountUnreadable(o: { max?: number; conc?: number } = {}): Promise<{ checked: number; fixed: number }> {
+  const rows = await q<{ id: string; root: string; file: string }>(
+    `SELECT id, root, file FROM lib_books
+      WHERE pages = 0 AND pages_checked_at IS NOT NULL AND pruned_at IS NULL
+      ORDER BY pages_checked_at LIMIT $1`, [o.max ?? 400]);
+  let next = 0; let checked = 0; let fixed = 0;
+  await Promise.all(Array.from({ length: Math.min(o.conc ?? 4, rows.length) }, async () => {
+    while (next < rows.length) {
+      const b = rows[next++];
+      const abs = containedPath(b.root, b.file);
+      if (!abs) continue;
+      const pages = await countPagesOrNull(abs);
+      if (pages === null) continue;
+      checked++;
+      if (pages > 0) {
+        const done = await q('UPDATE lib_books SET pages = $1, pages_checked_at = now() WHERE id = $2 AND pages = 0 RETURNING id', [pages, b.id]).catch(() => []);
+        if (done.length) fixed++;
+      } else {
+        await q('UPDATE lib_books SET pages_checked_at = now() WHERE id = $1 AND pages = 0', [b.id]).catch(() => {});
+      }
+    }
+  }));
+  return { checked, fixed };
+}
 
 export async function chapterFiles(ctx: IgnoreCtx = noIgnores()): Promise<HealthCheck> {
   const rows = await q<Unreadable>(
