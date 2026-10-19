@@ -1,6 +1,6 @@
 'use client';
 import { useRouter } from 'next/navigation';
-import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useTabParam } from '@/lib/useTabParam';
 import { AdminSettings } from '@/components/AdminSettings';
 import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -95,12 +95,18 @@ export default function AdminPage() {
   );
 }
 
+/** The check Overview's Needs attention sent the admin to, for Health to open (`done` once it has). */
+const HealthFocus = createContext<{ id: string | null; done: () => void }>({ id: null, done: () => {} });
+
 function AdminInner() {
   const router = useRouter();
   const { isAdmin } = useAuth();
   // In the URL rather than in state: a refresh, the back button and every deep link used to land on
   // Overview, and `/admin/?tab=Settings` is the address the docs can now give (lib/useTabParam.ts).
   const [tab, setTab] = useTabParam<Tab>(TABS, 'Overview', SOURCES_TAB_ALIASES);
+  // Overview's Needs attention tiles open the Health card of the check they name: the tab, then that card opened and in view.
+  const [focusCheck, setFocusCheck] = useState<string | null>(null);
+  const openCheck = (id: string) => { setFocusCheck(id); setTab('Health'); };
   // Uchiyomi Desktop has no Members or Sessions (lib/desktop.ts). The rail never lists them, and a deep link
   // or an old bookmark to one lands on Overview rather than on a panel whose every request answers 404.
   // `GROUPS` and the line above stay as they are: only what ConsoleNav receives is filtered.
@@ -113,11 +119,11 @@ function AdminInner() {
 
   const panel = (
     <>
-      {tab === 'Overview' && <Overview onTab={setTab} />}
+      {tab === 'Overview' && <Overview onTab={setTab} onCheck={openCheck} />}
       {tab === 'Members' && <Members />}
       {tab === 'Sources' && <SourcesPanel />}
       {tab === 'Art' && <ArtReview />}
-      {tab === 'Health' && <Health />}
+      {tab === 'Health' && <HealthFocus.Provider value={{ id: focusCheck, done: () => setFocusCheck(null) }}><Health /></HealthFocus.Provider>}
       {tab === 'Library' && <LibraryPanel />}
       {tab === 'Tasks' && <Tasks />}
       {tab === 'Activity' && <Activity />}
@@ -312,7 +318,7 @@ function VersionFacts({ running, update }: { running: string; update: UpdateStat
  * The four stat tiles and the scan button that used to lead this panel live in the hero, where they are
  * read before anything is clicked. Repeating them here would be the same numbers twice on one screen.
  */
-function Overview({ onTab }: { onTab: (t: Tab) => void }) {
+function Overview({ onTab, onCheck }: { onTab: (t: Tab) => void; onCheck: (checkId: string) => void }) {
   const still = useReducedMotion();
   const { data: stats } = useQuery({ queryKey: ['admin-stats'], queryFn: () => api<any>('/api/admin/stats') });
   const { data: health } = useQuery(healthQuery);
@@ -340,7 +346,7 @@ function Overview({ onTab }: { onTab: (t: Tab) => void }) {
   return (
     <div className="board">
       {/* Severity takes width: a problem is the widest thing on screen, "all good" is a small tile. */}
-      <NeedsAttention health={health} className={failing.length ? 'full' : ''} />
+      <NeedsAttention health={health} onOpen={onCheck} className={failing.length ? 'full' : ''} />
 
       {/* Band A -- the house: one card per member, washed in the cover of what they last read. */}
       {activity.length > 0 && (
@@ -414,8 +420,10 @@ function Overview({ onTab }: { onTab: (t: Tab) => void }) {
  * Sized by severity rather than by convention: the caller hands it `full` when something is failing, so the
  * same component is a quiet tile on a healthy server and the widest thing on the board on a broken one.
  */
-function NeedsAttention({ health, className = '' }: {
+function NeedsAttention({ health, onOpen, className = '' }: {
   health?: { generatedAt: string; checks: HealthCheck[] };
+  /** A tile was chosen: take the admin to that check's card in Health, where its findings and their fixes are. */
+  onOpen: (checkId: string) => void;
   className?: string;
 }) {
   const failing = (health?.checks ?? []).filter((c) => c.status !== 'ok');
@@ -438,12 +446,18 @@ function NeedsAttention({ health, className = '' }: {
             // default 16: the tile is short, and 12 still clears its 16 px corners (checked at 390 and 1280).
             const m = healthMark(c.status);
             return (
-              <div key={c.id} className={`relative rounded-2xl border px-3 py-2.5 ${TONE_SURFACE[m.tone]}`}>
+              <button key={c.id} type="button" onClick={() => onOpen(c.id)} data-attention-check={c.id}
+                className={`group relative w-full rounded-2xl border px-3 py-2.5 text-start transition hover:border-accent/50 hover:brightness-110 active:brightness-95 ${TONE_SURFACE[m.tone]}`}>
                 <StatusEdge tone={m.tone} inset="inset-y-3" />
                 {/* In the reader's language: the title by the check's id, the summary by its codes (lib/said.ts). */}
-                <p className="flex items-center gap-1.5 text-sm font-medium text-fog-100"><StatusMark tone={m.tone} title={m.label} />{checkTitle(c)}</p>
+                <p className="flex items-center gap-1.5 text-sm font-medium text-fog-100">
+                  <StatusMark tone={m.tone} title={m.label} />{checkTitle(c)}
+                  {/* The tile is a link to the card that fixes it: the chevron says so (it points the way the text reads). */}
+                  <svg aria-hidden viewBox="0 0 24 24" width={14} height={14} fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round"
+                    className="ms-auto shrink-0 text-fog-500 transition group-hover:text-accent rtl:-scale-x-100"><path d="m9 6 6 6-6 6" /></svg>
+                </p>
                 <p dir="auto" className="mt-0.5 text-[11px] text-fog-400">{checkSummary(c)}</p>
-              </div>
+              </button>
             );
           })}
         </div>
@@ -2116,6 +2130,7 @@ function LibraryPanel() {
 }
 
 function Health() {
+  const { id: focus, done: onFocused } = useContext(HealthFocus);
   const [open, setOpen] = useState<string | null>(null);
   // v0.55.0: Fix everything's dialog -- the question, the run, or how the run ended.
   const [fixing, setFixing] = useState(false);
@@ -2142,8 +2157,16 @@ function Health() {
     setFixing(false);
     if (view !== 'checks') pickView('checks');
     setOpen(id);
-    requestAnimationFrame(() => document.querySelector(`[data-health-check="${CSS.escape(id)}"]`)?.scrollIntoView({ block: 'start' }));
+    // Twice: the card is drawn by the render this very call causes (a switch back from By series draws all of them).
+    requestAnimationFrame(() => requestAnimationFrame(() => document.querySelector(`[data-health-check="${CSS.escape(id)}"]`)?.scrollIntoView({ block: 'start' })));
   };
+  // Arriving from Overview's Needs attention: open the card that was chosen, once the report is here to hold it.
+  useEffect(() => {
+    if (!focus || !data) return;
+    showCheck(focus);
+    onFocused();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focus, data]);
 
   // One card per check, and a failing one earns the full width of the board -- the same severity rule the
   // overview uses, so the shape of the panel is the verdict. The repair provider holds the live run and its

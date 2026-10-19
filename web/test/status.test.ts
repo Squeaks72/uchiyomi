@@ -144,7 +144,7 @@ test('Overview\'s Needs attention tiles: the tint from this vocabulary, the star
   assert.ok(a >= 0 && b > a, 'function NeedsAttention moved');
   const tiles = src.slice(a, b);
   assert.match(tiles, /const m = healthMark\(c\.status\);/, 'the tile does not read the check through healthMark');
-  const tile = tiles.match(/<div key=\{c\.id\} className=\{`([^`]*)`\}>/);
+  const tile = tiles.match(/<button key=\{c\.id\} [\s\S]*?className=\{`([^`]*)`\}>/);
   assert.ok(tile, 'the tile moved');
   assert.match(tile![1], /\$\{TONE_SURFACE\[m\.tone\]\}/, 'the tile\'s tint is not the status vocabulary\'s');
   assert.match(tile![1], /(^|\s)relative(\s|$)/, 'the tile is not positioned, so its edge would sit against the card');
