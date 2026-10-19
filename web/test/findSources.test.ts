@@ -328,7 +328,7 @@ test('a Health row: Find other sources posts the source, and its run has a key g
   assert.match(arm, /\.\.\.findGate\(fr\?\.status, findNow\.kind === 'working' \|\| findNow\.kind === 'starting'\),/, 'the key starts while another run goes');
   assert.match(arm, /state: findNow,\s*(?:\/\/[^\n]*\n\s*)?\.\.\.\(item\.findScope === 'series'/, 'the key does not carry its run');
   assert.match(arm, /: \{ what: copy\.what\(\{ \.\.\.ctx, n: item\.findSeries \}\)/, 'the key does not carry its count');
-  assert.match(row, /const specs = all\.filter\(\(s\) => s\.id !== 'find_sources'\);\s*const byHand: ActionSpec\[\] = [\s\S]*?const finds = \[\.\.\.all\.filter\(\(s\) => s\.id === 'find_sources'\), \.\.\.byHand\];/,
+  assert.match(row, /const specs = all\.filter\(\(s\) => s\.id !== 'find_sources'\);\s*const finds = all\.filter\(\(s\) => s\.id === 'find_sources'\);/,
     'the find key shares the row\'s group');
   assert.match(row, /\{specs\.length > 0 && <ActionKeys actions=\{specs\} \/>\}\s*\{finds\.length > 0 && <ActionKeys actions=\{finds\} \/>\}/);
   assert.match(row, /<ActionStatus state=\{rowNow\} \/>\s*\{finds\.length > 0 && <ActionStatus state=\{findNow\} \/>\}/, 'the run has no status line on its row');
@@ -818,7 +818,7 @@ test('the start dialog remembers the last choice on this device; storage that th
   assert.match(dialog, /const \[review, setReview\] = useState\(findReviewFirst\);/, 'the dialog forgets the last choice');
   assert.match(dialog, /onClick=\{\(\) => \{ setFindReviewFirst\(review\); onStart\(review\); \}\}/, 'Start does not remember the choice');
   const health = code(read('components/HealthActions.tsx'));
-  assert.match(health, /\{asking === 'find' && \(\s*<FindStartDialog onClose=\{\(\) => setAsking\(null\)\}\s*onHand=\{item\.findScope === 'series' && item\.seriesId \? \(\) => setAsking\('hand'\) : undefined\}\s*onStart=\{\(review\) => \{ setAsking\(null\); const scope = findScopeOf\(item\); if \(scope\) void fr\?\.start\(slotKey, \{ \.\.\.scope, \.\.\.\(review \? \{ review \} : \{\}\) \}\); \}\} \/>/,
+  assert.match(health, /\{asking === 'find' && \(\s*<FindStartDialog onClose=\{\(\) => setAsking\(null\)\} single=\{item\.findScope === 'series'\}\s*onHand=\{item\.findScope === 'series' && item\.seriesId \? \(\) => setAsking\('hand'\) : item\.sourceId \? \(\) => setAsking\('pick'\) : undefined\}\s*onStart=\{\(review\) => \{ setAsking\(null\); const scope = findScopeOf\(item\); if \(scope\) void fr\?\.start\(slotKey, \{ \.\.\.scope, \.\.\.\(review \? \{ review \} : \{\}\) \}\); \}\} \/>/,
     "Health's dialog does not start the run it chose");
   const sheet = slice(code(read('components/SourcesSheet.tsx')), 'function FindMore(', 'function OtherNames(');
   assert.match(sheet, /<FindModeChoice review=\{review\} onChange=\{setReview\} \/>/, 'the Sources sheet does not offer the choice');
@@ -870,8 +870,10 @@ test('a frozen series\' Find key can be searched by hand, and its row can remove
   assert.match(dialog, /\{onHand && \(/, 'the start dialog has no hand search');
 });
 
-test('a series-scoped Health row also has "Search by hand" as a key of its own, beside Find other source', () => {
+test('"Search by hand" is inside the Find other source dialog for every row: its series, or a pick among its source\'s series', () => {
   const row = readFileSync(join(__dirname, '..', 'components/HealthActions.tsx'), 'utf8');
-  assert.match(row, /item\.findScope === 'series' && item\.seriesId && actions\.includes\('find_sources'\)/, 'the by-hand key is not limited to a series row');
-  assert.match(row, /id: 'search_by_hand', label: tr\('Search by hand'\)[\s\S]*?onRun: \(\) => setAsking\('hand'\)/, 'the key does not open the manual search');
+  assert.match(row, /onHand=\{item\.findScope === 'series' && item\.seriesId \? \(\) => setAsking\('hand'\) : item\.sourceId \? \(\) => setAsking\('pick'\) : undefined\}/, 'a source row has no manual search in the dialog');
+  assert.match(row, /<PickSeriesSheet sourceId=\{item\.sourceId\}/, 'the source row does not let the admin pick the series');
+  const find = readFileSync(join(__dirname, '..', 'components/FindSources.tsx'), 'utf8');
+  assert.match(find, /export function PickSeriesSheet/, 'the series picker is gone');
 });
