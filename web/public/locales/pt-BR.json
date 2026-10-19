@@ -2,7 +2,7 @@
   "_meta": {
     "language": "pt-BR",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 4914
+    "strings": 4917
   },
   "1 check found something": "1 verificação encontrou algo",
   "1 member": "1 membro",
@@ -4917,5 +4917,8 @@
   "{n} sources blocked": "{n} fontes bloqueadas",
   "Nothing blocked": "Nada bloqueado",
   "Sources kept out while Show 18+ is off": "Fontes excluídas enquanto “Mostrar 18+” estiver desativado",
-  "Sources their extension marks 18+. Include the ones that are mostly not, to keep them in this search and in Discover: each title is judged on its own. This changes the source’s setting on the server.": "Fontes que a extensão marca como 18+. Inclua as que, em sua maioria, não são, para mantê-las nesta pesquisa e em Descobrir: cada título é avaliado individualmente. Isso altera a configuração da fonte no servidor."
+  "Sources their extension marks 18+. Include the ones that are mostly not, to keep them in this search and in Discover: each title is judged on its own. This changes the source’s setting on the server.": "Fontes que a extensão marca como 18+. Inclua as que, em sua maioria, não são, para mantê-las nesta pesquisa e em Descobrir: cada título é avaliado individualmente. Isso altera a configuração da fonte no servidor.",
+  "Pick a series to search for": "Escolha uma série para pesquisar",
+  "Series whose main source is {name}.": "Séries cuja fonte principal é {name}.",
+  "Search these series…": "Pesquisar nestas séries…"
 }
