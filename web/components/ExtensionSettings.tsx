@@ -196,8 +196,8 @@ export function ExtensionSettingsBody({ sourceId, onSourceId, note = false }: {
                 <fieldset className="mt-2 space-y-1.5" disabled={off}>
                   <legend className="sr-only">{p.dialogTitle || p.title || p.key}</legend>
                   {(p.entryValues ?? []).map((v, i) => (
-                    <label key={v} className="flex items-center gap-2 text-xs text-fog-200">
-                      <input type="checkbox" className="h-4 w-4 accent-[rgb(var(--accent))]"
+                    <label key={v} className="flex items-center gap-2 text-xs text-fog-200 pointer-coarse:min-h-10 pointer-coarse:gap-3 pointer-coarse:text-sm">
+                      <input type="checkbox" className="h-4 w-4 pointer-coarse:h-5 pointer-coarse:w-5 accent-[rgb(var(--accent))]"
                         checked={Array.isArray(p.value) && p.value.includes(v)}
                         onChange={(e) => change(p, toggleChoice(p, v, e.target.checked))} />
                       {p.entries?.[i] ?? v}
@@ -216,7 +216,7 @@ export function ExtensionSettingsBody({ sourceId, onSourceId, note = false }: {
                         onChange={(e) => setTexts((t) => ({ ...t, [p.key]: e.target.value }))}
                         onKeyDown={(e) => { if (e.key === 'Enter' && dirty && !off) change(p, draft); }}
                         autoCapitalize="none" autoCorrect="off" spellCheck={false}
-                        className="min-w-0 flex-1 rounded-lg border border-ink-700 bg-ink-850 px-2.5 py-1.5 text-xs text-fog-100 outline-hidden focus-visible:outline-accent focus-visible:outline-offset-0 focus:border-accent" />
+                        className="min-w-0 flex-1 rounded-lg border border-ink-700 bg-ink-850 px-2.5 py-1.5 pointer-coarse:py-2.5 text-xs text-fog-100 outline-hidden focus-visible:outline-accent focus-visible:outline-offset-0 focus:border-accent" />
                       <button type="button" onClick={() => change(p, draft)} disabled={off || !dirty} aria-label={busy ? undefined : `${tr('Save')}: ${p.dialogTitle || p.title || p.key}`} className="btn-key btn-key-primary">
                         {busy ? tr('Saving…') : tr('Save')}
                       </button>

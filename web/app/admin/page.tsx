@@ -12,7 +12,7 @@ import { bytes, numberText, relativeTime } from '@/lib/format';
 import { shownDeviceName } from '@/lib/device';
 import { useToast } from '@/components/Toast';
 import { ConfirmDialog, Modal, msgOf } from '@/components/ConfirmDialog';
-import { ArmButton, useArmed } from '@/components/ArmButton';
+import { ArmButton, ConfirmKey, useArmed } from '@/components/ArmButton';
 import { Avatar } from '@/components/Avatar';
 import { IcChevronLeft, IcChevronRight, IcTrash, IcPlus, IcRefresh, IcX } from '@/components/icons';
 import { LibraryFolders } from '@/components/LibraryFolders';
@@ -583,12 +583,12 @@ function Members() {
               {[roleText(u.role), self ? tr('you') : null, u.disabled ? tr('disabled') : null, u.totp_enabled ? '2FA' : null, u.sso && provider ? provider : null].filter(Boolean).join(' · ')}
             </p>
             {/* Keys (UI refresh): each acts on the account. The choices inside the library and age panels stay chips. */}
-            <div className="mt-2.5 flex flex-wrap gap-1.5">
+            <div className="mt-2.5 flex flex-wrap gap-1.5 pointer-coarse:gap-2">
               {!ssoOnly && <button onClick={() => setResetting(u)} className="btn-key">{tr('Reset')}</button>}
               {!self && (
                 <>
-                  <button onClick={() => patch(u, { role: u.role === 'admin' ? 'user' : 'admin' }, tr('Role updated'))} className="btn-key">{u.role === 'admin' ? tr('Make member') : tr('Make admin')}</button>
-                  <button onClick={() => patch(u, { disabled: !u.disabled }, u.disabled ? tr('Account enabled') : tr('Account disabled'))} className="btn-key">{u.disabled ? tr('Enable') : tr('Disable')}</button>
+                  <ConfirmKey onConfirm={() => patch(u, { role: u.role === 'admin' ? 'user' : 'admin' }, tr('Role updated'))} className="btn-key">{u.role === 'admin' ? tr('Make member') : tr('Make admin')}</ConfirmKey>
+                  <ConfirmKey onConfirm={() => patch(u, { disabled: !u.disabled }, u.disabled ? tr('Account enabled') : tr('Account disabled'))} className="btn-key">{u.disabled ? tr('Enable') : tr('Disable')}</ConfirmKey>
                   {/* A member's, like the two below: an admin downloads whatever the flag says (routes/sources.ts), so on an
                       admin's card it toggled nothing -- and one the provider made carries the new-member default for
                       the day it is made a member, which read here as a refusal it is not. */}
@@ -1027,7 +1027,7 @@ function Activity() {
               {/* Hidden below lg rather than reflowed: a display:none child takes no track, so the phone
                   template is the three columns it declares and the desktop one is four. */}
               <p className="hidden min-w-0 truncate font-mono text-[11px] text-fog-500 lg:block">{detail}</p>
-              <p className="shrink-0 text-end text-[11px] text-fog-500">{relativeTime(a.at)}{a.ip ? ` · ${a.ip}` : ''}</p>
+              <p className="shrink-0 text-end text-[11px] text-fog-500">{relativeTime(a.at)}{a.ip ? <span className="block max-w-[9rem] truncate lg:inline lg:max-w-none"><span className="hidden lg:inline"> · </span>{a.ip}</span> : ''}</p>
             </div>
           );
         })}
@@ -1065,8 +1065,8 @@ function Sessions() {
                   <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-accent" />{tr('You')}
                 </span>
               ) : (
-                <button onClick={() => revoke(s.id)} aria-label={`${tr('Revoke')}: ${s.display_name || s.username} · ${shownDeviceName(s.device_name) || tr('Device')}`}
-                  className="-m-1.5 p-1.5 text-xs text-red-300 hover:underline">{tr('Revoke')}</button>
+                <ConfirmKey onConfirm={() => revoke(s.id)} ariaLabel={`${tr('Revoke')}: ${s.display_name || s.username} · ${shownDeviceName(s.device_name) || tr('Device')}`}
+                  className="-m-1.5 p-1.5 pointer-coarse:-m-2.5 pointer-coarse:p-2.5 text-xs text-red-300 hover:underline">{tr('Revoke')}</ConfirmKey>
               )}
             </div>
           </div>

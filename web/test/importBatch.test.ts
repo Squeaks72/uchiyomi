@@ -467,7 +467,7 @@ test('the tracker intake is a nested box, and the intake card still ends on its 
   assert.ok(from > 0 && to > from, 'TrackerIntake / IntakeCard are not where this test looks');
   const intake = src.slice(from, to);
   assert.equal((intake.match(/btn-accent/g) || []).length, 1, 'the intake card has more than one accent button');
-  assert.match(intake, /className="btn-ghost ms-auto px-3 py-1 text-xs disabled:opacity-50">\s*\{starting \? tr\('Starting…'\) : tr\('Load list'\)\}/, 'Load list is not a ghost control');
+  assert.match(intake, /className="btn-ghost ms-auto px-3 py-1 pointer-coarse:py-2.5 text-xs disabled:opacity-50">\s*\{starting \? tr\('Starting…'\) : tr\('Load list'\)\}/, 'Load list is not a ghost control');
   // The same box style as Open imports, rendered between that list and the eyebrow.
   assert.match(intake, /<div className="mb-4 rounded-xl border border-ink-700 bg-ink-900\/50 p-2\.5" data-tracker-intake>/, 'the tracker intake is not the nested box');
   assert.match(intake, /<OpenImports batches=\{open\} onOpen=\{onOpen\} \/>\s*<TrackerIntake starting=\{starting\} onStart=\{onTracker\} \/>\s*<p className="mb-2 text-xs font-semibold uppercase tracking-wider text-fog-500">\{tr\('Bring your library over'\)\}<\/p>/, 'the box is not between Open imports and the eyebrow');
@@ -592,7 +592,7 @@ test('the five list checkboxes are thumb-sized rows', () => {
   // while every chip on the page is ≥ 26 px. `min-h-7 py-1` makes the tap area 28 px without changing the
   // box. Reintroduce by dropping `min-h-7` or `py-1` from the label: this fails.
   const src = code(read('app/admin/import/page.tsx'));
-  assert.match(src, /<label key=\{s\.id\} className="inline-flex min-h-7 items-center gap-1\.5 py-1 text-xs text-fog-300">/, 'the list checkboxes are not thumb-sized');
+  assert.match(src, /<label key=\{s\.id\} className="inline-flex min-h-7 items-center gap-1\.5 py-1 text-xs text-fog-300 pointer-coarse:min-h-10">/, 'the list checkboxes are not thumb-sized');
 });
 
 test('the add dialog offers the other sources only when it already holds a list, sends at most six, and never for a wall tap', () => {

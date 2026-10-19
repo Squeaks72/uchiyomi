@@ -306,13 +306,13 @@ function SourceOrderSection({ data, save }: { data: any; save: Save }) {
               {r.name
                 ? <span className="truncate text-sm text-fog-200">{r.name}</span>
                 : <span className="truncate text-sm text-fog-500" title={r.id}>{tr('Not available right now')}</span>}
-              <span className="ms-auto flex shrink-0 gap-1">
+              <span className="ms-auto flex shrink-0 gap-1 pointer-coarse:gap-2">
                 <button type="button" onClick={() => commit(moveIn(order, i, -1))} disabled={i === 0}
-                  aria-label={`${tr('Move up')}: ${r.name || r.id}`} className="chip px-2 py-0.5 text-xs disabled:opacity-30"><span aria-hidden>↑</span></button>
+                  aria-label={`${tr('Move up')}: ${r.name || r.id}`} className="chip px-2 py-0.5 text-xs pointer-coarse:min-w-10 pointer-coarse:justify-center disabled:opacity-30"><span aria-hidden>↑</span></button>
                 <button type="button" onClick={() => commit(moveIn(order, i, 1))} disabled={i === rows.length - 1}
-                  aria-label={`${tr('Move down')}: ${r.name || r.id}`} className="chip px-2 py-0.5 text-xs disabled:opacity-30"><span aria-hidden>↓</span></button>
+                  aria-label={`${tr('Move down')}: ${r.name || r.id}`} className="chip px-2 py-0.5 text-xs pointer-coarse:min-w-10 pointer-coarse:justify-center disabled:opacity-30"><span aria-hidden>↓</span></button>
                 <button type="button" onClick={() => commit(order.filter((x) => x !== r.id))}
-                  aria-label={tr('Remove {name}', { name: r.name || r.id })} className="chip px-2 py-0.5 text-xs"><span aria-hidden>✕</span></button>
+                  aria-label={tr('Remove {name}', { name: r.name || r.id })} className="chip px-2 py-0.5 text-xs pointer-coarse:min-w-10 pointer-coarse:justify-center"><span aria-hidden>✕</span></button>
               </span>
             </li>
           ))}
@@ -723,16 +723,16 @@ function GroupChips({ label, hint, value, ordered, onChange, suggestions }: {
       <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-fog-500">{label}</p>
       <div className="flex flex-wrap gap-1.5 rounded-xl border border-ink-700 bg-ink-850 p-2">
         {value.map((g, i) => (
-          <span key={g} className="inline-flex items-center gap-1 rounded-full bg-ink-800 px-2.5 py-1 text-xs text-fog-200">
+          <span key={g} className="inline-flex items-center gap-1 pointer-coarse:gap-3 rounded-full bg-ink-800 px-2.5 py-1 text-xs text-fog-200">
             {ordered && <span className="text-fog-500">{i + 1}.</span>}
             {g}
             {ordered && (
               <>
-                <button type="button" onClick={() => onChange(reorder(value, i, -1))} disabled={i === 0} aria-label={`${tr('Move up')}: ${g}`} className="-m-1 p-1 text-fog-500 hover:text-fog-200 disabled:opacity-30"><span aria-hidden>▲</span></button>
-                <button type="button" onClick={() => onChange(reorder(value, i, 1))} disabled={i === value.length - 1} aria-label={`${tr('Move down')}: ${g}`} className="-m-1 p-1 text-fog-500 hover:text-fog-200 disabled:opacity-30"><span aria-hidden>▼</span></button>
+                <button type="button" onClick={() => onChange(reorder(value, i, -1))} disabled={i === 0} aria-label={`${tr('Move up')}: ${g}`} className="-m-1 p-1 pointer-coarse:-m-2 pointer-coarse:p-2 text-fog-500 hover:text-fog-200 disabled:opacity-30"><span aria-hidden>▲</span></button>
+                <button type="button" onClick={() => onChange(reorder(value, i, 1))} disabled={i === value.length - 1} aria-label={`${tr('Move down')}: ${g}`} className="-m-1 p-1 pointer-coarse:-m-2 pointer-coarse:p-2 text-fog-500 hover:text-fog-200 disabled:opacity-30"><span aria-hidden>▼</span></button>
               </>
             )}
-            <button type="button" onClick={() => onChange(withoutGroup(value, g))} aria-label={tr('Remove {name}', { name: g })} className="-m-1 p-1 text-fog-500 hover:text-rose-400"><span aria-hidden>×</span></button>
+            <button type="button" onClick={() => onChange(withoutGroup(value, g))} aria-label={tr('Remove {name}', { name: g })} className="-m-1 p-1 pointer-coarse:-m-2 pointer-coarse:p-2 text-fog-500 hover:text-rose-400"><span aria-hidden>×</span></button>
           </span>
         ))}
         <input

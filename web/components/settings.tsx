@@ -317,6 +317,7 @@ export function SwitchRow({ label, help, on, disabled, onChange }: {
 }) {
   const { status, run } = useAutosave();
   const hid = useId();
+  const swId = useId();
   const [local, setLocal] = useState(on);
   // The prop catching up is adopted DURING render (React's "previous prop" pattern), not in an effect: an
   // effect would paint one frame of the stale value first, which on a switch is a visible double-flip.
@@ -328,8 +329,8 @@ export function SwitchRow({ label, help, on, disabled, onChange }: {
     if (!ok) setLocal(on);
   };
   return (
-    <Row label={label} help={help != null && help !== false ? <span id={hid}>{help}</span> : undefined} status={status}>
-      <Switch on={local} onChange={(next) => { void flip(next); }} disabled={disabled} label={label} describedBy={help != null && help !== false ? hid : undefined} />
+    <Row label={label} htmlFor={swId} help={help != null && help !== false ? <span id={hid}>{help}</span> : undefined} status={status}>
+      <Switch id={swId} on={local} onChange={(next) => { void flip(next); }} disabled={disabled} label={label} describedBy={help != null && help !== false ? hid : undefined} />
     </Row>
   );
 }

@@ -131,14 +131,14 @@ function TrackerIntake({ starting, onStart }: {
                 the one new phone control while every chip around it is ≥ 26 px. The padding widens what a
                 thumb can hit without changing how the row looks. */}
             {LIST_STATUSES.map((s) => (
-              <label key={s.id} className="inline-flex min-h-7 items-center gap-1.5 py-1 text-xs text-fog-300">
+              <label key={s.id} className="inline-flex min-h-7 items-center gap-1.5 py-1 text-xs text-fog-300 pointer-coarse:min-h-10">
                 <input type="checkbox" checked={statuses.has(s.id)} onChange={() => toggle(s.id)}
-                  className="size-3.5 rounded border-ink-600 bg-ink-800 accent-accent" />
+                  className="size-3.5 pointer-coarse:size-5 rounded border-ink-600 bg-ink-800 accent-accent" />
                 {tr(s.label)}
               </label>
             ))}
             <button type="button" onClick={() => sel && onStart(sel.provider, chosen)} disabled={starting || !sel || !chosen.length}
-              className="btn-ghost ms-auto px-3 py-1 text-xs disabled:opacity-50">
+              className="btn-ghost ms-auto px-3 py-1 pointer-coarse:py-2.5 text-xs disabled:opacity-50">
               {starting ? tr('Starting…') : tr('Load list')}
             </button>
           </div>
@@ -287,10 +287,14 @@ function ReviewRow({ c, sourceName, selected, onToggle, onEdit }: {
   return (
     <div className="flex items-center gap-3 rounded-xl border border-ink-800 bg-ink-900/40 p-2.5">
       {ready ? (
-        <input type="checkbox" checked={selected} onChange={() => onToggle(c.id)}
-          className="size-4 shrink-0 rounded border-ink-600 bg-ink-800 accent-accent" aria-label={`${tr('Select for import')}: ${c.backup_title}`} />
+        // On a phone the 16 px box sits in a 40 px label (negative margin keeps the row's own spacing): the one
+        // control repeated down a list of hundreds.
+        <label className="grid shrink-0 place-items-center pointer-coarse:-m-2.5 pointer-coarse:p-2.5">
+          <input type="checkbox" checked={selected} onChange={() => onToggle(c.id)}
+            className="size-4 pointer-coarse:size-5 rounded border-ink-600 bg-ink-800 accent-accent" aria-label={`${tr('Select for import')}: ${c.backup_title}`} />
+        </label>
       ) : (
-        <span className="size-4 shrink-0" aria-hidden />
+        <span className="size-4 pointer-coarse:size-5 shrink-0" aria-hidden />
       )}
       <Img src={c.match_cover ? sourceCover(c.match_source || undefined, c.match_cover) : ''} alt=""
         fallbackSrc={c.match_cover || undefined} className="h-14 w-10 shrink-0 rounded" />
@@ -719,7 +723,7 @@ function ImportWizardInner() {
   return (
     <div className="min-h-screen-d px-4 pb-10 pt-4 lg:px-0">
       <div className="mb-4 flex items-center gap-2">
-        <button onClick={() => router.push('/admin/')} className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-fog-400 hover:text-fog-100" aria-label={tr('Back')}>
+        <button onClick={() => router.push('/admin/')} className="grid h-8 w-8 pointer-coarse:h-10 pointer-coarse:w-10 shrink-0 place-items-center rounded-full text-fog-400 hover:text-fog-100" aria-label={tr('Back')}>
           <IcChevronLeft aria-hidden width={18} height={18} className="rtl:rotate-180" />
         </button>
         <h1 className="min-w-0 truncate font-display text-lg font-semibold text-fog-50">{tr('Import & review matches')}</h1>
