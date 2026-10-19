@@ -35,12 +35,14 @@ import { useLayer } from '@/lib/layers';
  * Back, Escape and the Chapters button all step out through history, so they cannot disagree. The entries
  * carry Next's own history state, which is what keeps its router treating them as this same page.
  */
-export function PreviewReader({ source, sourceName, sourceId, title, onClose, onAdd, canAdd }: {
+export function PreviewReader({ source, sourceName, sourceId, title, initialNumber, onClose, onAdd, canAdd }: {
   source: string;
   sourceName: string;
   /** The series' id ON THE SOURCE, as search returned it: nothing here has a library id. */
   sourceId: string;
   title: string;
+  /** Open straight on this chapter (the Versions sheet's Read); Back then lands on the list. */
+  initialNumber?: number;
   onClose: () => void;
   /** The add dialog's own Add, so a decision made here goes through the same checks. */
   onAdd?: () => void;
@@ -78,6 +80,7 @@ export function PreviewReader({ source, sourceName, sourceId, title, onClose, on
   };
   useEffect(() => {
     push(1);
+    if (initialNumber != null) { setNumber(initialNumber); push(2); }
     // Where a Back lands decides the level. Anything below 1 is the page underneath: close.
     const onPop = (e: PopStateEvent) => {
       const d = typeof e.state?.uchiyomiPreview === 'number' ? e.state.uchiyomiPreview : 0;

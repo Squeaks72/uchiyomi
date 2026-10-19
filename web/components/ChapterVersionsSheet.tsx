@@ -34,7 +34,7 @@ function ownCopy(ghost?: Ghost, book?: Book, sourceName?: string): VersionCopy {
            pages: book?.media.pagesCount ?? null, publishedAt: book?.metadata?.releaseDate ?? null, chosen: false, blocked: false, onDisk: true };
 }
 
-export function ChapterVersionsSheet({ number, ghost, book, copies, sourceNames, isAdmin, mayFetch, mayReplace, onFetch, onFetchRead, onReplace, onNumbering, onClose }: {
+export function ChapterVersionsSheet({ number, ghost, book, copies, sourceNames, isAdmin, mayFetch, mayReplace, onFetch, onFetchRead, onReplace, onDelete, onRead, canRead, onNumbering, onClose }: {
   number: number;
   ghost?: Ghost;
   book?: Book;
@@ -52,6 +52,15 @@ export function ChapterVersionsSheet({ number, ghost, book, copies, sourceNames,
   /** Fetch the copy into the library, then open it in the reader. */
   onFetchRead?: (copy?: VersionCopy) => void;
   onReplace: (copy: VersionCopy) => void;
+  /**
+   * An admin's Delete file on the copy that is on the server (a file Uchiyomi downloaded): the page closes this sheet and opens
+   * its confirm, like Replace. Absent when the chapter has no deletable file. Other copies are the source's own: nothing to delete.
+   */
+  onDelete?: () => void;
+  /** Read this copy: the file on the server opens in the reader; any other is previewed from its source, read-only, nothing saved. */
+  onRead?: (copy: VersionCopy) => void;
+  /** Whether `onRead` has somewhere to go for this copy (its source is one the series follows). */
+  canRead?: (copy: VersionCopy) => boolean;
   /** An admin's way to the numbering plan, when these copies look like different posts (#116). */
   onNumbering?: () => void;
   onClose: () => void;
@@ -117,6 +126,14 @@ export function ChapterVersionsSheet({ number, ghost, book, copies, sourceNames,
                   )}
                 </span>
               </span>
+              {/* The copy's keys: they wrap under each other on a phone rather than squeeze the names. */}
+              <span className="flex max-w-[48%] shrink-0 flex-wrap items-center justify-end gap-1.5">
+              {onRead && (canRead ? canRead(c) : true) && (
+                <button type="button" onClick={() => onRead(c)} aria-describedby={`${rowId}-${i}`} data-read-version className="btn-key"
+                  title={c.onDisk ? tr('Open the file on the server in the reader') : tr('Read this version from its source. Nothing is saved.')}>
+                  {tr('Read')}
+                </button>
+              )}
               {mayFetch && !c.onDisk && (
                 <button type="button" onClick={() => onFetch(own ? undefined : c)} aria-describedby={`${rowId}-${i}`} className="btn-key">
                   <IcCloudDownload aria-hidden width={14} height={14} />{tr('Fetch')}
@@ -128,8 +145,14 @@ export function ChapterVersionsSheet({ number, ghost, book, copies, sourceNames,
                 </button>
               )}
               {mayReplace && !own && (
-                <button type="button" onClick={() => onReplace(c)} disabled={c.onDisk} aria-describedby={`${rowId}-${i}`} className="btn-key">{tr('Replace…')}</button>
+                <button type="button" onClick={() => onReplace(c)} disabled={c.onDisk} aria-describedby={`${rowId}-${i}`} className="btn-key"
+                  title={c.onDisk ? undefined : tr('Replace the file on the server with this version')}>{tr('Replace…')}</button>
               )}
+              {onDelete && c.onDisk && (
+                <button type="button" onClick={onDelete} aria-describedby={`${rowId}-${i}`} data-delete-version className="btn-key btn-key-danger"
+                  title={tr('Delete the file on the server')}>{tr('Delete file')}</button>
+              )}
+              </span>
             </div>
           );
         })}

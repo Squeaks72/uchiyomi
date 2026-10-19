@@ -50,6 +50,7 @@ import { SourcesExplainer } from '@/components/SourcesExplainer';
 import { SupplyLine } from '@/components/SupplyLine';
 import { ChapterFilterSheet } from '@/components/ChapterFilterSheet';
 import { ChapterVersionsSheet } from '@/components/ChapterVersionsSheet';
+import { PreviewReader } from '@/components/PreviewReader';
 import { CullSourcesDialog } from '@/components/CullSourcesDialog';
 import { foreignSources, type CullPlan } from '@/lib/cullPlan';
 import { HiddenChaptersDialog } from '@/components/HiddenChapters';
@@ -807,6 +808,8 @@ function SeriesInner() {
   const [explaining, setExplaining] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
   const [chapterSheet, setChapterSheet] = useState<{ number: number; book?: Book; ghost?: Ghost } | null>(null);
+  // A version read straight from its source (the Versions sheet's Read): read-only, nothing saved (components/PreviewReader.tsx).
+  const [previewing, setPreviewing] = useState<{ source: string; sourceName: string; sourceId: string; number: number } | null>(null);
   // The renumbering plan (#116), opened from the numbering notice or, for an admin, from the versions sheet.
   const [numberingSheet, setNumberingSheet] = useState<PlanMode | null>(null);
   useEffect(() => { setNumberingSheet(null); }, [id]);
@@ -2319,6 +2322,10 @@ function SeriesInner() {
         <ChapterFilterSheet groupNames={groupNames} group={group} onGroup={setGroup} hasGhosts={ghosts.length > 0 || deletedGhosts.length > 0}
           showGhosts={showGhosts} onToggleGhosts={toggleGhosts} onClose={() => setFilterOpen(false)} />
       )}
+      {previewing && (
+        <PreviewReader source={previewing.source} sourceName={previewing.sourceName} sourceId={previewing.sourceId} title={title}
+          initialNumber={previewing.number} onClose={() => setPreviewing(null)} />
+      )}
       {chapterSheet && (
         <ChapterVersionsSheet number={chapterSheet.number} ghost={chapterSheet.ghost} book={chapterSheet.book}
           copies={versionsOf.get(chapterSheet.number) ?? []} sourceNames={sourceNames} isAdmin={isAdmin}
@@ -2339,6 +2346,19 @@ function SeriesInner() {
           onFetchRead={(copy) => { const n = chapterSheet.number; setChapterSheet(null); void fetchAndRead(n, copy); }}
           // ⚠️ The sheet closes FIRST, then the confirm opens: a Modal under a Sheet cannot be tapped.
           onReplace={(copy) => { const b = chapterSheet.book!; setChapterSheet(null); setReplacing({ book: b, copy }); }}
+          // Delete the server's file for this chapter: the same confirm as the row menu's, opened after the sheet closes.
+          onDelete={chapterSheet.book && isAdmin && chapterSheet.book.owned && !chapterSheet.book.pruned
+            ? () => { const b = chapterSheet.book!; setChapterSheet(null); setConfirming({ what: 'delete', books: [b] }); } : undefined}
+          // Read a version: the file on the server in the real reader, any other copy previewed from its source (read-only).
+          canRead={(copy) => (copy.onDisk && !!chapterSheet.book && !chapterSheet.book.pruned) || (!copy.onDisk && !!copy.source && !!series?.sources?.some((x) => x.sourceId === copy.source))}
+          onRead={(copy) => {
+            const { number: n, book } = chapterSheet;
+            if (copy.onDisk && book) { router.push(`/reader/?book=${book.id}`); return; }
+            const src = series?.sources?.find((x) => x.sourceId === copy.source);
+            if (!src) return;
+            setChapterSheet(null);
+            setPreviewing({ source: src.sourceId, sourceName: copy.sourceName || src.name, sourceId: src.sourceSeriesId, number: n });
+          }}
           // Sheet for sheet, never stacked: the versions sheet closes and the plan opens.
           // Not while a change waits for review (a remap, an undo): the notice above the list offers that plan, and
           // confirming posting order here would overwrite it with a plan built on the wrong numbers.

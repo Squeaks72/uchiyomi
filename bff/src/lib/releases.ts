@@ -57,6 +57,38 @@ export interface StoredPrefs {
   priority: string[];
   blocked: string[];
   patienceDays: number | null;
+  /**
+   * Per series only: tell the notification channels (web push, the targets' digest) about new chapters only when a
+   * PREFERRED group released them. The chapters are still fetched; only the news is held back. Absent = notify as always.
+   */
+  notifyOnlyPreferred?: boolean;
+  /**
+   * Per series: notify only about chapters that were delivered by one of these sources (source ids). Empty/absent: any
+   * source. Together with `notifyOnlyPreferred` a chapter must pass both.
+   */
+  notifySources?: string[];
+}
+
+/**
+ * How many of the chapters that just landed are worth a notification for a series.
+ *
+ * With the filters off, all of them. `onlyPreferred` keeps those whose group is one of the series' preferred groups (a joint
+ * release counts when any of its groups is); `sources` keeps those delivered by one of the listed sources; both must hold. A series with NO preferred group has nothing to be picky about, so it
+ * still notifies for everything: a switch that silently muted a series would be worse than the noise it removes.
+ */
+export function notifiableCount(
+  landed: ReadonlyArray<{ scanlator?: string | null; groups?: string[]; source?: string | null }>,
+  priority: readonly string[],
+  onlyPreferred: boolean,
+  sources: readonly string[] = [],
+): number {
+  const wanted = new Set(priority.map(normGroup).filter(Boolean));
+  const fromGroup = (c: { scanlator?: string | null; groups?: string[] }) => !onlyPreferred || !wanted.size
+    || groupsOf({ scanlator: c.scanlator ?? undefined, groups: c.groups }).some((g) => wanted.has(normGroup(g)));
+  // A source filter is a list of ids the owner ticked: a chapter from any other source stays quiet. Empty = no filter.
+  const only = new Set(sources.filter(Boolean));
+  const fromSource = (c: { source?: string | null }) => !only.size || (!!c.source && only.has(c.source));
+  return landed.filter((c) => fromGroup(c) && fromSource(c)).length;
 }
 
 /** What chooseReleases consumes: the merge of global and per-series, with patience already in ms. */

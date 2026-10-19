@@ -2,7 +2,7 @@
   "_meta": {
     "language": "zh",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 4813
+    "strings": 4824
   },
   "1 check found something": "1 项检查发现问题",
   "1 member": "1 位成员",
@@ -4816,5 +4816,16 @@
   "{n} read chapters hidden": "已隐藏 {n} 个已读章节",
   "Every chapter is read. Choose Show read to see them again.": "所有章节均已读完。选择“显示已读”可再次查看。",
   "Caught up · {chapter}": "已追更 · {chapter}",
-  "Waiting for the next chapter": "等待下一章"
+  "Waiting for the next chapter": "等待下一章",
+  "Only notify me about new chapters from a preferred group": "仅在首选字幕组发布新章节时通知我",
+  "Every chapter is still fetched; chapters from other groups just do not send a notification.": "所有章节仍会获取；其他字幕组的章节只是不发送通知。",
+  "Prefer at least one group below first. Until then every new chapter notifies.": "请先在下方至少选择一个首选字幕组。在此之前，每个新章节都会通知。",
+  "Only notify me about chapters delivered by": "仅在以下来源提供章节时通知我",
+  "Chapters from the other sources are still fetched; they just do not notify.": "其他来源的章节仍会获取，只是不发送通知。",
+  "Nothing ticked: a chapter from any source notifies.": "未勾选：任何来源的章节都会通知。",
+  "Delete file": "删除文件",
+  "Open the file on the server in the reader": "在阅读器中打开服务器上的文件",
+  "Read this version from its source. Nothing is saved.": "直接从来源阅读此版本，不会保存任何内容。",
+  "Replace the file on the server with this version": "用此版本替换服务器上的文件",
+  "Delete the file on the server": "删除服务器上的文件"
 }

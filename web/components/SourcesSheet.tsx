@@ -645,8 +645,22 @@ export function SourcesSheet({ id, title: seriesTitle, series, groups, admin, er
   // (never the input's unsaved text -- Save is for that).
   const apply = (next: Pick<StoredPrefs, 'priority' | 'blocked'>) => {
     setLocal(next);
-    return patch({ ...next, patienceDays: admin?.prefs?.patienceDays ?? null });
+    return patch({ ...next, patienceDays: admin?.prefs?.patienceDays ?? null, ...notifyFields() });
   };
+  // "Only notify me for a preferred group" (per series): every write of the prefs carries it, or a Prefer tap would drop it.
+  const notifyOnly = admin?.prefs?.notifyOnlyPreferred === true;
+  const notifySources = admin?.prefs?.notifySources ?? [];
+  /** The two notification fields as stored, to ride along on every write of the prefs (absent when off). */
+  const notifyFields = (over: Partial<Pick<StoredPrefs, 'notifyOnlyPreferred' | 'notifySources'>> = {}): Pick<StoredPrefs, 'notifyOnlyPreferred' | 'notifySources'> => {
+    const only = over.notifyOnlyPreferred ?? notifyOnly;
+    const srcs = over.notifySources ?? notifySources;
+    return { ...(only ? { notifyOnlyPreferred: true } : {}), ...(srcs.length ? { notifySources: srcs } : {}) };
+  };
+  const toggleNotifyOnly = () => patch({ priority: stored.priority, blocked: stored.blocked, patienceDays: admin?.prefs?.patienceDays ?? null, ...notifyFields({ notifyOnlyPreferred: !notifyOnly }) });
+  const toggleNotifySource = (sourceId: string) => patch({
+    priority: stored.priority, blocked: stored.blocked, patienceDays: admin?.prefs?.patienceDays ?? null,
+    ...notifyFields({ notifySources: notifySources.includes(sourceId) ? notifySources.filter((x) => x !== sourceId) : [...notifySources, sourceId] }),
+  });
   const rankIn = (priority: string[], name: string) => { const k = normGroup(name); return priority.findIndex((p) => normGroup(p) === k); };
   // Preferring a group unblocks it and blocking one un-ranks it: a group in both lists would be blocked
   // (the server takes the union) while showing a rank that can never be used.
@@ -661,7 +675,7 @@ export function SourcesSheet({ id, title: seriesTitle, series, groups, admin, er
   const savePatience = async () => {
     const n = patienceDays();
     if (n === false) return;
-    if (await patch({ priority: stored.priority, blocked: stored.blocked, patienceDays: n })) onClose();
+    if (await patch({ priority: stored.priority, blocked: stored.blocked, patienceDays: n, ...notifyFields() })) onClose();
   };
   const useDefaults = async () => { if (await patch(null)) { setLocal({ priority: [], blocked: [] }); setPatience(''); } };
 
@@ -922,6 +936,40 @@ export function SourcesSheet({ id, title: seriesTitle, series, groups, admin, er
 
       <section className="mt-5">
         <Eyebrow>{tr('Translated by')}</Eyebrow>
+        {/* Admin, per series: the chapters are fetched either way; this only holds back the news (push and the notification
+            targets) for those from a group that is not a preferred one. With no preferred group it changes nothing. */}
+        {admin && (
+          <label className="mb-2 flex cursor-pointer items-start gap-2 text-xs text-fog-300 pointer-coarse:py-1">
+            <input type="checkbox" checked={notifyOnly} disabled={busy} onChange={toggleNotifyOnly}
+              className="mt-0.5 size-4 shrink-0 accent-[rgb(var(--accent))] pointer-coarse:size-5" data-notify-only-preferred />
+            <span>
+              {tr('Only notify me about new chapters from a preferred group')}
+              <span className="block text-[11px] text-fog-500">
+                {admin.effective.priority.length
+                  ? tr('Every chapter is still fetched; chapters from other groups just do not send a notification.')
+                  : tr('Prefer at least one group below first. Until then every new chapter notifies.')}
+              </span>
+            </span>
+          </label>
+        )}
+        {/* The same idea by SOURCE: only chapters one of the ticked sources delivered make a notification. Nothing ticked = any. */}
+        {admin && sources.length > 1 && (
+          <fieldset className="mb-3" data-notify-sources>
+            <legend className="mb-1 text-xs text-fog-300">{tr('Only notify me about chapters delivered by')}</legend>
+            <div className="flex flex-wrap gap-x-4 gap-y-1">
+              {sources.map((x) => (
+                <label key={x.sourceId} className="flex cursor-pointer items-center gap-1.5 text-xs text-fog-300 pointer-coarse:min-h-10">
+                  <input type="checkbox" checked={notifySources.includes(x.sourceId)} disabled={busy} onChange={() => toggleNotifySource(x.sourceId)}
+                    className="size-4 shrink-0 accent-[rgb(var(--accent))] pointer-coarse:size-5" />
+                  {x.name}
+                </label>
+              ))}
+            </div>
+            <p className="mt-0.5 text-[11px] text-fog-500">
+              {notifySources.length ? tr('Chapters from the other sources are still fetched; they just do not notify.') : tr('Nothing ticked: a chapter from any source notifies.')}
+            </p>
+          </fieldset>
+        )}
         {isLoading && <div className="skeleton h-12 rounded-xl" />}
         {!isLoading && !!error && (
           <p className="text-xs text-rose-300">{msgOf(error, tr('Could not load the groups'))}</p>

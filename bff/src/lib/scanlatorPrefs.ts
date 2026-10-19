@@ -17,6 +17,9 @@ export const prefsSchema = z.object({
   blocked: z.array(groupName).max(200).default([]),
   // NULL on a series means "inherit the global value"; on the global row it means the built-in default.
   patienceDays: z.number().int().min(0).max(30).nullable().default(null),
+  // Only meaningful on a series (releases.ts StoredPrefs.notifyOnlyPreferred); false is stored as absent.
+  notifyOnlyPreferred: z.boolean().optional(),
+  notifySources: z.array(z.string().trim().min(1).max(160)).max(50).optional(),
 });
 
 const GLOBAL_DEFAULTS: StoredPrefs = { priority: [], blocked: [], patienceDays: 2 };
@@ -34,6 +37,8 @@ function parseStored(v: unknown, fallback: StoredPrefs): StoredPrefs {
     blocked: strings(o.blocked),
     // The same ceiling the write path enforces: a hand-edited row must not make a series wait a season.
     patienceDays: days === null ? null : typeof days === 'number' && Number.isInteger(days) && days >= 0 ? Math.min(days, 30) : fallback.patienceDays,
+    ...(o.notifyOnlyPreferred === true ? { notifyOnlyPreferred: true } : {}),
+    ...(strings(o.notifySources).length ? { notifySources: strings(o.notifySources) } : {}),
   };
 }
 

@@ -59,3 +59,21 @@ test('the chapter list opens newest first', () => {
   const s = readFileSync(join(__dirname, '..', 'app/series/page.tsx'), 'utf8');
   assert.match(s, /const \[asc, setAsc\] = useState\(false\);/, 'the chapter list opens oldest first again');
 });
+
+test('the sources sheet offers "notify only for a preferred group", and every prefs write carries it', () => {
+  const s = readFileSync(join(__dirname, '..', 'components/SourcesSheet.tsx'), 'utf8');
+  assert.match(s, /data-notify-only-preferred/, 'the switch is gone');
+  assert.match(s, /patienceDays: admin\?\.prefs\?\.patienceDays \?\? null, \.\.\.notifyFields\(\) \}\);\n  \};/, 'Prefer/Block drop the notification settings');
+  assert.match(s, /data-notify-sources/, 'the source filter is gone');
+  assert.match(s, /patienceDays: n, \.\.\.notifyFields\(\) \}\)\) onClose/, 'Save drops the notification settings');
+});
+
+test('the Versions sheet can read a version and delete the server file', () => {
+  const sheet = readFileSync(join(__dirname, '..', 'components/ChapterVersionsSheet.tsx'), 'utf8');
+  assert.match(sheet, /data-read-version/, 'there is no Read on a version');
+  assert.match(sheet, /\{onDelete && c\.onDisk && \(/, 'Delete file is not offered on the server copy only');
+  const page = readFileSync(join(__dirname, '..', 'app/series/page.tsx'), 'utf8');
+  assert.match(page, /setConfirming\(\{ what: 'delete', books: \[b\] \}\); \} : undefined\}/, 'the sheet\'s delete does not use the row menu\'s confirm');
+  assert.match(page, /setPreviewing\(\{ source: src\.sourceId,/, 'Read on another copy does not open the source preview');
+  assert.match(readFileSync(join(__dirname, '..', 'components/PreviewReader.tsx'), 'utf8'), /if \(initialNumber != null\) \{ setNumber\(initialNumber\); push\(2\); \}/, 'the preview cannot open on a chapter');
+});

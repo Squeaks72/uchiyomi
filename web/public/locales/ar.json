@@ -2,7 +2,7 @@
   "_meta": {
     "language": "ar",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 4820
+    "strings": 4831
   },
   "1 check found something": "فحص واحد وجد شيئًا",
   "1 member": "عضو واحد",
@@ -4823,5 +4823,16 @@
   "{n} read chapters hidden": "{n} فصول مقروءة مخفية",
   "Every chapter is read. Choose Show read to see them again.": "تمت قراءة كل الفصول. اختر «إظهار المقروء» لعرضها من جديد.",
   "Caught up · {chapter}": "أنت على اطلاع · {chapter}",
-  "Waiting for the next chapter": "في انتظار الفصل التالي"
+  "Waiting for the next chapter": "في انتظار الفصل التالي",
+  "Only notify me about new chapters from a preferred group": "أبلغني فقط بالفصول الجديدة من مجموعة مفضّلة",
+  "Every chapter is still fetched; chapters from other groups just do not send a notification.": "يستمر جلب كل الفصول؛ فقط لا تُرسل الفصول من المجموعات الأخرى إشعارًا.",
+  "Prefer at least one group below first. Until then every new chapter notifies.": "فضّل أولاً مجموعة واحدة على الأقل أدناه. حتى ذلك الحين يُرسل كل فصل جديد إشعارًا.",
+  "Only notify me about chapters delivered by": "أبلغني فقط بالفصول التي وصلت من",
+  "Chapters from the other sources are still fetched; they just do not notify.": "يستمر جلب الفصول من المصادر الأخرى؛ فقط لا ترسل إشعارًا.",
+  "Nothing ticked: a chapter from any source notifies.": "لا شيء محدد: الفصل من أي مصدر يرسل إشعارًا.",
+  "Delete file": "حذف الملف",
+  "Open the file on the server in the reader": "افتح الملف الموجود على الخادم في القارئ",
+  "Read this version from its source. Nothing is saved.": "اقرأ هذه النسخة من مصدرها. لا يُحفظ شيء.",
+  "Replace the file on the server with this version": "استبدل الملف الموجود على الخادم بهذه النسخة",
+  "Delete the file on the server": "احذف الملف الموجود على الخادم"
 }

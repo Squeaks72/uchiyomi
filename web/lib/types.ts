@@ -164,6 +164,10 @@ export interface StoredPrefs {
   priority: string[];
   blocked: string[];
   patienceDays: number | null;
+  /** Per series: notify (push, the targets' digest) only about new chapters from a preferred group. Absent: all of them. */
+  notifyOnlyPreferred?: boolean;
+  /** Per series: notify only about chapters a source on this list delivered (source ids). Absent/empty: any source. */
+  notifySources?: string[];
 }
 
 /** One language edition of a work, as GET /api/series/:id lists them (v0.52.0, #72). */
