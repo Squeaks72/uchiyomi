@@ -877,3 +877,10 @@ test('"Search by hand" is inside the Find other source dialog for every row: its
   const find = readFileSync(join(__dirname, '..', 'components/FindSources.tsx'), 'utf8');
   assert.match(find, /export function PickSeriesSheet/, 'the series picker is gone');
 });
+
+test('the By series view\'s rows are about the series: Find other source is series-scoped and the whole-source keys are left out', () => {
+  const row = readFileSync(join(__dirname, '..', 'components/HealthActions.tsx'), 'utf8');
+  assert.match(row, /bySeries && itemIn\.seriesId\s*\? \{ \.\.\.itemIn, findScope: 'series', actions: \(itemIn\.actions \|\| \[\]\)\.filter\(\(a\) => !SOURCE_WIDE_ACTIONS\.includes\(a\)\) \}/, 'a By series row still searches a whole source');
+  assert.match(row, /SOURCE_WIDE_ACTIONS: readonly HealthAction\[\] = \['replace_source', 'free_slot', 'test', 'unblock', 'disable'\]/);
+  assert.match(readFileSync(join(__dirname, '..', 'components/HealthBySeries.tsx'), 'utf8'), /item=\{f\.item\} bySeries/, 'the By series view does not say so to its rows');
+});
