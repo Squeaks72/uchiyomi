@@ -44,3 +44,13 @@ test('a source filter keeps only chapters delivered by a ticked source, and comb
   assert.equal(notifiableCount(l, ['Asura Scans'], true, ['weebcentral', 'mangadex']), 2);
   assert.equal(notifiableCount(l, [], false, ['gone']), 0, 'a ticked source that delivered nothing here is silence');
 });
+
+test('an upgrade to a preferred group is announced for a series set to notify only for a preferred group, and nothing else changes', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const src = readFileSync(join(__dirname, '..', 'src/lib/repair.ts'), 'utf8');
+  assert.match(src, /await announceUpgrades\(upgraded\)/, 'the group step announces nothing');
+  assert.match(src, /if \(sp\?\.notifyOnlyPreferred !== true\) continue;/, 'every series is told about upgrades, which nobody asked for');
+  assert.match(src, /notifiableCount\(\[i\], eff\.priority, sp\?\.notifyOnlyPreferred === true, sp\?\.notifySources \?\? \[\]\)/, 'the source filter has no say');
+  assert.match(src, /u\.items\.push\(\{ number: Number\(book\.number\)/, 'the run does not note what it upgraded');
+});
