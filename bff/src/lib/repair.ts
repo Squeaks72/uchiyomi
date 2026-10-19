@@ -64,6 +64,9 @@ import { blockedNow, clearBlock, isDisabled } from './sourceHealth';
 import { automaticChapterAllowedFor, automaticCopiesFor, copyToChapter, seriesFollowsSource, type ListingCopy } from './seriesListing';
 import { groupsOf, normGroup, type ReleasePrefs } from './releases';
 import { effectivePrefsFor, readSeriesPrefs } from './scanlatorPrefs';
+import { notifiableCount } from './releases';
+import { notifyNewChapter } from './push';
+import { sendDigest } from './notify';
 import { borrowNamesFor, NAMES_RETRY_MS } from './borrowNames';
 import { fillDetailsFromAniList, fillDetailsFromSources, fillDetailsOn, seriesLackingDetails } from './autoDetails';
 import { busyFolders } from './bulkNewest';
@@ -1344,6 +1347,8 @@ async function stepGroups(r: RepairResult, opts: RepairOpts, notes: Notes, log?:
     bySeries.get(b.series_id)!.push(b);
   }
 
+  /** What this run upgraded, by series: announced at the end (announceUpgrades). */
+  const upgraded = new Map<string, { title: string; items: Array<{ number: number; scanlator: string | null; groups: string[]; source: string }> }>();
   let stopped: RepairResult['stopped'];
   series: for (const [seriesId, rows] of bySeries) {
     { const h = halted(); if (h) { stopped = h; break; } }
@@ -1395,14 +1400,46 @@ async function stepGroups(r: RepairResult, opts: RepairOpts, notes: Notes, log?:
         const done = await replaceWithGroup(book, chapter, copy, opts, notes, log);
         if (done === 'paused') continue series;
         if (done === 'disk') { stopped = 'disk'; break series; }
-        if (done) r.groups.replaced++;
-        else r.groups.left++;
+        if (done) {
+          r.groups.replaced++;
+          const u = upgraded.get(seriesId) ?? { title: book.title, items: [] };
+          u.items.push({ number: Number(book.number), scanlator: copy.scanlator ?? null, groups: copy.groups ?? [], source: copy.source });
+          upgraded.set(seriesId, u);
+        } else r.groups.left++;
       }
     } finally {
       busyFolders.delete(folder);
     }
   }
+  await announceUpgrades(upgraded).catch((e) => log?.warn(`repair: announcing the upgrades failed: ${(e as Error)?.message || e}`));
   return stopped;
+}
+
+/**
+ * Tell the people who follow a series that a chapter they already have is now available from a PREFERRED group (fork). The sweep
+ * announces what is new; an upgrade replaces a file that was already here, so it announced nothing -- which left "notify me when a
+ * preferred group's version appears" silent for exactly the chapter you most wanted it for. Judged by the series' own notification
+ * settings like a new chapter is (notifiableCount): only for a series with "notify only for a preferred group" on (an upgrade is to a
+ * preferred group by definition, so that switch passes it, and a source filter still has its say). One push per series, and one digest for the run. Never throws.
+ */
+async function announceUpgrades(upgraded: Map<string, { title: string; items: Array<{ number: number; scanlator: string | null; groups: string[]; source: string }> }>): Promise<void> {
+  const digest: Array<{ id: string; title: string; added: number }> = [];
+  for (const [id, u] of upgraded) {
+    const sp = await readSeriesPrefs(id).catch(() => null);
+    // Only a series set to "notify only for a preferred group": that is the person who asked to hear about preferred groups' copies. Every
+    // other series keeps its old behaviour, where an upgrade is a quiet swap (nobody asked to be told).
+    if (sp?.notifyOnlyPreferred !== true) continue;
+    const eff = await effectivePrefsFor(sp);
+    const keep = u.items.filter((i) => notifiableCount([i], eff.priority, sp?.notifyOnlyPreferred === true, sp?.notifySources ?? []) > 0);
+    if (!keep.length) continue;
+    const names = [...new Set(keep.flatMap((i) => groupsOf({ groups: i.groups, scanlator: i.scanlator ?? undefined })))];
+    const from = names.length ? ` from ${names.slice(0, 2).join(' & ')}` : '';
+    const nums = [...new Set(keep.map((i) => i.number))].sort((a, b) => a - b);
+    const body = nums.length === 1 ? `Chapter ${nums[0]} is now available${from}` : `${nums.length} chapters are now available${from}`;
+    void notifyNewChapter(id, u.title, nums.length, body).catch(() => {});
+    digest.push({ id, title: u.title, added: nums.length });
+  }
+  if (digest.length) void sendDigest(digest).catch(() => {});
 }
 
 /**
