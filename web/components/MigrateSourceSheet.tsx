@@ -158,7 +158,7 @@ export function MigrateSourceSheet({ id, title, attached, mainId, listed, onDone
       )}
       {buttons.main && mainId && (
         <label className="flex items-center gap-2 text-[11px] text-fog-400">
-          <input type="checkbox" checked={keepOld} onChange={(e) => setKeepOld(e.target.checked)} className="accent-[rgb(var(--accent))]" />
+          <input type="checkbox" checked={keepOld} onChange={(e) => setKeepOld(e.target.checked)} className="pointer-coarse:size-5 pointer-coarse:shrink-0 accent-[rgb(var(--accent))]" />
           {tr('Keep the current main source as a backup')}
         </label>
       )}
@@ -185,7 +185,7 @@ export function MigrateSourceSheet({ id, title, attached, mainId, listed, onDone
           <IcSearch aria-hidden width={17} height={17} className="text-fog-500" />
           <input ref={inputRef} value={term} onChange={(e) => setTerm(e.target.value)} placeholder={tr('Search sources…')} aria-label={tr('Search sources…')}
             autoCapitalize="none" autoComplete="off" enterKeyHint="search" className="w-full bg-transparent text-sm text-fog-50 outline-hidden focus-visible:outline-accent focus-visible:outline-offset-0 placeholder:text-fog-500" data-migrate-term />
-          {term && <button type="button" onClick={() => setTerm('')} className="text-fog-500" aria-label={tr('Clear')}><IcX aria-hidden width={15} height={15} /></button>}
+          {term && <button type="button" onClick={() => setTerm('')} className="text-fog-500 pointer-coarse:-my-2 pointer-coarse:-me-2 pointer-coarse:grid pointer-coarse:h-9 pointer-coarse:w-9 pointer-coarse:place-items-center" aria-label={tr('Clear')}><IcX aria-hidden width={15} height={15} /></button>}
         </div>
         {terms.length > 1 && (
           <div className="mt-1.5 flex flex-wrap gap-1.5">
@@ -207,13 +207,13 @@ export function MigrateSourceSheet({ id, title, attached, mainId, listed, onDone
           {choosing && (
             <div className="mt-2 rounded-xl border border-ink-700 bg-ink-900/40 p-2">
               <div className="mb-1 flex gap-3 px-1 text-[11px]">
-                <button type="button" onClick={() => setSelected(allIds)} className="text-accent" data-migrate-sources-all>{tr('Select all')}</button>
-                <button type="button" onClick={() => setSelected([])} className="text-accent" data-migrate-sources-none>{tr('Select none')}</button>
+                <button type="button" onClick={() => setSelected(allIds)} className="text-accent pointer-coarse:px-1 pointer-coarse:py-2" data-migrate-sources-all>{tr('Select all')}</button>
+                <button type="button" onClick={() => setSelected([])} className="text-accent pointer-coarse:px-1 pointer-coarse:py-2" data-migrate-sources-none>{tr('Select none')}</button>
               </div>
               <div className="max-h-56 overflow-y-auto" data-lenis-prevent>
                 {allSources.map((s) => (
                   <label key={s.id} className="flex items-center gap-2 rounded-lg px-1 py-1.5 text-xs text-fog-200">
-                    <input type="checkbox" checked={pickedIds.includes(s.id)} onChange={() => toggleSource(s.id)} className="accent-[rgb(var(--accent))]" />
+                    <input type="checkbox" checked={pickedIds.includes(s.id)} onChange={() => toggleSource(s.id)} className="pointer-coarse:size-5 pointer-coarse:shrink-0 accent-[rgb(var(--accent))]" />
                     <SourceIcon id={s.id} name={s.name} size={16} />
                     <span className="truncate">{sourceWithLang(s.name, s.lang)}</span>
                     {attached.includes(s.id) && <Marker main={s.id === mainId} />}
@@ -280,6 +280,6 @@ export function MigrateSourceSheet({ id, title, attached, mainId, listed, onDone
 /** A source the series already uses, marked as a squared tag (no capsules for statuses: noPills.test.ts). */
 function Marker({ main }: { main: boolean }) {
   return main
-    ? <span className="shrink-0 rounded-[4px] border border-accent/40 px-1.5 text-[10px] leading-4 text-accent">{tr('main')}</span>
-    : <span className="shrink-0 rounded-[4px] border border-ink-700 px-1.5 text-[10px] leading-4 text-fog-300">{tr('attached')}</span>;
+    ? <span className="shrink-0 rounded-[4px] border border-accent/40 px-1.5 text-[10px] leading-4 text-accent pointer-coarse:text-[11px]">{tr('main')}</span>
+    : <span className="shrink-0 rounded-[4px] border border-ink-700 px-1.5 text-[10px] leading-4 text-fog-300 pointer-coarse:text-[11px]">{tr('attached')}</span>;
 }

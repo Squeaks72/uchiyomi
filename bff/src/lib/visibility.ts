@@ -175,13 +175,14 @@ export function sanitiseSourceIds(values: unknown): string[] {
  * the failure mode of showing something that would have been tidied away is the right one -- the
  * permission (`maxAgeRating`) is a different field and is never sourced from here.
  */
-let adultCache: { at: number; genres: string[]; sources: string[] } | null = null;
+let adultCache: { at: number; genres: string[]; sources: string[]; mixed: string[]; mixedShowUnknown: boolean } | null = null;
 const ADULT_CACHE_MS = 15_000;
 export function invalidateAdultFilter(): void { adultCache = null; }
-export async function adultFilter(): Promise<{ genres: string[]; sources: string[] }> {
+export async function adultFilter(): Promise<{ genres: string[]; sources: string[]; mixed: string[]; mixedShowUnknown: boolean }> {
   if (adultCache && Date.now() - adultCache.at < ADULT_CACHE_MS) return adultCache;
-  const row = await one<{ adult_genres: unknown; adult_sources: unknown }>(
-    'SELECT adult_genres, adult_sources FROM server_settings WHERE id = 1').catch(() => null);
+  const row = await one<{ adult_genres: unknown; adult_sources: unknown; mixed_sources: unknown; mixed_show_unknown: boolean }>(
+    'SELECT adult_genres, adult_sources, mixed_sources, mixed_show_unknown FROM server_settings WHERE id = 1').catch(() => null);
+  if (row) applyMixedSources(row.mixed_sources);
   // The same column is the Adult only rating that `sourceAllowedFor` refuses by (v0.73.0): every read refreshes that
   // copy too, so it cannot drift from what is stored. A failed read leaves it as it was, never empty.
   if (row) applyAdultSources(row.adult_sources);
@@ -189,6 +190,8 @@ export async function adultFilter(): Promise<{ genres: string[]; sources: string
     at: Date.now(),
     genres: sanitiseAdultList(row?.adult_genres),
     sources: sanitiseSourceIds(row?.adult_sources),
+    mixed: sanitiseSourceIds(row?.mixed_sources),
+    mixedShowUnknown: row?.mixed_show_unknown === true,
   };
   return adultCache;
 }
@@ -215,10 +218,45 @@ export function applyAdultSources(stored: unknown): void {
   ratedAdultRead = true;
 }
 
+/**
+ * The sources the admin rated Mixed (fork): their extension flags the whole site 18+, but most of what they carry is not.
+ * With Show 18+ OFF they are still asked and each title is judged alone (lib/searchAll.ts mixedRating). A SURFACING choice
+ * and nothing more: `sourceAllowedFor` -- the age cap -- ignores it, so an account limited below 18 is refused the whole
+ * source exactly as before (the reason upstream declined a "Mixed" permission). An Adult only rating wins over it.
+ */
+let ratedMixed: ReadonlySet<string> = new Set();
+export function applyMixedSources(stored: unknown): void { ratedMixed = new Set(sanitiseSourceIds(stored)); }
+export function sourceRatedMixed(src: { id?: string } | null | undefined): boolean {
+  return !!src?.id && ratedMixed.has(String(src.id).trim().toLowerCase()) && !sourceRatedAdult(src);
+}
+
 /** Read the stored list into the in-memory copy. Throws when the read fails, so boot can say so; the copy is then kept. */
 export async function loadAdultSources(): Promise<void> {
-  const row = await one<{ adult_sources: unknown }>('SELECT adult_sources FROM server_settings WHERE id = 1');
+  const row = await one<{ adult_sources: unknown; mixed_sources: unknown }>('SELECT adult_sources, mixed_sources FROM server_settings WHERE id = 1');
   applyAdultSources(row?.adult_sources);
+  applyMixedSources(row?.mixed_sources);
+}
+
+/**
+ * Rate one source Mixed, or take it off. Same single-statement shape as rateSourceAdult. Mixed and Adult only exclude each
+ * other: rating one takes the source off the other list. Answers the stored Mixed list, or null past MAX_ADULT_SOURCES.
+ */
+export async function rateSourceMixed(id: string, mixed: boolean): Promise<string[] | null> {
+  const key = id.trim().toLowerCase();
+  const row = mixed
+    ? await one<{ mixed_sources: unknown }>(
+      `UPDATE server_settings
+          SET mixed_sources = CASE WHEN mixed_sources ? $1 THEN mixed_sources ELSE mixed_sources || to_jsonb($1::text) END,
+              updated_at = now()
+        WHERE id = 1 AND jsonb_typeof(mixed_sources) = 'array' AND (mixed_sources ? $1 OR jsonb_array_length(mixed_sources) < $2)
+        RETURNING mixed_sources`, [key, MAX_ADULT_SOURCES])
+    : await one<{ mixed_sources: unknown }>(
+      `UPDATE server_settings SET mixed_sources = mixed_sources - $1::text, updated_at = now()
+        WHERE id = 1 AND jsonb_typeof(mixed_sources) = 'array' RETURNING mixed_sources`, [key]);
+  invalidateAdultFilter();
+  if (!row) return null;
+  applyMixedSources(row.mixed_sources);
+  return sanitiseSourceIds(row.mixed_sources);
 }
 
 /** Whether the admin rated this source Adult only. By id, lowercased, as the list is stored. */
@@ -437,7 +475,7 @@ export function sourceAllowedFor(src: { id?: string; isNsfw?: boolean } | null |
  */
 export function adultFilterConfigured(ctx: ViewCtx): boolean {
   if (ctx.maxAgeRating !== null && ctx.maxAgeRating < ADULT_RATING) return false;
-  return (ctx.adultGenres ?? []).length > 0 || (ctx.adultSources ?? []).length > 0;
+  return (ctx.adultGenres ?? []).length > 0 || (ctx.adultSources ?? []).length > 0 || ratedMixed.size > 0;
 }
 
 /**
@@ -458,7 +496,8 @@ export function adultFilterConfigured(ctx: ViewCtx): boolean {
 export function sourceBrowsableFor(src: { id?: string; isNsfw?: boolean } | null | undefined, ctx: ViewCtx): boolean {
   if (!sourceAllowedFor(src, ctx.maxAgeRating)) return false;
   if (!ctx.hideAdultLibraries) return true;
-  if (src?.isNsfw || sourceRatedAdult(src)) return false;
+  // A Mixed source stays on the shelf with Show 18+ off: its TITLES are judged one by one (searchAll mixedRating).
+  if (sourceRatedAdult(src) || (src?.isNsfw && !sourceRatedMixed(src))) return false;
   // Rated Adult only by the admin even though its extension does not say so, as this request read the list. The list is
   // lowercased on the way in, so the comparison is too.
   return !(src?.id && (ctx.adultSources ?? []).includes(String(src.id).toLowerCase()));

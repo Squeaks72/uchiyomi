@@ -361,6 +361,7 @@ function condSqlOf(cond: any, params: any[], hasUser: boolean): string {
 
 /** Exposed for tests: the translator is pure apart from the params it pushes. */
 export const _condSql = condSql;
+export const _sortSql = sortSql;
 
 /**
  * @param perUser whether the `mine`/`fav` joins are present in the FROM clause. The per-user sorts name
@@ -379,6 +380,12 @@ function sortSql(sort?: string, perUser = false): string {
     return `(SELECT CASE WHEN r.quiet_after > now() AND sv.auto_update THEN r.next_at END FROM series_radar r WHERE r.series_id = sv.id) ${dir} NULLS LAST, title ASC`;
   }
   if (/random/i.test(field)) return 'random()';
+  // The viewer's own stars (the `rate` CTE). Unrated series go last in either direction: "lowest rated" is
+  // the ones you scored low, not the ones you never scored.
+  if (/rating/i.test(field)) return perUser ? `rt.stars ${dir} NULLS LAST, title ASC` : `title ${dir}`;
+  // When the viewer last read in the series (`mine.last_at`); never-read series go last.
+  if (/lastread/i.test(field)) return perUser ? `m.last_at ${dir} NULLS LAST, title ASC` : `title ${dir}`;
+  if (/chapters|books/i.test(field)) return `books_count ${dir}, title ASC`;
   if (/title|name/i.test(field)) return `title ${dir}`;
   if (/created|added/i.test(field)) return `created_at ${dir}`;
   if (/updated|date|modified/i.test(field)) return `latest_mtime ${dir}`;
@@ -418,6 +425,8 @@ function sortSql(sort?: string, perUser = false): string {
  * userId is always $1 when present, because condSql pushes its own parameters as it walks the tree.
  * Built per query, not once: the notice fragment in it is a constant while nothing hides (lib/noticeChapters.ts).
  */
+const PER_USER_JOINS = 'LEFT JOIN mine m ON m.series_id = sv.id LEFT JOIN fav f ON f.series_id = sv.id LEFT JOIN rate rt ON rt.series_id = sv.id';
+
 const mineCte = () => `WITH mine AS (
   SELECT series_id,
          count(*) FILTER (WHERE completed)::int     AS done,
@@ -431,6 +440,8 @@ const mineCte = () => `WITH mine AS (
    GROUP BY series_id
 ), fav AS (
   SELECT series_id FROM favorites WHERE user_id = $1
+), rate AS (
+  SELECT series_id, stars FROM ratings WHERE user_id = $1
 )`;
 
 /**
@@ -438,7 +449,7 @@ const mineCte = () => `WITH mine AS (
  * filters and the gates, the one this viewer read most recently, else the oldest -- the original. The window runs
  * over the ALREADY filtered set, so a search that matches only the Spanish title shows the Spanish edition, and a
  * viewer who may browse one edition sees that one. `total` counts works, so the grid's paging agrees with its cards.
- * The outer query reads the per-user CTEs again by the chosen row's id: `sortSql` names `m` and `f`, and a filter
+ * The outer query reads the per-user CTEs again by the chosen row's id: `sortSql` names `m`, `f` and `rt`, and a filter
  * already applied inside is not applied twice.
  *
  * Reintroduce by returning the plain search: "the Library shows one card per work" in editions.int.test.ts finds
@@ -450,7 +461,7 @@ async function collapsedSearch(cte: string, from: string, where: string, p: Para
     clone(p).values as any[],
   ))?.c ?? 0;
   const mine = perUser ? 'm.last_at DESC NULLS LAST, ' : '';
-  const joins = perUser ? 'LEFT JOIN mine m ON m.series_id = sv.id LEFT JOIN fav f ON f.series_id = sv.id' : '';
+  const joins = perUser ? PER_USER_JOINS : '';
   const rows = await q(
     `${cte} SELECT ${SERIES_COLS} FROM (
        SELECT sv.*, row_number() OVER (PARTITION BY COALESCE(sv.work_id::text, sv.id) ORDER BY ${mine}sv.created_at, sv.id) AS edition_pick
@@ -510,8 +521,8 @@ const total = async (ctx: ViewCtx, where = 'TRUE', p = new Params(), cte = '', f
 
 export const owned = {
   libraries: async (ctx: ViewCtx) => {
-    const rows = await q<{ id: string; name: string; age_rating: number | null }>(
-      'SELECT id, name, age_rating FROM libraries ORDER BY sort_order, name',
+    const rows = await q<{ id: string; name: string; age_rating: number | null; default_visible: boolean }>(
+      'SELECT id, name, age_rating, default_visible FROM libraries ORDER BY (COALESCE(age_rating, 0) >= 18), lower(name)',
     );
     // A restricted viewer is told about the libraries they hold, not all of them: the list itself would
     // otherwise leak the existence and names of everything they cannot open.
@@ -525,7 +536,7 @@ export const owned = {
     // `adult` rides along rather than being filtered out here: the web app needs to know an 18+ library
     // EXISTS in order to offer the button that reveals it, and it hides those tabs itself while the filter
     // is on. What must not leak is the CONTENT, and that is `browsable()`'s job, not this list's.
-    return allowed.map((r) => ({ id: r.id, name: r.name, adult: (r.age_rating ?? 0) >= ADULT_RATING }));
+    return allowed.map((r) => ({ id: r.id, name: r.name, adult: (r.age_rating ?? 0) >= ADULT_RATING, defaultVisible: r.id === 'lib' || r.default_visible }));
   },
 
   /**
@@ -736,7 +747,7 @@ export const owned = {
     if (wantsUser) p.add(ctx.userId); // mineCte reads $1
     const src = browseSrc(ctx, p);
     const from = wantsUser
-      ? `${src} LEFT JOIN mine m ON m.series_id = sv.id LEFT JOIN fav f ON f.series_id = sv.id`
+      ? `${src} ${PER_USER_JOINS}`
       : src;
 
     let where = body?.condition ? condSql(body.condition, p.values as any[], wantsUser) : 'TRUE';

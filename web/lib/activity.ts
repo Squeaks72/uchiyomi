@@ -22,6 +22,16 @@ export function seriesFinished(status: string | null | undefined): boolean {
   return /\b(completed?|finished|ended?|cancell?ed|dropped)\b/i.test(status ?? '');
 }
 
+/**
+ * Whether `status` says the series is still coming out: ongoing, publishing, releasing, serialised, or on hiatus (it
+ * is expected back). A finished status wins ("Publishing finished"); no status, or words this does not know, is not
+ * "ongoing" -- the page must not claim to be waiting for a chapter nobody said was coming.
+ */
+export function seriesOngoing(status: string | null | undefined): boolean {
+  if (!status || seriesFinished(status)) return false;
+  return /\b(ongoing|publishing|releasing|serializ(?:ed|ing)|serialis(?:ed|ing)|hiatus|in progress)\b/i.test(status.replace(/[_-]+/g, ' '));
+}
+
 // The four statuses the Library filters by (components/LibraryFilters.tsx STATUS_LABELS), declared again here
 // because statusText reaches them through a variable.
 const STATUS_WORDS = keys('Ongoing', 'Completed', 'Hiatus', 'Cancelled');

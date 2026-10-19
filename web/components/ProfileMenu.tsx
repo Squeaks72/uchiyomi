@@ -122,7 +122,7 @@ export function ProfileMenu({ active }: { active: boolean }) {
             onBlur={(e) => { const to = e.relatedTarget as Node | null; if (to && !panel.current?.contains(to) && !btn.current?.contains(to)) close(false); }}
             style={{ top: pos.top, ...(rtl ? { left: pos.edge } : { right: pos.edge }) }}
             className="glass fixed z-50 w-80 max-w-[calc(100vw-1rem)] rounded-2xl border border-ink-700 p-4 shadow-2xl outline-none">
-            <div data-lenis-prevent className="max-h-[calc(100vh-6rem)] overflow-y-auto">
+            <div data-lenis-prevent className="max-h-[calc(100dvh-6rem)] overflow-y-auto">
               <QuickSettings onClose={() => close(false)} />
             </div>
           </div>

@@ -2,27 +2,68 @@
 // Global command palette (Ctrl/Cmd+K, "/", or just start typing): instant series search + quick actions, and since v0.55.4
 // the pages and settings a query names (lib/destinations.ts).
 // No dependency — a fixed overlay + debounced POST /api/series/search, keyboard-navigable.
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { api, img } from '@/lib/api';
 import { Page, Series } from '@/lib/types';
 import { triggerRefresh } from '@/lib/refresh';
 import { useToast } from './Toast';
-import { Img } from './ui';
-import { IcSearch, IcSparkle, IcRefresh, IcBell, IcDownload, IcCloudDownload, IcGrid, IcMoments, IcSettings, IcUser, IcImport, IcBookmark } from './icons';
+import { Img, trapTab, BACKDROP_CLS } from './ui';
+import { IcSearch, IcSparkle, IcRefresh, IcBell, IcDownload, IcCloudDownload, IcGrid, IcMoments, IcSettings, IcUser, IcImport, IcBookmark, IcHeart, IcClock } from './icons';
 import { t as tr } from '@/lib/i18n';
 import { hiddenOnDesktop, isDesktop, DESKTOP_HIDDEN } from '@/lib/desktop';
-import { effectsReduced } from '@/lib/effects';
+import { effectsReduced, useReduceEffects } from '@/lib/effects';
 import { arrival, findDestinations, whereText, type Destination } from '@/lib/destinations';
 import { openInConsole } from '@/lib/consoleOnScreen';
 import { isTypingTarget, seedFor, typeToSearchKey, typeToSearchOn } from '@/lib/typeToSearch';
 import { useLayer } from '@/lib/layers';
 import { canDownload, useAuth } from '@/lib/auth';
 import { downloadsHref } from '@/lib/libraryView';
+import { useSeriesMenu } from './SeriesMenu';
 
-interface Action { key: string; label: string; hint?: string; icon: React.ReactNode; run: () => void | Promise<void> }
+export interface Action { key: string; label: string; hint?: string; icon: React.ReactNode; run: () => void | Promise<void> }
+
+/**
+ * The palette's actions (Surprise me, Updates, Moments, Server downloads, Offline downloads, Refresh ...), as a hook so the
+ * phone's search page lists the same ones: a phone has no palette hotkey, and these were desktop-only before.
+ * `go` navigates (and closes whatever called it); `onClose` closes it before an action that stays on the page.
+ */
+export function usePaletteActions(go: (href: string) => void, onClose: () => void): Action[] {
+  const toast = useToast();
+  const { user, status } = useAuth();
+  // What the server is fetching is Library -> Downloads, a view the route behind it opens only to a viewer
+  // who may download: nobody else is offered the way in.
+  const mayDownload = status === 'authed' && canDownload(user);
+  // Labels and hints through tr(): they are what the list shows and what a typed query is matched against, so
+  // an English-only list could neither be read nor found in the reader's language.
+  const actions: Action[] = useMemo(() => ([
+    {
+      key: 'surprise', label: tr('Surprise me'), hint: tr('random series'), icon: <IcSparkle width={16} height={16} />,
+      run: async () => {
+        try { const r = await api<{ seriesId: string | null }>('/api/random'); if (r.seriesId) go(`/series/?id=${r.seriesId}`); }
+        catch { toast(tr('Couldn’t pick one. Try again.'), 'error'); }
+      },
+    },
+    { key: 'updates', label: tr('Updates'), hint: tr('new chapters'), icon: <IcBell width={16} height={16} />, run: () => go('/updates') },
+    { key: 'lists', label: tr('Lists'), hint: tr('your reading lists'), icon: <IcBookmark width={16} height={16} />, run: () => go('/collections/') },
+    { key: 'favorites', label: tr('Favorites'), icon: <IcHeart width={16} height={16} />, run: () => go('/collection/?id=favorites') },
+    { key: 'history', label: tr('Reading history'), icon: <IcClock width={16} height={16} />, run: () => go('/history/') },
+    { key: 'moments', label: tr('Moments'), hint: tr('pages you saved'), icon: <IcMoments width={16} height={16} />, run: () => go('/moments') },
+    // What the SERVER is fetching (v0.49.0), beside this device's copies: two different promises, two entries.
+    // Kept on desktop, where it is the only "downloads" there is.
+    ...(mayDownload ? [{ key: 'server-downloads', label: tr('Server downloads'), hint: tr('what the server is fetching'), icon: <IcCloudDownload width={16} height={16} />, run: () => go(downloadsHref()) }] : []),
+    { key: 'downloads', label: tr('Offline downloads'), icon: <IcDownload width={16} height={16} />, run: () => go('/downloads') },
+    // Genres are a filter now, not a page. The palette still gets you there in one keystroke.
+    { key: 'genres', label: tr('Filter by genre'), icon: <IcGrid width={16} height={16} />, run: () => go('/library') },
+    {
+      key: 'refresh', label: tr('Refresh library'), hint: tr('scan for new chapters'), icon: <IcRefresh width={16} height={16} />,
+      run: async () => { onClose(); toast(tr('Refreshing…'), 'info', { busy: true, key: 'refresh' }); await triggerRefresh(); toast(tr('Refresh started'), 'success', { key: 'refresh' }); },
+    },
+  ] as Action[]).filter((a) => !hiddenOnDesktop(DESKTOP_HIDDEN.paletteKeys, a.key)), [go, onClose, toast, mayDownload]); // no Offline downloads on desktop (lib/desktop.ts)
+  return actions;
+}
 
 export function CommandPalette({ open, seed = '', onClose }: { open: boolean; seed?: string; onClose: () => void }) {
   const router = useRouter();
@@ -36,6 +77,13 @@ export function CommandPalette({ open, seed = '', onClose }: { open: boolean; se
   const [searching, setSearching] = useState(false);
   const [sel, setSel] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  // Whoever had focus when it opened, so closing gives it back instead of dropping focus on <body>.
+  const opener = useRef<HTMLElement | null>(null);
+  const listId = useId();
+  const optId = (i: number) => `${listId}-o${i}`;
+  // Slides in only when motion is welcome: the OS setting or the app's own Reduce effects.
+  const still = !!useReducedMotion() || useReduceEffects();
   const seq = useRef(0);
   // On the notices' layer stack while open (lib/layers.ts). It stays mounted while closed, hence `open`.
   useLayer('dialog', open);
@@ -46,11 +94,18 @@ export function CommandPalette({ open, seed = '', onClose }: { open: boolean; se
   // the enter animation.
   useLayoutEffect(() => {
     if (open) {
+      opener.current = document.activeElement as HTMLElement | null;
       setQ(seed);
       setResults([]);
       setSel(0);
       inputRef.current?.focus();
       setTimeout(() => inputRef.current?.focus(), 30);
+    } else if (opener.current) {
+      const back = opener.current;
+      opener.current = null;
+      // Only when focus is still in the palette or lost: a click or a navigation that moved it elsewhere wins.
+      const at = document.activeElement;
+      if (!at || at === document.body || at === inputRef.current) back.focus?.({ preventScroll: true });
     }
   }, [open]); // seed is read at open time only
 
@@ -137,21 +192,30 @@ export function CommandPalette({ open, seed = '', onClose }: { open: boolean; se
   // Desktop's missing ones there (lib/destinations.ts).
   const places = useMemo(() => findDestinations(q, { admin: isAdmin, desktop: isDesktop() }), [q, isAdmin]);
   // one flat keyboard list: series first, then pages and settings, then actions
+  // Nothing in the library by this name, and the viewer may add series: offer to ask the sources instead (Discover
+  // searches them). With nothing else listed it is the only row, so a second Enter takes you there.
+  const discoverRow = mayDownload && !searching && query.length >= 2 && results.length === 0;
   const rows = useMemo(
     () => [
       ...results.map((s) => ({ kind: 'series' as const, series: s })),
       ...places.map((p) => ({ kind: 'place' as const, place: p })),
       ...shownActions.map((a) => ({ kind: 'action' as const, action: a })),
+      ...(discoverRow ? [{ kind: 'discover' as const, term: q.trim() }] : []),
     ],
-    [results, places, shownActions],
+    [results, places, shownActions, discoverRow, q],
   );
   useEffect(() => { setSel((s) => Math.min(s, Math.max(0, rows.length - 1))); }, [rows.length]);
+  // The highlighted row stays on screen as the arrows move it past the edge of the list.
+  useEffect(() => { if (open) document.getElementById(`${listId}-o${sel}`)?.scrollIntoView({ block: 'nearest' }); }, [sel, open, listId]);
 
+  // Each series row's menu opener, so the keyboard (Shift+F10 on the highlighted row) can open it from the box.
+  const menuOpeners = useRef(new Map<string, () => void>());
   const activate = (i: number) => {
     const r = rows[i];
     if (!r) return;
     if (r.kind === 'series') go(`/series/?id=${r.series.id}`);
     else if (r.kind === 'place') goTo(r.place.href);
+    else if (r.kind === 'discover') go(`/discover/?q=${encodeURIComponent(r.term)}`);
     else r.action.run();
   };
 
@@ -160,64 +224,76 @@ export function CommandPalette({ open, seed = '', onClose }: { open: boolean; se
     else if (e.key === 'ArrowUp') { e.preventDefault(); setSel((s) => Math.max(0, s - 1)); }
     else if (e.key === 'Enter') { e.preventDefault(); activate(sel); }
     else if (e.key === 'Escape') { e.preventDefault(); onClose(); }
+    else if ((e.shiftKey && e.key === 'F10') || e.key === 'ContextMenu') {
+      const r = rows[sel];
+      if (r?.kind === 'series') { e.preventDefault(); menuOpeners.current.get(r.series.id)?.(); }
+    }
   };
 
   return (
     <AnimatePresence>
       {open && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}
-          className="fixed inset-0 z-[70] bg-ink-950/70 p-4 pt-[12vh] backdrop-blur-xs" onClick={onClose}>
-          <motion.div initial={{ opacity: 0, y: -10, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -8, scale: 0.98 }}
-            transition={{ duration: 0.18, ease: [0.22, 0.61, 0.36, 1] }}
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: still ? 0 : 0.15 }}
+          className={`fixed inset-0 z-[70] ${BACKDROP_CLS} p-4 pt-[max(0.75rem,env(safe-area-inset-top))] sm:pt-[12vh]`} onClick={onClose}>
+          <motion.div ref={panelRef} initial={{ opacity: 0, y: still ? 0 : -10, scale: still ? 1 : 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: still ? 0 : -8, scale: still ? 1 : 0.98 }}
+            transition={{ duration: still ? 0 : 0.18, ease: [0.22, 0.61, 0.36, 1] }}
+            onKeyDown={(e: React.KeyboardEvent) => trapTab(e, panelRef.current)}
             className="glass-strong grad-border mx-auto w-full max-w-xl overflow-hidden rounded-2xl border border-ink-700 shadow-lift"
             // A dialog, said so: screen readers announce it as one, and every global key handler that stands down
             // for an open `aria-modal` (type-to-search among them) now stands down for this one too.
             role="dialog" aria-modal="true" aria-label={tr('Search')}
             onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-2.5 border-b border-ink-800 px-4">
-              <IcSearch width={17} height={17} className="shrink-0 text-fog-500" />
+              <IcSearch width={17} height={17} className="shrink-0 text-fog-400" />
               <input
                 ref={inputRef}
                 value={q}
                 onChange={(e) => { setQ(e.target.value); setSel(0); }}
                 onKeyDown={onKey}
+                // The combobox pattern: the box keeps focus, and the highlighted row is announced through it.
+                role="combobox" aria-expanded={rows.length > 0} aria-controls={listId} aria-autocomplete="list"
+                aria-activedescendant={rows.length > 0 ? optId(sel) : undefined} aria-label={tr('Search')}
                 placeholder={tr('Search series or type a command…')}
                 autoCapitalize="none" autoCorrect="off" spellCheck={false}
-                className="w-full bg-transparent py-3.5 text-sm text-fog-50 outline-hidden placeholder:text-fog-500"
+                className="w-full bg-transparent py-3.5 text-sm text-fog-50 outline-hidden focus-visible:outline-accent focus-visible:outline-offset-0 placeholder:text-fog-500"
               />
-              <kbd className="hidden shrink-0 rounded-md border border-ink-700 px-1.5 py-0.5 text-[10px] text-fog-500 lg:block">esc</kbd>
+              <kbd aria-hidden className="hidden shrink-0 rounded-md border border-ink-700 px-1.5 py-0.5 text-xs text-fog-400 lg:block">esc</kbd>
             </div>
-            <div className="max-h-[52vh] overflow-y-auto py-1.5" data-lenis-prevent>
-              {searching && <p className="px-4 py-3 text-xs text-fog-500">{tr('Searching…')}</p>}
+            {/* Always mounted, so a change of state is announced (a region that appears with its first message is not). */}
+            <div role="status" aria-live="polite" className="sr-only">
+              {searching ? tr('Searching…') : query.length >= 2 && results.length === 0 ? tr('No series match “{query}”.', { query: q.trim() }) : ''}
+            </div>
+            <div id={listId} role="listbox" aria-label={tr('Search')} className="max-h-[max(10rem,calc(100dvh-26rem))] overflow-y-auto overscroll-contain py-1.5 sm:max-h-[52vh]" data-lenis-prevent>
+              {searching && <p aria-hidden className="px-4 py-3 text-xs text-fog-400">{tr('Searching…')}</p>}
               {!searching && query.length >= 2 && results.length === 0 && (
-                <p className="px-4 py-3 text-xs text-fog-500">{tr('No series match “{query}”.', { query: `\u2068${q.trim()}\u2069` })}</p>
+                <p aria-hidden className="px-4 py-3 text-xs text-fog-400">{tr('No series match “{query}”.', { query: `\u2068${q.trim()}\u2069` })}</p>
               )}
-              {results.length > 0 && <p className="px-4 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-widest text-fog-600">{tr('Series')}</p>}
+              {results.length > 0 && <p role="presentation" className="px-4 pb-1 pt-2 text-xs font-semibold uppercase tracking-widest text-fog-400">{tr('Series')}</p>}
               {rows.map((r, i) =>
                 r.kind === 'series' ? (
-                  <button key={`s:${r.series.id}`} onClick={() => activate(i)} onMouseEnter={() => setSel(i)}
-                    className={`flex w-full items-center gap-3 px-4 py-2 text-left ${sel === i ? 'bg-accent-soft' : ''}`}>
-                    <div className="h-12 w-8 shrink-0 overflow-hidden rounded-md border border-ink-700">
-                      <Img src={img.seriesThumb(r.series.id)} alt="" className="h-full w-full" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="truncate text-sm text-fog-100">{r.series.metadata?.title || r.series.name}</p>
-                      <p className="text-[11px] text-fog-500">{r.series.booksCount === 1 ? tr('1 chapter') : tr('{n} chapters', { n: r.series.booksCount })}</p>
-                    </div>
+                  <PaletteSeriesRow key={`s:${r.series.id}`} series={r.series} id={optId(i)} selected={sel === i}
+                    onOpen={() => activate(i)} onHover={() => setSel(i)}
+                    register={(fn) => { if (fn) menuOpeners.current.set(r.series.id, fn); else menuOpeners.current.delete(r.series.id); }} />
+                ) : r.kind === 'discover' ? (
+                  <button key="discover" type="button" role="option" id={optId(i)} aria-selected={sel === i} tabIndex={-1} data-palette-discover onClick={() => activate(i)} onMouseEnter={() => setSel(i)}
+                    className={`flex w-full items-center gap-3 px-4 py-2.5 text-start ${sel === i ? 'bg-accent-soft' : ''}`}>
+                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-ink-700 text-fog-400"><IcSearch width={16} height={16} /></span>
+                    <span className="min-w-0 truncate text-sm text-fog-100">{tr('Search your sources for “{query}”', { query: `\u2068${r.term}\u2069` })}</span>
+                    <span className="ms-auto shrink-0 text-xs text-fog-400">{tr('Discover')}</span>
                   </button>
                 ) : r.kind === 'place' ? (
                   <div key={`p:${r.place.key}`}>
-                    {rows[i - 1]?.kind !== 'place' && <p className="px-4 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-widest text-fog-600">{tr('Pages and settings')}</p>}
-                    <PlaceRow place={r.place} selected={sel === i} onClick={() => activate(i)} onHover={() => setSel(i)} />
+                    {rows[i - 1]?.kind !== 'place' && <p role="presentation" className="px-4 pb-1 pt-2 text-xs font-semibold uppercase tracking-widest text-fog-400">{tr('Pages and settings')}</p>}
+                    <PlaceRow place={r.place} option={{ id: optId(i), selected: sel === i }} selected={sel === i} onClick={() => activate(i)} onHover={() => setSel(i)} />
                   </div>
                 ) : (
                   <div key={`a:${r.action.key}`}>
-                    {rows[i - 1]?.kind !== 'action' && <p className="px-4 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-widest text-fog-600">{tr('Actions')}</p>}
-                    <button onClick={() => activate(i)} onMouseEnter={() => setSel(i)}
-                      className={`flex w-full items-center gap-3 px-4 py-2.5 text-left ${sel === i ? 'bg-accent-soft' : ''}`}>
+                    {rows[i - 1]?.kind !== 'action' && <p role="presentation" className="px-4 pb-1 pt-2 text-xs font-semibold uppercase tracking-widest text-fog-400">{tr('Actions')}</p>}
+                    <button type="button" role="option" id={optId(i)} aria-selected={sel === i} tabIndex={-1} onClick={() => activate(i)} onMouseEnter={() => setSel(i)}
+                      className={`flex w-full items-center gap-3 px-4 py-2.5 text-start ${sel === i ? 'bg-accent-soft' : ''}`}>
                       <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-ink-700 text-fog-400">{r.action.icon}</span>
                       <span className="text-sm text-fog-100">{r.action.label}</span>
-                      {r.action.hint && <span className="ms-auto text-[11px] text-fog-500">{r.action.hint}</span>}
+                      {r.action.hint && <span className="ms-auto text-xs text-fog-400">{r.action.hint}</span>}
                     </button>
                   </div>
                 ),
@@ -234,8 +310,10 @@ export function CommandPalette({ open, seed = '', onClose }: { open: boolean; se
  * A page or a setting (v0.55.4): its name, and where it is ("Admin → Settings") in the reader's language. Exported for
  * the phone search page, which lists the same ones under its series.
  */
-export function PlaceRow({ place, selected, onClick, onHover, href }: {
+export function PlaceRow({ place, selected, onClick, onHover, href, option }: {
   place: Destination; selected?: boolean; onClick?: () => void; onHover?: () => void; href?: string;
+  /** Inside the palette's listbox: the row is an option, and the box points at it by this id. */
+  option?: { id: string; selected: boolean };
 }) {
   const Icon = place.href.startsWith('/admin/import/') ? IcImport : place.href.startsWith('/admin/') ? IcSettings : IcUser;
   const rtl = typeof document !== 'undefined' && document.documentElement.dir === 'rtl';
@@ -243,13 +321,14 @@ export function PlaceRow({ place, selected, onClick, onHover, href }: {
     <>
       <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-ink-700 text-fog-400"><Icon width={16} height={16} /></span>
       <span className="min-w-0 truncate text-sm text-fog-100">{tr(place.label)}</span>
-      <span className="ms-auto shrink-0 text-[11px] text-fog-500">{whereText(place, rtl)}</span>
+      <span className="ms-auto shrink-0 text-xs text-fog-400">{whereText(place, rtl)}</span>
     </>
   );
   const cls = `flex w-full items-center gap-3 px-4 py-2.5 text-start ${selected ? 'bg-accent-soft' : ''}`;
   return href
     ? <Link href={href} data-palette-place={place.key} className={cls}>{inner}</Link>
-    : <button type="button" data-palette-place={place.key} onClick={onClick} onMouseEnter={onHover} className={cls}>{inner}</button>;
+    : <button type="button" data-palette-place={place.key} onClick={onClick} onMouseEnter={onHover} className={cls}
+        {...(option ? { role: 'option', id: option.id, 'aria-selected': option.selected, tabIndex: -1 } : {})}>{inner}</button>;
 }
 
 /**
@@ -273,4 +352,33 @@ export function usePaletteHotkeys(setOpen: (fn: (o: boolean) => boolean) => void
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [setOpen, enabled, onSeed]);
+}
+
+/** One series result, with the series' own menu (right-click, press-and-hold, Shift+F10): the same as on any card. */
+function PaletteSeriesRow({ series, id, selected, onOpen, onHover, register }: {
+  series: Series; id: string; selected: boolean; onOpen: () => void; onHover: () => void; register: (open: (() => void) | null) => void;
+}) {
+  const menu = useSeriesMenu(series);
+  const ref = useRef<HTMLButtonElement>(null);
+  const { openFrom } = menu;
+  useEffect(() => {
+    register(() => { if (ref.current) openFrom(ref.current); });
+    return () => register(null);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [series.id]);
+  return (
+    <>
+      <button ref={ref} type="button" role="option" id={id} aria-selected={selected} tabIndex={-1} onClick={onOpen} onMouseEnter={onHover} {...menu.bind}
+        className={`flex w-full items-center gap-3 px-4 py-2 text-start ${selected ? 'bg-accent-soft' : ''}`}>
+        <div className="h-12 w-8 shrink-0 overflow-hidden rounded-md border border-ink-700">
+          <Img src={img.seriesThumb(series.id)} alt="" className="h-full w-full" />
+        </div>
+        <div className="min-w-0">
+          <p className="truncate text-sm text-fog-100">{series.metadata?.title || series.name}</p>
+          <p className="text-xs text-fog-400">{series.booksCount === 1 ? tr('1 chapter') : tr('{n} chapters', { n: series.booksCount })}</p>
+        </div>
+      </button>
+      {menu.element}
+    </>
+  );
 }
