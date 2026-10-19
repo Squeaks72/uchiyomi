@@ -57,7 +57,7 @@ export function ReaderShortcuts({ keyMap, onClose }: { keyMap: KeyMap; onClose: 
         className="relative max-h-[85dvh] w-full max-w-md overflow-y-auto overscroll-contain rounded-3xl border border-ink-700 bg-ink-900/95 px-5 py-4 backdrop-blur-xl focus-visible:outline-none">
         <div className="mb-1 flex items-center justify-between">
           <h2 className="font-display text-lg font-semibold">{tr('Keyboard shortcuts')}</h2>
-          <button onClick={onClose} aria-label={tr('Close')} className="grid h-8 w-8 place-items-center text-fog-500 hover:text-fog-200"><IcX width={20} height={20} aria-hidden /></button>
+          <button onClick={onClose} aria-label={tr('Close')} className="grid h-10 w-10 place-items-center text-fog-500 hover:text-fog-200"><IcX width={20} height={20} aria-hidden /></button>
         </div>
         <ul className="divide-y divide-ink-800">
           {bound.map((a) => <Line key={a} caps={keyMap[a].map(capLabel)} label={actionLabel(a)} />)}

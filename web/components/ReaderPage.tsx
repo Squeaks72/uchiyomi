@@ -318,7 +318,7 @@ export function ReaderImg({ src, alt, className, style, filter, onLoaded }: {
     // the one action that fixes it, without reloading the chapter and losing their place.
     return (
       <div className="flex h-full w-full items-center justify-center p-4">
-        <button onClick={retry} className="chip text-xs text-fog-300">
+        <button onClick={retry} onPointerDown={(e) => e.stopPropagation()} onPointerUp={(e) => e.stopPropagation()} className="chip text-xs text-fog-300">
           <IcRefresh width={13} height={13} />{tr('Page did not load — tap to retry')}
         </button>
       </div>

@@ -179,3 +179,20 @@ test('a finger toggles the interface only from the middle of the screen', () => 
   assert.equal(tapMayToggleChrome('touch', 'forward'), false);
   assert.equal(tapMayToggleChrome('mouse', 'back'), true);
 });
+
+test('two quick taps on a page-turning edge are two taps, never a zoom', () => {
+  // A thumb paging through a chapter taps the edge twice in a row. It used to zoom the page (which paged mode
+  // could not pan) and swallow the first turn.
+  const first = readTap(tap(1000, 100));
+  assert.equal(first.kind, 'single');
+  const second = readTap({ ...tap(1250 - 30, 100), lastTapAt: 1000, lastTapPoint: { x: 100, y: 400 } });
+  assert.equal(second.kind, 'single', 'an edge double-tap is not a zoom');
+  assert.equal((second as { zone: string }).zone, 'back');
+});
+
+test('two taps far apart in the middle are not a double-tap', () => {
+  const second = readTap({ from: at(1250 - 30, 650, 400), to: at(1250, 650, 400), width: 1000, lastTapAt: 1000, lastTapPoint: { x: 350, y: 400 }, doubleDetect: true });
+  assert.equal(second.kind, 'single');
+  const near = readTap({ from: at(1250 - 30, 520, 400), to: at(1250, 520, 400), width: 1000, lastTapAt: 1000, lastTapPoint: { x: 500, y: 400 }, doubleDetect: true });
+  assert.equal(near.kind, 'double', 'the same spot, in the middle, still zooms');
+});
