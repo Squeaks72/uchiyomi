@@ -14,6 +14,7 @@
 import { useMemo } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth';
+import { MixedSourcesPicker } from '@/components/MixedSourcesPicker';
 import { Sheet } from '@/components/ui';
 import { NoSourceMatch, SourceTools, useSourceTools } from '@/components/SourceTools';
 import { arrangeSources, SOURCE_TOOLS_MIN } from '@/lib/sourceList';
@@ -129,6 +130,18 @@ export function SourceListSheet({ sources, total, stateOf, selected, onSelect, o
           );
         })}
       </div>
+      {/* Admin, fork: the sources Show 18+ keeps out of this list -- flagged 18+ by their extension, or rated Adult only -- and the way to
+          put one back into the search for good. Each is rated Mixed (the source's own sheet: Age rating): still asked with Show 18+
+          off, every title judged on its own. Tap a found source to include it; tap an included one to take it out again. */}
+      {isAdmin && (
+        <section className="mt-4 border-t border-ink-800/70 pt-3" data-include-sources>
+          <p className="mb-1 text-xs font-semibold text-fog-200">{tr('Sources kept out while Show 18+ is off')}</p>
+          <p className="mb-2 text-[11px] leading-relaxed text-fog-500">
+            {tr('Sources their extension marks 18+. Include the ones that are mostly not, to keep them in this search and in Discover: each title is judged on its own. This changes the source’s setting on the server.')}
+          </p>
+          <MixedSourcesPicker />
+        </section>
+      )}
     </Sheet>
   );
 }
