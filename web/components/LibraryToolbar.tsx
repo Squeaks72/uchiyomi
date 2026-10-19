@@ -21,7 +21,7 @@ import type { LibraryLayout } from '@/lib/libraryLayout';
  * app's type-to-search leaves it alone (lib/typeToSearch.ts isTypingTarget). Escape empties it, then leaves it.
  */
 export function LibraryToolbar({ q, onSearch, active, dir, onSort, onDir, onSortSheet, layout, onLayout, filterCount, onFilters,
-  selecting, onSelecting, onSelectAll, onSurprise, adult, className = '' }: {
+  selecting, onSelecting, onSelectAll, onSurprise, className = '' }: {
   q: string;
   onSearch: (q: string) => void;
   active: LibrarySort;
@@ -47,7 +47,6 @@ export function LibraryToolbar({ q, onSearch, active, dir, onSort, onDir, onSort
   onSelectAll: () => void;
   onSurprise: () => void;
   /** The 18+ reveal, as the page renders it (a session switch, not a filter: Clear all cannot clear it). */
-  adult?: ReactNode;
   className?: string;
 }) {
   return (
@@ -62,7 +61,6 @@ export function LibraryToolbar({ q, onSearch, active, dir, onSort, onDir, onSort
         className={`btn-key h-9 xl:hidden ${filterCount ? 'btn-key-accent' : ''}`}>
         <IcFilter aria-hidden width={15} height={15} />{tr('Filters')}{filterCount > 0 ? ` · ${filterCount}` : ''}
       </button>
-      {adult}
       <div data-library-layout={layout} className="ms-auto">
         <Segmented square label={tr('Layout')} value={layout} onChange={onLayout}
           options={[

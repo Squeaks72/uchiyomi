@@ -154,7 +154,7 @@ test('a Modal keeps clear of the phone bottom nav', () => {
   // Reintroduce by dropping the `pb-[calc(5.5rem+…)]` from the backdrop or restoring a plain
   // `max-h-[88vh]` on the panel: the matching assertion fails.
   const modal = code(read('components/ConfirmDialog.tsx'));
-  assert.match(modal, /pb-\[calc\(5\.5rem\+env\(safe-area-inset-bottom\)\)\] backdrop-blur-xs lg:pb-4/, 'the backdrop leaves the bar\'s band free below lg');
+  assert.match(modal, /pb-\[calc\(5\.5rem\+env\(safe-area-inset-bottom\)\)\] lg:pb-4/, 'the backdrop leaves the bar\'s band free below lg');
   assert.match(modal, /max-h-\[calc\(100dvh-7\.5rem-env\(safe-area-inset-bottom\)\)\] w-full lg:max-h-\[88vh\]/, 'the panel is capped under that band, 88vh from lg up');
 });
 
@@ -346,7 +346,7 @@ test('Mark caught up floors the series where Auto-update is, and its Undo puts t
   assert.match(page, /onClick=\{\(\) => void floorTo\(caught\.previous\)\}/, 'Undo does not put back the floor the answer reported');
   // Asked first, in place, saying what it does.
   assert.match(page, /caught === 'asking' && \(/);
-  assert.match(page, /tr\('Chapters already out are not fetched; only new ones are, from the next check\./);
+  assert.match(page, /tr\('Only chapters released after the next check are fetched\./);
 });
 
 test('an admin copies a chapter\'s file path and the series\' folder with one tap (#136)', () => {
@@ -417,6 +417,48 @@ test('an admin fetches one chapter again, or deletes it from the server, from it
   // with the selection (`deletable`): the row's Delete deletes nothing, or what is ticked.
   assert.match(page, /onConfirm=\{\(\) => deleteBooks\(confirming\.books\)\}/);
   assert.match(page, /onConfirm=\{\(\) => refetchBooks\(confirming\.books\)\}/);
+});
+
+test('the series page offers a Check for new chapters button to an admin, through the shared check hook', () => {
+  const src = readFileSync(new URL('../app/series/page.tsx', import.meta.url), 'utf8');
+  assert.match(src, /useCheckNow\(id,/);
+  assert.match(src, /data-check-new/);
+  assert.match(src, /onClick=\{checkNow\}/);
+});
+
+test('the saved-offline key on a chapter row toggles the device copy, and the menu offers it too', () => {
+  // Upstream's own rule (UI refresh): the key stays live while a chapter is saved on this device, because
+  // `pruned` already excludes that case and the device copy can then be the only one left -- so the key must
+  // be able to remove it. The menu keeps its own way out as well.
+  const src = readFileSync(new URL('../app/series/page.tsx', import.meta.url), 'utf8');
+  assert.match(src, /disabled=\{pruned\}/);
+  assert.match(src, /onToggleDownload\(\)/);
+  assert.match(src, /label: tr\('Remove from this device'\)/);
+  assert.match(src, /downloaded \? tr\('Saved on this device'\) : tr\('Save offline'\)/);
+});
+
+test('a chapter not yet in the library can be fetched and then opened in the reader', () => {
+  const src = readFileSync(new URL('../app/series/page.tsx', import.meta.url), 'utf8');
+  assert.match(src, /onFetchRead=\{/);
+  assert.match(src, /router\.push\(`\/reader\/\?book=\$\{book\.id\}`\)/);
+  const sheet = readFileSync(new URL('../components/ChapterVersionsSheet.tsx', import.meta.url), 'utf8');
+  assert.match(sheet, /data-fetch-read/);
+});
+
+test("an admin's unreadable-chapter card offers Redownload, which refetches that one chapter onto its own row", () => {
+  // Reintroduce by deleting the button or posting another route: this fails.
+  const src = readFileSync(join(__dirname, '..', 'app/reader/page.tsx'), 'utf8');
+  assert.match(src, /\/api\/admin\/series\/\$\{c\.seriesId\}\/chapters\/refetch`, \{ method: 'POST', json: \{ bookIds: \[c\.id\] \} \}/, 'Redownload does not refetch the one chapter');
+  assert.match(src, /\{isAdmin && !activeChapter\?\.offline && <button onClick=\{redownload\}/, 'Redownload is not an admin-only button on the card');
+});
+
+test("a rating tap cancels in-flight series fetches and is written to the cache, so a refetch cannot reset the stars", () => {
+  // Reintroduce by dropping the cancelQueries/setQueryData: a stale refetch landing after the tap puts the stars back to 0.
+  // v0.60.0: the stars moved to components/RatingsPanel.tsx (useSeriesRating); the page just calls it.
+  const fn = readFileSync(join(__dirname, '..', 'components/RatingsPanel.tsx'), 'utf8');
+  assert.match(fn, /void qc\.cancelQueries\(\{ queryKey: key \}\)/, 'an in-flight refetch can overwrite the tap');
+  assert.match(fn, /qc\.setQueryData<Series>\(key/, 'the cached series keeps the old rating');
+  assert.match(fn, /put\(before\);\s*toast\(tr\('Could not save your rating'\), 'error'\)/, 'a failed save reverts silently');
 });
 
 // ---- #240, rebuilt to hide only: Hide chapter N, and Show hidden chapters ----------------------------------------

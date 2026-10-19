@@ -107,7 +107,7 @@ test('Replace leads wherever it is offered, the switched-off fold included, and 
   // Drawn: the row's one key reads Replace, filled; Test and the rest are in its ⋯ menu.
   const html = render({ ...CHECK, items: [failing] });
   const row = rowsOf(html)[0];
-  assert.match(row, /<button type="button" data-health-action="replace_source" data-health-primary="" class="btn-key btn-key-primary [^"]*"[^>]*><span>Replace<\/span><\/button>/,
+  assert.match(row, /<button type="button" data-health-action="replace_source" aria-label="Replace: [^"]+" data-health-primary="" class="btn-key btn-key-primary [^"]*"[^>]*><span>Replace<\/span><\/button>/,
     'the row\'s key is not Replace');
   // The key opens the dialog Admin → Sources opens, on <body>, for this source.
   const keys = code(read('components/HealthActions.tsx'));

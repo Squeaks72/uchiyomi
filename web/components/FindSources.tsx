@@ -28,7 +28,7 @@ import { seriesHref } from '@/lib/healthLinks';
 import { IDLE, type ActionState } from '@/lib/actionState';
 import {
   amberNote, bulkOutcome, decideRefusal, earlierRuns, findReviewFirst, findRunState, findSlotState, findSummary, findWhyLine,
-  greenToFollow, greenToPromote, groupResults, isReplace, lineUpText, notTriedIds, promoteOutcome, promoteRefusal, setFindReviewFirst, toMs,
+  greenToFollow, greenToPromote, groupResults, isReplace, lineUpText, notTriedIds, promoteOutcome, promoteRefusal, setFindReviewFirst, stepDone, stepSeriesIds, toMs,
   type FindProposal, type FindResult, type FindRun, type FindRunSummary, type FindStatus,
 } from '@/lib/findSources';
 import { replaceRunTitle } from '@/lib/jobs';
@@ -38,9 +38,14 @@ import { ActionKeys, ActionList, ActionStatus, type ActionSpec } from '@/compone
 import { Modal, msgOf } from '@/components/ConfirmDialog';
 import { sourceCover } from '@/components/cards';
 import { SourceIcon } from '@/components/SourcePicker';
-import { Img, OnBody, Sheet } from '@/components/ui';
+import { Img, OnBody, Sheet, LoadingBlock } from '@/components/ui';
 import { AddSeriesDialog } from '@/components/AddSeriesDialog';
+import { MigrateSourceSheet } from '@/components/MigrateSourceSheet';
+import { useToast } from '@/components/Toast';
+import type { Series } from '@/lib/types';
 import { editionOffer, editionOfferKey, type EditionOffer } from '@/lib/editions';
+import { numberText } from '@/lib/format';
+import { replaceSubtitle, type ReplacePreview } from '@/lib/sourcesPanel';
 
 /** "3h ago", or while it runs "Started 5 min ago": when, beside the run's name. */
 function whenLine(run: FindRunSummary): string {
@@ -110,7 +115,7 @@ function Group({ id, title, rows, note, onOpen }: { id: string; title: string; r
   return (
     <section data-find-group={id} aria-labelledby={`find-${id}`} className="mt-4">
       <h3 id={`find-${id}`} className="flex items-baseline gap-2 text-xs font-semibold uppercase tracking-wider text-fog-500">
-        {title}<span className="tabular-nums text-fog-600">{rows.length}</span>
+        {title}<span className="tabular-nums text-fog-500">{rows.length}</span>
       </h3>
       {note && <p className="mt-1 text-[11px] leading-relaxed text-fog-500">{note}</p>}
       <ul role="list" className="divide-y divide-ink-800/70">
@@ -176,6 +181,9 @@ export function FindResultsSheet({ onClose, poll = true }: { onClose: () => void
   // and the sheet back as it was once the dialog closes. On <body>, as the sheet is: Health's card would hold it.
   // "Open the Spanish edition" instead when the work holds one that may follow the source: the sheet makes way for it.
   const [adding, setAdding] = useState<EditionAsk | null>(null);
+  // v0.56.0: a review-first run gone through one series at a time. Held here, not in the stepper, so adding an edition
+  // from a match (which takes the stepper's place) comes back to the same series.
+  const [step, setStep] = useState<StepState | null>(null);
   const router = useRouter();
   const addOrOpen = (ask: EditionAsk) => {
     if (ask.existing) { onClose(); router.push(seriesHref(ask.existing.id)); return; }
@@ -190,6 +198,9 @@ export function FindResultsSheet({ onClose, poll = true }: { onClose: () => void
       </OnBody>
     );
   }
+  if (step && run) {
+    return <ReviewStepper run={run} step={step} setStep={setStep} onClose={() => setStep(null)} onOpen={onClose} onAddEdition={addOrOpen} />;
+  }
   return (
     <OnBody>
       <Sheet title={run && isReplace(run) ? replaceRunTitle(run.sourceName) : tr('Other-source search')} onClose={onClose} overBottomNav>
@@ -199,13 +210,21 @@ export function FindResultsSheet({ onClose, poll = true }: { onClose: () => void
               <button type="button" className="btn-key" onClick={() => setOpenId(null)} data-find-latest>{tr('Back to the latest search')}</button>
             </div>
           )}
-          {(openId ? opened.isLoading : q.isLoading) && <div className="skeleton h-16 rounded-xl" />}
-          {!q.isLoading && q.isError && !data && <p className="text-xs text-rose-300">{tr('Could not load the results')}</p>}
+          {(openId ? opened.isLoading : q.isLoading) && <LoadingBlock className="h-16 rounded-xl" />}
+          {!q.isLoading && q.isError && !data && <p role="alert" className="text-xs text-rose-300">{tr('Could not load the results')}</p>}
           {!openId && !q.isLoading && data && !run && <p className="text-xs text-fog-500">{tr('No search for other sources has run yet.')}</p>}
           {openId && opened.isError && <p className="text-xs text-fog-500">{tr('That search is no longer kept.')}</p>}
           {run && (
             <>
               <FindRunRow run={run} label={runStatusWord(run.status)} onStop={isAdmin ? () => { void stop(); } : undefined} stopping={stopping === run.id} />
+              {run.review && run.status !== 'running' && stepSeriesIds(run.results).length > 0 && (
+                <div className="mt-2">
+                  <button type="button" className="btn-key" data-review-stepper-open
+                    onClick={() => setStep({ ids: stepSeriesIds(run.results), at: 0, handled: [] })}>
+                    {tr('Review one series at a time')}
+                  </button>
+                </div>
+              )}
               {untried.length > 0 && (
                 <div className="mt-2">
                   <button type="button" className="btn-key" disabled={retry?.phase === 'starting' || !!data?.running}
@@ -285,16 +304,77 @@ export function FindModeChoice({ review, onChange }: { review: boolean; onChange
  * The start dialog of every one-press start point (Health's row, the Library's More): the choice above, opening on the
  * admin's last one on this device, and Start. On <body>, as Health's own confirmations are: a `.card` would hold it.
  */
-export function FindStartDialog({ onStart, onClose }: { onStart: (review: boolean) => void; onClose: () => void }) {
+/** `onHand`: also offers the series searched by hand instead (a one-series start, where there is a series to pick for). */
+export function FindStartDialog({ onStart, onClose, onHand }: { onStart: (review: boolean) => void; onClose: () => void; onHand?: () => void }) {
   const [review, setReview] = useState(findReviewFirst);
   return (
     <OnBody>
       <Modal title={tr('Find other sources')} onClose={onClose}>
+        {onHand && (
+          <div className="mb-4 rounded-xl border border-ink-700 bg-ink-900/50 p-3">
+            <p className="text-[13px] leading-relaxed text-fog-300">{tr('Change what is searched, look through the sources yourself and pick the match.')}</p>
+            <button type="button" onClick={onHand} className="btn-key mt-2" data-find-by-hand>{tr('Search by hand')}</button>
+          </div>
+        )}
+        {onHand && <p className="mb-2 text-[13px] font-medium text-fog-100">{tr('Or search automatically')}</p>}
         <FindModeChoice review={review} onChange={setReview} />
         <div className="mt-4 flex justify-end gap-2">
           <button type="button" onClick={onClose} className="btn-key">{tr('Cancel')}</button>
           <button type="button" onClick={() => { setFindReviewFirst(review); onStart(review); }} className="btn-key btn-key-primary" data-find-start>
             {tr('Start')}
+          </button>
+        </div>
+      </Modal>
+    </OnBody>
+  );
+}
+
+/**
+ * Add backup sources to every series whose main source is `name` -- the struggling source stays exactly as it is (nothing
+ * replaced, removed or turned off, since its trouble may be temporary). Starts a Find run over its series and, by default,
+ * a review: each series' matches wait in the results with Follow, Follow and make main, and Skip. `onStart` answers the
+ * server's refusal in words (another run is going), or null once the run has started.
+ */
+export function BackupStartDialog({ sourceId, name, onStart, onClose }: {
+  sourceId: string; name: string; onStart: (review: boolean) => Promise<string | null>; onClose: () => void;
+}) {
+  const [review, setReview] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [refusal, setRefusal] = useState<string | null>(null);
+  const { data: p } = useQuery({
+    queryKey: ['replace-preview', sourceId],
+    queryFn: () => api<ReplacePreview>(`/api/admin/sources/${encodeURIComponent(sourceId)}/replace-preview`),
+    staleTime: 0, retry: false,
+  });
+  const start = async () => {
+    setBusy(true);
+    setRefusal(await onStart(review));
+    setBusy(false);
+  };
+  return (
+    <OnBody>
+      <Modal title={tr('Add backup sources')} onClose={onClose}>
+        <div data-backup-dialog={sourceId}>
+          {p && <p className="text-[13px] font-medium text-fog-100" data-backup-main={p.main}>{replaceSubtitle(p.main)}</p>}
+          <p className="mt-1 text-[13px] leading-relaxed text-fog-300">
+            {tr('Searches your other sources for each series that uses {name} as its main source, and follows what it finds as a backup.', { name: `\u2068${name}\u2069` })}
+          </p>
+          {p && p.withBackup > 0 && (
+            <p className="mt-1 text-[12px] leading-relaxed text-fog-400" data-backup-with>
+              {tr('Series that already follow a working source get another backup too.')}
+            </p>
+          )}
+          <p className="mt-1 text-[12px] leading-relaxed text-fog-400">
+            {tr('{name} is not replaced or removed: if its trouble is only temporary, it carries on as before.', { name: `\u2068${name}\u2069` })}
+          </p>
+          <div className="mt-3"><FindModeChoice review={review} onChange={setReview} /></div>
+          {review && <p className="mt-1.5 text-[11px] leading-relaxed text-fog-500">{tr('In the review, a match can also be made the main source; {name} stays as a backup.', { name: `\u2068${name}\u2069` })}</p>}
+          {refusal && <p role="alert" className="mt-2 text-[12px] text-amber-300" data-backup-refusal>{refusal}</p>}
+        </div>
+        <div className="mt-4 flex justify-end gap-2">
+          <button type="button" onClick={onClose} className="btn-key">{tr('Cancel')}</button>
+          <button type="button" onClick={() => { void start(); }} disabled={busy || (!!p && p.main === 0)} className="btn-key btn-key-primary" data-backup-start>
+            {tr('Add backups')}
           </button>
         </div>
       </Modal>
@@ -387,7 +467,11 @@ function useReviewActions(runId: string, onFollowed?: () => void, onAddEdition?:
 type ReviewActions = ReturnType<typeof useReviewActions>;
 
 /** One match: our cover beside its cover, its title and source, what it lists and how it lines up, then the keys. */
-function ProposalRow({ r, p, act, replace = false }: { r: FindResult; p: FindProposal; act: ReviewActions; replace?: boolean }) {
+function ProposalRow({ r, p, act, replace = false, makeMain = false }: {
+  r: FindResult; p: FindProposal; act: ReviewActions; replace?: boolean;
+  /** A Find review over one source's series: a match can be followed AND made the main source, the old main kept. */
+  makeMain?: boolean;
+}) {
   const k = act.key(r.seriesId, p.sourceId);
   const pressed = act.pending[k];
   const why = act.refusals[k];
@@ -397,17 +481,24 @@ function ProposalRow({ r, p, act, replace = false }: { r: FindResult; p: FindPro
   // v0.54.0, a Replace review: the match becomes the series' main source, one per series -- once one has, the rest of
   // its matches offer nothing.
   const settled = replace && !!r.proposals?.some((x) => x.state === 'promoted');
+  // Every match has the same two keys, so each is named for its source and series; the visible verb leads the name.
+  const about = `${p.sourceName}${r.title ? ` · ${r.title}` : ''}`;
   const keys: ActionSpec[] = [
     replace
       ? { id: 'promote', label: tr('Make main'), what: tr('Make this source the series’ main source'), state: busy('promote'),
         disabled: act.bulk.kind === 'working', onRun: () => { void act.decide('promote', r.seriesId, p.sourceId); },
-        buttonProps: { 'data-review-promote': p.sourceId } as ActionSpec['buttonProps'] }
+        buttonProps: { 'data-review-promote': p.sourceId, 'aria-label': `${tr('Make main')}: ${about}` } as ActionSpec['buttonProps'] }
       : { id: 'follow', label: tr('Follow'), what: tr('Follow this source for this series'), primary: p.verdict === 'green', state: busy('follow'),
         disabled: act.bulk.kind === 'working', onRun: () => { void act.decide('follow', r.seriesId, p.sourceId); },
-        buttonProps: { 'data-review-follow': p.sourceId } as ActionSpec['buttonProps'] },
+        buttonProps: { 'data-review-follow': p.sourceId, 'aria-label': `${tr('Follow')}: ${about}` } as ActionSpec['buttonProps'] },
+    ...(makeMain
+      ? [{ id: 'follow-main', label: tr('Follow and make main'), what: tr('Follow this source and make it the series’ main source; the current main source stays as a backup'), state: busy('promote'),
+        disabled: act.bulk.kind === 'working', onRun: () => { void act.decide('promote', r.seriesId, p.sourceId); },
+        buttonProps: { 'data-review-follow-main': p.sourceId, 'aria-label': `${tr('Follow and make main')}: ${about}` } as ActionSpec['buttonProps'] } satisfies ActionSpec]
+      : []),
     { id: 'skip', label: tr('Skip'), what: tr('Skip this match for good'), state: busy('dismiss'),
       disabled: act.bulk.kind === 'working', onRun: () => { void act.decide('dismiss', r.seriesId, p.sourceId); },
-      buttonProps: { 'data-review-skip': p.sourceId } as ActionSpec['buttonProps'] },
+      buttonProps: { 'data-review-skip': p.sourceId, 'aria-label': `${tr('Skip')}: ${about}` } as ActionSpec['buttonProps'] },
   ];
   return (
     <li data-review-proposal={p.sourceId} data-verdict={p.verdict} className="flex min-w-0 gap-3 py-2.5">
@@ -431,11 +522,17 @@ function ProposalRow({ r, p, act, replace = false }: { r: FindResult; p: FindPro
             {p.kind === 'follower' ? tr('A source it already follows') : tr('Found by searching')}{p.promote ? ` · ${tr('Suggested')}` : ''}
           </p>
         )}
-        <p className={`mt-0.5 text-[11px] tabular-nums ${p.verdict === 'green' ? 'text-fog-400' : 'text-amber-300/90'}`}>{lineUpText(p)}</p>
-        {note && !p.state && <p data-amber-note className="mt-0.5 text-[11px] leading-relaxed text-amber-300/90">{note}</p>}
+        <p className={`mt-0.5 text-[11px] tabular-nums ${p.verdict === 'green' ? 'text-fog-400' : 'text-amber-300'}`}>{lineUpText(p)}</p>
+        {note && !p.state && <p data-amber-note className="mt-0.5 text-[11px] leading-relaxed text-amber-300">{note}</p>}
         {p.state
           ? <p data-review-state={p.state} className="mt-1 text-[11px] text-fog-300">{p.state === 'followed' ? tr('Followed') : p.state === 'promoted' ? tr('Made main') : tr('Skipped for good')}</p>
           : !settled && <ActionKeys actions={keys} className="mt-1.5" />}
+        {/* Followed already, and still the series' backup: it can be made main now. */}
+        {makeMain && p.state === 'followed' && (
+          <ActionKeys className="mt-1.5" actions={[{ id: 'make-main', label: tr('Make main'), what: tr('Make this source the series’ main source'), state: busy('promote'),
+            disabled: act.bulk.kind === 'working', onRun: () => { void act.decide('promote', r.seriesId, p.sourceId); },
+            buttonProps: { 'data-review-promote': p.sourceId, 'aria-label': `${tr('Make main')}: ${about}` } as ActionSpec['buttonProps'] }]} />
+        )}
         {why && !p.state && <ActionStatus state={{ kind: 'refused', reason: why }} />}
         {/* Refused for its language (v0.52.0): the match is this work in another language, which an edition holds --
             to add, or the work's own when it has one that may follow the source ("Open the Spanish edition"). */}
@@ -455,7 +552,9 @@ function ProposalRow({ r, p, act, replace = false }: { r: FindResult; p: FindPro
  * the series, leaves it out. A series hidden by the 18+ filter keeps its row and offers nothing to decide: the server
  * sends no title or cover of its matches, and nobody follows what they could not look at.
  */
-function ReviewSeries({ r, act, head = true, onOpen, replace = false }: { r: FindResult; act: ReviewActions; head?: boolean; onOpen?: () => void; replace?: boolean }) {
+function ReviewSeries({ r, act, head = true, onOpen, replace = false, makeMain = false }: {
+  r: FindResult; act: ReviewActions; head?: boolean; onOpen?: () => void; replace?: boolean; makeMain?: boolean;
+}) {
   return (
     <li data-review-series={r.seriesId} className="min-w-0 py-2">
       {head && (r.title
@@ -463,10 +562,114 @@ function ReviewSeries({ r, act, head = true, onOpen, replace = false }: { r: Fin
         : <p data-find-hidden className="truncate text-sm text-fog-500">{tr('Hidden by the 18+ filter')}</p>)}
       {r.title && (
         <ul role="list" className="divide-y divide-ink-800/50">
-          {r.proposals!.map((p) => <ProposalRow key={p.sourceId} r={r} p={p} act={act} replace={replace} />)}
+          {r.proposals!.map((p) => <ProposalRow key={p.sourceId} r={r} p={p} act={act} replace={replace} makeMain={makeMain} />)}
         </ul>
       )}
     </li>
+  );
+}
+
+interface StepState { ids: string[]; at: number; handled: string[] }
+
+/** The series by hand: its page's own data (sources and chapter count), then the same search-and-attach sheet. */
+export function ManualMatch({ seriesId, title, onDone, onClose }: { seriesId: string; title: string; onDone: () => void; onClose: () => void }) {
+  const series = useQuery({ queryKey: ['series', seriesId], queryFn: () => api<Series>(`/api/series/${encodeURIComponent(seriesId)}`), retry: false });
+  const sources = series.data?.sources ?? [];
+  const main = sources.find((s) => s.primary) ?? sources[0];
+  if (!series.data) {
+    return (
+      <OnBody>
+        <Sheet title={tr('Add or move source')} onClose={onClose} overBottomNav>
+          {series.isError
+            ? <p role="alert" className="text-xs text-rose-300">{tr('Could not load the results')}</p>
+            : <LoadingBlock className="h-16 rounded-xl" />}
+        </Sheet>
+      </OnBody>
+    );
+  }
+  return (
+    <OnBody>
+      <MigrateSourceSheet id={seriesId} title={title} attached={sources.map((x) => x.sourceId)} mainId={main?.primary ? main.sourceId : null}
+        listed={main?.chapters ?? null} onClose={onClose} onDone={onDone} />
+    </OnBody>
+  );
+}
+
+/**
+ * A review-first run, one series at a time (v0.56.0): the series' matches with Follow and Skip, "Search by hand" to
+ * change what is searched and pick a match yourself, and a way past it. Moving on never decides anything -- a series
+ * passed over keeps its matches in the run's To review list.
+ */
+function ReviewStepper({ run, step, setStep, onClose, onOpen, onAddEdition }: {
+  run: FindRun; step: StepState; setStep: (s: StepState) => void; onClose: () => void; onOpen: () => void; onAddEdition: (ask: EditionAsk) => void;
+}) {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const act = useReviewActions(run.id, undefined, onAddEdition);
+  const [manual, setManual] = useState(false);
+  const total = step.ids.length;
+  const id = step.ids[step.at];
+  const r = run.results?.find((x) => x.seriesId === id);
+  const done = stepDone(r, step.handled.includes(id));
+  const last = step.at >= total - 1;
+  const go = (at: number) => { setManual(false); setStep({ ...step, at: Math.max(0, Math.min(total - 1, at)) }); };
+  const replace = isReplace(run);
+
+  if (manual && r?.title) {
+    return (
+      <ManualMatch seriesId={id} title={r.title} onClose={() => setManual(false)}
+        onDone={() => {
+          setManual(false);
+          setStep({ ...step, handled: [...step.handled, id] });
+          for (const k of [['series', id], ['library'], ['home'], ['series-listing', id], ['series-scanlators', id], ['series-groups', id], ['source-jobs']]) void qc.invalidateQueries({ queryKey: k });
+          toast(tr('Source added'), 'success');
+        }} />
+    );
+  }
+  const footer = (
+    <div className="flex items-center gap-2">
+      <button type="button" className="btn-key" disabled={step.at === 0} onClick={() => go(step.at - 1)} data-stepper-prev>{tr('Previous')}</button>
+      <span className="flex-1 text-center text-[11px] tabular-nums text-fog-500" data-stepper-count>
+        {tr('Series {n} of {total}', { n: step.at + 1, total })}
+      </span>
+      <button type="button" className={`btn-key ${done ? 'btn-key-primary' : ''}`} data-stepper-next={done ? 'next' : 'skip'}
+        onClick={() => { if (last) onClose(); else go(step.at + 1); }}>
+        {done ? (last ? tr('Finish') : tr('Next')) : (last ? tr('Skip and finish') : tr('Skip this series'))}
+      </button>
+    </div>
+  );
+  return (
+    <OnBody>
+      <Sheet title={tr('Review one series at a time')} onClose={onClose} overBottomNav footer={footer}>
+        <div data-find-stepper={id} className="pb-2">
+          {!r ? (
+            <p className="text-xs text-fog-500">{tr('That search is no longer kept.')}</p>
+          ) : (
+            <>
+              {r.proposals?.length ? (
+                <ul role="list"><ReviewSeries r={r} act={act} onOpen={onOpen} replace={replace} makeMain={!replace && !!run.sourceId} /></ul>
+              ) : (
+                <div data-stepper-nothing>
+                  {r.title
+                    ? <Link href={seriesHref(r.seriesId)} onClick={onOpen} className="block truncate text-sm font-medium text-fog-100 hover:text-accent" dir="auto">{r.title}</Link>
+                    : <p data-find-hidden className="truncate text-sm text-fog-500">{tr('Hidden by the 18+ filter')}</p>}
+                  <p className="mt-1 text-[11px] leading-relaxed text-fog-500">{r.why ? findWhyLine(r.why) : tr('Nothing found')}</p>
+                </div>
+              )}
+              {done && <p data-stepper-done className="mt-2 text-[11px] text-fog-300">{tr('Done with this series')}</p>}
+              {r.title && (
+                <div className="mt-3">
+                  <button type="button" className="btn-key" onClick={() => setManual(true)} data-stepper-manual>{tr('Search by hand')}</button>
+                  <p className="mt-1 text-[11px] leading-relaxed text-fog-500">
+                    {tr('Change what is searched, look through the sources yourself and pick the match.')}
+                  </p>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </Sheet>
+    </OnBody>
   );
 }
 
@@ -489,7 +692,7 @@ function ReviewGroup({ run, rows, onOpen, onAddEdition }: {
   return (
     <section data-find-group="review" aria-labelledby="find-review" className="mt-4">
       <h3 id="find-review" className="flex items-baseline gap-2 text-xs font-semibold uppercase tracking-wider text-fog-500">
-        {tr('To review')}<span className="tabular-nums text-fog-600">{rows.length}</span>
+        {tr('To review')}<span className="tabular-nums text-fog-500">{rows.length}</span>
       </h3>
       <p className="mt-1 text-[11px] leading-relaxed text-fog-500">
         {replace
@@ -513,9 +716,47 @@ function ReviewGroup({ run, rows, onOpen, onAddEdition }: {
       )}
       <ActionStatus state={act.bulk} />
       <ul role="list" className="divide-y divide-ink-800/70">
-        {rows.map((r) => <ReviewSeries key={r.seriesId} r={r} onOpen={onOpen} act={act} replace={replace} />)}
+        {rows.map((r) => <ReviewSeries key={r.seriesId} r={r} onOpen={onOpen} act={act} replace={replace} makeMain={!replace && !!run.sourceId} />)}
       </ul>
     </section>
+  );
+}
+
+/**
+ * A review-first search's matches for the Health row that started it (the row's "Review matches"): the one-by-one review
+ * of those series, opened straight from the row instead of by way of the results sheet at the foot of the page.
+ */
+export function RunReviewSheet({ runId, ids, onClose }: { runId: string; ids: string[]; onClose: () => void }) {
+  const { isAdmin } = useAuth();
+  const router = useRouter();
+  const q = useQuery({ queryKey: [...FIND_KEY, 'run', runId], queryFn: () => fetchFindRun(runId), enabled: isAdmin, retry: false });
+  const [step, setStep] = useState<StepState>({ ids, at: 0, handled: [] });
+  const [adding, setAdding] = useState<EditionAsk | null>(null);
+  const qc = useQueryClient();
+  const run = q.data?.run ?? null;
+  if (adding) {
+    return (
+      <OnBody>
+        <AddSeriesDialog seed={{ kind: 'edition', of: adding.of, title: adding.title, lang: adding.lang, source: adding.source }}
+          sources={[]} mayFollow={isAdmin} onClose={() => setAdding(null)}
+          onAdded={() => { for (const k of [['series', adding.of], ['library'], ['home'], ['source-jobs']]) void qc.invalidateQueries({ queryKey: k }); }} />
+      </OnBody>
+    );
+  }
+  if (!run) {
+    return (
+      <OnBody>
+        <Sheet title={tr('Review one series at a time')} onClose={onClose} overBottomNav>
+          {q.isError
+            ? <p role="alert" className="text-xs text-rose-300">{tr('Could not load the results')}</p>
+            : <LoadingBlock className="h-16 rounded-xl" />}
+        </Sheet>
+      </OnBody>
+    );
+  }
+  return (
+    <ReviewStepper run={run} step={step} setStep={setStep} onClose={onClose} onOpen={onClose}
+      onAddEdition={(ask) => { if (ask.existing) { onClose(); router.push(seriesHref(ask.existing.id)); return; } setAdding(ask); }} />
   );
 }
 

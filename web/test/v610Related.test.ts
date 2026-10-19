@@ -169,10 +169,13 @@ test('Discover reads ?q= once, inside a Suspense boundary, opens on that search,
   assert.match(inner, /useState<'newest' \| 'search'>\(arrivedQ \? 'search' : 'newest'\)/, 'an arrival does not open on its search');
   assert.match(inner, /const \[q, setQ\] = useState\(arrivedQ\);/, 'the field does not show what is searched');
   assert.match(inner, /const \[term, setTerm\] = useState\(arrivedQ\);/, 'the arrival is not submitted');
-  assert.doesNotMatch(inner, /params\.get\('q'\)[\s\S]*params\.get\('q'\)/, 'the address is read more than once');
+  // (A later change in the address -- the palette's "Search your sources" -- is followed by an effect on `urlQ`; the
+  // arrival itself is read once, in the initialiser.)
+  assert.equal((inner.match(/params\.get\('q'\)/g) ?? []).length, 2, 'the address is read more than the arrival and the later-change effect');
   // Replaced, never pushed: Back leaves Discover. A submitted search writes its term; back to Newest takes it away.
   assert.match(inner, /window\.history\.replaceState\(window\.history\.state, '', `\$\{u\.pathname\}\$\{u\.search\}\$\{u\.hash\}`\);/);
-  assert.doesNotMatch(inner, /pushState|router\.push/);
+  // (The one router.push is the fork's "open the added series", a different page: it never pushes the search's address.)
+  assert.doesNotMatch(inner, /pushState|router\.push\(`?\/discover/);
   assert.match(inner, /setMode\('search'\);\s*writeQ\(next\);/, 'a search does not write its term');
   assert.match(inner, /const backToNewest = \(\) => \{ setQ\(''\); setMode\('newest'\); writeQ\(''\); \};/, 'back to Newest leaves ?q= behind');
   // An account the server refuses is not asked, even when the address says to search.
@@ -197,9 +200,9 @@ test('Discover\'s AniList rails: Because you read above the wall, manhwa, manga 
   const trending = src.indexOf('{mode === \'newest\' && TREND_RAILS.map((country, i) =>');
   assert.ok(because > 0 && because < wall, 'Because you read is not above the wall');
   assert.ok(trending > wall, 'the trending rails are not under the wall');
-  assert.match(src, /\{mode === 'newest' && because\?\.seed && becauseRail\.length > 0 && \(\s*<AniListRail kind="because"/);
+  assert.match(src, /\{because\?\.seed && becauseRail\.length > 0 && \(\s*<AniListRail kind="because"/);
   assert.match(src, /title=\{tr\('Because you read \{title\}', \{ title: `\\u2068\$\{because\.seed\.title\}\\u2069` \}\)\}/, 'the title is not isolated');
-  assert.match(src, /trendRails\[i\]\.length > 0 && \(\s*<AniListRail key=\{country\} kind=\{country\} title=\{tr\(TREND_LABELS\[i\]\)\} items=\{trendRails\[i\]\} onPick=\{pickRail\} \/>/);
+  assert.match(src, /trendRails\[i\]\.length > 0 && \(\s*<AniListRail key=\{country\} kind=\{country\} title=\{tr\(TREND_LABELS\[i\]\)\} items=\{trendRails\[i\]\} onPick=\{pickRail\} onSearch=\{searchFor\} \/>/);
   // Every rail is the one AniListRail, and its one ScrollRail (rails.test.ts holds the count).
   assert.equal((src.match(/<AniListRail\b/g) ?? []).length, 2);
   assert.match(src, /function AniListRail\([\s\S]*?<ScrollRail label=\{title\}/);
@@ -208,7 +211,7 @@ test('Discover\'s AniList rails: Because you read above the wall, manhwa, manga 
   assert.match(src, /const pickRail = \(t: Trending\) => \{ fromKey\.current = null; fromRail\.current = railKey\(t\); setSeed\(\{ kind: 'trending', title: t\.title \}\); \};/);
   assert.match(src, /useEffect\(\(\) => \{ if \(!seed\) fromRail\.current = null; \}, \[seed\]\);/);
   assert.match(src, /const railCard = fromRail\.current;\s*if \(railCard\) setRailAdded\(\(prev\) => new Set\(prev\)\.add\(railCard\)\);/);
-  assert.match(src, /const becauseRail = useMemo\(\(\) => \(because\?\.content \?\? \[\]\)\.filter\(\(t\) => !railAdded\.has\(railKey\(t\)\)\), \[because, railAdded\]\);/);
+  assert.match(src, /const becauseRail = useMemo\(\(\) => \(because\?\.content \?\? \[\]\)\.filter\(\(t\) => !railAdded\.has\(railKey\(t\)\) && !isHidden\(t\.title\)\), \[because, railAdded, isHidden\]\);/);
 });
 
 test('the new words are in all eight languages, and none is an English copy', () => {

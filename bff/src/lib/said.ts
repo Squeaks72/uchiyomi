@@ -650,6 +650,9 @@ const EN = {
   'autofix.now.searching': ({ name }: { name: string }) => `Searching ${name}`,
   'autofix.now.removing': ({ name }: { name: string }) => `Removing ${name}`,
   'autofix.now.files': () => 'Deleting chapters saved twice or numbered impossibly',
+  'autofix.now.groups': () => 'Swapping chapters for a preferred group’s copy',
+  'autofix.now.names': () => 'Borrowing chapter names from other sources',
+  'autofix.now.directions': () => 'Working out reading directions',
   'autofix.now.rechecking': () => 'Checking Health again',
   'autofix.now.waitSweep': () => 'Waiting for the chapter sweep to finish',
 
@@ -681,6 +684,9 @@ const EN = {
   'autofix.done.triedNone': ({ n }: { n: number }) => `Tried ${n} extension${s(n, '', 's')}: none of the series were there`,
   'autofix.done.deletedTwice': ({ n }: { n: number }) => `Deleted ${n} chapter${s(n, '', 's')} saved twice`,
   'autofix.done.deletedOdd': ({ n }: { n: number }) => `Deleted ${n} chapter${s(n, '', 's')} numbered impossibly`,
+  'autofix.done.groupsUpgraded': ({ n }: { n: number }) => `Swapped ${n} chapter${s(n, '', 's')} for a preferred group’s copy`,
+  'autofix.done.named': ({ n }: { n: number }) => `Named ${n} chapter${s(n, '', 's')} from another source`,
+  'autofix.done.directions': ({ n }: { n: number }) => `Worked out the reading direction of ${n} series`,
 
   // One thing it did or met, for Details (the done lines' `items`, and the run's log).
   'autofix.item.tested': ({ name, ok }: { name: string; ok: boolean }) => (ok ? `${name} passed its test` : `${name} failed its test again`),
@@ -737,6 +743,7 @@ const EN = {
   'autofix.needs.gaps': ({ n }: { n: number }) => `${n} series ${s(n, 'has', 'have')} chapters no source lists`,
   'autofix.needs.scan': ({ n }: { n: number }) => `The library scan could not read ${n} folder${s(n, '', 's')}`,
   'autofix.needs.downloadsMissing': ({ n }: { n: number }) => `${n} downloaded chapter${s(n, '', 's')} ${s(n, 'is', 'are')} where the library scan never looks`,
+  'autofix.needs.other': ({ title }: { title: string }) => `${title} needs a look`,
   'autofix.needs.noRoom': ({ name }: { name: string }) => `${name} may carry your series, but the source limit is full: free a slot`,
   // v0.72.0: the cards no run changes -- a disk to free or a share to mount, a member's tracker sign-in, a chapter file
   // to fetch again by hand (lib/healthDisk.ts, lib/healthTrackers.ts, lib/healthFiles.ts).

@@ -1,6 +1,7 @@
 'use client';
 import { ReactNode, useEffect, useRef, useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { setTitleIgnored } from '@/lib/ignoredTitles';
 import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { requestPersist, storageEstimate } from '@/lib/downloads';
@@ -8,9 +9,10 @@ import { deviceId } from '@/lib/device';
 import { bytes } from '@/lib/format';
 import { readShownOnce } from '@/lib/shownOnce';
 import { setTypeToSearchOn, typeToSearchOn } from '@/lib/typeToSearch';
-import { compactChaptersOn, setCompactChaptersOn } from '@/lib/compactChapters';
 import { showAllChaptersOn } from '@/lib/showAllChapters';
 import { contextMenusOn, setContextMenusOn } from '@/lib/contextMenus';
+import { compactChaptersOn, setCompactChaptersOn } from '@/lib/compactChapters';
+import { useBanners } from '@/lib/bannerPref';
 import { ReaderPrefs, loadPrefs, savePrefs, syncPrefsFromServer } from '@/lib/readerPrefs';
 import { Avatar, AVATAR_EMOJIS, AVATAR_COLORS } from '@/components/Avatar';
 import { ProgressBar } from '@/components/ui';
@@ -45,6 +47,7 @@ export function ProfileSettings({ weeklyGoal }: { weeklyGoal: number }) {
       <ReadingSection weeklyGoal={weeklyGoal} />
       {!desktop && <DownloadsSection />}
       {!desktop && <DeviceSection />}
+      <IgnoredSection />
     </div>
   );
 }
@@ -136,6 +139,7 @@ function AppearanceSection() {
   // Read after mount: localStorage is not there during the static export's render.
   const [typeSearch, setTypeSearch] = useState(true);
   useEffect(() => { setTypeSearch(typeToSearchOn()); }, []);
+  const [banners, setBanners] = useBanners();
   const [compactList, setCompactList] = useState(false);
   useEffect(() => { setCompactList(compactChaptersOn()); }, []);
   const [contextMenus, setContextMenus] = useState(true);
@@ -225,6 +229,9 @@ function AppearanceSection() {
       <SwitchRow label={tr('Reduce effects')}
         help={tr('Turns off the animated background, blur, smooth scrolling and transitions. Try it if scrolling feels slow.')}
         on={reduceEffects} onChange={saveReduceEffects} />
+      <SwitchRow label={tr('Big banners')}
+        help={tr('Shows the large banner at the top of Home (the daily pick) and of Discover (trending now). Off by default.')}
+        on={banners} onChange={setBanners} />
 
       {/* This device only (lib/typeToSearch.ts says why): single-key shortcuts must be possible to switch off. */}
       <SwitchRow label={tr('Type anywhere to search')}
@@ -435,6 +442,33 @@ function DownloadsSection() {
         {!persisted && <button type="button" onClick={ask} className="chip text-xs">{tr('Protect downloads')}</button>}
       </Row>
       <LinkRow href="/downloads/" label={tr('Offline downloads')} />
+    </Section>
+  );
+}
+
+/* ============================== Ignored titles ============================== */
+
+/** Titles ignored from Discover's menu, each with the way back. Drawn only once there is something to take back. */
+function IgnoredSection() {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const { data } = useQuery({
+    queryKey: ['ignored-titles-list'], staleTime: 60_000,
+    queryFn: () => api<{ content: Array<{ key: string; title: string }> }>('/api/ignored-titles').then((r) => r.content),
+  });
+  if (!data?.length) return null;
+  const restore = async (title: string) => {
+    try { await setTitleIgnored(qc, title, false); }
+    catch { toast(tr('Could not do that'), 'error'); }
+  };
+  return (
+    <Section id="ignored" title={tr('Ignored titles')} icon={<IcCheck width={18} height={18} />}>
+      <p className="px-1 pb-2 text-xs text-fog-500">{tr('These never show on Discover. Show again puts one back.')}</p>
+      {data.map((m) => (
+        <Row key={m.key} label={m.title}>
+          <button type="button" onClick={() => restore(m.title)} className="btn-key text-xs">{tr('Show again')}</button>
+        </Row>
+      ))}
     </Section>
   );
 }

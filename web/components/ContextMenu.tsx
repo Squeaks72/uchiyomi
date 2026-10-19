@@ -24,6 +24,8 @@ export interface MenuItem {
   disabled?: boolean;
   /** `data-menu-item` on the item, for a browser walk to find it by what it does rather than by its words. */
   hook?: string;
+  /** A tooltip: what the item is for, when its label alone does not say. */
+  title?: string;
   /**
    * A group's name, shown above this item (v0.60.0): the series page's More and the Library's Sort menu group their
    * items. Not focusable -- the arrow keys move between items only. Implies the divider.
@@ -33,6 +35,8 @@ export interface MenuItem {
   icon?: ReactNode;
   /** One choice of several, ticked when on (v0.60.0, the Sort menu): the item becomes a `menuitemradio`. */
   checked?: boolean;
+  /** A group (v0.62): this item opens its own items in place beneath it instead of doing anything itself. */
+  children?: MenuItem[];
 }
 
 type At = { x: number; y: number };
@@ -42,12 +46,13 @@ const MENU_W = 208;
 function Menu({ items, at, label, onClose }: { items: MenuItem[]; at: At; label: string; onClose: (refocus: boolean) => void }) {
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
+  const [group, setGroup] = useState<number | null>(null);
 
   // Measured, then placed: the height depends on the items, and a menu opened near an edge flips.
   useLayoutEffect(() => {
     const r = ref.current?.getBoundingClientRect();
     if (r) setPos(placeMenu(at, { w: r.width, h: r.height }, { w: window.innerWidth, h: window.innerHeight }));
-  }, [at]);
+  }, [at, group]);
 
   const enabled = () => [...(ref.current?.querySelectorAll<HTMLButtonElement>(
     '[role="menuitem"]:not([disabled]), [role="menuitemradio"]:not([disabled])',
@@ -95,11 +100,35 @@ function Menu({ items, at, label, onClose }: { items: MenuItem[]; at: At; label:
                 {it.heading}
               </div>
             )}
+            {it.children ? (
+              <>
+                <button type="button" role="menuitem" aria-haspopup="menu" aria-expanded={group === k}
+                  tabIndex={-1} disabled={it.disabled} data-menu-item={it.hook} title={it.title}
+                  onClick={() => setGroup(group === k ? null : k)}
+                  className={`flex w-full items-center gap-2.5 px-3.5 py-2.5 text-start text-xs hover:bg-ink-800 focus:bg-ink-800 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent disabled:opacity-40 ${
+                    it.divider && !it.heading && k > 0 ? 'border-t border-ink-800' : ''} ${it.danger ? 'text-red-300' : 'text-fog-200'}`}>
+                  <span className="min-w-0 flex-1">{it.label}</span>
+                  <svg aria-hidden viewBox="0 0 24 24" width={14} height={14} fill="none" stroke="currentColor" strokeWidth={2.2}
+                    strokeLinecap="round" strokeLinejoin="round" className={`shrink-0 transition-transform ${group === k ? 'rotate-90' : ''}`}><path d="m9 6 6 6-6 6" /></svg>
+                </button>
+                {group === k && (
+                  <div role="group" aria-label={it.label} className="bg-ink-950/60">
+                    {it.children.map((c, j) => (
+                      <button key={j} type="button" role="menuitem" tabIndex={-1} disabled={c.disabled} data-menu-item={c.hook} title={c.title}
+                        onClick={() => { onClose(true); void c.onSelect(); }}
+                        className={`flex w-full items-center gap-2.5 py-2.5 ps-7 pe-3.5 text-start text-xs hover:bg-ink-800 focus:bg-ink-800 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent disabled:opacity-40 ${c.danger ? 'text-red-300' : 'text-fog-200'}`}>
+                        <span className="min-w-0 flex-1">{c.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : (
             <button type="button" role={it.checked === undefined ? 'menuitem' : 'menuitemradio'}
               aria-checked={it.checked === undefined ? undefined : it.checked}
-              tabIndex={-1} disabled={it.disabled} data-menu-item={it.hook}
+              tabIndex={-1} disabled={it.disabled} data-menu-item={it.hook} title={it.title}
               onClick={() => { onClose(true); void it.onSelect(); }}
-              className={`flex w-full items-center gap-2.5 px-3.5 py-2.5 text-start text-xs hover:bg-ink-800 focus:bg-ink-800 focus:outline-none disabled:opacity-40 ${
+              className={`flex w-full items-center gap-2.5 px-3.5 py-2.5 text-start text-xs hover:bg-ink-800 focus:bg-ink-800 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent disabled:opacity-40 ${
                 it.divider && !it.heading && k > 0 ? 'border-t border-ink-800' : ''} ${it.danger ? 'text-red-300' : it.checked ? 'text-accent' : 'text-fog-200'}`}>
               {it.icon && <span aria-hidden className="grid w-4 shrink-0 place-items-center">{it.icon}</span>}
               <span className="min-w-0 flex-1">{it.label}</span>
@@ -108,6 +137,7 @@ function Menu({ items, at, label, onClose }: { items: MenuItem[]; at: At; label:
                   strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><path d="m5 12.5 4.5 4.5L19 7.5" /></svg>
               )}
             </button>
+            )}
           </Fragment>
         ))}
       </div>
@@ -188,5 +218,7 @@ export function useContextMenu(getItems: () => MenuItem[], { label }: { label: s
   };
 
   const element = at ? <Menu items={getItems()} at={at} label={label} onClose={close} /> : null;
-  return { bind, openFrom, open: !!at, close: () => close(false), element };
+  /** Open at a screen point, for a menu with no element of its own to bind (a selection's). */
+  const openPoint = (x: number, y: number) => openAt({ x, y }, null);
+  return { bind, openFrom, openPoint, open: !!at, close: () => close(false), element };
 }

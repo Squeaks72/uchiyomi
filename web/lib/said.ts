@@ -847,6 +847,9 @@ const WORDS: Record<string, (p: P) => string | null> = {
   'autofix.now.searching': (p) => tr('Searching {name}', { name: str(p, 'name') }),
   'autofix.now.removing': (p) => tr('Removing {name}', { name: str(p, 'name') }),
   'autofix.now.files': () => tr('Deleting chapters saved twice or numbered impossibly'),
+  'autofix.now.groups': () => tr('Swapping chapters for a preferred group’s copy'),
+  'autofix.now.names': () => tr('Borrowing chapter names from other sources'),
+  'autofix.now.directions': () => tr('Working out reading directions'),
   'autofix.now.rechecking': () => tr('Checking Health again'),
   'autofix.now.waitSweep': () => tr('Waiting for the chapter sweep to finish'),
 
@@ -892,6 +895,13 @@ const WORDS: Record<string, (p: P) => string | null> = {
     : tr('Tried {n} extensions: none of the series were there', { n: num(p, 'n') })),
   'autofix.done.deletedTwice': (p) => (num(p, 'n') === 1 ? tr('Deleted 1 chapter saved twice') : tr('Deleted {n} chapters saved twice', { n: num(p, 'n') })),
   'autofix.done.deletedOdd': (p) => (num(p, 'n') === 1 ? tr('Deleted 1 chapter numbered impossibly') : tr('Deleted {n} chapters numbered impossibly', { n: num(p, 'n') })),
+  'autofix.done.groupsUpgraded': (p) => (num(p, 'n') === 1
+    ? tr('Swapped 1 chapter for a preferred group’s copy')
+    : tr('Swapped {n} chapters for a preferred group’s copy', { n: num(p, 'n') })),
+  'autofix.done.named': (p) => (num(p, 'n') === 1 ? tr('Named 1 chapter from another source') : tr('Named {n} chapters from another source', { n: num(p, 'n') })),
+  'autofix.done.directions': (p) => (num(p, 'n') === 1
+    ? tr('Worked out the reading direction of 1 series')
+    : tr('Worked out the reading direction of {n} series', { n: num(p, 'n') })),
 
   'autofix.item.tested': (p) => (p.ok ? tr('{name} passed its test', { name: str(p, 'name') }) : tr('{name} failed its test again', { name: str(p, 'name') })),
   'autofix.item.unblocked': (p) => tr('Cleared the block on {name}', { name: str(p, 'name') }),
@@ -976,6 +986,7 @@ const WORDS: Record<string, (p: P) => string | null> = {
   'autofix.needs.downloadsMissing': (p) => (num(p, 'n') === 1
     ? tr('1 downloaded chapter is where the library scan never looks')
     : tr('{n} downloaded chapters are where the library scan never looks', { n: num(p, 'n') })),
+  'autofix.needs.other': (p) => tr('{title} needs a look', { title: str(p, 'title') }),
   'autofix.needs.noRoom': (p) => tr('{name} may carry your series, but the source limit is full: free a slot', { name: str(p, 'name') }),
   // v0.72.0: the cards no run changes (bff lib/healthDisk.ts, lib/healthTrackers.ts, lib/healthFiles.ts).
   'autofix.needs.disk': (p) => (num(p, 'n') === 1 ? tr('1 disk or folder needs a look') : tr('{n} disks or folders need a look', { n: num(p, 'n') })),
