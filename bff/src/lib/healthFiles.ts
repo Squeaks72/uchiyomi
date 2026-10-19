@@ -40,13 +40,18 @@ interface Unreadable { id: string; series_id: string; title: string; folder: str
  * Count the flagged files again, and take back the ones that turn out to be readable. The card is built from stamps alone (above), and
  * until v0.87 a failed READ stamped 0 like a broken file, so a night with trouble left thousands of good chapters on it. This opens
  * each flagged file (bounded: `max`, `conc` at a time) and stamps what it finds: pages when it can now be read, the same 0 (and a fresh
- * date) when it truly cannot, nothing when the read fails again. Recheck on the card runs a few hundred; boot runs the rest, once.
+ * date) when it truly cannot, nothing when the read fails again. Recheck on the card runs up to a thousand, oldest stamp first (each is
+ * re-stamped, so repeated Rechecks walk the whole list); boot runs the rest once; and every full Health run looks at up to 200 flagged
+ * files a day old (`healthFiles` below calls it before building the card), so a wrong stamp can never outlive the next run.
  */
-export async function recountUnreadable(o: { max?: number; conc?: number } = {}): Promise<{ checked: number; fixed: number }> {
+export async function recountUnreadable(o: { max?: number; conc?: number; staleMs?: number } = {}): Promise<{ checked: number; fixed: number }> {
+  // `staleMs`: only files whose stamp is older than that -- the automatic runs pass a day, so a file that truly cannot be read is
+  // looked at once a day and not at every health run; Recheck and boot pass none and look at the oldest stamps first.
   const rows = await q<{ id: string; root: string; file: string }>(
     `SELECT id, root, file FROM lib_books
       WHERE pages = 0 AND pages_checked_at IS NOT NULL AND pruned_at IS NULL
-      ORDER BY pages_checked_at LIMIT $1`, [o.max ?? 400]);
+        AND ($2::bigint IS NULL OR pages_checked_at < now() - ($2::bigint * interval '1 millisecond'))
+      ORDER BY pages_checked_at LIMIT $1`, [o.max ?? 400, o.staleMs ?? null]);
   let next = 0; let checked = 0; let fixed = 0;
   await Promise.all(Array.from({ length: Math.min(o.conc ?? 4, rows.length) }, async () => {
     while (next < rows.length) {
@@ -68,6 +73,10 @@ export async function recountUnreadable(o: { max?: number; conc?: number } = {})
 }
 
 export async function chapterFiles(ctx: IgnoreCtx = noIgnores()): Promise<HealthCheck> {
+  // Self-healing, bounded: before the card is built, a few flagged files (at most 200, stamped a day ago or more) are counted again.
+  // The card is built from stamps, and a stamp is only as good as the read behind it; this is what keeps a wrong one from standing.
+  // (Recheck, which calls this too, has just done a bigger pass of its own; the day's filter makes this one a no-op then.)
+  await recountUnreadable({ max: 200, conc: 2, staleMs: 24 * 60 * 60 * 1000 }).catch(() => null);
   const rows = await q<Unreadable>(
     `SELECT b.id, b.series_id, s.title, s.folder, b.number::float8 AS number, b.root, b.file
        FROM lib_books b JOIN lib_series s ON s.id = b.series_id AND ${visibleToAll('s')}
