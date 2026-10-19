@@ -1920,6 +1920,19 @@ function ReaderInner() {
 
   const total = flat.length;
   const pageInChapter = activeChapter ? (flat[current]?.number ?? 0) : 0;
+  // The page slider spans the CHAPTER being read, not everything loaded: the column appends the next chapter(s) after this one, and
+  // a slider over all of them put page 1 of chapter 2 a third of the way along and never reached its end at the chapter's last page.
+  // `flat` holds each chapter's pages contiguously, so the range is the run around `current` with the same chapter index.
+  const sliderCi = flat[current]?.ci;
+  const chapRange = useMemo(() => {
+    if (sliderCi == null) return { lo: 0, hi: Math.max(0, flat.length - 1) };
+    let lo = Math.min(current, flat.length - 1);
+    while (lo > 0 && flat[lo - 1].ci === sliderCi) lo--;
+    let hi = Math.min(current, flat.length - 1);
+    while (hi < flat.length - 1 && flat[hi + 1].ci === sliderCi) hi++;
+    return { lo, hi };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flat, sliderCi]);
 
   // ---- translated pages (v0.85.0) ----
   // The chapter being read is asked for from the page it is on, and the next one once it is done: the server does one
@@ -2430,7 +2443,7 @@ function ReaderInner() {
                   className="grid min-h-10 shrink-0 place-items-center rounded-full px-2.5 text-xs tabular-nums text-fog-300 transition hover:bg-white/10 hover:text-white">
                   {chapterPageCount ? `${pageInChapter}/${chapterPageCount}` : `${current + 1}/${total}`}
                 </button>
-                <input type="range" min={0} max={Math.max(0, total - 1)} value={current}
+                <input type="range" min={chapRange.lo} max={chapRange.hi} value={Math.min(Math.max(current, chapRange.lo), chapRange.hi)}
                   onPointerDown={() => setScrubbing(true)}
                   // Let go of focus after a drag: a slider that keeps it owns Space and the arrows, so in the
                   // webtoon column Space stopped scrolling until the controls hid. Tab still reaches it.

@@ -58,3 +58,9 @@ test('the series list brings the unread chapter into view once, and a revoke/rol
   assert.match(read('components/ArmButton.tsx'), /export function ConfirmKey/, 'ConfirmKey is gone');
   assert.match(read('app/admin/page.tsx'), /<ConfirmKey onConfirm=\{\(\) => revoke\(s\.id\)\}/, 'Revoke fires on one mis-tap');
 });
+
+test('the reader\'s page slider spans the chapter being read, not every chapter the column has loaded', () => {
+  const r = read('app/reader/page.tsx');
+  assert.match(r, /<input type="range" min=\{chapRange\.lo\} max=\{chapRange\.hi\} value=\{Math\.min\(Math\.max\(current, chapRange\.lo\), chapRange\.hi\)\}/, 'the slider runs over every loaded chapter again');
+  assert.match(r, /while \(lo > 0 && flat\[lo - 1\]\.ci === sliderCi\) lo--;/, 'the chapter\'s first page is not found');
+});
