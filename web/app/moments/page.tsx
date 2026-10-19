@@ -176,12 +176,12 @@ function Moments() {
                     {/* Over the tile rather than inside PageTile: the tile is one big link, and a button
                         nested in an <a> is not a valid or clickable control. */}
                     <button type="button" onClick={() => setEditing(m)} aria-haspopup="dialog" aria-label={m.note ? tr('Edit note') : tr('Add a note')}
-                      className="absolute end-1.5 top-1.5 grid h-7 w-7 place-items-center rounded-full bg-black/55 text-white/85 backdrop-blur transition hover:bg-black/75 hover:text-white">
+                      className="absolute end-1.5 top-1.5 grid h-7 w-7 place-items-center pointer-coarse:h-10 pointer-coarse:w-10 rounded-full bg-black/55 text-white/85 backdrop-blur transition hover:bg-black/75 hover:text-white">
                       <IcPencil width={13} height={13} />
                     </button>
                     <button type="button" onClick={() => confirmUnsave(m)} disabled={unsave.isPending}
                       aria-label={tr('Remove from Moments')}
-                      className="absolute end-1.5 top-10 grid h-7 w-7 place-items-center rounded-full bg-black/55 text-white/85 backdrop-blur transition hover:bg-black/75 hover:text-white disabled:opacity-40">
+                      className="absolute end-1.5 top-10 pointer-coarse:start-1.5 pointer-coarse:end-auto pointer-coarse:top-1.5 grid h-7 w-7 place-items-center pointer-coarse:h-10 pointer-coarse:w-10 rounded-full bg-black/55 text-white/85 backdrop-blur transition hover:bg-black/75 hover:text-white disabled:opacity-40">
                       <IcTrash width={13} height={13} />
                     </button>
                   </li>

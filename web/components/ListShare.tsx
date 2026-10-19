@@ -128,9 +128,9 @@ export function ImportListModal({ onClose, onDone }: { onClose: () => void; onDo
               <li key={m.pkgName}>
                 <label className="flex items-center gap-2 text-sm text-fog-200">
                   <input type="checkbox" checked={!skip.has(m.pkgName)} disabled={busy}
-                    onChange={(e) => setSkip((cur) => { const n = new Set(cur); if (e.target.checked) n.delete(m.pkgName); else n.add(m.pkgName); return n; })} />
+                    onChange={(e) => setSkip((cur) => { const n = new Set(cur); if (e.target.checked) n.delete(m.pkgName); else n.add(m.pkgName); return n; })} className="pointer-coarse:size-5 pointer-coarse:shrink-0" />
                   <span className="min-w-0 flex-1 truncate">{m.name}{m.lang ? ` (${m.lang})` : ''}</span>
-                  {m.nsfw && <span className="rounded border border-rose-400/50 px-1 text-[10px] text-rose-300">18+</span>}
+                  {m.nsfw && <span className="rounded border border-rose-400/50 px-1 text-[10px] pointer-coarse:text-[11px] text-rose-300">18+</span>}
                 </label>
               </li>
             ))}
@@ -159,7 +159,7 @@ export function ImportListModal({ onClose, onDone }: { onClose: () => void; onDo
           </select>
           {withSources > 0 && (
             <label className="mt-3 flex items-start gap-2 text-sm text-fog-200">
-              <input type="checkbox" checked={autoAdd} onChange={(e) => setAutoAdd(e.target.checked)} className="mt-1" />
+              <input type="checkbox" checked={autoAdd} onChange={(e) => setAutoAdd(e.target.checked)} className="mt-1 pointer-coarse:size-5 pointer-coarse:shrink-0" />
               <span>{tr('Also add the titles I do not have to my library ({n} can be added from their sources). This downloads every chapter.', { n: withSources })}</span>
             </label>
           )}

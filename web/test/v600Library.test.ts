@@ -412,7 +412,7 @@ test('the toolbar sticks under the top bar, the filter panel clears it, and the 
   const src = page();
   // `--topbar-h` (65 px from lg, app/globals.css) since the UI refresh, rather than the number written out.
   assert.match(src, /<div className="sticky top-\[var\(--topbar-h\)\] max-h-\[calc\(100dvh-var\(--topbar-h\)\)\] overflow-y-auto pb-8 pt-6" data-lenis-prevent>/, 'the filter panel slides under the top bar');
-  assert.match(src, /<header className="safe-top sticky top-0 z-30 bg-ink-950\/85 px-4 pb-3 backdrop-blur-xl lg:contents">/, 'the phone header is not on the grid\'s gutter');
+  assert.match(src, /<header className="safe-top sticky top-0 z-30 bg-ink-950\/85 px-4 backdrop-blur-xl lg:contents">/, 'the phone header is not on the grid\'s gutter');
   assert.match(src, /className="mt-3 lg:sticky lg:top-\[var\(--topbar-h\)\] lg:z-20 /, 'the toolbar does not stick under the top bar');
   // 65 px: the 40 px keys, py-3 and the border, which is --topbar-h. The bar is see-through over a page's art (lib/overArt.ts)
   // and keeps its border's width there, transparent.

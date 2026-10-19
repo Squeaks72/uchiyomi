@@ -209,7 +209,7 @@ export function useSeriesActions({ onDone, builtinList }: { onDone?: () => void;
             <p className="mt-2">{tr('The chapters stay listed and everyone keeps their reading history. Fetch again on the series page brings a chapter back.')}</p>
             <p className="mt-2 font-medium text-amber-300">{tr('Deleting a chapter being read can lose its reading position.')}</p>
             <label className="mt-3 flex items-start gap-2 text-sm text-fog-200">
-              <input type="checkbox" className="mt-0.5" checked={alsoPause} onChange={(e) => setAlsoPause(e.target.checked)} data-also-pause />
+              <input type="checkbox" className="mt-0.5 pointer-coarse:size-5 pointer-coarse:shrink-0" checked={alsoPause} onChange={(e) => setAlsoPause(e.target.checked)} data-also-pause />
               <span>
                 {tr('Also stop updates for these series')}
                 <span className="block text-xs text-fog-500">{tr('Otherwise the next check downloads their newest chapters again.')}</span>

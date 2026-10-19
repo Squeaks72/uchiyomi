@@ -291,7 +291,7 @@ function DownloadTile({ t, section, admin, nameOf, onCancel, focusRef }: {
       {job && mayCancel(job, admin) && (
         // Round, and the size of a fingertip: stops the download after the chapter in flight, never mid-file.
         <button type="button" onClick={() => onCancel(job.folder)} title={tr('Cancel')} aria-label={`${tr('Cancel')} · ${t.title}`}
-          className="absolute end-1.5 top-1.5 z-10 grid h-7 w-7 place-items-center rounded-full bg-ink-950/85 text-fog-200 ring-1 ring-white/15 transition hover:text-rose-300">
+          className="absolute end-1.5 top-1.5 z-10 grid h-7 w-7 place-items-center pointer-coarse:h-10 pointer-coarse:w-10 rounded-full bg-ink-950/85 text-fog-200 ring-1 ring-white/15 transition hover:text-rose-300">
           <IcX width={14} height={14} />
         </button>
       )}

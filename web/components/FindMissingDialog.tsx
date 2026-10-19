@@ -113,8 +113,8 @@ function ChapterPicker({ numbers, selected, onChange }: {
     <div className="mt-3">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-fog-500">
         <span>{selectedText(count)}</span>
-        <button type="button" onClick={() => onChange(new Set(numbers))} className="hover:text-fog-200">{tr('Select all')}</button>
-        <button type="button" onClick={() => onChange(new Set())} className="hover:text-fog-200">{tr('Select none')}</button>
+        <button type="button" onClick={() => onChange(new Set(numbers))} className="pointer-coarse:px-1 pointer-coarse:py-2 hover:text-fog-200">{tr('Select all')}</button>
+        <button type="button" onClick={() => onChange(new Set())} className="pointer-coarse:px-1 pointer-coarse:py-2 hover:text-fog-200">{tr('Select none')}</button>
       </div>
       <div className="mt-2 flex flex-wrap gap-1.5">
         {runs.map((r) => {
@@ -132,17 +132,17 @@ function ChapterPicker({ numbers, selected, onChange }: {
               </button>
               {r.nums.length > 1 && (
                 <button type="button" aria-label={`${tr('Pick chapters one by one')}: ${r.lo === r.hi ? tr('Ch. {n}', { n: r.lo }) : tr('Ch. {a}–{b}', { a: r.lo, b: r.hi })}`} aria-expanded={open === r.lo}
-                  onClick={() => setOpen(open === r.lo ? null : r.lo)} className="chip px-2 text-xs text-fog-400"><span aria-hidden>⋯</span></button>
+                  onClick={() => setOpen(open === r.lo ? null : r.lo)} className="chip px-2 pointer-coarse:min-w-10 text-xs text-fog-400"><span aria-hidden>⋯</span></button>
               )}
             </span>
           );
         })}
       </div>
       {opened && (
-        <div className="mt-2 flex max-h-40 flex-wrap gap-1 overflow-y-auto" data-lenis-prevent>
+        <div className="mt-2 flex max-h-40 flex-wrap gap-1 pointer-coarse:gap-2 overflow-y-auto" data-lenis-prevent>
           {opened.nums.map((n) => (
             <button key={n} type="button" aria-pressed={selected.has(n)} onClick={() => onChange(toggleOne(selected, n))}
-              className={`chip px-2 text-[11px] ${selected.has(n) ? 'border-accent/60 text-accent' : 'text-fog-500'}`}>{n}</button>
+              className={`chip px-2 text-[11px] pointer-coarse:min-w-10 pointer-coarse:text-xs ${selected.has(n) ? 'border-accent/60 text-accent' : 'text-fog-500'}`}>{n}</button>
           ))}
         </div>
       )}

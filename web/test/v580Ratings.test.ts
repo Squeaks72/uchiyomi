@@ -230,7 +230,7 @@ test('Home: "Most popular in your library" after Recently added, saying AniList\
   // Home would hold a title over nothing, or a skeleton that never fills -- "the rail shows without a list" fails.
   const home = code(read('app/page.tsx'));
   const rail = slice(home, "case 'popular':", '</section>');
-  assert.match(rail, /<SectionTitle action=\{<Link href="\/library\?sort=popular" className="text-xs text-accent">\{tr\('See all'\)\}<\/Link>\}>\{tr\('Most popular in your library'\)\}<\/SectionTitle>/,
+  assert.match(rail, /<SectionTitle action=\{<Link href="\/library\?sort=popular" className="text-xs text-accent pointer-coarse:-my-3 pointer-coarse:py-3 pointer-coarse:ps-3">\{tr\('See all'\)\}<\/Link>\}>\{tr\('Most popular in your library'\)\}<\/SectionTitle>/,
     'See all does not open the Library sorted by popularity, as New episodes and Recently added open theirs');
   assert.match(rail, /\{data!\.popular!\.map\(\(s\) => <SeriesCard key=\{s\.id\} series=\{s\} note=\{sortValue\(s, 'score'\)\} \/>\)\}/,
     'the cards are not the other rails\' SeriesCard, or do not say AniList\'s score');

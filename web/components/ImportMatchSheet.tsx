@@ -218,7 +218,7 @@ export function ImportMatchSheet({ batchId, candidate, onClose }: {
             className="w-full bg-transparent text-sm text-fog-50 outline-hidden focus-visible:outline-accent focus-visible:outline-offset-0 placeholder:text-fog-500"
           />
           {term && (
-            <button type="button" onClick={() => setTerm('')} className="text-fog-500" aria-label={tr('Clear')}>
+            <button type="button" onClick={() => setTerm('')} className="text-fog-500 pointer-coarse:-my-2 pointer-coarse:-me-2 pointer-coarse:grid pointer-coarse:h-9 pointer-coarse:w-9 pointer-coarse:place-items-center" aria-label={tr('Clear')}>
               <IcX aria-hidden width={15} height={15} />
             </button>
           )}

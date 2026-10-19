@@ -256,7 +256,7 @@ function OtherNames({ id }: { id: string }) {
                 {altOriginLabel(a.origin) && <span className="block text-[11px] text-fog-500">{altOriginLabel(a.origin)}</span>}
               </span>
               <button type="button" onClick={() => remove(a)} disabled={busy} aria-label={tr('Remove {name}', { name: a.title })}
-                className="-me-1 shrink-0 px-2.5 py-1.5 text-fog-500 hover:text-rose-400 disabled:opacity-50"><span aria-hidden>×</span></button>
+                className="-me-1 shrink-0 px-2.5 py-1.5 text-fog-500 hover:text-rose-400 disabled:opacity-50 pointer-coarse:min-h-10 pointer-coarse:min-w-10"><span aria-hidden>×</span></button>
             </li>
           ))}
         </ul>
@@ -434,7 +434,7 @@ export function SourceRow({ s, seriesId, onUnfollow, unfollowing, makeMain }: {
       )}
       {onUnfollow && (
         <button type="button" onClick={onUnfollow} disabled={unfollowing} aria-label={tr('Stop following {s}', { s: s.name })}
-          className="-me-1 shrink-0 px-2.5 py-1.5 text-fog-500 hover:text-rose-400 disabled:opacity-50"><span aria-hidden>×</span></button>
+          className="-me-1 shrink-0 px-2.5 py-1.5 text-fog-500 hover:text-rose-400 disabled:opacity-50 pointer-coarse:min-h-10 pointer-coarse:min-w-10"><span aria-hidden>×</span></button>
       )}
     </div>
     {/* Asked in one line under the row, inside the sheet: a dialog opened over a Sheet paints under it. */}
@@ -515,10 +515,10 @@ function GroupRow({ g, blocked, serverBlocked, haveNumbers, seriesStatus, contro
         )}
       </div>
       {showChapters && (
-        <div className="mt-1.5 flex flex-wrap gap-1">
+        <div className="mt-1.5 flex flex-wrap gap-1 pointer-coarse:gap-1.5">
           {g.chapters.map((n) => (
             <button key={n} type="button" onClick={() => onJump(n)}
-              className={`rounded-full border px-1.5 text-[11px] leading-4 ${haveNumbers.has(n) ? 'border-ink-600 bg-ink-800 text-fog-200' : 'border-ink-800 text-fog-600'}`}>
+              className={`rounded-full border px-1.5 text-[11px] leading-4 pointer-coarse:px-2.5 pointer-coarse:py-1.5 pointer-coarse:text-xs ${haveNumbers.has(n) ? 'border-ink-600 bg-ink-800 text-fog-200' : 'border-ink-800 text-fog-600'}`}>
               {chapterLabel({ number: n })}
             </button>
           ))}
@@ -785,7 +785,7 @@ export function SourcesSheet({ id, title: seriesTitle, series, groups, admin, er
       </span>
       <p id={`patience-help-${id}`} className="sr-only">{patienceHelp}</p>
       <span className="ms-auto flex shrink-0 gap-1.5">
-        <button onClick={savePatience} disabled={busy} className="btn-accent px-3 py-1 text-xs disabled:opacity-50">{tr('Save')}</button>
+        <button onClick={savePatience} disabled={busy} className="btn-accent px-3 py-1 text-xs disabled:opacity-50 pointer-coarse:py-2.5 pointer-coarse:text-sm">{tr('Save')}</button>
         <button onClick={useDefaults} disabled={busy || !admin.prefs} className="chip px-2.5 py-1 text-[11px] disabled:opacity-50">{tr('Use server defaults')}</button>
       </span>
     </div>
@@ -882,7 +882,7 @@ export function SourcesSheet({ id, title: seriesTitle, series, groups, admin, er
         {isAdmin && series?.borrowNamesEffective !== undefined && (
           <div className="mt-3">
             <label className="flex items-start gap-2 text-[11px] leading-relaxed text-fog-500">
-              <input type="checkbox" className="mt-0.5 accent-[rgb(var(--accent))]"
+              <input type="checkbox" className="mt-0.5 shrink-0 pointer-coarse:size-5 accent-[rgb(var(--accent))]"
                 checked={series.borrowNamesEffective} disabled={borrowing}
                 onChange={(e) => setBorrow(e.target.checked)} />
               <span>{tr('Borrow chapter names from another source. Only a source whose numbering matches this series is used; switching this off takes those names back.')}</span>
@@ -896,7 +896,7 @@ export function SourcesSheet({ id, title: seriesTitle, series, groups, admin, er
         {isAdmin && series?.hideNoticesEffective !== undefined && (
           <div className="mt-3" data-hide-notices>
             <label className="flex items-start gap-2 text-[11px] leading-relaxed text-fog-500">
-              <input type="checkbox" className="mt-0.5 accent-[rgb(var(--accent))]"
+              <input type="checkbox" className="mt-0.5 shrink-0 pointer-coarse:size-5 accent-[rgb(var(--accent))]"
                 checked={series.hideNoticesEffective} disabled={hidingNotices}
                 onChange={(e) => setHideNotices(e.target.checked)} />
               <span>
@@ -935,8 +935,8 @@ export function SourcesSheet({ id, title: seriesTitle, series, groups, admin, er
             <>
               {rank >= 0 && (
                 <span className="flex shrink-0 items-center">
-                  <button onClick={() => move(g.name, -1)} disabled={busy || rank === 0} aria-label={`${tr('Move up')}: ${g.name}`} className="px-2 py-1 text-fog-400 disabled:opacity-30"><span aria-hidden>▲</span></button>
-                  <button onClick={() => move(g.name, 1)} disabled={busy || rank === stored.priority.length - 1} aria-label={`${tr('Move down')}: ${g.name}`} className="px-2 py-1 text-fog-400 disabled:opacity-30"><span aria-hidden>▼</span></button>
+                  <button onClick={() => move(g.name, -1)} disabled={busy || rank === 0} aria-label={`${tr('Move up')}: ${g.name}`} className="px-2 py-1 text-fog-400 disabled:opacity-30 pointer-coarse:px-3 pointer-coarse:py-2.5"><span aria-hidden>▲</span></button>
+                  <button onClick={() => move(g.name, 1)} disabled={busy || rank === stored.priority.length - 1} aria-label={`${tr('Move down')}: ${g.name}`} className="px-2 py-1 text-fog-400 disabled:opacity-30 pointer-coarse:px-3 pointer-coarse:py-2.5"><span aria-hidden>▼</span></button>
                 </span>
               )}
               <button onClick={() => togglePrefer(g.name)} disabled={busy || (serverBlocked && rank < 0)}

@@ -451,7 +451,7 @@ function TestAllKey({ checking, onPress }: { checking: boolean; onPress: () => v
   const label = checking ? tr('Testing…') : tr('Test all');
   return (
     <button type="button" onClick={onPress} disabled={checking} aria-label={label} title={label} data-source-check-all
-      className={`btn-key w-8 px-0 sm:w-auto sm:px-3 ${busyKey(checking)}`}>
+      className={`btn-key w-8 pointer-coarse:w-10 px-0 sm:w-auto sm:px-3 ${busyKey(checking)}`}>
       {checking ? <Busy><span className="hidden sm:inline">{label}</span></Busy>
         : <><IcRefresh aria-hidden width={14} height={14} /><span className="hidden sm:inline">{label}</span></>}
     </button>

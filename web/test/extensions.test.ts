@@ -432,7 +432,7 @@ test('Your sources\' tools sit at the end of the views\' row, as icons on a phon
   }
   assert.equal((ext.match(/<span className="hidden sm:inline">/g) ?? []).length, 3, 'a tool\'s words show on a phone');
   const test = slice(sources, 'function TestAllKey(', 'function TestAllLine(');
-  assert.match(test, /<button type="button" onClick=\{onPress\} disabled=\{checking\} aria-label=\{label\} title=\{label\} data-source-check-all\s*className=\{`btn-key w-8 px-0 sm:w-auto sm:px-3 /,
+  assert.match(test, /<button type="button" onClick=\{onPress\} disabled=\{checking\} aria-label=\{label\} title=\{label\} data-source-check-all\s*className=\{`btn-key w-8 pointer-coarse:w-10 px-0 sm:w-auto sm:px-3 /,
     'Test all is not a named icon key on a phone');
   assert.equal((test.match(/<span className="hidden sm:inline">/g) ?? []).length, 2, 'Test all\'s words show on a phone');
 });

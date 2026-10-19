@@ -70,6 +70,7 @@ export function PageGrid({ title, pages, current, onPick, onClose, onToggleJunk 
                 title={p.junk ? tr('Stop skipping this page') : tr('Skip this page')}
                 onClick={() => onToggleJunk(p.number, !p.junk)}
                 className="absolute end-1 top-1 grid h-6 w-6 place-items-center rounded-full
+                           pointer-coarse:static pointer-coarse:h-9 pointer-coarse:w-full pointer-coarse:rounded-none pointer-coarse:border-t pointer-coarse:border-ink-700 pointer-coarse:text-sm
                            bg-black/70 text-[11px] leading-none text-fog-300 backdrop-blur
                            hover:bg-black/85 hover:text-white"
               >

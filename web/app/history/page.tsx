@@ -64,7 +64,7 @@ export default function HistoryPage() {
         <div className="px-4 pt-2 lg:px-0">
           {groups.map((g) => (
             <section key={g.label} className="mb-6">
-              <h2 className="sticky top-0 z-10 bg-ink-950/90 py-2 text-xs font-semibold uppercase tracking-widest text-fog-500 backdrop-blur rtl:tracking-normal lg:top-[var(--topbar-h)]">
+              <h2 className="sticky top-0 z-10 bg-ink-950/90 pb-2 pt-[calc(env(safe-area-inset-top)+0.5rem)] lg:py-2 text-xs font-semibold uppercase tracking-widest text-fog-500 backdrop-blur rtl:tracking-normal lg:top-[var(--topbar-h)]">
                 {tr(g.label)}
               </h2>
               <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">

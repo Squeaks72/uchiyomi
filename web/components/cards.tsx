@@ -230,7 +230,7 @@ export function SeriesCard({ series, w = CARD_W, eager = false, note }: {
           </span>
         )}
         {(series.yomi?.newCount ?? 0) > 0 && (
-          <span className="absolute bottom-2 start-2 z-10 rounded-[4px] bg-accent px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-black shadow-glow rtl:tracking-normal">{tr('New')}</span>
+          <span className="absolute bottom-2 start-2 z-10 rounded-[4px] bg-accent px-2 py-0.5 text-[10px] pointer-coarse:text-[11px] font-bold uppercase tracking-wide text-black shadow-glow rtl:tracking-normal">{tr('New')}</span>
         )}
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-linear-to-t from-black/85 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
         <CoverReadBar series={series} />
@@ -399,12 +399,12 @@ export function SeriesTile({ series, eager = false, selectable, selected, onTogg
         {/* dir="ltr" on the text (UnreadCount), as SeriesCard's: "99+" read "+99" in Arabic, and on the box it put the box top-right there.
             Squared, as SeriesCard's. */}
         {unread > 0 && (
-          <span className={`absolute end-1.5 top-1.5 z-10 rounded-[4px] bg-accent font-bold text-black ${compact ? 'px-1 text-[9px]' : 'px-1.5 py-0.5 text-[10px]'}`}>
+          <span className={`absolute end-1.5 top-1.5 z-10 rounded-[4px] bg-accent font-bold text-black ${compact ? 'px-1 text-[9px] pointer-coarse:text-[11px]' : 'px-1.5 py-0.5 text-[10px] pointer-coarse:text-[11px]'}`}>
             <UnreadCount n={unread} />
           </span>
         )}
         {(series.yomi?.newCount ?? 0) > 0 && (
-          <span className={`absolute bottom-1.5 start-1.5 z-10 rounded-[4px] bg-accent font-bold uppercase text-black ${compact ? 'px-1 text-[8px]' : 'px-1.5 py-0.5 text-[9px]'}`}>{tr('New')}</span>
+          <span className={`absolute bottom-1.5 start-1.5 z-10 rounded-[4px] bg-accent font-bold uppercase text-black ${compact ? 'px-1 text-[8px] pointer-coarse:text-[11px]' : 'px-1.5 py-0.5 text-[9px] pointer-coarse:text-[11px]'}`}>{tr('New')}</span>
         )}
         <CoverReadBar series={series} />
       </div>
@@ -412,11 +412,11 @@ export function SeriesTile({ series, eager = false, selectable, selected, onTogg
         {title}
       </p>
       <NoteLine note={note} attr="data-sort-value"
-        className={`mt-0.5 flex min-w-0 items-center gap-1 ${compact ? 'text-[10px]' : 'text-[11px]'} leading-tight text-fog-500 tabular-nums`} />
+        className={`mt-0.5 flex min-w-0 items-center gap-1 ${compact ? 'text-[10px] pointer-coarse:text-[11px]' : 'text-[11px]'} leading-tight text-fog-500 tabular-nums`} />
       {/* The work's languages (v0.52.0, #72): the Library shows one card for every language edition the viewer may
           browse, and this line says so -- `EN · ES-419`, the edition this card opens brighter. The names are its
           title, for a hover and a screen reader. */}
-      <EditionLangs series={series} className="mt-0.5 truncate text-[10px] font-semibold tracking-wide text-fog-600" />
+      <EditionLangs series={series} className="mt-0.5 truncate text-[10px] pointer-coarse:text-[11px] font-semibold tracking-wide text-fog-600" />
     </>
   );
   if (selectable) {
@@ -458,7 +458,7 @@ export function SeriesRow({ series, eager = false, selectable, selected, onToggl
   const readLine = !sorted && lastRead && Number.isFinite(Date.parse(lastRead)) ? tr('Read {when}', { when: relativeTime(lastRead) }) : '';
   const score = anilistNumbers(series.yomi?.anilist)?.score ?? null;
   const body = (
-    <div className={`flex items-center gap-3 rounded-2xl border p-2 pe-3 transition-colors duration-200 lg:pointer-fine:pe-12 ${
+    <div className={`flex items-center gap-3 rounded-2xl border p-2 pe-3 transition-colors duration-200 lg:pointer-fine:pe-12 pointer-coarse:pe-14 ${
       selected ? 'border-accent/70 bg-accent/10' : 'border-ink-800/80 bg-ink-900/40 group-hover:border-ink-700 group-hover:bg-ink-850/70'}`}>
       <div style={tint} className="grad-border relative h-[4.5rem] w-12 shrink-0 overflow-hidden rounded-lg border border-ink-700/60">
         <Img src={img.seriesThumb(series.id)} alt="" eager={eager} className="h-full w-full" />
@@ -475,7 +475,7 @@ export function SeriesRow({ series, eager = false, selectable, selected, onToggl
       </div>
       <div className="min-w-0 flex-1">
         <p dir="auto" className="truncate text-sm font-medium leading-snug text-fog-100">{title}</p>
-        <EditionLangs series={series} className="truncate text-[10px] font-semibold tracking-wide text-fog-600" />
+        <EditionLangs series={series} className="truncate text-[10px] pointer-coarse:text-[11px] font-semibold tracking-wide text-fog-600" />
         {sorted
           ? <NoteLine note={note} attr="data-sort-value" className="mt-0.5 flex min-w-0 items-center gap-1 text-[11px] leading-tight text-fog-500 tabular-nums" />
           : readLine && <p data-row-read className="mt-0.5 truncate text-[11px] leading-tight text-fog-500">{readLine}</p>}
@@ -503,10 +503,10 @@ export function SeriesRow({ series, eager = false, selectable, selected, onToggl
         <span className="flex items-center gap-1">
           {series.yomi?.favorite && <IcHeart aria-label={tr('Favourite')} role="img" width={12} height={12} fill="currentColor" stroke="none" className="text-accent" />}
           {(series.yomi?.newCount ?? 0) > 0 && (
-            <span className="rounded-[4px] bg-accent px-1.5 py-0.5 text-[9px] font-bold uppercase text-black">{tr('New')}</span>
+            <span className="rounded-[4px] bg-accent px-1.5 py-0.5 text-[9px] pointer-coarse:text-[11px] font-bold uppercase text-black">{tr('New')}</span>
           )}
           {unread > 0 && (
-            <span className="rounded-[4px] bg-accent px-1.5 py-0.5 text-[10px] font-bold text-black">
+            <span className="rounded-[4px] bg-accent px-1.5 py-0.5 text-[10px] pointer-coarse:text-[11px] font-bold text-black">
               <UnreadCount n={unread} />
             </span>
           )}
@@ -520,7 +520,7 @@ export function SeriesRow({ series, eager = false, selectable, selected, onToggl
   return (
     <div className="group relative">
       <Link href={`/series/?id=${series.id}`} className="block" {...menu.bind}>{body}</Link>
-      <MoreKey menu={menu} title={title} className="absolute end-2.5 top-1/2 hidden -translate-y-1/2 lg:pointer-fine:grid" />
+      <MoreKey menu={menu} title={title} className="absolute end-2.5 top-1/2 hidden -translate-y-1/2 lg:pointer-fine:grid pointer-coarse:grid pointer-coarse:size-10 pointer-coarse:opacity-100" />
       {menu.element}
     </div>
   );
