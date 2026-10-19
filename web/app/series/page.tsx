@@ -767,7 +767,7 @@ function SeriesInner() {
   const [editing, setEditing] = useState<EditTab | null>(null);
   const [collecting, setCollecting] = useState(false);
   const [findingMissing, setFindingMissing] = useState(false);
-  const [asc, setAsc] = useState(true);
+  const [asc, setAsc] = useState(false);
   const [downloaded, setDownloaded] = useState<Set<string>>(new Set());
   const [showSummary, setShowSummary] = useState(false);
   const [downloadingAll, setDownloadingAll] = useState(false);

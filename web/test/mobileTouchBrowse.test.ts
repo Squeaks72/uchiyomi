@@ -54,3 +54,8 @@ test('the chapter list can hide finished chapters, per device', () => {
   assert.match(s, /setHideReadOn\(next\)/, 'the choice is not remembered on this device');
   assert.match(s, /setChapterPage\(null\); \}, \[id, asc, group, showGhosts, hideRead\]/, 'the page is not decided again when read chapters are hidden');
 });
+
+test('the chapter list opens newest first', () => {
+  const s = readFileSync(join(__dirname, '..', 'app/series/page.tsx'), 'utf8');
+  assert.match(s, /const \[asc, setAsc\] = useState\(false\);/, 'the chapter list opens oldest first again');
+});
