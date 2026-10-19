@@ -172,7 +172,7 @@ function AppearanceSection() {
                 eight tab stops on this tab, so keyboard focus was invisible until the emoji grid. */}
             {AVATAR_COLORS.map((c) => (
               <button key={c} type="button" onClick={() => saveAvatar({ color: c })} aria-label={colorName(c)} aria-pressed={av.color === c}
-                className={`h-7 w-7 rounded-full ${av.color === c ? 'ring-2 ring-white ring-offset-2 ring-offset-ink-850' : ''}`}
+                className={`h-7 w-7 pointer-coarse:h-9 pointer-coarse:w-9 rounded-full ${av.color === c ? 'ring-2 ring-white ring-offset-2 ring-offset-ink-850' : ''}`}
                 style={{ background: c }} />
             ))}
           </div>

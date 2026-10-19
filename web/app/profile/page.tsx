@@ -215,7 +215,7 @@ function ProfileInner() {
       <header className="bleed relative isolate mb-6 overflow-hidden lg:mt-2 lg:rounded-3xl">
         {/* Taller than the spec's 46vh on a phone: the identity ladder, the fact pills and four verbs do not
             fit 388px, and the block is bottom-aligned, so anything that does not fit is clipped off the top. */}
-        <div className="relative h-[56vh] min-h-[360px] lg:h-[min(420px,52vh)] xl:h-[min(460px,56vh)]">
+        <div className="relative h-[44dvh] min-h-[300px] sm:h-[56vh] sm:min-h-[360px] lg:h-[min(420px,52vh)] xl:h-[min(460px,56vh)]">
           {anchorId && (
             <motion.div className="absolute inset-0"
               initial={still ? false : { opacity: 0, scale: 1.06 }} animate={{ opacity: 1, scale: 1 }}

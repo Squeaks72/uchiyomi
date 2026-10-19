@@ -427,7 +427,7 @@ test('Your sources\' tools sit at the end of the views\' row, as icons on a phon
   assert.match(panel, /<div className="flex flex-wrap items-end justify-between gap-x-3 border-b border-ink-800\/80">\s*<ViewTabs /, 'the views\' row overflows rather than wraps');
   const ext = slice(tools, 'export function ExtensionTools(', 'const AMBER_KEY');
   for (const hook of ['data-ext-languages', 'data-ext-refresh']) {
-    const key = new RegExp(`<button [^>]*aria-label=\\{[^}]+\\} title=\\{[^}]+\\}\\s*className=\\{?[\`"]btn-key w-8 px-0 sm:w-auto sm:px-3[^>]*${hook}>`);
+    const key = new RegExp(`<button [^>]*aria-label=\\{[^}]+\\} title=\\{[^}]+\\}\\s*className=\\{?[\`"]btn-key w-8 pointer-coarse:w-10 px-0 sm:w-auto sm:px-3[^>]*${hook}>`);
     assert.match(ext, key, `${hook} is not a named icon key on a phone`);
   }
   assert.equal((ext.match(/<span className="hidden sm:inline">/g) ?? []).length, 3, 'a tool\'s words show on a phone');

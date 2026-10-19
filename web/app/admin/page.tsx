@@ -852,8 +852,8 @@ function ArtPicker({ row, onClose, onApplied }: { row: ArtRow; onClose: () => vo
                 <p id={`art-cand-${i}`} className="truncate text-[11px] text-fog-300">{c.title}</p>
                 <p className="text-[11px] uppercase tracking-wide text-fog-500">{c.origin}</p>
                 <div className="mt-1.5 flex gap-1.5">
-                  {c.banner && <button onClick={() => apply('banner', c.banner!)} aria-describedby={`art-cand-${i}`} disabled={busy} className="btn-accent flex-1 px-2 py-1 text-[11px] disabled:opacity-50">{tr('Use as banner')}</button>}
-                  {c.cover && <button onClick={() => apply('cover', c.cover!)} aria-describedby={`art-cand-${i}`} disabled={busy} className="btn-ghost flex-1 px-2 py-1 text-[11px] disabled:opacity-50">{tr('Use as cover')}</button>}
+                  {c.banner && <button onClick={() => apply('banner', c.banner!)} aria-describedby={`art-cand-${i}`} disabled={busy} className="btn-accent flex-1 px-2 py-1 pointer-coarse:py-2.5 text-[11px] pointer-coarse:text-xs disabled:opacity-50">{tr('Use as banner')}</button>}
+                  {c.cover && <button onClick={() => apply('cover', c.cover!)} aria-describedby={`art-cand-${i}`} disabled={busy} className="btn-ghost flex-1 px-2 py-1 pointer-coarse:py-2.5 text-[11px] pointer-coarse:text-xs disabled:opacity-50">{tr('Use as cover')}</button>}
                 </div>
               </div>
             </div>
@@ -1520,7 +1520,7 @@ function LibraryDialog({ editing, start, libs, onClose, onSaved }: {
           <span className="mt-1 block text-[11px] leading-relaxed text-fog-500">
             {tr("Used for every series in this library, unless the series or its source has its own.")}
           </span>
-          <div className="mt-2 grid grid-cols-2 gap-2">
+          <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
             {([
               ['mode', tr('Reading mode'), [['vertical', tr('Webtoon (scroll)')], ['paged', tr('Paged (swipe)')]]],
               ['spread', tr('Pages per view'), [['false', tr('Single')], ['true', tr('Double spread')]]],
@@ -2272,8 +2272,8 @@ function Health() {
                         // arrow is held to the last word by a no-break space).
                         links={healthLinks(c.id, it).map((l) => (
                           it.seriesId && l.href.endsWith('&attach=1')
-                            ? (it.actions?.includes('find_sources') ? null : <FindSourceLink key={l.href} id={it.seriesId} className="line-clamp-2 max-w-[11rem] break-words text-end text-xs text-accent hover:underline" />)
-                            : <Link key={l.href} href={l.href} className="line-clamp-2 max-w-[11rem] break-words text-end text-xs text-accent hover:underline"
+                            ? (it.actions?.includes('find_sources') ? null : <FindSourceLink key={l.href} id={it.seriesId} className="line-clamp-2 max-w-[11rem] break-words text-end text-xs text-accent hover:underline pointer-coarse:-my-1 pointer-coarse:py-2.5" />)
+                            : <Link key={l.href} href={l.href} className="line-clamp-2 max-w-[11rem] break-words text-end text-xs text-accent hover:underline pointer-coarse:-my-1 pointer-coarse:py-2.5"
                             title={l.label} aria-label={l.label ? `${tr('Open')}: ${l.label}` : undefined}
                             // A page off the app (the install guide, v0.52.0) opens beside it, never in place of it.
                             {...(/^https?:\/\//.test(l.href) ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>
@@ -2281,10 +2281,10 @@ function Health() {
                           </Link>
                         )).concat(it.seriesId && c.id === 'chapter-gaps' ? [
                           <FindMissingLink key="find-missing" id={it.seriesId}
-                            className="line-clamp-2 max-w-[11rem] break-words text-end text-xs text-accent hover:underline" />,
+                            className="line-clamp-2 max-w-[11rem] break-words text-end text-xs text-accent hover:underline pointer-coarse:-my-1 pointer-coarse:py-2.5" />,
                         ] : []).concat(it.seriesId && c.id !== 'duplicates' ? [
                           <SeriesRowTools key="tools" id={it.seriesId} title={it.title} details={c.id === 'details'} remove={!it.actions?.includes('remove_series')}
-                            className="line-clamp-2 max-w-[11rem] break-words text-end text-xs text-accent hover:underline" />,
+                            className="line-clamp-2 max-w-[11rem] break-words text-end text-xs text-accent hover:underline pointer-coarse:-my-1 pointer-coarse:py-2.5" />,
                         ] : [])}>
                         {/* The server's words, in the reader's language where it sent their codes (lib/said.ts) and
                             in English where it could not (a folder's own error); a title in any script: `dir="auto"`,

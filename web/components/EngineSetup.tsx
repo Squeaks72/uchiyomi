@@ -104,7 +104,7 @@ function Steps({ steps }: { steps: Step[] }) {
 function PlatformChips({ value, onChange }: { value: Platform; onChange: (p: Platform) => void }) {
   return (
     // A radio group takes the arrow keys, and only the chosen chip is a Tab stop.
-    <div role="radiogroup" aria-label={tr('Where Uchiyomi runs')} className="hide-scrollbar -mx-1 mt-3 flex gap-1.5 overflow-x-auto px-1 pb-0.5"
+    <div role="radiogroup" aria-label={tr('Where Uchiyomi runs')} className="hide-scrollbar -mx-1 mt-3 flex gap-1.5 overflow-x-auto px-1 pb-0.5 max-lg:flex-wrap max-lg:overflow-visible"
       onKeyDown={(e) => {
         const step = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0;
         if (!step) return;
@@ -117,7 +117,7 @@ function PlatformChips({ value, onChange }: { value: Platform; onChange: (p: Pla
       }}>
       {PLATFORM_CHIPS.map((p) => (
         <ToggleChip key={p} on={value === p} aria-pressed={undefined} role="radio" aria-checked={value === p} tabIndex={value === p ? 0 : -1} onClick={() => onChange(p)}
-          className="shrink-0 whitespace-nowrap px-2.5 py-1 text-xs">
+          className="shrink-0 whitespace-nowrap px-2.5 py-1 pointer-coarse:py-2 text-xs">
           {platformLabel(p)}
         </ToggleChip>
       ))}
@@ -339,7 +339,7 @@ export function EngineReady({ status, desktop }: { status: ExtStatus; desktop: b
           {!desktop && (
             <button type="button" onClick={(e) => menu.openFrom(e.currentTarget)} aria-label={tr('More')} title={tr('More')}
               aria-haspopup="menu" aria-expanded={menu.open} data-engine-more
-              className="btn-key w-8 border-transparent bg-transparent px-0 text-fog-400 hover:border-ink-600 hover:bg-ink-800/70 hover:text-fog-100">
+              className="btn-key w-8 pointer-coarse:w-10 border-transparent bg-transparent px-0 text-fog-400 hover:border-ink-600 hover:bg-ink-800/70 hover:text-fog-100">
               <IcMore aria-hidden width={16} height={16} />
             </button>
           )}

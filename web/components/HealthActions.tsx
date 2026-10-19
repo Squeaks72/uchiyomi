@@ -791,7 +791,7 @@ export function HealthRow({ check, item, rowKey, links, children, compact }: {
         )}
         <button type="button" data-health-more onClick={(e) => menu.openFrom(e.currentTarget)}
           aria-haspopup="menu" aria-expanded={menu.open} aria-label={`${tr('More')}: ${compact.name}`}
-          className="btn-key col-start-4 row-start-1 w-8 px-0 text-fog-400 sm:row-end-3">
+          className="btn-key col-start-4 row-start-1 w-8 pointer-coarse:w-10 px-0 text-fog-400 sm:row-end-3">
           <svg aria-hidden width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8" /><circle cx="12" cy="12" r="1.8" /><circle cx="19" cy="12" r="1.8" /></svg>
         </button>
         <div className="col-start-2 col-end-5 row-start-3 min-w-0">

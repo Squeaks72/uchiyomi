@@ -51,3 +51,11 @@ test('a finger\'s double-tap is decided by the pointer path alone, not by the br
   // The synthesized dblclick after two edge taps zoomed the page right after the gesture module had said "two taps".
   assert.match(read('app/reader/page.tsx'), /if \(lastPointer\.current !== 'mouse'\) return;/, 'a touch double-tap raises dblclick and zooms from an edge');
 });
+
+test('the series list brings the unread chapter into view once, and a revoke/role/disable needs a second press on a phone', () => {
+  const s = read('app/series/page.tsx');
+  assert.match(s, /arrivedAt\.current === id\) return;/, 'the unread chapter is not scrolled to');
+  assert.match(s, /document\.getElementById\(`ch-\$\{resumeBook\.number\}`\)/, 'the scroll target is not the resume row');
+  assert.match(read('components/ArmButton.tsx'), /export function ConfirmKey/, 'ConfirmKey is gone');
+  assert.match(read('app/admin/page.tsx'), /<ConfirmKey onConfirm=\{\(\) => revoke\(s\.id\)\}/, 'Revoke fires on one mis-tap');
+});

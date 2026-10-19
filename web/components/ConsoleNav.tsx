@@ -56,6 +56,11 @@ export function ConsoleNav<T extends string>({
 }) {
   const [sheet, setSheet] = useState(false);
   const reduced = useReduceEffects();
+  // The phone's tab row scrolls sideways with its bar hidden: keep the current tab in view (Profile's last tab sat at the edge).
+  const stripRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    stripRef.current?.querySelector<HTMLElement>('[aria-current="page"]')?.scrollIntoView({ inline: 'nearest', block: 'nearest' });
+  }, [tab]);
   const group = groups.find((g) => (g.tabs as readonly string[]).includes(tab)) ?? groups[0];
 
   return (
@@ -105,8 +110,8 @@ export function ConsoleNav<T extends string>({
                 row is the only tab navigation, so the current tab says so the way the desktop rail does -- the line
                 alone is invisible to a screen reader. */}
             {/* A landmark of its own: in strip mode there is no desktop rail to be one (only one of the two is ever shown). */}
-            <div role="navigation" aria-label={ariaLabel}
-              className={`-me-4 flex min-w-0 flex-1 gap-5 overflow-x-auto border-b border-ink-800/80 pe-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${strip ? 'lg:me-0 lg:pe-0' : ''}`}>
+            <div role="navigation" aria-label={ariaLabel} ref={stripRef}
+              className={`-me-4 ltr:pointer-coarse:[mask-image:linear-gradient(to_right,#000_90%,transparent)] flex min-w-0 flex-1 gap-5 overflow-x-auto border-b border-ink-800/80 pe-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${strip ? 'lg:me-0 lg:pe-0' : ''}`}>
               {group.tabs.map((t) => (
                 <button key={t} onClick={() => onTab(t)}
                   aria-current={tab === t ? 'page' : undefined}

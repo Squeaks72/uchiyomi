@@ -143,12 +143,12 @@ export function ExtensionTools({ actions, onLanguages }: { actions: ExtActions; 
   return (
     <>
       <button type="button" onClick={onLanguages} aria-label={tr('Languages')} title={tr('Languages')}
-        className="btn-key w-8 px-0 sm:w-auto sm:px-3" data-ext-languages>
+        className="btn-key w-8 pointer-coarse:w-10 px-0 sm:w-auto sm:px-3" data-ext-languages>
         <IcGlobe aria-hidden width={15} height={15} />
         <span className="hidden sm:inline">{tr('Languages')}</span>
       </button>
       <button type="button" onClick={actions.refresh} disabled={checking} aria-label={check} title={check}
-        className={`btn-key w-8 px-0 sm:w-auto sm:px-3 ${busyKey(checking)}`} data-ext-refresh>
+        className={`btn-key w-8 pointer-coarse:w-10 px-0 sm:w-auto sm:px-3 ${busyKey(checking)}`} data-ext-refresh>
         {checking ? <Busy><span className="hidden sm:inline">{check}</span></Busy>
           : <><IcRefresh aria-hidden width={14} height={14} /><span className="hidden sm:inline">{check}</span></>}
       </button>

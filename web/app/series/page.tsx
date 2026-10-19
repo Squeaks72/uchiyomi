@@ -1088,6 +1088,23 @@ function SeriesInner() {
     requestAnimationFrame(() => requestAnimationFrame(() =>
       document.getElementById(`ch-${n}`)?.scrollIntoView({ block: 'center', behavior: still ? 'auto' : 'smooth' })));
   }, [wantCh, ghostsRead, id, books, listingSettled, rows, pageSize]);
+  // The page is the right page, but a page is 100 rows: in the columns layout that is twenty lines or more, and the
+  // chapter Continue would open can be well below the fold. Once per series, when the list has settled on its page,
+  // bring that row into view -- unless the reader has already scrolled, a link named a chapter (above), or it is
+  // already on screen. `ch-N` is the row's id; a chapter folded into a run has none and nothing happens.
+  const arrivedAt = useRef<string | null>(null);
+  useEffect(() => {
+    if (chapterPage === null || !resumeBook || wantCh !== null || arrivedAt.current === id) return;
+    arrivedAt.current = id;
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      if (window.scrollY > 300) return;
+      const el = document.getElementById(`ch-${resumeBook.number}`);
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      if (r.top >= 0 && r.bottom <= window.innerHeight - 96) return;
+      el.scrollIntoView({ block: 'center', behavior: 'auto' });
+    }));
+  }, [chapterPage, resumeBook, wantCh, id]);
   useEffect(() => {
     if (litCh === null) return;
     const t = setTimeout(() => setLitCh(null), 2600);
