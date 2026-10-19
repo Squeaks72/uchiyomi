@@ -31,6 +31,7 @@ import { useToast } from '@/components/Toast';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { Switch } from '@/components/Switch';
 import { IcFilter, IcRefresh, IcSettings, IcSliders, IcTrash } from '@/components/icons';
+import { ageRequest } from '@/lib/sourceAge';
 import { Disclosure, NumberRow, Row, SETTINGS_GRID, SaveState, Section, SectionIndex, Segmented, SwitchRow, TextRow, useAutosave } from '@/components/settings';
 import { nightlyModeOf, type NightlyMode } from '@/lib/autofix';
 import { t as tr } from '@/lib/i18n';
@@ -45,7 +46,7 @@ import { ssoOnly, useAuthConfig } from '@/lib/authConfig';
 import { adultShown } from '@/lib/adult';
 import { addable, moveIn, orderRows } from '@/lib/sourceOrder';
 import { discoverSources } from '@/lib/sourceGroups';
-import { OVERVIEW_KEY, OVERVIEW_URL, type SourcesOverview } from '@/lib/sourcesPanel';
+import { OVERVIEW_KEY, OVERVIEW_URL, type OverviewSource, type SourcesOverview } from '@/lib/sourcesPanel';
 
 /** One PATCH. Resolves once the server has answered, so the row that called it can show its tick. */
 type Save = (body: Record<string, unknown>) => Promise<unknown>;
@@ -235,13 +236,61 @@ function AdultFilterSection({ data, save }: { data: any; save: Save }) {
           ))}
         </div>
       </div>
+      <MixedSourcesPicker />
       <p className="max-w-prose py-3 text-[11px] leading-relaxed text-fog-500" data-source-ratings-note>
         {tr('A whole source is rated on its own sheet: Sources ▸ the source ▸ Age rating. Adult only also keeps it from accounts limited below 18.')}
       </p>
       <p className="py-3 text-[11px] leading-relaxed text-fog-500">
         {tr('One series can be let through on its own page — Edit details ▸ “Always show”.')}
       </p>
+      {/* Fork: Mixed sources (Sources ▸ a source ▸ Age rating ▸ Mixed). Off, a title from one that nothing can judge -- no genres, no
+          rating, as most extensions return in a search -- stays out while Show 18+ is off: the safe default. */}
+      <div data-mixed-unknown>
+        <SwitchRow label={tr('Show titles from Mixed sources that cannot be judged')}
+          help={tr('A Mixed source is searched while “Show 18+” is off and each title is judged by its genres and rating. Titles with neither are hidden unless this is on.')}
+          on={data.mixedShowUnknown === true} onChange={(next) => save({ mixedShowUnknown: next })} />
+      </div>
     </Section>
+  );
+}
+
+/**
+ * Mixed sources, in one place (fork): every source its extension flags 18+, with a switch for each. A flagged source is out of
+ * Discover and search while Show 18+ is off, mainstream ones like MangaDex EN, Weeb Central or Tapas included, because an extension
+ * flags the WHOLE site if it can carry anything adult. Mixed keeps it in, and judges each title (adult genres and ratings stay out).
+ * The same PUT as the source's own sheet (Age rating); Adult only is that sheet's.
+ */
+function MixedSourcesPicker() {
+  const toast = useToast();
+  const qc = useQueryClient();
+  const { data } = useQuery({ queryKey: OVERVIEW_KEY, queryFn: () => api<SourcesOverview>(OVERVIEW_URL), staleTime: 30_000 });
+  const [busy, setBusy] = useState<string | null>(null);
+  const flagged = (data?.sources ?? []).filter((s) => !s.backup && ((s.defaultAgeRating ?? 0) >= 18 || s.mixed) && (s.ageRating ?? 0) < 18);
+  if (!flagged.length) return null;
+  const set = async (s: OverviewSource, mixed: boolean) => {
+    setBusy(s.id);
+    try {
+      await api(`/api/admin/sources/${encodeURIComponent(s.id)}/age-rating`, { method: 'PUT', json: ageRequest(mixed ? 'mixed' : 'default') });
+      await qc.invalidateQueries({ queryKey: OVERVIEW_KEY });
+      void qc.invalidateQueries({ queryKey: ['sources'] });
+      void qc.invalidateQueries({ queryKey: ['adult-filter'] });
+    } catch { toast(tr('Could not save'), 'error'); }
+    setBusy(null);
+  };
+  return (
+    <div className="py-3" data-mixed-sources>
+      <p className="mb-2 max-w-prose text-[11px] leading-relaxed text-fog-500">
+        {tr('Sources their extension marks 18+. Tick the ones that are mostly not, to keep searching them while “Show 18+” is off: each title is judged on its own.')}
+      </p>
+      <div className="flex flex-wrap gap-1.5">
+        {flagged.map((s) => (
+          <button key={s.id} type="button" disabled={busy === s.id} onClick={() => void set(s, !s.mixed)} aria-pressed={!!s.mixed}
+            className={`chip whitespace-nowrap disabled:opacity-50 ${s.mixed ? 'chip-active' : ''}`}>
+            {s.name}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
 

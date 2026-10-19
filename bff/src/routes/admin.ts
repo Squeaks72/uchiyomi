@@ -62,7 +62,7 @@ import sharp from 'sharp';
 import { ART_BODY_LIMIT, ART_DIR, FIRST_PAGE, artFile, artOverview } from '../lib/seriesArt';
 import { writePreflight } from '../lib/fsGuard';
 // Admin stats report on the whole library by definition; this route is already behind requireAdmin.
-import { NO_LIBRARIES, SYSTEM_CTX, visibleToAll, sanitiseAdultList, sanitiseSourceIds, invalidateAdultFilter, applyAdultSources, rateSourceAdult, MAX_ADULT_SOURCES, browsableIds, nameableIds, viewCtxFor, hideAdult, ADULT_RATING } from '../lib/visibility';
+import { NO_LIBRARIES, SYSTEM_CTX, visibleToAll, sanitiseAdultList, sanitiseSourceIds, invalidateAdultFilter, applyAdultSources, rateSourceMixed, sourceRatedMixed, rateSourceAdult, MAX_ADULT_SOURCES, browsableIds, nameableIds, viewCtxFor, hideAdult, ADULT_RATING } from '../lib/visibility';
 import { cleanSourceOrder, invalidateSourcePrefs } from '../lib/sourcePrefs';
 import { keepRestricted, memberDefaults, memberDefaultsShape, permsShape, saveMemberDefaults } from '../lib/memberDefaults';
 import { borrowNamesFor, clearBorrowedNames } from '../lib/borrowNames';
@@ -636,6 +636,8 @@ export default async function adminRoutes(app: FastifyInstance) {
     // v0.55.0: what the nightly runs, `repair` (the safe repair) or `autofix` (Fix everything). Read apart from the
     // columns above and said as the contract names it; an unknown value reads as the default.
     const mode = await one<{ m: string | null }>('SELECT nightly_mode AS m FROM server_settings WHERE id = 1').catch(() => null);
+    // Fork: whether a title nothing can judge is shown from a Mixed source while Show 18+ is off (Admin -> Settings -> 18+ filter).
+    const mixedUnknown = await one<{ s: boolean | null }>('SELECT mixed_show_unknown AS s FROM server_settings WHERE id = 1').catch(() => null);
     // v0.55.3 (#147): "Only hide short ones" -- the notice switches' rule (lib/noticeChapters.ts). Read apart and said
     // as the contract names it, as nightlyMode is; on unless the column says off.
     const shortOnly = await one<{ s: boolean | null }>('SELECT hide_notice_short_only AS s FROM server_settings WHERE id = 1').catch(() => null);
@@ -647,6 +649,7 @@ export default async function adminRoutes(app: FastifyInstance) {
       backup_keep: backups.keep,
       nightlyMode: mode?.m === 'autofix' ? 'autofix' : 'repair',
       hideNoticeShortOnly: shortOnly?.s !== false,
+      mixedShowUnknown: mixedUnknown?.s === true,
       extensions_configured: suwayomiConfigured(),
       // How many chapters the read-chapter cleanup would delete if it ran now, at the CURRENT day setting.
       // Computed here rather than only in the tasks list because the tasks list does not show the job until
@@ -764,6 +767,7 @@ export default async function adminRoutes(app: FastifyInstance) {
       adultGenres: z.array(z.string().min(1).max(60)).max(60).optional(),
       // Deprecated (fork): folded into source_ratings at boot and no longer written by the settings page; still honoured if set.
       adultSources: z.array(z.string().min(1).max(120)).max(200).optional(),
+      mixedShowUnknown: z.boolean().optional(),
       /**
        * Source ids, most preferred first (lib/sourcePrefs.ts): which copy of a chapter the server does not
        * have yet is taken, when a series follows more than one source. Checked by shape, not against the
@@ -917,7 +921,8 @@ export default async function adminRoutes(app: FastifyInstance) {
     }
     // The view context caches these for a few seconds; a save must take effect on the next request,
     // not whenever that window happens to lapse.
-    if (b.adultGenres !== undefined || b.adultSources !== undefined) invalidateAdultFilter();
+    if (b.mixedShowUnknown !== undefined) await q('UPDATE server_settings SET mixed_show_unknown = $1, updated_at = now() WHERE id = 1', [b.mixedShowUnknown]);
+    if (b.adultGenres !== undefined || b.adultSources !== undefined || b.mixedShowUnknown !== undefined) invalidateAdultFilter();
     if (b.groupUpgrade !== undefined) await q('UPDATE server_settings SET group_upgrade = $1, updated_at = now() WHERE id = 1', [b.groupUpgrade]);
     if (b.discoverLookups !== undefined) {
       await q('UPDATE server_settings SET discover_lookups = $1, updated_at = now() WHERE id = 1', [b.discoverLookups]);
@@ -4021,6 +4026,22 @@ export default async function adminRoutes(app: FastifyInstance) {
     return { content: [...found.values()], unmatched };
   });
 
+  /**
+   * Keep every backup extension (fork): each becomes the admin's -- in Discover, never removed for being unused -- in one call, and
+   * the sources are reloaded once. The Extensions panel's "Keep all". A package that is not a backup is theirs already.
+   */
+  app.post('/api/admin/extensions/backups/keep-all', async (req, reply) => {
+    if (needExt(reply)) return;
+    const rows = await backupRows();
+    let kept = 0;
+    for (const [pkg, r] of rows) {
+      if (r.state !== 'active' && r.state !== 'trial') continue;
+      if (await adoptBackup(pkg, { userId: userIdOf(req), reload: false })) kept++;
+    }
+    if (kept) await reloadAll().catch(() => null);
+    return { ok: true, kept };
+  });
+
   app.post('/api/admin/extensions/catalog/:pkgName', async (req, reply) => {
     if (needExt(reply)) return;
     const { pkgName } = req.params as { pkgName: string };
@@ -5118,18 +5139,28 @@ export default async function adminRoutes(app: FastifyInstance) {
    */
   app.put('/api/admin/sources/:id/age-rating', async (req, reply) => {
     const { id } = req.params as { id: string };
-    const b = z.object({ ageRating: z.union([z.literal(ADULT_RATING), z.null()]) }).strict().safeParse(req.body ?? {});
+    // `mixed: true` (fork): rate the source Mixed -- still asked with Show 18+ off, each title judged on its own. Only a
+    // SURFACING choice; the age cap still refuses the whole source (sourceAllowedFor), and it excludes Adult only.
+    const b = z.object({ ageRating: z.union([z.literal(ADULT_RATING), z.null()]), mixed: z.boolean().optional() }).strict().safeParse(req.body ?? {});
     if (!b.success || !sanitiseSourceIds([id]).length) {
-      return reply.code(400).send({ error: 'bad_request', message: 'Send {ageRating: 18} or {ageRating: null}.' });
+      return reply.code(400).send({ error: 'bad_request', message: 'Send {ageRating: 18}, {ageRating: null} or {ageRating: null, mixed: true}.' });
     }
     const adult = b.data.ageRating === ADULT_RATING;
+    if (adult || !b.data.mixed) await rateSourceMixed(id, false);
+    if (b.data.mixed && !adult) {
+      const m = await rateSourceMixed(id, true);
+      if (!m) {
+        const said = say('rating.tooMany', { limit: MAX_ADULT_SOURCES });
+        return reply.code(409).send({ error: 'too_many', message: said.text, messageSaid: saidOf(said) });
+      }
+    }
     const list = await rateSourceAdult(id, adult);
     if (adult && !list) {
       const said = say('rating.tooMany', { limit: MAX_ADULT_SOURCES });
       return reply.code(409).send({ error: 'too_many', message: said.text, messageSaid: saidOf(said) });
     }
-    await logAudit('source.age_rating', { userId: userIdOf(req), detail: { source: id, ageRating: b.data.ageRating }, req });
-    return reply.send({ ok: true, ageRating: b.data.ageRating });
+    await logAudit('source.age_rating', { userId: userIdOf(req), detail: { source: id, ageRating: b.data.ageRating, mixed: !!b.data.mixed && !adult }, req });
+    return reply.send({ ok: true, ageRating: b.data.ageRating, mixed: !!b.data.mixed && !adult });
   });
 
   app.post('/api/admin/sources/:id/:action', async (req, reply) => {

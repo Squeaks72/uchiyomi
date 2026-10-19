@@ -12,6 +12,7 @@ import { setTypeToSearchOn, typeToSearchOn } from '@/lib/typeToSearch';
 import { showAllChaptersOn } from '@/lib/showAllChapters';
 import { contextMenusOn, setContextMenusOn } from '@/lib/contextMenus';
 import { compactChaptersOn, setCompactChaptersOn } from '@/lib/compactChapters';
+import { keepAdultOn, setKeepAdultOn } from '@/lib/adult';
 import { useBanners } from '@/lib/bannerPref';
 import { ReaderPrefs, loadPrefs, savePrefs, syncPrefsFromServer } from '@/lib/readerPrefs';
 import { Avatar, AVATAR_EMOJIS, AVATAR_COLORS } from '@/components/Avatar';
@@ -142,6 +143,8 @@ function AppearanceSection() {
   const [banners, setBanners] = useBanners();
   const [compactList, setCompactList] = useState(false);
   useEffect(() => { setCompactList(compactChaptersOn()); }, []);
+  const [keepAdult, setKeepAdult] = useState(false);
+  useEffect(() => { setKeepAdult(keepAdultOn()); }, []);
   const [contextMenus, setContextMenus] = useState(true);
   useEffect(() => { setContextMenus(contextMenusOn()); }, []);
   // Show all chapters at once (lib/showAllChapters.ts): on the account like Reduce effects, so every device the
@@ -245,6 +248,11 @@ function AppearanceSection() {
       <SwitchRow label={tr('Right-click menus')}
         help={tr('Right-click a series or a chapter, or press and hold one on a touchscreen, for its actions. Shift+right-click still opens the browser’s own menu. This device only.')}
         on={contextMenus} onChange={(next) => { setContextMenusOn(next); setContextMenus(next); }} />
+
+      {/* This device only (lib/adult.ts keepAdultOn): Show 18+ lasts a year here instead of ending with the browser session. */}
+      <SwitchRow label={tr('Remember Show 18+ on this device')}
+        help={tr('Show 18+ normally switches itself off when the browser session ends. With this on, turning it on stays on for a year on this device. Off by default; this device only.')}
+        on={keepAdult} onChange={(next) => { setKeepAdultOn(next); setKeepAdult(next); }} />
 
       <SwitchRow label={tr('Compact chapter list')}
         help={tr('On a computer, chapter rows without thumbnails, and their buttons appear when you point at a row. Phones and tablets are unchanged. This device only.')}

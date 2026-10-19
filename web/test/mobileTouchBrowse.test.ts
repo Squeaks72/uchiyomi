@@ -77,3 +77,16 @@ test('the Versions sheet can read a version and delete the server file', () => {
   assert.match(page, /setPreviewing\(\{ source: src\.sourceId,/, 'Read on another copy does not open the source preview');
   assert.match(readFileSync(join(__dirname, '..', 'components/PreviewReader.tsx'), 'utf8'), /if \(initialNumber != null\) \{ setNumber\(initialNumber\); push\(2\); \}/, 'the preview cannot open on a chapter');
 });
+
+test('Show 18+ can be remembered per device, Discover says how many sources it hides, Keep all exists for backups', () => {
+  const root = join(__dirname, '..');
+  const adult = readFileSync(join(root, 'lib/adult.ts'), 'utf8');
+  assert.match(adult, /\$\{keepAdultOn\(\) \? '; max-age=31536000' : ''\}/, 'the reveal is a session cookie even with the device setting on');
+  assert.match(adult, /export function setKeepAdultOn/, 'the device setting is gone');
+  assert.match(readFileSync(join(root, 'components/ProfileSettings.tsx'), 'utf8'), /Remember Show 18\+ on this device/, 'no Profile switch for it');
+  assert.match(readFileSync(join(root, 'app/discover/page.tsx'), 'utf8'), /data-hidden-sources/, 'Discover does not say sources are hidden');
+  assert.match(readFileSync(join(root, 'components/SourcesPanel.tsx'), 'utf8'), /\/api\/admin\/extensions\/backups\/keep-all/, 'Keep all is gone');
+  const settings = readFileSync(join(root, 'components/AdminSettings.tsx'), 'utf8');
+  assert.match(settings, /function MixedSourcesPicker/, 'no bulk Mixed picker');
+  assert.match(settings, /save\(\{ mixedShowUnknown: next \}\)/, 'no switch for unjudgeable titles');
+});

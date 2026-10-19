@@ -1216,6 +1216,12 @@ END $$;
 -- series is filed or who may open it. Empty by default, so an existing install behaves exactly as before.
 ALTER TABLE server_settings ADD COLUMN IF NOT EXISTS adult_genres  jsonb NOT NULL DEFAULT '[]'::jsonb;
 ALTER TABLE server_settings ADD COLUMN IF NOT EXISTS adult_sources jsonb NOT NULL DEFAULT '[]'::jsonb;
+-- Mixed sources (fork): sources whose extension flags the whole site 18+ although most of what it carries is not (MangaDex,
+-- Weeb Central, Tapas...). With Show 18+ off they are still asked, and every TITLE is judged on its own (lib/searchAll.ts
+-- mixedRating); a title with nothing to judge it by is hidden unless mixed_show_unknown is on. A SURFACING choice only: the age
+-- cap (sourceAllowedFor) still refuses the whole source to an account limited below 18.
+ALTER TABLE server_settings ADD COLUMN IF NOT EXISTS mixed_sources jsonb NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE server_settings ADD COLUMN IF NOT EXISTS mixed_show_unknown boolean NOT NULL DEFAULT false;
 -- "Hide everything tagged Mature, except this one." Without it the genre list is all-or-nothing, and one
 -- wrongly-tagged classic is enough to make somebody turn the whole filter off.
 ALTER TABLE series_overrides ADD COLUMN IF NOT EXISTS adult_exempt boolean;

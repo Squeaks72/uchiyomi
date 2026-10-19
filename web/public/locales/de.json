@@ -2,7 +2,7 @@
   "_meta": {
     "language": "de",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 4824
+    "strings": 4838
   },
   "1 check found something": "1 Prüfung hat etwas gefunden",
   "1 member": "1 Mitglied",
@@ -4827,5 +4827,19 @@
   "Open the file on the server in the reader": "Die Datei auf dem Server im Reader öffnen",
   "Read this version from its source. Nothing is saved.": "Diese Version direkt von der Quelle lesen. Nichts wird gespeichert.",
   "Replace the file on the server with this version": "Die Datei auf dem Server durch diese Version ersetzen",
-  "Delete the file on the server": "Die Datei auf dem Server löschen"
+  "Delete the file on the server": "Die Datei auf dem Server löschen",
+  "Rated Mixed": "Als Gemischt eingestuft",
+  "Mixed: while Show 18+ is off it is still searched, and each title is judged on its own (adult genres and ratings stay out). Accounts limited below 18 still can’t use it. If its extension has its own adult switch, turning that off in Settings makes it safe on its own.": "Gemischt: Solange „18+ anzeigen“ aus ist, wird die Quelle weiterhin durchsucht und jeder Titel einzeln bewertet (Erwachsenen-Genres und -Einstufungen bleiben draußen). Konten unter 18 können sie trotzdem nicht nutzen. Hat die Erweiterung einen eigenen Erwachsenen-Schalter, macht sie das Ausschalten in den Einstellungen von selbst sicher.",
+  "Show titles from Mixed sources that cannot be judged": "Nicht bewertbare Titel aus gemischten Quellen anzeigen",
+  "A Mixed source is searched while “Show 18+” is off and each title is judged by its genres and rating. Titles with neither are hidden unless this is on.": "Eine gemischte Quelle wird auch bei ausgeschaltetem „18+ anzeigen“ durchsucht; jeder Titel wird nach Genres und Einstufung beurteilt. Titel ohne beides werden ausgeblendet, sofern dies nicht aktiviert ist.",
+  "Remember Show 18+ on this device": "„18+ anzeigen“ auf diesem Gerät merken",
+  "Show 18+ normally switches itself off when the browser session ends. With this on, turning it on stays on for a year on this device. Off by default; this device only.": "„18+ anzeigen“ schaltet sich normalerweise am Ende der Browsersitzung aus. Mit dieser Option bleibt es auf diesem Gerät ein Jahr lang an. Standardmäßig aus; gilt nur für dieses Gerät.",
+  "1 source is hidden while Show 18+ is off.": "1 Quelle ist ausgeblendet, solange „18+ anzeigen“ aus ist.",
+  "{n} sources are hidden while Show 18+ is off.": "{n} Quellen sind ausgeblendet, solange „18+ anzeigen“ aus ist.",
+  "Kept 1 extension": "1 Erweiterung behalten",
+  "Kept {n} extensions": "{n} Erweiterungen behalten",
+  "Could not keep them": "Konnte nicht behalten werden",
+  "Keep all": "Alle behalten",
+  "Make every extension Uchiyomi added by itself yours: shown in Discover and never removed for being unused.": "Jede von Uchiyomi selbst hinzugefügte Erweiterung zu deiner machen: in Entdecken sichtbar und nie wegen Nichtnutzung entfernt.",
+  "Sources their extension marks 18+. Tick the ones that are mostly not, to keep searching them while “Show 18+” is off: each title is judged on its own.": "Quellen, die ihre Erweiterung als 18+ kennzeichnet. Wähle die, die es überwiegend nicht sind, um sie auch bei ausgeschaltetem „18+ anzeigen“ zu durchsuchen: Jeder Titel wird einzeln bewertet."
 }

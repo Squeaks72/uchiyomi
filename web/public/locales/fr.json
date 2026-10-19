@@ -2,7 +2,7 @@
   "_meta": {
     "language": "fr",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 4824
+    "strings": 4838
   },
   "1 check found something": "1 vérification a trouvé quelque chose",
   "1 member": "1 membre",
@@ -4827,5 +4827,19 @@
   "Open the file on the server in the reader": "Ouvrir le fichier du serveur dans le lecteur",
   "Read this version from its source. Nothing is saved.": "Lire cette version depuis sa source. Rien n’est enregistré.",
   "Replace the file on the server with this version": "Remplacer le fichier du serveur par cette version",
-  "Delete the file on the server": "Supprimer le fichier du serveur"
+  "Delete the file on the server": "Supprimer le fichier du serveur",
+  "Rated Mixed": "Classée Mixte",
+  "Mixed: while Show 18+ is off it is still searched, and each title is judged on its own (adult genres and ratings stay out). Accounts limited below 18 still can’t use it. If its extension has its own adult switch, turning that off in Settings makes it safe on its own.": "Mixte : tant que « Afficher 18+ » est désactivé, elle reste interrogée et chaque titre est jugé séparément (les genres et classements adultes restent exclus). Les comptes limités aux moins de 18 ans ne peuvent toujours pas l’utiliser. Si son extension a son propre réglage adulte, le désactiver dans les Réglages la rend sûre d’elle-même.",
+  "Show titles from Mixed sources that cannot be judged": "Afficher les titres de sources Mixtes impossibles à juger",
+  "A Mixed source is searched while “Show 18+” is off and each title is judged by its genres and rating. Titles with neither are hidden unless this is on.": "Une source Mixte est interrogée même quand « Afficher 18+ » est désactivé, et chaque titre est jugé d’après ses genres et son classement. Les titres sans l’un ni l’autre sont masqués, sauf si cette option est activée.",
+  "Remember Show 18+ on this device": "Mémoriser « Afficher 18+ » sur cet appareil",
+  "Show 18+ normally switches itself off when the browser session ends. With this on, turning it on stays on for a year on this device. Off by default; this device only.": "« Afficher 18+ » se désactive normalement à la fin de la session du navigateur. Avec cette option, il reste activé un an sur cet appareil. Désactivé par défaut ; cet appareil uniquement.",
+  "1 source is hidden while Show 18+ is off.": "1 source est masquée tant que « Afficher 18+ » est désactivé.",
+  "{n} sources are hidden while Show 18+ is off.": "{n} sources sont masquées tant que « Afficher 18+ » est désactivé.",
+  "Kept 1 extension": "1 extension conservée",
+  "Kept {n} extensions": "{n} extensions conservées",
+  "Could not keep them": "Impossible de les conserver",
+  "Keep all": "Tout conserver",
+  "Make every extension Uchiyomi added by itself yours: shown in Discover and never removed for being unused.": "Faire vôtre chaque extension ajoutée par Uchiyomi lui-même : visible dans Découvrir et jamais supprimée faute d’usage.",
+  "Sources their extension marks 18+. Tick the ones that are mostly not, to keep searching them while “Show 18+” is off: each title is judged on its own.": "Sources que leur extension marque 18+. Cochez celles qui ne le sont pas pour la plupart afin de continuer à les interroger quand « Afficher 18+ » est désactivé : chaque titre est jugé séparément."
 }

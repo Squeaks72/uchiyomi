@@ -64,6 +64,8 @@ export interface OverviewSource {
    */
   ageRating?: number | null;
   defaultAgeRating?: number | null;
+  /** Fork: rated Mixed -- its extension flags the whole site 18+, but with Show 18+ off it is still asked and each title is judged alone. */
+  mixed?: boolean;
   /**
    * v0.55.1: not loaded because the engine's source limit is full, with the limit it is over -- not broken, and Replace is
    * not its fix (the sheet says so instead: limitLine). Absent from every other source, and from an older server.

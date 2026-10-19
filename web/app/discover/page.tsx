@@ -685,6 +685,14 @@ function DiscoverInner() {
                   while `mode === 'newest'`, so a chip anchored there would disappear the moment someone
                   searched — and search is one of the surfaces the reveal now changes. */}
             </div>
+            {/* Fork: say it when sources are out of the search because Show 18+ is off, so a missing source is never a mystery. */}
+            {!adultOn && (sourcesData?.hiddenAdult ?? 0) > 0 && (
+              <p data-hidden-sources className="mt-1 max-w-prose text-[11px] text-fog-400">
+                {(sourcesData?.hiddenAdult ?? 0) === 1
+                  ? tr('1 source is hidden while Show 18+ is off.')
+                  : tr('{n} sources are hidden while Show 18+ is off.', { n: sourcesData?.hiddenAdult ?? 0 })}
+              </p>
+            )}
             <p className="mt-1 max-w-prose text-[11px] text-fog-500">
               {tr('Manual AniList actions can contact AniList even when automatic lookups are off.')}
             </p>

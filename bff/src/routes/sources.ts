@@ -13,7 +13,7 @@ import { selectChapters, type ChapterFrom } from '../lib/selectChapters';
 import { noteChapterFailure } from '../lib/chapterFailures';
 import { scanOrder } from '../lib/scanOrder';
 import { followGuard, seriesLanguage } from '../lib/seriesLang';
-import { searchAll, groupByTitle, bySource, ratingOf, narrowTo, SEARCH_FIRST_ANSWER_MS, type Rated, type RatingFilter } from '../lib/searchAll';
+import { searchAll, groupByTitle, bySource, ratingOf, mixedRating, narrowTo, SEARCH_FIRST_ANSWER_MS, type Rated, type RatingFilter } from '../lib/searchAll';
 import type { SourceSeries as DiscoverItem } from '../lib/sources/types';
 import { budgetFor, listBudgetFor } from '../lib/sources/budget';
 import { SOLVER_CONCURRENCY, withSolverDeadline } from '../lib/sources/flaresolverr';
@@ -140,7 +140,7 @@ import { dismissRun, listRuns, requestStop } from '../lib/downloadJobs';
 // Which SOURCES you may reach is the opposite: entirely about who is asking, which is what `viewCtxFor` and
 // `sourceAllowedFor` answer.
 import {
-  visibleToAll, viewCtxFor, sourceAllowedFor, sourceBrowsableFor, browsable, visible, seriesVisible, Params, type ViewCtx, hideAdult, adultFilter,
+  visibleToAll, viewCtxFor, sourceAllowedFor, sourceBrowsableFor, sourceRatedMixed, browsable, visible, seriesVisible, Params, type ViewCtx, hideAdult, adultFilter,
   ADULT_RATING,
 } from '../lib/visibility';
 import { adultContentRating } from '../lib/ageRating';
@@ -2424,6 +2424,17 @@ export default async function sourceRoutes(app: FastifyInstance) {
    */
   const ratedForViewer = <T extends { contentRating?: string }>(req: FastifyRequest, items: T[]): T[] =>
     cappedBelowAdult(req) || vc(req).hideAdultLibraries ? items.filter((r) => !adultContentRating(r.contentRating)) : items;
+  /**
+   * `ratedForViewer`, and for a MIXED source (flagged 18+ by its extension, rated Mixed by the admin) with Show 18+ off, each title
+   * judged on its own (searchAll mixedRating): adult ones out, safe ones in, and one nothing can judge only when the admin chose to
+   * show those. The listing twin of what search-all does through ratingOf.
+   */
+  const ratedFor = async <T extends { contentRating?: string; genres?: string[] }>(req: FastifyRequest, items: T[], src: SourceAdapter): Promise<T[]> => {
+    const base = ratedForViewer(req, items);
+    if (!vc(req).hideAdultLibraries || !src.isNsfw || !sourceRatedMixed(src)) return base;
+    const lists = await adultFilter();
+    return base.filter((r) => { const j = mixedRating(r as Pick<SourceSeries, "contentRating" | "genres">, lists); return j === 'safe' || (j === undefined && lists.mixedShowUnknown === true); });
+  };
   /** The sources this viewer may reach, in registry order. This is the ACCESS rule and nothing else. */
   const reachable = (req: FastifyRequest): SourceAdapter[] =>
     listSources().filter((s) => sourceAllowedFor(s, vc(req).maxAgeRating));
@@ -2603,7 +2614,7 @@ export default async function sourceRoutes(app: FastifyInstance) {
     const raw = await src.search(query.trim()).catch(() => []);
     // dedupe by sourceId (duplicate ids collide on the React key → wrong cover/title on a card)
     const seen = new Set<string>();
-    const results = ratedForViewer(req, raw.filter((r) => !!r.sourceId && !seen.has(r.sourceId) && (seen.add(r.sourceId), true))).slice(0, 24);
+    const results = (await ratedFor(req, raw.filter((r) => !!r.sourceId && !seen.has(r.sourceId) && (seen.add(r.sourceId), true)), src)).slice(0, 24);
     // flag titles already in the library so the UI can mark them instead of offering a duplicate add
     return { content: await decorate(results, src.id, vc(req)) };
   });
@@ -3512,10 +3523,10 @@ export default async function sourceRoutes(app: FastifyInstance) {
     const resting = await blockedNow(source!).catch(() => null);
     if (resting) {
       const stale = cachedLatest(src.id, p);
-      if (stale.length || !restingForSlowness(resting)) return { content: await decorate(ratedForViewer(req, stale), src.id, vc(req)) };
+      if (stale.length || !restingForSlowness(resting)) return { content: await decorate(await ratedFor(req, stale, src), src.id, vc(req)) };
     }
     const results = await latestPage(src, p);
-    return { content: await decorate(ratedForViewer(req, results), src.id, vc(req)) };
+    return { content: await decorate(await ratedFor(req, results, src), src.id, vc(req)) };
   });
 
   /**
@@ -3538,10 +3549,10 @@ export default async function sourceRoutes(app: FastifyInstance) {
     const resting = await blockedNow(source!).catch(() => null);
     if (resting) {
       const stale = cachedLatest(src.id, p, 'popular');
-      if (stale.length || !restingForSlowness(resting)) return { content: await decorate(ratedForViewer(req, stale), src.id, vc(req)) };
+      if (stale.length || !restingForSlowness(resting)) return { content: await decorate(await ratedFor(req, stale, src), src.id, vc(req)) };
     }
     const results = await latestPage(src, p, 'popular');
-    return { content: await decorate(ratedForViewer(req, results), src.id, vc(req)) };
+    return { content: await decorate(await ratedFor(req, results, src), src.id, vc(req)) };
   });
 
   /**

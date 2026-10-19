@@ -521,19 +521,44 @@ export function YourSources({ overview, failed, evidence, onRetry, onOpen, onCha
       {on.length > 0 && <ul className="card grad-border divide-y divide-ink-800/70 overflow-hidden rounded-2xl" data-sources-list>{on.map(row)}</ul>}
       {off.length > 0 && <Fold kind="off" title={tr('Switched off')} n={off.length}>{off.map(row)}</Fold>}
       {/* v0.82.0: the backup extensions Uchiyomi added by itself to finish downloads, apart from the sources you added. */}
-      {backups.length > 0 && <Fold kind="backups" title={tr('Added by Uchiyomi')} n={backups.length}>{backups.map(row)}</Fold>}
+      {backups.length > 0 && <Fold kind="backups" title={tr('Added by Uchiyomi')} n={backups.length} action={<KeepAllKey onChanged={onChanged} />}>{backups.map(row)}</Fold>}
     </div>
   );
 }
 
+/**
+ * "Keep all" on the backups fold (fork): every backup extension Uchiyomi added by itself becomes the admin's -- in Discover, and never
+ * removed for being unused -- in one press (POST /api/admin/extensions/backups/keep-all, the Keep of each, one reload).
+ */
+function KeepAllKey({ onChanged }: { onChanged: () => Promise<unknown> }) {
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+  return (
+    <button type="button" disabled={busy} data-keep-all-backups className="btn-key disabled:opacity-50"
+      title={tr('Make every extension Uchiyomi added by itself yours: shown in Discover and never removed for being unused.')}
+      onClick={async () => {
+        setBusy(true);
+        try {
+          const r = await api<{ kept: number }>('/api/admin/extensions/backups/keep-all', { method: 'POST' });
+          toast(r.kept === 1 ? tr('Kept 1 extension') : tr('Kept {n} extensions', { n: r.kept }), 'success');
+          await onChanged();
+        } catch (e) { toast(msgOf(e, tr('Could not keep them')), 'error'); }
+        setBusy(false);
+      }}>
+      {busy ? tr('Working…') : tr('Keep all')}
+    </button>
+  );
+}
+
 /** A fold under the list -- the switched-off sources, the backup extensions' -- closed until opened, its count beside its name. */
-function Fold({ kind, title, n, children }: { kind: 'off' | 'backups'; title: string; n: number; children: ReactNode }) {
+function Fold({ kind, title, n, action, children }: { kind: 'off' | 'backups'; title: string; n: number; action?: ReactNode; children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const plain = useReduceEffects();
   return (
     <section data-sources-fold={kind} className="card overflow-hidden rounded-2xl">
+      <div className="flex items-center">
       <button type="button" aria-expanded={open} aria-controls={`sources-${kind}`} onClick={() => setOpen(!open)}
-        className="flex w-full min-w-0 items-center gap-3 px-4 py-3 text-start text-sm text-fog-300 hover:text-fog-100">
+        className="flex w-full min-w-0 flex-1 items-center gap-3 px-4 py-3 text-start text-sm text-fog-300 hover:text-fog-100">
         <span className="min-w-0 flex-1">{title}<span className="ms-2 tabular-nums text-fog-500">{numberText(n)}</span></span>
         <span className="flex shrink-0 items-center gap-1 text-xs text-fog-500">
           {open ? tr('Hide') : tr('Show')}
@@ -543,6 +568,8 @@ function Fold({ kind, title, n, children }: { kind: 'off' | 'backups'; title: st
           </span>
         </span>
       </button>
+      {action && <div className="shrink-0 pe-3">{action}</div>}
+      </div>
       {open && <ul id={`sources-${kind}`} className="divide-y divide-ink-800/70 border-t border-ink-800/60">{children}</ul>}
     </section>
   );

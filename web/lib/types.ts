@@ -292,6 +292,8 @@ export interface Series {
    * or fewer; false, every chapter numbered like 12.5. Settings' "Only hide short ones".
    */
   hideNoticeShortOnly?: boolean;
+  /** Fork: show a title nothing can judge from a Mixed source while Show 18+ is off. Off unless set. */
+  mixedShowUnknown?: boolean;
 }
 
 /** What kind of comic a series is (bff lib/seriesTypeSignals.ts), as the notice-chapter switches go by it. */

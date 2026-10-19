@@ -2,7 +2,7 @@
   "_meta": {
     "language": "zh",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 4824
+    "strings": 4838
   },
   "1 check found something": "1 项检查发现问题",
   "1 member": "1 位成员",
@@ -4827,5 +4827,19 @@
   "Open the file on the server in the reader": "在阅读器中打开服务器上的文件",
   "Read this version from its source. Nothing is saved.": "直接从来源阅读此版本，不会保存任何内容。",
   "Replace the file on the server with this version": "用此版本替换服务器上的文件",
-  "Delete the file on the server": "删除服务器上的文件"
+  "Delete the file on the server": "删除服务器上的文件",
+  "Rated Mixed": "已设为混合",
+  "Mixed: while Show 18+ is off it is still searched, and each title is judged on its own (adult genres and ratings stay out). Accounts limited below 18 still can’t use it. If its extension has its own adult switch, turning that off in Settings makes it safe on its own.": "混合：关闭“显示18+”时仍会搜索该来源，并逐个判断每个标题（成人类型和分级会被排除）。限制在18岁以下的账号仍无法使用它。如果其扩展有自己的成人开关，在设置中关闭即可使其本身变安全。",
+  "Show titles from Mixed sources that cannot be judged": "显示无法判断的混合来源标题",
+  "A Mixed source is searched while “Show 18+” is off and each title is judged by its genres and rating. Titles with neither are hidden unless this is on.": "混合来源即使在关闭“显示18+”时也会被搜索，并按类型和分级逐个判断标题。两者都没有的标题会被隐藏，除非开启此项。",
+  "Remember Show 18+ on this device": "在此设备上记住“显示18+”",
+  "Show 18+ normally switches itself off when the browser session ends. With this on, turning it on stays on for a year on this device. Off by default; this device only.": "“显示18+”通常会在浏览器会话结束时自动关闭。开启此项后，它在此设备上会保持开启一年。默认关闭，仅限此设备。",
+  "1 source is hidden while Show 18+ is off.": "关闭“显示18+”时，有1个来源被隐藏。",
+  "{n} sources are hidden while Show 18+ is off.": "关闭“显示18+”时，有 {n} 个来源被隐藏。",
+  "Kept 1 extension": "已保留1个扩展",
+  "Kept {n} extensions": "已保留 {n} 个扩展",
+  "Could not keep them": "无法保留",
+  "Keep all": "全部保留",
+  "Make every extension Uchiyomi added by itself yours: shown in Discover and never removed for being unused.": "将 Uchiyomi 自行添加的所有扩展变为你的：在发现页显示，且不会因未使用而被移除。",
+  "Sources their extension marks 18+. Tick the ones that are mostly not, to keep searching them while “Show 18+” is off: each title is judged on its own.": "其扩展标记为18+的来源。勾选其中大多数内容并非成人向的来源，即使关闭“显示18+”也继续搜索它们：每个标题会被单独判断。"
 }

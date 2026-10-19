@@ -38,7 +38,7 @@ import { StatusMark } from '@/components/StatusMark';
 import { SourceEvidence } from '@/components/SourceEvidence';
 import { SourceTile } from '@/components/SourceTile';
 import { Disclosure, Segmented } from '@/components/settings';
-import { AGE_CHOICES, ageChoice, ageRequest, ageWhy, type AgeChoice } from '@/lib/sourceAge';
+import { ageChoice, ageChoicesFor, ageRequest, ageWhy, type AgeChoice } from '@/lib/sourceAge';
 import { Busy, ExtIcon, ExtTags, Facts, busyKey } from '@/components/ExtensionBits';
 import { ExtensionRemove, ExtensionSection, ExtensionUpdateKey } from '@/components/ExtensionSheet';
 import { MangadexLanguages, SiteLanguage } from '@/components/MangadexCard';
@@ -67,6 +67,7 @@ export function resolveTarget(target: SheetTarget, sources: readonly OverviewSou
 function ageNote(s: OverviewSource): string {
   switch (ageWhy(s)) {
     case 'rated': return tr('Adult only: accounts limited below 18 can’t use it, and while Show 18+ is off it stays out of Discover and search.');
+    case 'mixed': return tr('Mixed: while Show 18+ is off it is still searched, and each title is judged on its own (adult genres and ratings stay out). Accounts limited below 18 still can’t use it. If its extension has its own adult switch, turning that off in Settings makes it safe on its own.');
     case 'flagged': return tr('Its extension marks it 18+, so accounts limited below 18 can’t use it either way.');
     default: return tr('Open to every account. Adult only keeps it from accounts limited below 18, and out of Discover and search while Show 18+ is off.');
   }
@@ -298,14 +299,14 @@ export function SourceSheet({ target, overview, evidence, testMs, status, action
             <p className="text-[11px] font-semibold uppercase tracking-wider text-fog-500 rtl:tracking-normal">{tr('Age rating')}</p>
             <div className="mt-1.5">
               <Segmented<AgeChoice> square label={tr('Age rating')} value={ageChoice(s)} disabled={!!busy}
-                options={AGE_CHOICES.map((c) => ({ value: c, label: c === 'adult' ? tr('Adult only') : tr('Automatic') }))}
+                options={ageChoicesFor(s).map((c) => ({ value: c, label: c === 'adult' ? tr('Adult only') : c === 'mixed' ? tr('Mixed') : tr('Automatic') }))}
                 onChange={(c) => void run('age', async () => {
                   await api(`/api/admin/sources/${encodeURIComponent(s.id)}/age-rating`, { method: 'PUT', json: ageRequest(c) });
                   // Discover's source list hides an Adult only source while Show 18+ is off: asked again, not kept for minutes.
                   void qc.invalidateQueries({ queryKey: ['sources'] });
                   // …and Library and Home offer the reveal when a source is rated (/api/adult-filter `configured`).
                   void qc.invalidateQueries({ queryKey: ['adult-filter'] });
-                  return c === 'adult' ? tr('Rated Adult only') : tr('Age rating reset to automatic');
+                  return c === 'adult' ? tr('Rated Adult only') : c === 'mixed' ? tr('Rated Mixed') : tr('Age rating reset to automatic');
                 })} />
             </div>
             <p className="mt-2 text-[12px] leading-relaxed text-fog-400" data-source-age-note={ageWhy(s)}>{ageNote(s)}</p>
