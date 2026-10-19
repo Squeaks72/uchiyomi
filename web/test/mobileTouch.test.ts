@@ -65,3 +65,14 @@ test('the reader\'s page slider spans the chapter being read, not every chapter 
   assert.match(r, /<input type="range" min=\{chapRange\.lo\} max=\{chapRange\.hi\} value=\{Math\.min\(Math\.max\(current, chapRange\.lo\), chapRange\.hi\)\}/, 'the slider runs over every loaded chapter again');
   assert.match(r, /while \(lo > 0 && flat\[lo - 1\]\.ci === sliderCi\) lo--;/, 'the chapter\'s first page is not found');
 });
+
+test('between chapters: the webtoon column has a visible break, and paged mode names the chapter it just crossed into', () => {
+  const page = read('components/ReaderPage.tsx');
+  assert.match(page, /export const DIVIDER_H = 168;/, 'the divider is a thin line again');
+  assert.match(page, /data-chapter-divider/, 'the divider has no band of its own');
+  assert.match(page, /tr\('End of \{chapter\}', \{ chapter: dividerPrev \}\)/, 'the divider does not say the chapter ended');
+  const r = read('app/reader/page.tsx');
+  assert.match(r, /dividerPrev=\{p\.firstOfChapter && p\.ci > 0/, 'the previous chapter is not handed to the divider');
+  assert.match(r, /data-chapter-note/, 'paged mode says nothing when a chapter changes');
+  assert.match(r, /if \(was === null \|\| was === id \|\| prefs\.mode !== 'paged'\) return;/, 'the note shows on the first chapter or in the column');
+});
