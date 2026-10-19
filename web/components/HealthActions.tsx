@@ -584,7 +584,15 @@ export function HealthRow({ check, item, rowKey, links, children, compact }: {
     return { ...sp, buttonProps: { ...sp.buttonProps, 'aria-label': `${shown.stop ? shown.label : (sp.runLabel ?? sp.label)}: ${rowName}` } as ActionSpec['buttonProps'] };
   });
   const specs = all.filter((s) => s.id !== 'find_sources');
-  const finds = all.filter((s) => s.id === 'find_sources');
+  // "Search by hand" on the row itself, beside "Find other source" (it was only inside that key's dialog, where it is easy to miss):
+  // for a series-scoped row, the same search-and-pick sheet the dialog opens. A source row covers many series, so it has none.
+  const byHand: ActionSpec[] = item.findScope === 'series' && item.seriesId && actions.includes('find_sources') ? [{
+    id: 'search_by_hand', label: tr('Search by hand'),
+    what: tr('Change what is searched, look through the sources yourself and pick the match.'),
+    onRun: () => setAsking('hand'),
+    buttonProps: { 'data-health-action': 'search_by_hand', 'data-find-by-hand-key': '', 'aria-label': `${tr('Search by hand')}: ${rowName}` } as ActionSpec['buttonProps'],
+  }] : [];
+  const finds = [...all.filter((s) => s.id === 'find_sources'), ...byHand];
   // The stored outcome, unless the status line under the keys already says the same thing ("Every source has
   // the same short copy" twice, one above the other, read as two findings).
   const stored = outcomeLine(item.outcome);
