@@ -46,3 +46,11 @@ test('the add dialog shows a small cover beside the source on a phone', () => {
   assert.match(src, /w-20 shrink-0 self-start rounded-xl border border-ink-700 sm:hidden/);
   assert.match(src, /mb-3 hidden shrink-0 sm:mb-0 sm:block sm:w-40/);
 });
+
+test('the chapter list can hide finished chapters, per device', () => {
+  const s = readFileSync(join(__dirname, '..', 'app/series/page.tsx'), 'utf8');
+  assert.match(s, /!\(hideRead && b\.readProgress\?\.completed === true\)/, 'a finished chapter is not hidden');
+  assert.match(s, /!\(hideRead && g\.read === true\)/, 'a ghost marked read is not hidden');
+  assert.match(s, /setHideReadOn\(next\)/, 'the choice is not remembered on this device');
+  assert.match(s, /setChapterPage\(null\); \}, \[id, asc, group, showGhosts, hideRead\]/, 'the page is not decided again when read chapters are hidden');
+});

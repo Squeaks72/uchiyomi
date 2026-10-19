@@ -22,7 +22,7 @@ import { GenreTagInput } from '@/components/GenreTagInput';
 import { useAuth, canDownload } from '@/lib/auth';
 import { IcChevronLeft, IcDownload, IcCloudDownload, IcCheck, IcTrash, IcHourglass, IcGrid, IcRows, IcRefresh } from '@/components/icons';
 import { t as tr } from '@/lib/i18n';
-import { statusText } from '@/lib/activity';
+import { seriesOngoing, statusText } from '@/lib/activity';
 import { applyFavorite } from '@/lib/favoriteCache';
 import { deletedText, selectedText, skippedBookmarkedText, skippedNotOursText } from '@/lib/counted';
 import { reasonText, type Said } from '@/lib/said';
@@ -34,6 +34,7 @@ import { chParam, landingNumber } from '@/lib/healthLinks';
 import { effectsReduced } from '@/lib/effects';
 import { clampPage, pageCount, pageLabel, pageOf, pageSizeFor, pageSlice } from '@/lib/chapterPages';
 import { openRuns, showAllChaptersOn } from '@/lib/showAllChapters';
+import { hideReadOn, setHideReadOn } from '@/lib/hideRead';
 import { buttonsClass, compactChaptersOn, dotHide, rowClass, thumbHide } from '@/lib/compactChapters';
 import { chapterRowsClass, chapterViewOn, setChapterView, type ChapterView } from '@/lib/chapterView';
 import { PhoneHeroCover } from '@/components/PhoneHeroCover';
@@ -969,11 +970,15 @@ function SeriesInner() {
   // is shown: a filter that hid 40 of 50 capped ghosts and still said "Show all 120" would be lying.
   // Whole chapters only, unless the reader flips "Show .5 & extras": chapter 0 and numbers like 12.5 or 956.99 are
   // what sources list beyond the canonical run, and they inflate the list and its count.
+  // This device's "Hide read chapters" (lib/hideRead.ts), read after mount like the layout. A finished chapter (and a ghost the
+  // viewer marked read) leaves the list; a part-read one stays, and so does everything unread.
+  const [hideRead, setHideRead] = useState(false);
+  useEffect(() => { setHideRead(hideReadOn()); }, []);
   const [fractions, setFractions] = useState(false);
   const wholeOnly = useCallback((n: number) => fractions || (Number.isInteger(n) && n > 0), [fractions]);
   const hasFractions = useMemo(() => allBooks.some((b) => !Number.isInteger(b.number) || b.number <= 0) || ghosts.some((g) => !Number.isInteger(g.number) || g.number <= 0), [allBooks, ghosts]);
-  const filteredBooks = useMemo(() => rowBooks.filter((b) => wholeOnly(b.number) && (group === ALL_GROUPS || matchesGroup(b, group))), [rowBooks, group, wholeOnly]);
-  const filteredGhosts = useMemo(() => visibleGhosts.filter((g) => wholeOnly(g.number) && (group === ALL_GROUPS || matchesGroup(g, group))), [visibleGhosts, group, wholeOnly]);
+  const filteredBooks = useMemo(() => rowBooks.filter((b) => wholeOnly(b.number) && (group === ALL_GROUPS || matchesGroup(b, group)) && !(hideRead && b.readProgress?.completed === true)), [rowBooks, group, wholeOnly, hideRead]);
+  const filteredGhosts = useMemo(() => visibleGhosts.filter((g) => wholeOnly(g.number) && (group === ALL_GROUPS || matchesGroup(g, group)) && !(hideRead && g.read === true)), [visibleGhosts, group, wholeOnly, hideRead]);
   // The list, in the list's direction: chapters on disk and, between them, the ghosts (see chapterRows.ts).
   const rows = useMemo(() => mergeRows(filteredBooks, filteredGhosts, asc, showAll || everything, runsOpen), [filteredBooks, filteredGhosts, asc, showAll, everything, runsOpen]);
   // A series with no chapters at all (a "Nothing yet" add) has one thing to show: the run of older chapters
@@ -1034,8 +1039,8 @@ function SeriesInner() {
   // series whose next unread chapter was pruned opened straight onto "Chapter deleted".
   const reading = useMemo(() => {
     const openable = (b: Book) => !b.pruned || downloaded.has(b.id);
-    return continueChoice(books?.content ?? [], openable);
-  }, [books, downloaded]);
+    return continueChoice(books?.content ?? [], openable, { ongoing: seriesOngoing(series?.metadata?.status) });
+  }, [books, downloaded, series?.metadata?.status]);
   const resumeBook = reading.book;
 
   // The list a page at a time (lib/chapterPages.ts). It opens on the page holding `resumeBook`, so a reader
@@ -1053,7 +1058,7 @@ function SeriesInner() {
   const [view, setView] = useState<ChapterView>('columns');
   useEffect(() => { setView(chapterViewOn()); }, []);
   const [chapterPage, setChapterPage] = useState<number | null>(null);
-  useEffect(() => { setChapterPage(null); }, [id, asc, group, showGhosts]);
+  useEffect(() => { setChapterPage(null); }, [id, asc, group, showGhosts, hideRead]);
   // Every row on one page when the account asked for the whole list (pageSizeFor): the pager then has one page and
   // is not drawn, and every turn-to-a-page below lands on page 0.
   const pageSize = pageSizeFor(everything, rows.length);
@@ -1943,6 +1948,13 @@ function SeriesInner() {
         <div data-chapter-toolbar className="flex flex-wrap items-center gap-1.5">
           <button onClick={markAllRead} className="btn-key">{tr('Mark all read')}</button>
           <button onClick={() => setAsc((a) => !a)} className="btn-key">{asc ? tr('Oldest') : tr('Newest')}</button>
+          {/* Hide what is finished: this device's choice, kept (lib/hideRead.ts). Only offered once something is read. */}
+          {(hideRead || readCount.read > 0) && (
+            <button onClick={() => { const next = !hideRead; setHideRead(next); setHideReadOn(next); }} aria-pressed={hideRead} data-hide-read
+              className={`btn-key whitespace-nowrap ${hideRead ? 'btn-key-accent' : ''}`}>
+              {hideRead ? tr('Show read') : tr('Hide read')}
+            </button>
+          )}
           {/* The group filter and the ghost switch live in a sheet; the count of active choices is a tiny
               badge on the chip, not ` · {n}` text, which is what pushed the row past 358 px. Rendered only
               when there is something to filter by. */}
@@ -1972,6 +1984,11 @@ function SeriesInner() {
       {group !== ALL_GROUPS && (
         <p role="status" className="mb-2 text-xs text-fog-500">
           {tr('{n} of {m} chapters match', { n: filteredBooks.length + filteredGhosts.length, m: rowBooks.length + visibleGhosts.length })}
+        </p>
+      )}
+      {hideRead && readCount.read > 0 && (
+        <p role="status" data-hide-read-note className="mb-2 text-xs text-fog-500">
+          {rows.length === 0 ? tr('Every chapter is read. Choose Show read to see them again.') : tr('{n} read chapters hidden', { n: readCount.read })}
         </p>
       )}
       {pages > 1 && <ChapterPager page={shownPage} pages={pages} rows={rows} asc={asc} total={filteredBooks.length + filteredGhosts.length} onPage={(p) => goPage(p, false)} />}
