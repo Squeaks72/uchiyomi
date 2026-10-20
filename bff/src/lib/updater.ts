@@ -13,7 +13,7 @@ import { notifyNewChapter } from './push';
 import { sendDigest, type Landed as DigestSeries } from './notify';
 import { visibleToAll } from './visibility';
 import { runtime } from './runtime';
-import { chooseReleases, copiesOf, notifiableCount, releaseOrder } from './releases';
+import { chooseReleases, copiesOf, notifiableOf, releaseOrder } from './releases';
 import { effectivePrefsFor, readSeriesPrefs } from './scanlatorPrefs';
 import { automaticChapterAllowedFor, automaticCopiesFor, copyToChapter, listingRows, replaceListing, seriesFollowsSource, type ListingCopy } from './seriesListing';
 import { heldBooks } from './chapterCleanup';
@@ -143,6 +143,8 @@ export interface UpdateResult {
   landed: Landed[];
   /** Of `added`, how many the series' notification setting lets be announced (all, unless it only wants preferred groups). */
   notifiable?: number;
+  /** The chapter numbers behind `notifiable`, for the per-account next-up filter. */
+  notifiableNumbers?: number[];
   capped?: number;
   folder?: string;
   /** The chosen copy per number, ascending: what setBookDates is stamped from after the scan. */
@@ -863,15 +865,18 @@ async function visitSeries(seriesId: string, maxNew: number, opts: UpdateOpts): 
   }
   // The news, which can be pickier than the fetch: a series set to "notify only for a preferred group" still downloads
   // every chapter, but tells nobody about those from other groups (notifiableCount, lib/releases.ts).
-  const notifiable = notifiableCount(landed, prefs.priority, s.scanlator_prefs?.notifyOnlyPreferred === true,
+  const tell = notifiableOf(landed, prefs.priority, s.scanlator_prefs?.notifyOnlyPreferred === true,
     Array.isArray(s.scanlator_prefs?.notifySources) ? s.scanlator_prefs.notifySources : []);
-  if (notifiable) notifyNewChapter(seriesId, s.title, notifiable).catch(() => {});
+  const notifiable = tell.length;
+  // `numbers`: so an account that asked to hear only about its next-up chapter can be told apart (lib/nextUp.ts, per account).
+  const notifiableNumbers = tell.map((c) => Number(c.number));
+  if (notifiable) notifyNewChapter(seriesId, s.title, notifiable, undefined, { numbers: notifiableNumbers }).catch(() => {});
   // backfill release dates onto already-scanned books; freshly downloaded ones are stamped after the sweep's scan
   await setBookDates(s.folder, releases).catch(() => {});
   // Provenance goes only onto what LANDED, never onto the whole listing: the chosen copy for a number can
   // change between runs, and the file on disk does not change with it.
   await setBookMeta(s.folder, landed).catch(() => {});
-  return { title: s.title, added, available: releases.length, outcome: paused ? 'paused' : 'ok', failed, waiting, switched, partial, landed, notifiable, capped, folder: s.folder, chapters: releases, diskFull, asked: true, ...(newest ? { newest } : {}), ...(renumber ? { renumber } : {}) };
+  return { title: s.title, added, available: releases.length, outcome: paused ? 'paused' : 'ok', failed, waiting, switched, partial, landed, notifiable, notifiableNumbers, capped, folder: s.folder, chapters: releases, diskFull, asked: true, ...(newest ? { newest } : {}), ...(renumber ? { renumber } : {}) };
 }
 
 /**
@@ -1057,7 +1062,7 @@ export async function runUpdateAll(opts: {
     // The throw fallback above has `added: 0` and no title, so it can never reach the digest.
     // `notifiable`: what the series' notification setting lets through (all of `added` unless it is picky about groups).
     const tellable = (r as { notifiable?: number }).notifiable ?? r.added;
-    if (r.added && tellable && (r as { title?: string }).title) newChapters.push({ id, title: (r as { title: string }).title, added: tellable });
+    if (r.added && tellable && (r as { title?: string }).title) newChapters.push({ id, title: (r as { title: string }).title, added: tellable, numbers: (r as { notifiableNumbers?: number[] }).notifiableNumbers });
     if (card) { card.done = visited; card.fetched = added; card.failed = chapterFailures; }
     if (r.diskFull) { stopped = 'disk'; return; }
     if (r.outcome === 'blocked') {

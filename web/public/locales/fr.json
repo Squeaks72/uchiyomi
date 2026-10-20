@@ -2,7 +2,7 @@
   "_meta": {
     "language": "fr",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 4979
+    "strings": 4981
   },
   "1 check found something": "1 vérification a trouvé quelque chose",
   "1 member": "1 membre",
@@ -4982,5 +4982,7 @@
   "Pick a series to search for": "Choisissez une série à chercher",
   "Series whose main source is {name}.": "Séries dont la source principale est {name}.",
   "Search these series…": "Rechercher dans ces séries…",
-  "End of {chapter}": "Fin de {chapter}"
+  "End of {chapter}": "Fin de {chapter}",
+  "Only tell me about my next chapter": "Ne me prévenir que pour mon prochain chapitre",
+  "A new chapter notifies you only when it is the one you would read next: you are caught up, with nothing older unread or half read. A chapter upgraded to a preferred group still tells you. Saved to your account.": "Un nouveau chapitre ne vous prévient que s’il est celui que vous liriez ensuite : vous êtes à jour, sans rien de plus ancien non lu ni entamé. Un chapitre amélioré vers un groupe préféré vous prévient toujours. Enregistré sur votre compte."
 }

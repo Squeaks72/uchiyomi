@@ -82,13 +82,23 @@ export function notifiableCount(
   onlyPreferred: boolean,
   sources: readonly string[] = [],
 ): number {
+  return notifiableOf(landed, priority, onlyPreferred, sources).length;
+}
+
+/** The chapters notifiableCount counts, themselves (their numbers go to the next-up check, lib/nextUp.ts). */
+export function notifiableOf<T extends { scanlator?: string | null; groups?: string[]; source?: string | null }>(
+  landed: ReadonlyArray<T>,
+  priority: readonly string[],
+  onlyPreferred: boolean,
+  sources: readonly string[] = [],
+): T[] {
   const wanted = new Set(priority.map(normGroup).filter(Boolean));
   const fromGroup = (c: { scanlator?: string | null; groups?: string[] }) => !onlyPreferred || !wanted.size
     || groupsOf({ scanlator: c.scanlator ?? undefined, groups: c.groups }).some((g) => wanted.has(normGroup(g)));
   // A source filter is a list of ids the owner ticked: a chapter from any other source stays quiet. Empty = no filter.
   const only = new Set(sources.filter(Boolean));
   const fromSource = (c: { source?: string | null }) => !only.size || (!!c.source && only.has(c.source));
-  return landed.filter((c) => fromGroup(c) && fromSource(c)).length;
+  return landed.filter((c) => fromGroup(c) && fromSource(c));
 }
 
 /** What chooseReleases consumes: the merge of global and per-series, with patience already in ms. */

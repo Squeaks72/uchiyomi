@@ -137,6 +137,15 @@ function GeneralPane({ pointer }: { pointer: boolean }) {
   useEffect(() => { setContextMenus(contextMenusOn()); }, []);
   // Show all chapters at once (lib/showAllChapters.ts): on the account like Reduce effects, so every device the
   // reader signs in on opens the whole list; optimistic, and put back when the server refuses.
+  // Fork: only tell this account about a new chapter when it is the one it would read next (bff lib/nextUp.ts). On the account
+  // like the switch above; the server reads it from app_settings when it sends a push or a user-aimed target's message.
+  const notifyOnlyNext = (user?.settings as { notifyOnlyNext?: boolean } | undefined)?.notifyOnlyNext === true;
+  const saveNotifyOnlyNext = async (next: boolean) => {
+    const prev = notifyOnlyNext;
+    setSettings({ notifyOnlyNext: next });
+    try { await api('/api/settings', { method: 'PUT', json: { notifyOnlyNext: next } }); }
+    catch (e) { setSettings({ notifyOnlyNext: prev }); throw e; }
+  };
   const showAllChapters = showAllChaptersOn(user?.settings);
   const saveShowAllChapters = async (next: boolean) => {
     const prev = showAllChapters;
@@ -199,6 +208,13 @@ function GeneralPane({ pointer }: { pointer: boolean }) {
           on={contextMenus} onChange={(next) => { setContextMenusOn(next); setContextMenus(next); }} />
       </RowGroup>
 
+      <RowGroup title={tr('Notifications')}>
+        <SwitchRow id="notify-only-next" label={tr('Only tell me about my next chapter')}
+          help={tr('A new chapter notifies you only when it is the one you would read next: you are caught up, with nothing older unread or half read. A chapter upgraded to a preferred group still tells you. Saved to your account.')}
+          on={notifyOnlyNext} onChange={saveNotifyOnlyNext} />
+      </RowGroup>
+
+      <MoreOptions id="general-more">
       <RowGroup title={tr('Browsing')}>
         {/* Fork: the big banners on Home and Discover (lib/bannerPref.ts), off by default. */}
         <SwitchRow id="big-banners" label={tr('Big banners')}
@@ -209,6 +225,7 @@ function GeneralPane({ pointer }: { pointer: boolean }) {
           help={tr('Show 18+ normally switches itself off when the browser session ends. With this on, turning it on stays on for a year on this device. Off by default; this device only.')}
           on={keepAdult} onChange={(next) => { setKeepAdultOn(next); setKeepAdult(next); }} />
       </RowGroup>
+      </MoreOptions>
       <IgnoredTitles />
 
       {/* v0.61.0: the account's, not this device's (lib/incognito.ts); the reader's sheet has the same switch. */}
