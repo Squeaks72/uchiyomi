@@ -2,7 +2,7 @@
   "_meta": {
     "language": "ru",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 4961
+    "strings": 4963
   },
   "1 check found something": "1 проверка нашла проблему",
   "1 member": "1 участник",
@@ -4964,5 +4964,7 @@
   "Pick a series to search for": "Выберите серию для поиска",
   "Series whose main source is {name}.": "Серии, основной источник которых — {name}.",
   "Search these series…": "Поиск по этим сериям…",
-  "End of {chapter}": "Конец: {chapter}"
+  "End of {chapter}": "Конец: {chapter}",
+  "Only tell me about my next chapter": "Уведомлять только о моей следующей главе",
+  "A new chapter notifies you only when it is the one you would read next: you are caught up, with nothing older unread or half read. A chapter upgraded to a preferred group still tells you. Saved to your account.": "Новая глава уведомляет вас, только если вы прочитали бы её следующей: вы в курсе, нет более старых непрочитанных или начатых глав. Глава, обновлённая до предпочитаемой группы, по-прежнему уведомляет. Сохраняется в вашей учётной записи."
 }
