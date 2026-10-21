@@ -759,8 +759,10 @@ function DiscoverInner() {
         onSelect={(id) => { if (id) startBrowsing(); setSelected(id); }}
         mode={idle ? null : listMode}
         onMode={(m) => {
-          setListMode(m); setSelected(selected && budgetForMode(sources, m, Infinity).some((s) => s.id === selected) ? selected : null);
-          setPage(1); setBrowsing(true); if (mode === 'search') backToNewest();
+          setListMode(m); setBrowsing(true);
+          // The source shown alone stays chosen when the other listing has it.
+          setSelected(selected && budgetForMode(sources, m, Infinity).some((s) => s.id === selected) ? selected : null);
+          setPage(1); if (mode === 'search') backToNewest();
         }}
       >
         {/* The page's one control region: listing and sources above, how the wall is ordered and filtered here. Choosing
