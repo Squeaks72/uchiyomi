@@ -19,5 +19,9 @@ export function setChapterView(v: ChapterView): void {
 }
 /** The rows' container: columns from lg up, each at least 250 px, or one list. A phone stacks them either way. */
 export function chapterRowsClass(v: ChapterView): string {
-  return v === 'list' ? '' : 'lg:grid lg:gap-x-8 lg:[grid-template-columns:repeat(auto-fill,minmax(250px,1fr))]';
+  // `--chap-col` is the column the titles on the page need (lib/chapterColumns.ts), set inline by the page once it has
+  // measured them; until then, and where it cannot, 250 px as it always was. `min(…, 100%)`: never wider than the list.
+  // `--chap-max` is set with it when the titles are long: the column then stops at what they need instead of stretching
+  // to fill the page (one 1,000 px row with its buttons a screen away from its name); unset, the columns share the width (1fr).
+  return v === 'list' ? '' : 'lg:grid lg:gap-x-8 lg:[grid-template-columns:repeat(auto-fill,minmax(min(var(--chap-col,250px),100%),var(--chap-max,1fr)))]';
 }

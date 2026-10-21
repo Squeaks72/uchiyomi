@@ -13,9 +13,9 @@ import { ART } from '@/lib/art';
 import { Img, ProgressBar, RailSkeleton, SectionTitle, Reveal } from '@/components/ui';
 import { SeriesCard, ContinueCard } from '@/components/cards';
 import { HeroCarousel } from '@/components/HeroCarousel';
+import { useBanners } from '@/lib/bannerPref';
 import { useArtUnderChrome } from '@/lib/overArt';
-import { AdultToggle, useAdultFilterConfigured } from '@/components/AdultToggle';
-import { IcPlay, IcSparkle, IcRefresh, IcBell } from '@/components/icons';
+import { IcPlay, IcSparkle, IcRefresh, IcBell, IcSliders } from '@/components/icons';
 import { PullToRefresh } from '@/components/PullToRefresh';
 import { Avatar } from '@/components/Avatar';
 import { QuickSettingsSheet } from '@/components/ProfileMenu';
@@ -64,8 +64,8 @@ function CollectionRail({ col }: { col: CollectionRow }) {
   const items = data?.items ?? [];
   if (!items.length) return null;
   return (
-    <section className="pt-8">
-      <SectionTitle action={<Link href={`/collection/?id=${col.id}`} className="text-xs text-accent">{tr('See all')}</Link>}>
+    <section className="rail-section pt-8">
+      <SectionTitle action={<Link href={`/collection/?id=${col.id}`} aria-label={tr('See all {title}', { title: col.name })} className="text-xs text-accent pointer-coarse:-my-3 pointer-coarse:py-3 pointer-coarse:ps-3">{tr('See all')}</Link>}>
         <span className="inline-flex items-center gap-2">
           <span aria-hidden className="h-4 w-1.5 rounded-full" style={{ background: safeColor(col.accent, 'rgb(var(--accent))') }} />
           {col.name}
@@ -92,10 +92,10 @@ function greeting(name?: string) {
 
 export default function HomePage() {
   const { user } = useAuth();
+  const [banners] = useBanners();
   const [quickOpen, setQuickOpen] = useState(false);
   const qc = useQueryClient();
   // A second reason for the 18+ reveal to render: a genre or source on the admin's 18+ filter.
-  const adultFilter = useAdultFilterConfigured();
   // The reader's rails, in their order (lib/homeRails.ts; Customize below the hero). A hidden rail is not drawn, and the
   // three that have a request of their own do not ask it.
   const shown = shownRails(user?.settings?.homeRails, HOME_RAIL_KEYS);
@@ -141,18 +141,18 @@ export default function HomePage() {
       case 'continue':
         // Keep reading. Every rail says pt-8; the list below gives the first one shown pt-4, whichever it is.
         return (data?.onDeck?.length ?? 0) > 0 && (
-          <section className="pt-8">
+          <section className="rail-section pt-8">
             <SectionTitle>{tr('Keep reading')}</SectionTitle>
             <ScrollRail label={tr('Keep reading')} className={CARD_RAIL}>
-              {data!.onDeck.map((b, i) => <ContinueCard key={b.id} book={b} eager={i < 4} />)}
+              {data!.onDeck.map((b, i) => <ContinueCard key={b.id} book={b} eager={i < 4} keepReading />)}
             </ScrollRail>
           </section>
         );
       case 'forYou':
         // For you
         return (foryou?.content?.length ?? 0) > 0 && (
-          <section className="pt-8">
-            <SectionTitle action={<Link href="/library" className="text-xs text-accent">{tr('Library')}</Link>}>{tr('For you')}</SectionTitle>
+          <section className="rail-section pt-8">
+            <SectionTitle action={<Link href="/library" className="text-xs text-accent pointer-coarse:-my-3 pointer-coarse:py-3 pointer-coarse:ps-3">{tr('Library')}</Link>}>{tr('For you')}</SectionTitle>
             <ScrollRail label={tr('For you')} className={CARD_RAIL}>
               {foryou!.content.map((s) => <SeriesCard key={s.id} series={s} />)}
             </ScrollRail>
@@ -161,7 +161,7 @@ export default function HomePage() {
       case 'because':
         // Because you read X (the series being read, else a favourite)
         return seed && (because?.content?.length ?? 0) > 0 && (
-          <section className="pt-8">
+          <section className="rail-section pt-8">
             <SectionTitle>{tr('Because you read {title}', { title: `⁨${seed.name}⁩` })}</SectionTitle>
             <ScrollRail label={tr('Because you read {title}', { title: `⁨${seed.name}⁩` })} className={CARD_RAIL}>
               {because!.content.map((s) => <SeriesCard key={s.id} series={s} />)}
@@ -171,8 +171,8 @@ export default function HomePage() {
       case 'newEpisodes':
         // New episodes
         return (
-          <section className="pt-8">
-            <SectionTitle action={<Link href="/library?sort=updated" className="text-xs text-accent">{tr('See all')}</Link>}>{tr('New episodes')}</SectionTitle>
+          <section className="rail-section pt-8">
+            <SectionTitle action={<Link href="/library?sort=updated" className="text-xs text-accent pointer-coarse:-my-3 pointer-coarse:py-3 pointer-coarse:ps-3">{tr('See all')}</Link>}>{tr('New episodes')}</SectionTitle>
             {isLoading ? <RailSkeleton /> : (
               <ScrollRail label={tr('New episodes')} className={CARD_RAIL}>
                 {(data?.updated ?? []).map((s, i) => <SeriesCard key={s.id} series={s} eager={i < 8} />)}
@@ -183,8 +183,8 @@ export default function HomePage() {
       case 'favorites':
         // Favorites
         return (data?.favorites?.length ?? 0) > 0 && (
-          <section className="pt-8">
-            <SectionTitle action={<Link href="/profile" className="text-xs text-accent">{tr('Manage')}</Link>}>{tr('Your favorites')}</SectionTitle>
+          <section className="rail-section pt-8">
+            <SectionTitle action={<Link href="/profile" className="text-xs text-accent pointer-coarse:-my-3 pointer-coarse:py-3 pointer-coarse:ps-3">{tr('Manage')}</Link>}>{tr('Your favorites')}</SectionTitle>
             <ScrollRail label={tr('Your favorites')} className={CARD_RAIL}>
               {data!.favorites.map((s) => <SeriesCard key={s.id} series={s} />)}
             </ScrollRail>
@@ -197,7 +197,7 @@ export default function HomePage() {
         // Pick back up (v0.61.0): series put down three months to two years ago, each at its next chapter and saying
         // when. Only with something in it, like every rail an older server does not send.
         return (data?.pickUp?.length ?? 0) > 0 && (
-          <section className="pt-8" data-home-pickup>
+          <section className="rail-section pt-8" data-home-pickup>
             <SectionTitle>{tr('Pick back up')}</SectionTitle>
             <ScrollRail label={tr('Pick back up')} className={CARD_RAIL}>
               {data!.pickUp!.map((b) => (
@@ -209,8 +209,8 @@ export default function HomePage() {
       case 'recentlyAdded':
         // Recently added
         return (
-          <section className="pt-8">
-            <SectionTitle action={<Link href="/library?sort=new" className="text-xs text-accent">{tr('See all')}</Link>}>{tr('Recently added')}</SectionTitle>
+          <section className="rail-section pt-8">
+            <SectionTitle action={<Link href="/library?sort=new" className="text-xs text-accent pointer-coarse:-my-3 pointer-coarse:py-3 pointer-coarse:ps-3">{tr('See all')}</Link>}>{tr('Recently added')}</SectionTitle>
             {isLoading ? <RailSkeleton /> : (
               <ScrollRail label={tr('Recently added')} className={CARD_RAIL}>
                 {(data?.new ?? []).map((s) => <SeriesCard key={s.id} series={s} />)}
@@ -224,8 +224,8 @@ export default function HomePage() {
         // AniList numbers yet has nothing to rank -- so it never shows an empty rail or a skeleton that turns into
         // nothing.
         return (data?.popular?.length ?? 0) > 0 && (
-          <section className="pt-8">
-            <SectionTitle action={<Link href="/library?sort=popular" className="text-xs text-accent">{tr('See all')}</Link>}>{tr('Most popular in your library')}</SectionTitle>
+          <section className="rail-section pt-8">
+            <SectionTitle action={<Link href="/library?sort=popular" className="text-xs text-accent pointer-coarse:-my-3 pointer-coarse:py-3 pointer-coarse:ps-3">{tr('See all')}</Link>}>{tr('Most popular in your library')}</SectionTitle>
             <ScrollRail label={tr('Most popular in your library')} className={CARD_RAIL}>
               {data!.popular!.map((s) => <SeriesCard key={s.id} series={s} note={sortValue(s, 'score')} />)}
             </ScrollRail>
@@ -235,8 +235,8 @@ export default function HomePage() {
         // Hidden gems (v0.61.0): well-rated series nobody here has opened, each saying AniList's score. Only with
         // something in it. See all is the Library's own answer to the same question, best first and not started.
         return (data?.gems?.length ?? 0) > 0 && (
-          <section className="pt-8" data-home-gems>
-            <SectionTitle action={<Link href="/library?sort=score&read=UNREAD" className="text-xs text-accent">{tr('See all')}</Link>}>{tr('Hidden gems')}</SectionTitle>
+          <section className="rail-section pt-8" data-home-gems>
+            <SectionTitle action={<Link href="/library?sort=score&read=UNREAD" className="text-xs text-accent pointer-coarse:-my-3 pointer-coarse:py-3 pointer-coarse:ps-3">{tr('See all')}</Link>}>{tr('Hidden gems')}</SectionTitle>
             <ScrollRail label={tr('Hidden gems')} className={CARD_RAIL}>
               {data!.gems!.map((s) => <SeriesCard key={s.id} series={s} note={sortValue(s, 'score')} />)}
             </ScrollRail>
@@ -245,7 +245,7 @@ export default function HomePage() {
       case 'top10':
         // Trending across accounts — Netflix-style Top 10 with big rank numerals
         return (trending?.content?.length ?? 0) > 0 && (
-          <section className="pt-8">
+          <section className="rail-section pt-8">
             <SectionTitle>{tr('Top 10 in your library')}</SectionTitle>
             <ScrollRail label={tr('Top 10 in your library')} className={CARD_RAIL}>
               {trending!.content.slice(0, 10).map((s, i) => (
@@ -272,7 +272,7 @@ export default function HomePage() {
           <Link href="/updates" className="relative grid h-10 w-10 place-items-center rounded-full border border-ink-700 bg-ink-850/70 text-fog-300 backdrop-blur">
             <IcBell width={19} height={19} />
             {/* Squared, as the desktop bar's: a round tag grows into a capsule at "9+". */}
-            {(data?.updatesCount ?? 0) > 0 && <span className="absolute -end-1.5 -top-1 grid h-4 min-w-4 place-items-center rounded-[4px] bg-accent px-[3px] text-[10px] font-bold leading-none tabular-nums text-black">{(data!.updatesCount ?? 0) > 9 ? '9+' : data!.updatesCount}</span>}
+            {(data?.updatesCount ?? 0) > 0 && <span className="absolute -end-1.5 -top-1 grid h-4 min-w-4 place-items-center rounded-[4px] bg-accent px-[3px] text-[10px] pointer-coarse:text-[11px] font-bold leading-none tabular-nums text-black">{(data!.updatesCount ?? 0) > 9 ? '9+' : data!.updatesCount}</span>}
           </Link>
           <button type="button" aria-label={tr('You')} aria-haspopup="dialog" onClick={() => setQuickOpen(true)} className="grid h-10 w-10 place-items-center rounded-full transition active:opacity-80">
             <Avatar avatar={user?.avatar} size={40} />
@@ -285,9 +285,13 @@ export default function HomePage() {
       {/* The welcome is for a library with nothing in it for this viewer -- `/api/featured` is the latest series they
           can see, so it is empty only then -- and never a flash while that answer is on its way: it now offers the
           import (v0.55.4), which a full library must not show for the second before its carousel arrives. */}
+      {/* The banner is a setting (Profile -> Settings, off by default): off, a page still needs its one heading, so
+          the carousel and its skeleton give way to a screen-reader-only "Home". The welcome is not a banner -- it
+          is what an empty library shows, and stays. */}
       {(featured?.content?.length ?? 0) > 0 ? (
-        <HeroCarousel slides={featured!.content} />
+        banners ? <HeroCarousel slides={featured!.content} /> : <h1 className="sr-only" data-no-banner>{tr('Home')}</h1>
       ) : isLoading || featuredPending ? (
+        !banners ? <h1 className="sr-only" data-no-banner>{tr('Home')}</h1> :
         <div className="skeleton bleed-lg under-topbar under-phone-header h-[min(150vw,82svh)] lg:h-[62vh] lg:min-h-[440px]" />
       ) : (
         <div className="bleed-lg under-topbar under-phone-header relative h-[58vh] min-h-[420px] overflow-hidden lg:h-[70vh]">
@@ -316,7 +320,6 @@ export default function HomePage() {
           {greeting(user?.displayName && user.displayName !== 'me' ? user.displayName : undefined)}
         </p>
         <div className="flex shrink-0 items-center gap-2">
-          <AdultToggle className="shrink-0" alsoWhen={adultFilter} />
           <HomeCustomize />
         </div>
       </div>

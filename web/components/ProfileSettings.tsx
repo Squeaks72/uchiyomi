@@ -10,6 +10,9 @@ import { bytes } from '@/lib/format';
 import { readShownOnce } from '@/lib/shownOnce';
 import { setTypeToSearchOn, typeToSearchOn } from '@/lib/typeToSearch';
 import { compactChaptersOn, setCompactChaptersOn } from '@/lib/compactChapters';
+import { setTitleIgnored } from '@/lib/ignoredTitles';
+import { keepAdultOn, setKeepAdultOn } from '@/lib/adult';
+import { useBanners } from '@/lib/bannerPref';
 import { showAllChaptersOn } from '@/lib/showAllChapters';
 import { contextMenusOn, setContextMenusOn } from '@/lib/contextMenus';
 import { ReaderPrefs, loadPrefs, savePrefs, syncPrefsFromServer } from '@/lib/readerPrefs';
@@ -127,10 +130,22 @@ function GeneralPane({ pointer }: { pointer: boolean }) {
   useEffect(() => { setTypeSearch(typeToSearchOn()); }, []);
   const [compactList, setCompactList] = useState(false);
   useEffect(() => { setCompactList(compactChaptersOn()); }, []);
+  const [banners, setBanners] = useBanners();
+  const [keepAdult, setKeepAdult] = useState(false);
+  useEffect(() => { setKeepAdult(keepAdultOn()); }, []);
   const [contextMenus, setContextMenus] = useState(true);
   useEffect(() => { setContextMenus(contextMenusOn()); }, []);
   // Show all chapters at once (lib/showAllChapters.ts): on the account like Reduce effects, so every device the
   // reader signs in on opens the whole list; optimistic, and put back when the server refuses.
+  // Fork: only tell this account about a new chapter when it is the one it would read next (bff lib/nextUp.ts). On the account
+  // like the switch above; the server reads it from app_settings when it sends a push or a user-aimed target's message.
+  const notifyOnlyNext = (user?.settings as { notifyOnlyNext?: boolean } | undefined)?.notifyOnlyNext === true;
+  const saveNotifyOnlyNext = async (next: boolean) => {
+    const prev = notifyOnlyNext;
+    setSettings({ notifyOnlyNext: next });
+    try { await api('/api/settings', { method: 'PUT', json: { notifyOnlyNext: next } }); }
+    catch (e) { setSettings({ notifyOnlyNext: prev }); throw e; }
+  };
   const showAllChapters = showAllChaptersOn(user?.settings);
   const saveShowAllChapters = async (next: boolean) => {
     const prev = showAllChapters;
@@ -193,11 +208,56 @@ function GeneralPane({ pointer }: { pointer: boolean }) {
           on={contextMenus} onChange={(next) => { setContextMenusOn(next); setContextMenus(next); }} />
       </RowGroup>
 
+      <RowGroup title={tr('Notifications')}>
+        <SwitchRow id="notify-only-next" label={tr('Only tell me about my next chapter')}
+          help={tr('A new chapter notifies you only when it is the one you would read next: you are caught up, with nothing older unread or half read. A chapter upgraded to a preferred group still tells you. Saved to your account.')}
+          on={notifyOnlyNext} onChange={saveNotifyOnlyNext} />
+      </RowGroup>
+
+      <MoreOptions id="general-more">
+      <RowGroup title={tr('Browsing')}>
+        {/* Fork: the big banners on Home and Discover (lib/bannerPref.ts), off by default. */}
+        <SwitchRow id="big-banners" label={tr('Big banners')}
+          help={tr('Shows the large banner at the top of Home (the daily pick) and of Discover (trending now). Off by default.')}
+          on={banners} onChange={setBanners} />
+        {/* This device only (lib/adult.ts keepAdultOn): Show 18+ lasts a year here instead of ending with the browser session. */}
+        <SwitchRow id="remember-adult" device label={tr('Remember Show 18+ on this device')}
+          help={tr('Show 18+ normally switches itself off when the browser session ends. With this on, turning it on stays on for a year on this device. Off by default; this device only.')}
+          on={keepAdult} onChange={(next) => { setKeepAdultOn(next); setKeepAdult(next); }} />
+      </RowGroup>
+      </MoreOptions>
+      <IgnoredTitles />
+
       {/* v0.61.0: the account's, not this device's (lib/incognito.ts); the reader's sheet has the same switch. */}
       <RowGroup title={tr('Privacy')}>
         <SwitchRow id="incognito" label={tr(INCOGNITO_TEXT[0])} help={tr(INCOGNITO_TEXT[1])} on={incognito.on} onChange={incognito.set} />
       </RowGroup>
     </>
+  );
+}
+
+/** Fork: titles ignored from Discover's menu, each with the way back. Drawn only once there is something to take back. */
+function IgnoredTitles() {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const { data } = useQuery({
+    queryKey: ['ignored-titles-list'], staleTime: 60_000,
+    queryFn: () => api<{ content: Array<{ key: string; title: string }> }>('/api/ignored-titles').then((r) => r.content),
+  });
+  if (!data?.length) return null;
+  const restore = async (title: string) => {
+    try { await setTitleIgnored(qc, title, false); }
+    catch { toast(tr('Could not do that'), 'error'); }
+  };
+  return (
+    <RowGroup title={tr('Ignored titles')}>
+      <p className="px-1 pb-2 text-xs text-fog-500">{tr('These never show on Discover. Show again puts one back.')}</p>
+      {data.map((m) => (
+        <Row key={m.key} label={m.title}>
+          <button type="button" onClick={() => restore(m.title)} className="btn-key text-xs">{tr('Show again')}</button>
+        </Row>
+      ))}
+    </RowGroup>
   );
 }
 

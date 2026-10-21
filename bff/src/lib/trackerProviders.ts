@@ -313,10 +313,8 @@ const ANILIST_PUSH: Record<PushStatus, string> = { reading: 'CURRENT', completed
 export const anilistAdapter: TrackerAdapter = {
   id: 'anilist',
   label: 'AniList',
-  // It said "anilist.co → Settings → Developer → create a client, then copy the access token" until v0.61.0 (#190):
-  // that page shows a client ID and a secret, never a token, so the one instruction led to a paste AniList refused.
-  // Reintroduce it: "the AniList adapter offers the token page …" in trackerVerdicts.int.test.ts fails.
-  tokenHelp: `Open ${ANILIST_TOKEN_URL}, approve Uchiyomi, and paste the token AniList shows.`,
+  // Upstream (v0.61.0, #190) fixed the old instruction (a client page shows no token); the token page is offered here.
+  tokenHelp: `Sign in with AniList, or open ${ANILIST_TOKEN_URL}, approve Uchiyomi, and paste the token AniList shows.`,
   authorizeUrl: ANILIST_TOKEN_URL,
   tokenDays: 365,
   async whoAmI(token) {
@@ -421,10 +419,9 @@ async function malCall(token: string, path: string, init?: RequestInit): Promise
 export const malAdapter: TrackerAdapter = {
   id: 'myanimelist',
   label: 'MyAnimeList',
-  // MAL issues tokens through OAuth2 with PKCE (`plain` only) and no page shows one, so the practical path for a
-  // self-hoster is to obtain one once with an app of their own and paste it. docs/USAGE.md has the recipe (v0.61.0).
-  tokenHelp: 'MyAnimeList shows no token on any page: create an API app at https://myanimelist.net/apiconfig and '
-    + 'exchange a code for a token (docs/USAGE.md, "Getting a MyAnimeList token"), then paste its access_token.',
+  // MAL issues tokens through OAuth2 with PKCE; the practical path for a self-hoster is to obtain one once
+  // and paste it, exactly as with AniList.
+  tokenHelp: 'Sign in with MyAnimeList, or paste an access token (MyAnimeList shows no token on any page: docs/USAGE.md, "Getting a MyAnimeList token").',
   tokenDays: 31,   // MAL access tokens are short-lived; surfacing that is the whole point of storing it
   async listLibrary(token, { statuses, max }) {
     if (!statuses.length || !(max > 0)) return [];
@@ -549,10 +546,7 @@ async function kitsuCall(token: string, path: string, init?: RequestInit): Promi
 export const kitsuAdapter: TrackerAdapter = {
   id: 'kitsu',
   label: 'Kitsu',
-  // Kitsu's documented way (its API docs, "Password Grant") is a POST to https://kitsu.io/api/oauth/token with your
-  // email or slug and password; no page shows a token. docs/USAGE.md has the command (v0.61.0).
-  tokenHelp: 'Kitsu shows no token on any page: ask https://kitsu.io/api/oauth/token for one with your email and '
-    + 'password (docs/USAGE.md, "Getting a Kitsu token"), then paste its access_token.',
+  tokenHelp: 'Sign in with your Kitsu username and password, or paste an access token (https://kitsu.io/api/oauth/token with your email and password; docs/USAGE.md, "Getting a Kitsu token").',
   tokenDays: 30,
   async listLibrary(token, { statuses, max }) {
     if (!statuses.length || !(max > 0)) return []; // an empty filter[status] would page the whole library

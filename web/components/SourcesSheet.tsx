@@ -19,12 +19,13 @@ import { editionNames } from '@/lib/editions';
 import Link from 'next/link';
 import { useToast } from '@/components/Toast';
 import { msgOf } from '@/components/ConfirmDialog';
-import { Sheet } from '@/components/ui';
+import { Sheet, FIELD_BASE } from '@/components/ui';
 import { GroupAvatar } from '@/components/GroupAvatar';
 import { ActivityDots } from '@/components/ActivityDots';
 import { SourceIcon } from '@/components/SourcePicker';
 import { IcInfo } from '@/components/icons';
 import { hasGroup, normGroup, reorder, withoutGroup } from '@/lib/scanlators';
+import { moveTo, useDragReorder } from '@/lib/dragReorder';
 import { cadenceLine, cadenceText } from '@/lib/cadence';
 import { activityStatus, weeksOf } from '@/lib/activity';
 import { namesGroups } from '@/lib/supplyLine';
@@ -47,7 +48,7 @@ import { MigrateSourceSheet } from '@/components/MigrateSourceSheet';
 // section began 9 px BELOW the scroller's bottom -- the only place Prefer and Block live, out of sight on
 // exactly the phone the owner complained from. The two sentences are the field's `title` and its
 // `aria-describedby` now, and the (i) explainer says the same in more words.
-const fld = 'w-14 rounded-lg border border-ink-700 bg-ink-900/60 px-2 py-1.5 text-sm text-fog-100 outline-hidden transition focus:border-accent/60';
+const fld = `w-14 px-2 py-1.5 text-fog-100 ${FIELD_BASE}`;
 
 /** The admin scanlators route: the stored override, the server defaults, what results, and the groups with their stats. */
 export interface ScanlatorInfo {
@@ -256,7 +257,7 @@ function OtherNames({ id }: { id: string }) {
                 {altOriginLabel(a.origin) && <span className="block text-[11px] text-fog-500">{altOriginLabel(a.origin)}</span>}
               </span>
               <button type="button" onClick={() => remove(a)} disabled={busy} aria-label={tr('Remove {name}', { name: a.title })}
-                className="shrink-0 px-1 text-fog-500 hover:text-rose-400 disabled:opacity-50">×</button>
+                className="-me-1 shrink-0 px-2.5 py-1.5 text-fog-500 hover:text-rose-400 disabled:opacity-50 pointer-coarse:min-h-10 pointer-coarse:min-w-10"><span aria-hidden>×</span></button>
             </li>
           ))}
         </ul>
@@ -267,7 +268,7 @@ function OtherNames({ id }: { id: string }) {
         <input dir="auto" value={draft} onChange={(e) => { setDraft(e.target.value); setRefusal(null); }} maxLength={200}
           placeholder={tr('Add another name…')} aria-label={tr('Add another name…')}
           aria-invalid={refusal ? true : undefined} aria-describedby={refusal ? `alt-refusal-${id}` : undefined}
-          className="min-w-0 flex-1 rounded-lg border border-ink-700 bg-ink-900/60 px-2.5 py-1.5 text-sm text-fog-100 outline-hidden transition focus:border-accent/60" />
+          className={`min-w-0 flex-1 px-2.5 py-1.5 text-fog-100 ${FIELD_BASE}`} />
         <button type="submit" disabled={busy || !draft.trim()} className="btn-key">{tr('Add')}</button>
       </form>
       {refusal && <p id={`alt-refusal-${id}`} role="alert" data-alt-refusal className="mt-1 text-[11px] leading-relaxed text-rose-300">{refusal}</p>}
@@ -324,11 +325,11 @@ function Languages({ series, onAdd, onChange, onUnlink, onOpen }: {
                   <span className="text-[11px] text-fog-500"> · {e.booksCount === 1 ? tr('1 chapter') : tr('{n} chapters', { n: e.booksCount })}</span>
                 </span>
                 {e.current
-                  ? <span className="shrink-0 rounded-[4px] border border-accent/40 px-1.5 text-[10px] leading-4 text-accent">{tr('this edition')}</span>
+                  ? <span className="shrink-0 rounded-[4px] border border-accent/40 px-1.5 text-[11px] leading-4 text-accent">{tr('this edition')}</span>
                   : <Link href={`/series/?id=${encodeURIComponent(e.seriesId)}`} onClick={onOpen} className="btn-key">{tr('Open')}</Link>}
                 {onUnlink && (
                   <button type="button" onClick={() => onUnlink(e)} aria-label={tr('Unlink the {language} edition', { language: languageName(e.lang) })}
-                    className="grid size-7 shrink-0 place-items-center rounded-lg text-fog-500 hover:text-rose-300">×</button>
+                    className="grid size-8 shrink-0 place-items-center rounded-lg text-fog-500 hover:text-rose-300"><span aria-hidden>×</span></button>
                 )}
               </div>
             ))}
@@ -369,8 +370,28 @@ export function backupText(at: string | null | undefined): string {
  * × that stops following it and (v0.54.0) Make main on a follower that works: it asks first, in one line, what becomes
  * of the main source it replaces (lib/mainSource.ts).
  */
-export function SourceRow({ s, onUnfollow, unfollowing, makeMain }: {
-  s: SeriesSource; onUnfollow?: () => void; unfollowing?: boolean;
+/** The source's name, as a link to this series' own page on that source (an admin read; the address comes from the source). */
+function SourcePageLink({ seriesId, s }: { seriesId: string; s: SeriesSource }) {
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+  const go = async () => {
+    // Opened at once, on the click, so a popup blocker allows it; pointed at the page when the source has answered.
+    const w = window.open('about:blank', '_blank');
+    setBusy(true);
+    try {
+      const r = await api<{ url: string }>(`/api/admin/series/${encodeURIComponent(seriesId)}/sources/${encodeURIComponent(s.sourceId)}/url`);
+      if (w) { w.opener = null; w.location.href = r.url; } else window.open(r.url, '_blank', 'noopener');
+    } catch (e) { w?.close(); toast(msgOf(e, tr('Could not find that page')), 'error'); }
+    setBusy(false);
+  };
+  return (
+    <button type="button" onClick={go} disabled={busy} aria-busy={busy} title={tr('Open on {s}', { s: s.name })}
+      className="truncate text-fog-100 hover:text-accent hover:underline disabled:opacity-60">{s.name}</button>
+  );
+}
+
+export function SourceRow({ s, seriesId, onUnfollow, unfollowing, makeMain }: {
+  s: SeriesSource; seriesId?: string; onUnfollow?: () => void; unfollowing?: boolean;
   makeMain?: { question: string; busy: boolean; refusal: string | null; asking: boolean; onAsk: () => void; onCancel: () => void; onConfirm: () => void };
 }) {
   // ⚠️ The server names an adapter it no longer loads by its id, and an extension's id is nineteen digits
@@ -382,14 +403,16 @@ export function SourceRow({ s, onUnfollow, unfollowing, makeMain }: {
       <SourceIcon id={s.sourceId} name={unknown ? '?' : s.name} size={24} registered={s.registered} />
       <span className="min-w-0 flex-1">
         <span className="flex min-w-0 items-center gap-1.5">
-          <span className={`truncate ${s.registered ? 'text-fog-100' : 'text-fog-500'}`}>{unknown ? tr('Source not installed') : s.name}</span>
+          {seriesId && s.registered
+            ? <SourcePageLink seriesId={seriesId} s={s} />
+            : <span className={`truncate ${s.registered ? 'text-fog-100' : 'text-fog-500'}`}>{unknown ? tr('Source not installed') : s.name}</span>}
           {/* ONE chip carries the role. A follower the add itself judged in (v0.36.0, `auto`) reads
               "followed for you" in the same chip, never as a third span: at 390 px the name line is ~316 px,
               and "also checked" + "followed automatically" + × left ~90 px for the name -- "MangaKakalot"
               truncated on exactly the row whose name you need to read before pressing ×. The × keeps its
               plain "Stop following {s}" label; undoing an automatic follow is the same act. */}
-          <span className="chip shrink-0 px-2 py-0.5 text-[10px]">{s.primary ? tr('main') : s.auto ? tr('followed for you') : tr('also checked')}</span>
-          {!s.registered && !unknown && <span className="shrink-0 text-[11px] text-fog-600">{tr('not installed')}</span>}
+          <span className="chip shrink-0 px-2 py-0.5 text-[11px]">{s.primary ? tr('main') : s.auto ? tr('followed for you') : tr('also checked')}</span>
+          {!s.registered && !unknown && <span className="shrink-0 text-[11px] text-fog-500">{tr('not installed')}</span>}
         </span>
         <span className="block truncate text-[11px] text-fog-500">
           {s.chapters != null && tr('{n} chapters listed', { n: s.chapters })}
@@ -412,7 +435,7 @@ export function SourceRow({ s, onUnfollow, unfollowing, makeMain }: {
       )}
       {onUnfollow && (
         <button type="button" onClick={onUnfollow} disabled={unfollowing} aria-label={tr('Stop following {s}', { s: s.name })}
-          className="shrink-0 px-1 text-fog-500 hover:text-rose-400 disabled:opacity-50">×</button>
+          className="-me-1 shrink-0 px-2.5 py-1.5 text-fog-500 hover:text-rose-400 disabled:opacity-50 pointer-coarse:min-h-10 pointer-coarse:min-w-10"><span aria-hidden>×</span></button>
       )}
     </div>
     {/* Asked in one line under the row, inside the sheet: a dialog opened over a Sheet paints under it. */}
@@ -436,7 +459,7 @@ export function SourceRow({ s, onUnfollow, unfollowing, makeMain }: {
  * controls when there are any. The same renderer for both audiences, so the member's view is exactly the
  * admin's minus the buttons.
  */
-function GroupRow({ g, blocked, serverBlocked, haveNumbers, seriesStatus, controls, onJump }: {
+function GroupRow({ g, blocked, serverBlocked, haveNumbers, seriesStatus, controls, onJump, dragProps }: {
   g: GroupStat;
   blocked: boolean;
   serverBlocked: boolean;
@@ -446,6 +469,8 @@ function GroupRow({ g, blocked, serverBlocked, haveNumbers, seriesStatus, contro
   controls?: React.ReactNode;
   /** Close the sheet and scroll the page to that chapter's row. */
   onJump: (n: number) => void;
+  /** A ranked group's handle for drag to reorder (lib/dragReorder.ts): spread onto the row. */
+  dragProps?: object;
 }) {
   const [showChapters, setShowChapters] = useState(false);
   const weeks = weeksOf(g);
@@ -456,7 +481,7 @@ function GroupRow({ g, blocked, serverBlocked, haveNumbers, seriesStatus, contro
   const fallback = cadenceLine(g.cadence, g.lastReleaseAt).filter((p) => /last release|quiet/.test(p.key));
   const struck = blocked || serverBlocked;
   return (
-    <div className="border-t border-ink-800/70 py-2 first:border-t-0">
+    <div {...dragProps} className="border-t border-ink-800/70 py-2 first:border-t-0">
       {/* The name block keeps at least 14rem; when the controls do not fit beside that (a phone) they wrap
           under it as one group, rather than squeezing the statistics into a two-line column beside them. */}
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
@@ -485,7 +510,7 @@ function GroupRow({ g, blocked, serverBlocked, haveNumbers, seriesStatus, contro
             {controls}
             {g.chapters.length > 0 && (
               <button type="button" onClick={() => setShowChapters((s) => !s)} aria-expanded={showChapters}
-                className="chip shrink-0 px-2 py-0.5 text-[10px]">
+                className="chip shrink-0 px-2 py-0.5 text-[11px]">
                 {showChapters ? tr('Hide chapters') : tr('Show chapters')}
               </button>
             )}
@@ -493,10 +518,10 @@ function GroupRow({ g, blocked, serverBlocked, haveNumbers, seriesStatus, contro
         )}
       </div>
       {showChapters && (
-        <div className="mt-1.5 flex flex-wrap gap-1">
+        <div className="mt-1.5 flex flex-wrap gap-1 pointer-coarse:gap-1.5">
           {g.chapters.map((n) => (
             <button key={n} type="button" onClick={() => onJump(n)}
-              className={`rounded-full border px-1.5 text-[10px] leading-4 ${haveNumbers.has(n) ? 'border-ink-600 bg-ink-800 text-fog-200' : 'border-ink-800 text-fog-600'}`}>
+              className={`rounded-full border px-1.5 text-[11px] leading-4 pointer-coarse:px-2.5 pointer-coarse:py-1.5 pointer-coarse:text-xs ${haveNumbers.has(n) ? 'border-ink-600 bg-ink-800 text-fog-200' : 'border-ink-800 text-fog-600'}`}>
               {chapterLabel({ number: n })}
             </button>
           ))}
@@ -623,8 +648,22 @@ export function SourcesSheet({ id, title: seriesTitle, series, groups, admin, er
   // (never the input's unsaved text -- Save is for that).
   const apply = (next: Pick<StoredPrefs, 'priority' | 'blocked'>) => {
     setLocal(next);
-    return patch({ ...next, patienceDays: admin?.prefs?.patienceDays ?? null });
+    return patch({ ...next, patienceDays: admin?.prefs?.patienceDays ?? null, ...notifyFields() });
   };
+  // "Only notify me for a preferred group" (per series): every write of the prefs carries it, or a Prefer tap would drop it.
+  const notifyOnly = admin?.prefs?.notifyOnlyPreferred === true;
+  const notifySources = admin?.prefs?.notifySources ?? [];
+  /** The two notification fields as stored, to ride along on every write of the prefs (absent when off). */
+  const notifyFields = (over: Partial<Pick<StoredPrefs, 'notifyOnlyPreferred' | 'notifySources'>> = {}): Pick<StoredPrefs, 'notifyOnlyPreferred' | 'notifySources'> => {
+    const only = over.notifyOnlyPreferred ?? notifyOnly;
+    const srcs = over.notifySources ?? notifySources;
+    return { ...(only ? { notifyOnlyPreferred: true } : {}), ...(srcs.length ? { notifySources: srcs } : {}) };
+  };
+  const toggleNotifyOnly = () => patch({ priority: stored.priority, blocked: stored.blocked, patienceDays: admin?.prefs?.patienceDays ?? null, ...notifyFields({ notifyOnlyPreferred: !notifyOnly }) });
+  const toggleNotifySource = (sourceId: string) => patch({
+    priority: stored.priority, blocked: stored.blocked, patienceDays: admin?.prefs?.patienceDays ?? null,
+    ...notifyFields({ notifySources: notifySources.includes(sourceId) ? notifySources.filter((x) => x !== sourceId) : [...notifySources, sourceId] }),
+  });
   const rankIn = (priority: string[], name: string) => { const k = normGroup(name); return priority.findIndex((p) => normGroup(p) === k); };
   // Preferring a group unblocks it and blocking one un-ranks it: a group in both lists would be blocked
   // (the server takes the union) while showing a rank that can never be used.
@@ -635,10 +674,17 @@ export function SourcesSheet({ id, title: seriesTitle, series, groups, admin, er
     ? { ...stored, blocked: withoutGroup(stored.blocked, name) }
     : { blocked: [...stored.blocked, name], priority: withoutGroup(stored.priority, name) });
   const move = (name: string, dir: -1 | 1) => apply({ ...stored, priority: reorder(stored.priority, rankIn(stored.priority, name), dir) });
-  const savePatience = () => {
+  // The ranked groups come first, in rank order, so a ranked row's place in the list is its rank: dragging one to
+  // where another sits is a move in the ranking. The groups under them are not draggable.
+  const drag = useDragReorder({
+    count: stored.priority.length, layout: 'column', enabled: !!admin && !busy,
+    onMove: (from, to) => { void apply({ ...stored, priority: moveTo(stored.priority, from, to) }); },
+  });
+  // Save is the footer's "done": once it is stored the sheet closes (the controls above apply at once and stay open).
+  const savePatience = async () => {
     const n = patienceDays();
     if (n === false) return;
-    return patch({ priority: stored.priority, blocked: stored.blocked, patienceDays: n });
+    if (await patch({ priority: stored.priority, blocked: stored.blocked, patienceDays: n, ...notifyFields() })) onClose();
   };
   const useDefaults = async () => { if (await patch(null)) { setLocal({ priority: [], blocked: [] }); setPatience(''); } };
 
@@ -762,7 +808,7 @@ export function SourcesSheet({ id, title: seriesTitle, series, groups, admin, er
       </span>
       <p id={`patience-help-${id}`} className="sr-only">{patienceHelp}</p>
       <span className="ms-auto flex shrink-0 gap-1.5">
-        <button onClick={savePatience} disabled={busy} className="btn-accent px-3 py-1 text-xs disabled:opacity-50">{tr('Save')}</button>
+        <button onClick={savePatience} disabled={busy} className="btn-accent px-3 py-1 text-xs disabled:opacity-50 pointer-coarse:py-2.5 pointer-coarse:text-sm">{tr('Save')}</button>
         <button onClick={useDefaults} disabled={busy || !admin.prefs} className="chip px-2.5 py-1 text-[11px] disabled:opacity-50">{tr('Use server defaults')}</button>
       </span>
     </div>
@@ -784,7 +830,7 @@ export function SourcesSheet({ id, title: seriesTitle, series, groups, admin, er
       action={
         <button type="button" onClick={onExplain} aria-label={tr('What are sources and translations?')}
           className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-ink-800/80 text-fog-300">
-          <IcInfo width={16} height={16} />
+          <IcInfo aria-hidden width={16} height={16} />
         </button>
       }>
       <section>
@@ -792,7 +838,7 @@ export function SourcesSheet({ id, title: seriesTitle, series, groups, admin, er
         {sources.length > 0
           ? <div className="divide-y divide-ink-800/70">
               {sources.map((s) => (
-                <SourceRow key={s.sourceId} s={{ ...s, checkedAt: s.checkedAt ?? (s.primary ? checkedAt : null) }}
+                <SourceRow key={s.sourceId} seriesId={isAdmin ? id : undefined} s={{ ...s, checkedAt: s.checkedAt ?? (s.primary ? checkedAt : null) }}
                   onUnfollow={isAdmin ? (s.primary ? () => setDetachAsk(true) : () => unfollow(s)) : undefined} unfollowing={unfollowing === s.sourceId}
                   makeMain={adminAccount && mayMakeMain(s) ? {
                     question: makeMainQuestion(s, main?.primary ? main : null),
@@ -859,7 +905,7 @@ export function SourcesSheet({ id, title: seriesTitle, series, groups, admin, er
         {isAdmin && series?.borrowNamesEffective !== undefined && (
           <div className="mt-3">
             <label className="flex items-start gap-2 text-[11px] leading-relaxed text-fog-500">
-              <input type="checkbox" className="mt-0.5 accent-[rgb(var(--accent))]"
+              <input type="checkbox" className="mt-0.5 shrink-0 pointer-coarse:size-5 accent-[rgb(var(--accent))]"
                 checked={series.borrowNamesEffective} disabled={borrowing}
                 onChange={(e) => setBorrow(e.target.checked)} />
               <span>{tr('Borrow chapter names from another source. Only a source whose numbering matches this series is used; switching this off takes those names back.')}</span>
@@ -873,7 +919,7 @@ export function SourcesSheet({ id, title: seriesTitle, series, groups, admin, er
         {isAdmin && series?.hideNoticesEffective !== undefined && (
           <div className="mt-3" data-hide-notices>
             <label className="flex items-start gap-2 text-[11px] leading-relaxed text-fog-500">
-              <input type="checkbox" className="mt-0.5 accent-[rgb(var(--accent))]"
+              <input type="checkbox" className="mt-0.5 shrink-0 pointer-coarse:size-5 accent-[rgb(var(--accent))]"
                 checked={series.hideNoticesEffective} disabled={hidingNotices}
                 onChange={(e) => setHideNotices(e.target.checked)} />
               <span>
@@ -881,6 +927,7 @@ export function SourcesSheet({ id, title: seriesTitle, series, groups, admin, er
                 {series.hideNoticeShortOnly === false
                   ? tr('Hide notice chapters (numbered like 12.5) here, in Mihon and everywhere else. Switching this off shows them again.')
                   : tr('Hide notice chapters (numbered like 12.5, with 3 pages or fewer) here, in Mihon and everywhere else. Switching this off shows them again.')}
+                {' '}{tr('A chapter numbered 0 counts as one too, and is judged the same way.')}
                 {series.hideNoticesEffective && (
                   <span className="text-fog-400"> {tr('Hidden now: {n}.', { n: series.hiddenNotices ?? 0 })}</span>
                 )}
@@ -889,7 +936,7 @@ export function SourcesSheet({ id, title: seriesTitle, series, groups, admin, er
             {series.hideNotices !== null && series.hideNotices !== undefined
               ? <button type="button" disabled={hidingNotices} onClick={() => setHideNotices(null)}
                   className="mt-1 ms-6 text-[11px] text-fog-500 underline disabled:opacity-50">{tr('Use the server default')}</button>
-              : <p className="mt-1 ms-6 text-[11px] text-fog-600">{tr('Following the switch for {type} in Settings.', { type: tr(seriesTypeKey(series.seriesType ?? 'unknown')) })}</p>}
+              : <p className="mt-1 ms-6 text-[11px] text-fog-500">{tr('Following the switch for {type} in Settings.', { type: tr(seriesTypeKey(series.seriesType ?? 'unknown')) })}</p>}
           </div>
         )}
       </section>
@@ -898,6 +945,40 @@ export function SourcesSheet({ id, title: seriesTitle, series, groups, admin, er
 
       <section className="mt-5">
         <Eyebrow>{tr('Translated by')}</Eyebrow>
+        {/* Admin, per series: the chapters are fetched either way; this only holds back the news (push and the notification
+            targets) for those from a group that is not a preferred one. With no preferred group it changes nothing. */}
+        {admin && (
+          <label className="mb-2 flex cursor-pointer items-start gap-2 text-xs text-fog-300 pointer-coarse:py-1">
+            <input type="checkbox" checked={notifyOnly} disabled={busy} onChange={toggleNotifyOnly}
+              className="mt-0.5 size-4 shrink-0 accent-[rgb(var(--accent))] pointer-coarse:size-5" data-notify-only-preferred />
+            <span>
+              {tr('Only notify me about new chapters from a preferred group')}
+              <span className="block text-[11px] text-fog-500">
+                {admin.effective.priority.length
+                  ? tr('Every chapter is still fetched; chapters from other groups just do not send a notification.')
+                  : tr('Prefer at least one group below first. Until then every new chapter notifies.')}
+              </span>
+            </span>
+          </label>
+        )}
+        {/* The same idea by SOURCE: only chapters one of the ticked sources delivered make a notification. Nothing ticked = any. */}
+        {admin && sources.length > 1 && (
+          <fieldset className="mb-3" data-notify-sources>
+            <legend className="mb-1 text-xs text-fog-300">{tr('Only notify me about chapters delivered by')}</legend>
+            <div className="flex flex-wrap gap-x-4 gap-y-1">
+              {sources.map((x) => (
+                <label key={x.sourceId} className="flex cursor-pointer items-center gap-1.5 text-xs text-fog-300 pointer-coarse:min-h-10">
+                  <input type="checkbox" checked={notifySources.includes(x.sourceId)} disabled={busy} onChange={() => toggleNotifySource(x.sourceId)}
+                    className="size-4 shrink-0 accent-[rgb(var(--accent))] pointer-coarse:size-5" />
+                  {x.name}
+                </label>
+              ))}
+            </div>
+            <p className="mt-0.5 text-[11px] text-fog-500">
+              {notifySources.length ? tr('Chapters from the other sources are still fetched; they just do not notify.') : tr('Nothing ticked: a chapter from any source notifies.')}
+            </p>
+          </fieldset>
+        )}
         {isLoading && <div className="skeleton h-12 rounded-xl" />}
         {!isLoading && !!error && (
           <p className="text-xs text-rose-300">{msgOf(error, tr('Could not load the groups'))}</p>
@@ -911,25 +992,28 @@ export function SourcesSheet({ id, title: seriesTitle, series, groups, admin, er
             <>
               {rank >= 0 && (
                 <span className="flex shrink-0 items-center">
-                  <button onClick={() => move(g.name, -1)} disabled={busy || rank === 0} aria-label={tr('Move up')} className="px-1 text-fog-400 disabled:opacity-30">▲</button>
-                  <button onClick={() => move(g.name, 1)} disabled={busy || rank === stored.priority.length - 1} aria-label={tr('Move down')} className="px-1 text-fog-400 disabled:opacity-30">▼</button>
+                  <button onClick={() => move(g.name, -1)} disabled={busy || rank === 0} aria-label={`${tr('Move up')}: ${g.name}`} className="px-2 py-1 text-fog-400 disabled:opacity-30 pointer-coarse:px-3 pointer-coarse:py-2.5"><span aria-hidden>▲</span></button>
+                  <button onClick={() => move(g.name, 1)} disabled={busy || rank === stored.priority.length - 1} aria-label={`${tr('Move down')}: ${g.name}`} className="px-2 py-1 text-fog-400 disabled:opacity-30 pointer-coarse:px-3 pointer-coarse:py-2.5"><span aria-hidden>▼</span></button>
                 </span>
               )}
               <button onClick={() => togglePrefer(g.name)} disabled={busy || (serverBlocked && rank < 0)}
-                className={`chip shrink-0 px-2 py-0.5 text-[10px] disabled:opacity-40 ${rank >= 0 ? 'chip-active' : ''}`}>
+                aria-pressed={rank >= 0} aria-label={`${rank >= 0 ? `#${rank + 1}` : tr('Prefer')}: ${g.name}`}
+                className={`chip shrink-0 px-2 py-0.5 text-[11px] disabled:opacity-40 ${rank >= 0 ? 'chip-active' : ''}`}>
                 {rank >= 0 ? `#${rank + 1}` : tr('Prefer')}
               </button>
               {serverBlocked
-                ? <span className="shrink-0 text-[10px] text-fog-600">{tr('blocked on server')}</span>
+                ? <span className="shrink-0 text-[11px] text-fog-500">{tr('blocked on server')}</span>
                 : <button onClick={() => toggleBlock(g.name)} disabled={busy}
-                    className={`chip shrink-0 px-2 py-0.5 text-[10px] disabled:opacity-40 ${blocked ? 'border-rose-500/40 text-rose-300' : ''}`}>
+                    aria-pressed={blocked} aria-label={`${blocked ? tr('Blocked') : tr('Block')}: ${g.name}`}
+                    className={`chip shrink-0 px-2 py-0.5 text-[11px] disabled:opacity-40 ${blocked ? 'border-rose-500/40 text-rose-300' : ''}`}>
                     {blocked ? tr('Blocked') : tr('Block')}
                   </button>}
             </>
           );
           return (
             <GroupRow key={normGroup(g.name) || g.name} g={g} blocked={blocked} serverBlocked={serverBlocked} haveNumbers={haveNumbers}
-              seriesStatus={series?.metadata?.status} controls={controls || undefined} onJump={jump} />
+              seriesStatus={series?.metadata?.status} controls={controls || undefined} onJump={jump}
+              dragProps={rank >= 0 ? drag.item(rank) : undefined} />
           );
         })}
       </section>

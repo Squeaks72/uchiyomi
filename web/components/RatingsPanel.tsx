@@ -187,7 +187,7 @@ function StarRow({ value, onRate, size, labelledBy }: { value: number | null; on
             onFocus={(e) => { if (keyboardFocus(e.currentTarget)) setPreview(n); }}
             onBlur={() => setPreview(null)}
             onKeyDown={(e) => move(e, n)}
-            className={`grid h-9 w-7 place-items-center rounded-md outline-none transition-colors focus-visible:ring-2 focus-visible:ring-accent/60 ${tone}`}>
+            className={`grid h-9 w-7 pointer-coarse:h-10 pointer-coarse:w-9 place-items-center rounded-md outline-none transition-colors focus-visible:ring-2 focus-visible:ring-accent/60 ${tone}`}>
             <IcStar width={size} height={size} fill={on ? 'currentColor' : 'none'} aria-hidden />
           </button>
         );

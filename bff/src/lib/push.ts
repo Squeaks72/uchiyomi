@@ -4,6 +4,7 @@ import { parse as legacyUrlParse } from 'node:url';
 import { q } from './db';
 import { env } from '../env';
 import { viewCtxFor, seriesVisible } from './visibility';
+import { isNextUp, notifyOnlyNextOn } from './nextUp';
 import { assertPublicHost, BlockedAddress } from './ssrfGuard';
 import { conversationRecipients, conversationPush } from './comments';
 // A cycle, and a safe one: notify/index.ts calls notifyAdmins back when it switches a failing target off, and
@@ -74,7 +75,7 @@ async function sendToUser(userId: string, payload: object): Promise<void> {
 }
 
 /** Notify everyone who favorited a series that it got new chapter(s). Fire-and-forget from the updater. */
-export async function notifyNewChapter(seriesId: string, title: string, addedCount: number): Promise<void> {
+export async function notifyNewChapter(seriesId: string, title: string, addedCount: number, body?: string, opts: { numbers?: number[] } = {}): Promise<void> {
   if (!enabled) return;
   const fans = await q<{ user_id: string; role: string }>(
     `SELECT f.user_id, u.role FROM favorites f JOIN users u ON u.id = f.user_id WHERE f.series_id = $1 AND NOT u.disabled`, [seriesId]);
@@ -86,12 +87,16 @@ export async function notifyNewChapter(seriesId: string, title: string, addedCou
   const users: Array<{ user_id: string }> = [];
   for (const f of fans) {
     const ok = await viewCtxFor(f.user_id, f.role).then((ctx) => seriesVisible(seriesId, ctx)).catch(() => false);
-    if (ok) users.push({ user_id: f.user_id });
+    if (!ok) continue;
+    // An account that asked to hear only about its NEXT-UP chapter (lib/nextUp.ts) is told only when one of these is it. Not for an
+    // announcement with no chapter numbers (an upgrade to a preferred group): that is always wanted.
+    if (opts.numbers?.length && (await notifyOnlyNextOn(f.user_id)) && !(await isNextUp(f.user_id, seriesId, opts.numbers))) continue;
+    users.push({ user_id: f.user_id });
   }
   if (!users.length) return;
   const payload = {
     title,
-    body: addedCount > 1 ? `${addedCount} new chapters available` : 'A new chapter is available',
+    body: body ?? (addedCount > 1 ? `${addedCount} new chapters available` : 'A new chapter is available'),
     url: `/series/?id=${seriesId}`,
     tag: `series-${seriesId}`,
   };

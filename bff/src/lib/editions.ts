@@ -32,7 +32,8 @@ type Qq = <R = any>(text: string, params?: any[]) => Promise<R[]>;
  * take the suffix off a long title; 135 leaves the code its room. The original edition's folder is never renamed.
  */
 export function editionFolder(srcDir: string, title: string, lang: string): string {
-  return `${srcDir}/${sanitize(title).slice(0, 135).trimEnd()} (${langLabel(lang)})`;
+  const leaf = `${sanitize(title).slice(0, 135).trimEnd()} (${langLabel(lang)})`;
+  return srcDir ? `${srcDir}/${leaf}` : leaf;
 }
 
 export interface Linked { workId: string; lang: string }

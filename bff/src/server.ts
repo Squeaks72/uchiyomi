@@ -21,6 +21,7 @@ import { scheduleFingerprintBackfill } from './lib/fingerprintJob';
 import { schedulePageHashBackfill } from './lib/pageHashJob';
 import { solverHealth } from './lib/health';
 import { refreshHealthSummary } from './lib/healthSummary';
+import { recountUnreadable } from './lib/healthFiles';
 import { scheduleMatchCheck } from './lib/matchCheck';
 import { startTitleWorks } from './lib/discoverIdentity';
 import { scheduleMergeLeftovers } from './lib/mergeLeftovers';
@@ -36,7 +37,7 @@ import { startArchive } from './lib/archive';
 import { startHeroWarmup } from './lib/autoHero';
 import { closeInterruptedFindRuns, findSettledWithin } from './lib/findSources';
 import { loadUnstatedLang } from './lib/seriesLang';
-import { refreshNoticesActive } from './lib/noticeSettings';
+import { applyNoticeDefault, refreshNoticesActive } from './lib/noticeSettings';
 import { loadAdultSources } from './lib/visibility';
 import { loadMangadexLangs } from './lib/sources/mangadexLangs';
 import { runChapterCleanup, unpruneRestored } from './lib/chapterCleanup';
@@ -72,6 +73,7 @@ import translateRoutes from './routes/translate';
 import { stopEngine } from './lib/translate/engine';
 import commentRoutes from './routes/comments';
 import { isDesktop } from './lib/desktop';
+import { healFolderCase } from './lib/libraryFolders';
 import { installDesktopGuards } from './lib/desktopGuard';
 import { ensureDesktopUser } from './lib/desktopUser';
 import { initialiseBulkChapterDeleteRuns } from './lib/bulkChapterDelete';
@@ -88,11 +90,13 @@ async function main() {
     process.exit(1);
   }
   for (const w of await authModeWarnings()) console.warn(`[auth] ${w}`);
+  await healFolderCase().catch((e) => console.warn(`[library] could not respell renamed folders: ${(e as Error)?.message || e}`));
   // The language of sources and series that do not say (lib/lang.ts), before anything compares languages. A
   // database that cannot be read here leaves English, the default, and never stops the boot.
   await loadUnstatedLang().catch((e) => console.warn(`[lang] could not read the unstated language: ${(e as Error)?.message || e}`));
   // Whether any notice-chapter switch is on (lib/noticeChapters.ts), before the first query is built: while none is,
   // every query is the one the previous release ran. Unreadable leaves them off, as they were before the feature.
+  await applyNoticeDefault();
   await refreshNoticesActive().catch((e) => console.warn(`[notices] could not read the switches: ${(e as Error)?.message || e}`));
   // The sources the admin rated Adult only (lib/visibility.ts sourceRatedAdult), before anything asks which sources an
   // account may reach. Unreadable, the first read of the 18+ lists loads them.
@@ -262,6 +266,13 @@ async function main() {
   // rest of audit_log is evidence other code reads back). Shortly after boot, then once a day.
   const pruneRefusals = () => { pruneAudit().catch((e) => app.log.warn({ err: e }, 'audit prune failed')); };
   setTimeout(pruneRefusals, 10 * 60_000).unref();
+  // Chapter files flagged "no page can be read" by a failed read, not a broken file (lib/pageCount.ts countPagesOrNull): counted
+  // again once, a few minutes after boot, slowly. Real zeros stay; the rest leave Health's card.
+  setTimeout(() => {
+    recountUnreadable({ max: 50_000, conc: 3 })
+      .then((r) => { if (r.fixed) app.log.info(`health: ${r.fixed} of ${r.checked} flagged chapter files can be read after all`); })
+      .catch((e) => app.log.warn({ err: e }, 'recount of flagged chapter files failed'));
+  }, 4 * 60_000).unref();
   setInterval(pruneRefusals, 24 * 60 * 60_000).unref();
 
   // Periodic new-chapter check (owned mode), self-rescheduling so the admin can change the interval live.

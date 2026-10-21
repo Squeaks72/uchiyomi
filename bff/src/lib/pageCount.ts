@@ -19,5 +19,33 @@ import { cbzPages } from './library';
  * here: a file on our own disk says nothing about the site it came from.
  */
 export async function countPages(abs: string): Promise<number> {
-  return (await cbzPages(abs).catch(() => [])).length;
+  return (await countPagesOrNull(abs)) ?? 0;
+}
+
+/**
+ * Why a read failed, for the stamp: a file that is GONE or a zip that is truly broken is a real 0; anything else (too many open
+ * files while the night's count runs wide, a disk hiccup, the mover holding a file) says nothing about the file. Stamping those as
+ * 0 left some 13,800 readable chapters on Health's "Chapter files" card for good -- the stamp stops the file being opened again,
+ * so a failed read became a permanent finding.
+ */
+function readFailureMeansZero(e: unknown): boolean {
+  const code = (e as NodeJS.ErrnoException | null)?.code;
+  if (code === 'ENOENT' || code === 'ENOTDIR') return true;
+  return /end of central directory|invalid|corrupt|not a zip|truncat|unexpected|bad (zip|rar|archive)|not an? (archive|zip)/i.test(String((e as Error | null)?.message ?? e));
+}
+
+/**
+ * Pages in one chapter file, `0` when it is truly unreadable (gone, broken, no images), and `null` when the READ failed for a
+ * reason that says nothing about the file: the caller must not stamp anything then, so it is counted again next time. One
+ * retry first, after a breath, which is what most such failures need.
+ */
+export async function countPagesOrNull(abs: string): Promise<number | null> {
+  for (let attempt = 0; ; attempt++) {
+    try { return (await cbzPages(abs)).length; }
+    catch (e) {
+      if (readFailureMeansZero(e)) return 0;
+      if (attempt >= 1) return null;
+      await new Promise((r) => setTimeout(r, 250));
+    }
+  }
 }
