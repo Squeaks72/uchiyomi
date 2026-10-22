@@ -38,10 +38,13 @@ import { hasGroup, normGroup, reorder, withoutGroup } from '@/lib/scanlators';
 import { suggestGroups } from '@/lib/groupSuggest';
 import { NotificationsSection } from '@/components/AdminNotifications';
 import { SlowArchiveRow } from '@/components/ArchiveSettings';
+import { PolitenessRow } from '@/components/PolitenessSettings';
 import { TranslateRow } from '@/components/TranslateSettings';
 import { isDesktop } from '@/lib/desktop';
 import { ssoOnly, useAuthConfig } from '@/lib/authConfig';
 import { adultShown } from '@/lib/adult';
+import { ChipPicker } from '@/components/ChipPicker';
+import { MixedSourcesPicker } from '@/components/MixedSourcesPicker';
 import { addable, moveIn, orderRows } from '@/lib/sourceOrder';
 import { moveTo, useDragReorder } from '@/lib/dragReorder';
 import { discoverSources } from '@/lib/sourceGroups';
@@ -229,26 +232,25 @@ function AdultFilterSection({ data, save }: { data: any; save: Save }) {
       <EditorSheet title={tr('18+ filter')} open={editor.open} onClose={editor.close}>
         <div className="py-3 first:pt-1">
           <p className="mb-2 max-w-prose text-[12px] leading-relaxed text-fog-400">
-            {tr('Genres to keep off the shelf while “Show 18+” is off. This hides nothing from anyone who goes looking: links, bookmarks, downloads and reading progress are unaffected.')}
+            {tr('Genres to keep out of Discover while “Show 18+” is off. Series already in your library are not judged by genre: only their library’s age rating decides whether they are hidden.')}
           </p>
-          <div className="flex flex-wrap gap-1.5" data-adult-genres>
-            {allGenres.length === 0 && <span className="text-[11px] text-fog-500">{tr('No genres yet.')}</span>}
-            {allGenres.map((g) => (
-              <button key={g.key} type="button"
-                onClick={() => flip('adultGenres', genres, setGenres, g.key)}
-                aria-pressed={has(genres, g.key)}
-                className={`btn-key whitespace-nowrap ${has(genres, g.key) ? 'btn-key-accent' : ''}`}>
-                {g.label || g.key}
-              </button>
-            ))}
+          <div data-adult-genres>
+            {allGenres.length === 0 && genres.length === 0 && <span className="text-[11px] text-fog-500">{tr('No genres yet.')}</span>}
+            <ChipPicker label={tr('Genres')} options={allGenres.map((g) => ({ key: g.key, label: g.label || g.key }))} selected={genres}
+              onToggle={(k) => flip('adultGenres', genres, setGenres, k)} />
           </div>
         </div>
+        <MixedSourcesPicker />
         <p className="max-w-prose py-3 text-[11px] leading-relaxed text-fog-500" data-source-ratings-note>
           {tr('A whole source is rated on its own sheet: Sources ▸ the source ▸ Age rating. Adult only also keeps it from accounts limited below 18.')}
         </p>
-        <p className="py-3 text-[11px] leading-relaxed text-fog-500">
-          {tr('One series can be let through on its own page — Edit details ▸ “Always show”.')}
-        </p>
+        {/* Fork: Mixed sources (Sources ▸ a source ▸ Age rating ▸ Mixed). Off, a title from one that nothing can judge -- no genres, no
+            rating, as most extensions return in a search -- stays out while Show 18+ is off: the safe default. */}
+        <div data-mixed-unknown>
+          <SwitchRow id="mixed-unknown" label={tr('Show titles from Mixed sources that cannot be judged')}
+            help={tr('A Mixed source is searched while “Show 18+” is off and each title is judged by its genres and rating. Titles with neither are hidden unless this is on.')}
+            on={data.mixedShowUnknown === true} onChange={(next) => save({ mixedShowUnknown: next })} />
+        </div>
       </EditorSheet>
     </>
   );
@@ -336,11 +338,9 @@ function SourceOrderSection({ data, save }: { data: any; save: Save }) {
         {rest.length > 0 && (
           <div className="py-3">
             <p className="mb-1.5 text-[11px] text-fog-500">{tr('Add a source to the order')}</p>
-            <div className="flex flex-wrap gap-1.5">
-              {rest.map((x) => (
-                <button key={x.id} type="button" onClick={() => commit([...order, x.id])} className="btn-key">{x.name}</button>
-              ))}
-            </div>
+            {/* A search over the sources not yet in the order (there can be dozens), not a wall of keys. */}
+            <ChipPicker label={tr('Sources')} options={rest.map((x) => ({ key: x.id, label: x.name }))} selected={[]}
+              onToggle={(k) => commit([...order, k])} chipClass="text-xs" />
           </div>
         )}
       </EditorSheet>
@@ -578,6 +578,7 @@ function SchedulesSection({ data, save }: { data: any; save: Save }) {
             value={String(data.followerLimit ?? 3)}
             options={Array.from({ length: data.followerLimitMax ?? 10 }, (_, i) => ({ value: String(i + 1), label: String(i + 1) }))}
             onChange={(v) => save({ maxFollowedSources: Number(v) })} />
+          <PolitenessRow />
           {/* v0.61.0, the release radar's other half (bff lib/releaseRadar.ts isDue): the scheduled sweep asks a long-quiet
               series less often and a due one as usual. Off by default, and `=== true` reads a server that does not send the
               key as off; the help says the limit and that Check now is never kept waiting. */}

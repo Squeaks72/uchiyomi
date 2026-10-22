@@ -41,6 +41,12 @@ export const PROFILE_SETTINGS: SettingsIndex = {
     { id: 'compact-chapters', cat: 'general', label: 'Compact chapter list', when: ['pointer'], keywords: ['thumbnails', 'dense', 'chapter rows'] },
     { id: 'type-to-search', cat: 'general', label: 'Type anywhere to search', when: ['pointer'], keywords: ['shortcut', 'keyboard', 'slash'] },
     { id: 'context-menus', cat: 'general', label: 'Right-click menus', keywords: ['context menu', 'long press', 'press and hold'] },
+    { id: 'notify-only-next', cat: 'general', label: 'Only tell me about my next chapter', keywords: ['notifications', 'new chapter', 'unread', 'push', 'alerts', 'backlog'],
+      help: 'A new chapter notifies you only when it is the one you would read next: you are caught up, with nothing older unread or half read. A chapter upgraded to a preferred group still tells you. Saved to your account.' },
+    { id: 'big-banners', cat: 'general', more: 'general-more', label: 'Big banners', keywords: ['banner', 'hero', 'home', 'discover', 'trending'],
+      help: 'Shows the large banner at the top of Home (the daily pick) and of Discover (trending now). Off by default.' },
+    { id: 'remember-adult', cat: 'general', more: 'general-more', label: 'Remember Show 18+ on this device', keywords: ['18+', 'adult', 'nsfw', 'session', 'cookie'],
+      help: 'Show 18+ normally switches itself off when the browser session ends. With this on, turning it on stays on for a year on this device. Off by default; this device only.' },
     { id: 'incognito', cat: 'general', label: INCOGNITO_TEXT[0], help: INCOGNITO_TEXT[1], keywords: ['private', 'history', 'hide reading'] },
 
     // ---- Appearance ----
@@ -54,7 +60,7 @@ export const PROFILE_SETTINGS: SettingsIndex = {
     // ---- Reading ----
     { id: 'reader-mode', cat: 'reading', label: 'Mode', keywords: ['webtoon', 'paged', 'scroll', 'swipe', 'reading mode', 'reader'] },
     { id: 'auto-mode', cat: 'reading', label: 'Pick the mode for each series', keywords: ['automatic', 'long strip', 'manga'] },
-    { id: 'reader-theme', cat: 'reading', label: 'Theme', keywords: ['amoled', 'sepia', 'gray', 'grey', 'page colour'] },
+    { id: 'reader-theme', cat: 'reading', label: 'Theme', keywords: ['amoled', 'paper', 'sepia', 'gray', 'grey', 'page colour', 'cream', 'off-white'] },
     { id: 'comments', cat: 'reading', label: 'Comments and reactions', when: ['web', 'talk'], keywords: ['comments', 'reactions', 'emoji', 'talk', 'discussion', 'household', 'hide comments', 'turn off comments'] },
     { id: 'fit', cat: 'reading', label: 'Fit', keywords: ['fit width', 'original size', 'zoom'] },
     { id: 'wide-pages', cat: 'reading', label: 'Wide pages', keywords: ['double page', 'spread', 'landscape', 'rotate', 'split'] },

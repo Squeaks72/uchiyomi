@@ -6,6 +6,8 @@ import { sourceCover } from '@/components/cards';
 import { IcChevronLeft, IcChevronRight, IcPlay, IcPlus, IcSparkle } from '@/components/icons';
 import { t as tr } from '@/lib/i18n';
 import { useArtUnderChrome } from '@/lib/overArt';
+import { useDiscoverMenu } from '@/components/DiscoverMenu';
+import { useIsHiddenTitle } from '@/lib/ignoredTitles';
 import { useReduceEffects } from '@/lib/effects';
 import { EASE } from '@/lib/motion';
 
@@ -260,7 +262,7 @@ export interface CardItem { id?: number | null; title: string; cover: string | n
  * trending row its first ten wear their rank as Home's Top 10 does (v0.98.0). Widths as Home's cards: they grow with the
  * screen.
  */
-export function TrendingCard<T extends CardItem>({ t, onPick, rank, why }: { t: T; onPick: (t: T) => void; rank?: number; why?: CardWhy }) {
+export function TrendingCard<T extends CardItem>({ t, onPick, rank, why, bind }: { t: T; onPick: (t: T) => void; rank?: number; why?: CardWhy; bind?: object }) {
   const card = (
     <span className={`block ${CARD_W}`}>
       <div className="grad-border relative aspect-[2/3] overflow-hidden rounded-2xl border border-ink-700/60 transition-all duration-300 group-hover:-translate-y-1 group-hover:shadow-glow">
@@ -288,7 +290,7 @@ export function TrendingCard<T extends CardItem>({ t, onPick, rank, why }: { t: 
     </span>
   );
   return (
-    <button type="button" onClick={() => onPick(t)} title={why?.tip} className="group shrink-0 snap-start text-start">
+    <button type="button" onClick={() => onPick(t)} title={why?.tip} className="group shrink-0 snap-start text-start" {...bind}>
       {rank ? (
         <span className="flex items-end">
           <span aria-hidden className="rank-numeral -me-5 mb-9 select-none font-display text-[88px] font-black leading-[0.78]">{rank}</span>
@@ -296,5 +298,22 @@ export function TrendingCard<T extends CardItem>({ t, onPick, rank, why }: { t: 
         </span>
       ) : card}
     </button>
+  );
+}
+
+/**
+ * A trending row's card with the fork's card menu (right-click or long-press: add, search every source for the title, hide
+ * it) and without the titles marked 18+. Apart from TrendingCard so the picks' band, which has no menu, renders without the
+ * app router.
+ */
+export function MenuTrendingCard<T extends CardItem>({ t, onPick, onSearch, rank }: { t: T; onPick: (t: T) => void; onSearch?: (title: string) => void; rank?: number }) {
+  const menu = useDiscoverMenu({ title: t.title, onAdd: () => onPick(t), onSearch });
+  const isHidden = useIsHiddenTitle();
+  if (isHidden(t.title)) return null;
+  return (
+    <>
+      <TrendingCard t={t} onPick={onPick} rank={rank} bind={menu.bind} />
+      {menu.element}
+    </>
   );
 }

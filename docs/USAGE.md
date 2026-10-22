@@ -891,8 +891,8 @@ under its title (*EN · ES-419*).
   edition, or that edition's page at the chapter when the server does not have it yet.
 - **Admins** set a series' language in *Edit details* (**Language**), link two series already here as editions from
   Health (**Link as editions**, offered on a duplicate pair in two languages), and unlink one with the × in the
-  Languages section; it stays in the library as a series of its own. The age rating and *Always show* set in *Edit
-  details* apply to every edition, so an 18+ work is 18+ in each language.
+  Languages section; it stays in the library as a series of its own. Editions are filed by library like any
+  series, so an 18+ work stays 18+ in each language by sitting in an 18+ library.
 
 ### Mark caught up
 
@@ -1466,7 +1466,7 @@ you keep scrolling through a series without interruption.
 - **Tap** the middle to show/hide the chrome (top bar + controls).
 - **Pinch / double-tap** to zoom (width multiplier); with a mouse, **double-click**. A double-click only zooms: it
   never turns the page as well, however slow your computer's double-click setting is (since v0.47.1).
-- **Themes:** AMOLED black, sepia, or gray, from the reader settings.
+- **Themes:** AMOLED black, Paper (a light cream like printed manga paper: white becomes about #F0E8D8, black stays black), sepia, or gray, from the reader settings.
 - **Cover colour at the edges:** a soft wash of the series' cover colour across the top and bottom of the screen,
   so a gold cover tints the edges gold. To read with plain black edges, switch **Cover colour at the edges** off in
   the reader's settings sheet or under Profile → Settings → Reading → More options (since v0.55.7,
@@ -2970,10 +2970,9 @@ limit below 18 is the other thing entirely: those sources are refused by name wh
 switch knew about, so keeping, say, *Ecchi* off the shelf meant moving those series into an 18+ library — a
 filing decision made to get a display outcome, and one the scanner argues with on the next rescan.
 **Admin → Settings → Series & chapters → 18+ filter** says it directly instead: tick the genres (the list is the genres your
-library actually has). With **Show 18+** off, a series carrying one of those genres leaves the same places an 18+
-library does. Nothing is refiled and nothing is refused: it is the same surfacing filter, with the same exceptions as
-above. One title that is tagged wrongly, or that you simply want to keep, can be let through on its own: **Edit
-details → Always show** on the series page. The **Show 18+** button appears on Library and Home whenever the list has
+library actually has). With **Show 18+** off, a title carrying one of those genres is kept out of **Discover**.
+A series already in your library is judged by its library's age rating alone, whatever its genres: to show or hide
+one, file it in a different library (**More → Move library** on the series page, or the right-click menu). The **Show 18+** button appears on Library and Home whenever the list has
 something in it or a source is rated Adult only, even with no 18+ library (never for an account whose age limit is
 below 18). The list is empty until you tick something, so an existing server behaves as before.
 

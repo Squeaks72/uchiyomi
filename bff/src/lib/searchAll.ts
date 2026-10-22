@@ -349,7 +349,34 @@ export function narrowTo(raw: unknown): Set<string> | null {
 }
 
 /** The admin's 18+ filter lists (lib/visibility.ts adultFilter): genres as typed, source ids lowercased. */
-export interface AdultLists { genres: readonly string[]; sources: readonly string[] }
+export interface AdultLists {
+  genres: readonly string[]; sources: readonly string[];
+  /** Sources rated Mixed (lib/visibility.ts sourceRatedMixed) and whether a title nothing can judge is shown from them. */
+  mixed?: readonly string[]; mixedShowUnknown?: boolean;
+}
+
+/**
+ * Genres that mark a title adult in a MIXED source even when the admin's own list has none (or does not name them): the
+ * words sites use for explicit content. Deliberately short -- ecchi, mature and the like are the admin's call.
+ */
+export const DEFAULT_ADULT_GENRES: readonly string[] = ['adult', 'hentai', 'smut', 'erotica', 'pornographic', 'porn', 'sexual violence', 'explicit'];
+
+/**
+ * One title of a Mixed source: 'adult' when its content rating or any genre says so (the admin's list and the defaults),
+ * 'safe' when MangaDex rates it safe or suggestive or it names genres and none is adult, undefined when nothing can judge it
+ * (most extensions name no genres in a search). Fails toward adult upstream: ratingOf hides an unknown one unless the admin
+ * chose to show them.
+ */
+export function mixedRating(item: Pick<SourceSeries, 'genres' | 'contentRating'>, lists: AdultLists): 'adult' | 'safe' | undefined {
+  if (item.contentRating === 'erotica' || item.contentRating === 'pornographic') return 'adult';
+  const fold = (g: string) => g.trim().toLowerCase();
+  const adult = new Set([...lists.genres, ...DEFAULT_ADULT_GENRES].map(fold).filter(Boolean));
+  const genres = (Array.isArray(item.genres) ? item.genres : []).filter((g): g is string => typeof g === 'string').map(fold).filter(Boolean);
+  if (genres.some((g) => adult.has(g))) return 'adult';
+  if (item.contentRating === 'safe' || item.contentRating === 'suggestive') return 'safe';
+  if (genres.length) return 'safe';
+  return undefined;
+}
 
 /**
  * Whether a search result is 18+, by every signal it carries.
@@ -367,6 +394,12 @@ export function ratingOf(
   item: Pick<SourceSeries, 'genres' | 'contentRating'>, src: { id?: string; isNsfw?: boolean } | null | undefined, lists: AdultLists,
 ): Judged | undefined {
   if (src?.id && lists.sources.includes(String(src.id).toLowerCase())) return 'adult';
+  // A Mixed source (flagged by its extension, rated Mixed by the admin): the title is judged alone, and one nothing can judge
+  // reads 18+ ('flagged') unless the admin chose to show those -- so Hide 18+ stays safe by default.
+  if (src?.isNsfw && src.id && lists.mixed?.includes(String(src.id).toLowerCase())) {
+    const j = mixedRating(item, lists);
+    return j ?? (lists.mixedShowUnknown ? undefined : 'flagged');
+  }
   if (item.contentRating === 'erotica' || item.contentRating === 'pornographic') return 'adult';
   const fold = (g: string) => g.trim().toLowerCase();
   const adult = new Set(lists.genres.map(fold).filter(Boolean));
@@ -411,7 +444,12 @@ export interface Provider { source: string; name: string; sourceId: string; cove
  * `rating` (v0.55.4; weighed by cardRating since v0.55.5): 18+, safe, or absent when nothing says. `work` (v0.56.0): the
  * key the card was folded by, when the caller gave one (groupByTitle's keyOf).
  */
-export interface TitleGroup { title: string; coverUrl?: string; updatedAt?: string; providers: Provider[]; rating?: Rating; work?: string }
+export interface TitleGroup {
+  title: string; coverUrl?: string; updatedAt?: string;
+  /** The first description any provider gave, cut short: the card shows its first lines. */
+  summary?: string;
+  providers: Provider[]; rating?: Rating; work?: string;
+}
 export interface SourceRail { source: string; name: string; lang: string | null; results: Array<SourceSeries & { name: string; rating?: Rating }> }
 
 /**
@@ -444,6 +482,7 @@ export function groupByTitle(
       }
       if (!g.coverUrl && r.coverUrl) g.coverUrl = r.coverUrl;
       if (!g.updatedAt && r.updatedAt) g.updatedAt = r.updatedAt;
+      if (!g.summary && r.summary?.trim()) g.summary = r.summary.trim().slice(0, 400);
       if (!g.providers.some((p) => p.source === r.source)) {
         const j = rated?.of(r, src);
         const rating = answered(j);

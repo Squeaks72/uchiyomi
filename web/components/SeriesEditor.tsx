@@ -31,7 +31,7 @@ import { metaSaver, seedMeta, type SeriesMeta } from '@/lib/seriesMeta';
 import { SERIES_TYPES, seriesTypeKey } from '@/lib/seriesTypes';
 import { useToast } from './Toast';
 import { msgOf } from './ConfirmDialog';
-import { Backdrop, useRtl } from './ui';
+import { Backdrop, useRtl, BACKDROP_CLS } from './ui';
 import { ProgressRing } from './ProgressRing';
 import { useContextMenu } from './ContextMenu';
 import { useCheckNow } from './SourcesSheet';
@@ -102,13 +102,6 @@ function autoDirectionChoice(d: Series['detectedDirection']): string {
 const STATUSES = ['ONGOING', 'COMPLETED', 'HIATUS', 'CANCELLED'] as const;
 const STATUS_LABELS = keys('Ongoing', 'Completed', 'Hiatus', 'Cancelled');
 const OTHER_STATUS = '__other';
-const AGES = [6, 10, 13, 15, 17, 18];
-/** The ages offered, with a rating a file gave that is none of them (a ComicInfo 12+) in its place, so it shows. */
-const ages = (current: string): number[] => {
-  const n = Number(current);
-  return current !== '' && Number.isInteger(n) && !AGES.includes(n) ? [...AGES, n].sort((a, b) => a - b) : AGES;
-};
-
 type ArtKind = 'cover' | 'banner';
 
 /** Tab through the dialog and round again, never out of it: the page under a modal is not there to the keyboard. */
@@ -150,7 +143,16 @@ export function SeriesEditor({ id, series, tab: opening = 'details', onClose, on
   const scope = useSaveScope();
   const [tab, setTab] = useState<EditTab>(opening);
   const [meta, setMeta] = useState<SeriesMeta>(() => seedMeta(series));
-  const [saver] = useState(() => metaSaver(seedMeta(series), (body) => api(`/api/admin/series/${id}/meta`, { method: 'PUT', json: body }), setMeta));
+  const toast = useToast();
+  const qc = useQueryClient();
+  const [saver] = useState(() => metaSaver(seedMeta(series), async (body) => {
+    const r = await api<{ folder?: { status: string; to?: string; reason?: string; fix?: string } }>(`/api/admin/series/${id}/meta`, { method: 'PUT', json: body });
+    // The title is the folder's name too; say what happened to the folder, and why when it could not follow.
+    if (r?.folder?.status === 'renamed') toast(tr('Title saved. The folder is now “{name}”.', { name: `⁨${r.folder.to}⁩` }), 'success');
+    else if (r?.folder?.status === 'refused') toast(`${tr('Title saved, but the folder was not renamed.')} ${r.folder.reason ?? ''} ${r.folder.fix ?? ''}`.trim(), 'error');
+    qc.invalidateQueries({ queryKey: ['series-alt-titles', id] });
+    return r;
+  }, setMeta));
   const saveMeta = (patch: Partial<SeriesMeta>) => saver.save(patch).then(() => { onSaved(); });
 
   const panelRef = useRef<HTMLDivElement>(null);
@@ -214,7 +216,7 @@ export function SeriesEditor({ id, series, tab: opening = 'details', onClose, on
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-ink-950/70 backdrop-blur-xs md:items-center md:p-6 md:pb-[calc(5.5rem+env(safe-area-inset-bottom))] lg:pb-28 lg:pt-[5.5rem]"
+      className={`fixed inset-0 z-50 flex items-end justify-center ${BACKDROP_CLS} md:items-center md:p-6 md:pb-[calc(5.5rem+env(safe-area-inset-bottom))] lg:pb-28 lg:pt-[5.5rem]`}
       onPointerDown={(e) => { downOnBackdrop.current = e.target === e.currentTarget; }}
       onClick={(e) => { if (e.target === e.currentTarget && (downOnBackdrop.current || e.detail === 0)) onClose(); }}
     >
@@ -225,7 +227,7 @@ export function SeriesEditor({ id, series, tab: opening = 'details', onClose, on
         aria-labelledby={`${uid}-title`}
         data-series-editor
         tabIndex={-1}
-        className="glass-strong flex h-[calc(100dvh-max(1.5rem,env(safe-area-inset-top)))] w-full min-w-0 flex-col overflow-hidden rounded-t-3xl border border-ink-700 shadow-lift md:h-full md:max-h-[86vh] outline-hidden md:max-w-[880px] md:rounded-3xl"
+        className="glass-strong flex h-[calc(100dvh-max(1.5rem,env(safe-area-inset-top)))] w-full min-w-0 flex-col overflow-hidden rounded-t-3xl border border-ink-700 shadow-lift md:h-full md:max-h-[86vh] outline-hidden focus-visible:outline-accent focus-visible:outline-offset-0 md:max-w-[880px] md:rounded-3xl"
       >
         <SaveScope report={scope.report}>
           <div className="flex items-start gap-3 px-4 pt-4 md:px-6 md:pt-5">
@@ -250,13 +252,13 @@ export function SeriesEditor({ id, series, tab: opening = 'details', onClose, on
               inside itself, never the page; the underline sits on the row's own inset line, which a scroller would
               clip if it hung over a border below it. */}
           <div role="tablist" aria-label={tr('Edit details')} data-lenis-prevent-horizontal
-            className="hide-scrollbar mt-3 flex shrink-0 items-end gap-5 overflow-x-auto px-4 shadow-[inset_0_-1px_0_var(--color-ink-800)] md:gap-6 md:px-6">
+            className="hide-scrollbar mt-3 flex shrink-0 items-end gap-5 overflow-x-auto px-4 shadow-[inset_0_-1px_0_var(--color-ink-800)] pointer-coarse:[mask-image:linear-gradient(to_right,#000_94%,transparent)] md:gap-6 md:px-6">
             {TABS.map((t, i) => {
               const on = t === tab;
               return (
                 <button key={t} type="button" role="tab" id={tabId(t)} aria-selected={on} aria-controls={t === 'art' ? `${uid}-art` : paneId(t)}
                   tabIndex={on ? 0 : -1} data-edit-tab={t} onClick={() => open(t)} onKeyDown={onTabKey}
-                  className={`relative shrink-0 whitespace-nowrap pb-2.5 pt-1 text-sm font-semibold transition-colors ${on ? 'text-fog-50' : 'text-fog-500 hover:text-fog-200'} ${t === 'art' ? 'md:hidden' : ''}`}>
+                  className={`relative shrink-0 whitespace-nowrap pb-2.5 pt-1 pointer-coarse:pt-2.5 text-sm font-semibold transition-colors ${on ? 'text-fog-50' : 'text-fog-500 hover:text-fog-200'} ${t === 'art' ? 'md:hidden' : ''}`}>
                   {tr(TAB_LABELS[i])}
                   {on && (
                     <motion.span layoutId={`${uid}-underline`} aria-hidden className="absolute inset-x-0 bottom-0 h-0.5 rounded-sm bg-accent"
@@ -277,7 +279,7 @@ export function SeriesEditor({ id, series, tab: opening = 'details', onClose, on
               </section>
               <div className={`min-w-0 [&_.field]:max-w-none ${tab === 'art' ? 'hidden md:block' : ''}`}>
                 <Pane id={paneId('details')} tab={tabId('details')} shown={fields === 'details'} name="details">
-                  <DetailsPane meta={meta} save={saveMeta} />
+                  <DetailsPane id={id} shown={shownTitle} meta={meta} save={saveMeta} />
                 </Pane>
                 <Pane id={paneId('reading')} tab={tabId('reading')} shown={fields === 'reading'} name="reading">
                   <ReadingPane id={id} series={series} meta={meta} save={saveMeta} onSaved={onSaved} />
@@ -303,12 +305,56 @@ function Pane({ id, tab, shown, name, children }: { id: string; tab: string; sho
 
 /* =============================== Details =============================== */
 
-function DetailsPane({ meta, save }: { meta: SeriesMeta; save: (p: Partial<SeriesMeta>) => Promise<void> }) {
+/** The names the series also goes by: a press makes one the title (the title it replaces joins the list), and the folder follows. */
+function AltTitles({ id, shown, save }: { id: string; shown: string; save: (p: Partial<SeriesMeta>) => Promise<void> }) {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const [typed, setTyped] = useState('');
+  const { data } = useQuery({
+    queryKey: ['series-alt-titles', id],
+    queryFn: () => api<{ titles: { title: string; norm: string }[] }>(`/api/admin/series/${id}/alt-titles`),
+  });
+  const others = (data?.titles ?? []).filter((t) => t.title.trim().toLowerCase() !== shown.trim().toLowerCase());
+  const add = async () => {
+    const title = typed.trim();
+    if (!title) return;
+    try {
+      await api(`/api/admin/series/${id}/alt-titles`, { json: { title } });
+      setTyped('');
+      qc.invalidateQueries({ queryKey: ['series-alt-titles', id] });
+    } catch (e) { toast(msgOf(e, tr('Could not add that name')), 'error'); }
+  };
+  return (
+    <div className="mt-1 mb-3" data-alt-titles>
+      <p className="text-xs font-semibold uppercase tracking-wider text-fog-500">{tr('Other names')}</p>
+      <p className="mt-1 text-[11px] leading-relaxed text-fog-600">{tr('Choose one to make it the title. The series folder is renamed to match, and the current title stays here.')}</p>
+      {others.length > 0 && (
+        <ul className="mt-2 flex flex-wrap gap-1.5">
+          {others.map((t) => (
+            <li key={t.norm}>
+              <button type="button" onClick={() => void save({ title: t.title })} className="btn-key max-w-full text-xs" dir="auto" title={tr('Use as the title')}>
+                <span className="truncate">{t.title}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="mt-2 flex max-w-md gap-2">
+        <input value={typed} onChange={(e) => setTyped(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void add(); } }}
+          aria-label={tr('Add another name')} placeholder={tr('Add another name')} dir="auto" autoComplete="off" className="field min-w-0 flex-1" />
+        <button type="button" onClick={() => void add()} disabled={!typed.trim()} className="btn-key h-auto self-stretch">{tr('Add')}</button>
+      </div>
+    </div>
+  );
+}
+
+function DetailsPane({ id, shown, meta, save }: { id: string; shown: string; meta: SeriesMeta; save: (p: Partial<SeriesMeta>) => Promise<void> }) {
   // The route's own caps (bff routes/admin.ts), so a field cannot hold what the save would refuse.
   return (
     <>
       <TextRow id="edit-title" label={tr('Title')} value={meta.title} dir="auto" maxLength={300} placeholder={tr('From the files')}
         onSave={(title) => save({ title })} />
+      <AltTitles id={id} shown={shown} save={save} />
       <TextAreaRow id="edit-summary" label={tr('Description')} value={meta.summary} maxLength={8000} onSave={(summary) => save({ summary })} />
       <TextRow id="edit-author" label={tr('Author')} value={meta.author} dir="auto" maxLength={300} placeholder={tr('From the files')}
         onSave={(author) => save({ author })} />
@@ -435,7 +481,7 @@ function ReadingPane({ id, series, meta, save, onSaved }: {
     <>
       <ChoiceRow narrow label={tr('Reading direction')} value={meta.readingDirection}
         help={<>
-          {tr('What “Series default” in the reader follows. Automatic takes it from the chapter files, then the source, then AniList.')}
+          {tr('Sets what “Follow the series” uses in the reader. Automatic checks the chapter files, then the source, then AniList.')}
           <span data-auto-direction className="mt-0.5 block text-fog-400">{autoDirectionLabel(series.detectedDirection)}</span>
         </>}
         options={[{ value: '', label: autoDirectionChoice(series.detectedDirection) }, ...DIRECTIONS.map(([v, label]) => ({ value: v as string, label: tr(label) }))]}
@@ -443,21 +489,12 @@ function ReadingPane({ id, series, meta, save, onSaved }: {
       {/* What kind of comic it is: the notice-chapter switches in Admin → Settings go by it (bff lib/noticeChapters.ts). */}
       <ChoiceRow narrow label={tr('Series type')} value={meta.seriesType}
         help={<>
-          {tr('What the notice-chapter switches in Settings go by. Automatic takes it from the genres, then the source, then AniList.')}
+          {tr('Sets what the notice-chapter switches in Settings use. Automatic checks the genres, then the source, then AniList.')}
           <span data-auto-type className="mt-0.5 block text-fog-400">{autoTypeLabel(series.detectedType)}</span>
         </>}
         options={[{ value: '', label: tr('Automatic') }, ...SERIES_TYPES.filter((v) => v !== 'unknown').map((v) => ({ value: v as string, label: tr(seriesTypeKey(v)) }))]}
         onPick={(seriesType) => save({ seriesType })} />
       <LanguageRow id={id} series={series} onSaved={onSaved} />
-      <ChoiceRow narrow label={tr('Age rating')} value={meta.ageRating}
-        help={tr('Members with an age limit below this will not see the series anywhere: not in the library, search, the reader, or an external OPDS app.')}
-        options={[{ value: '', label: tr('Not rated') }, ...ages(meta.ageRating).map((a) => ({ value: String(a), label: `${a}+` }))]}
-        onPick={(ageRating) => save({ ageRating })} />
-      {/* "Always show": kept on the shelf while "Show 18+" is off, whatever makes it 18+ (its genres, its rating, its
-          library). Surfacing only: who may open the series is still the age rating above. */}
-      <SwitchRow label={tr('Always show')} on={meta.adultExempt}
-        help={tr('Keep this series on the shelf while “Show 18+” is off, even if it or one of its genres is 18+.')}
-        onChange={(adultExempt) => save({ adultExempt })} />
     </>
   );
 }
@@ -572,7 +609,7 @@ function UpdatesPane({ id, series, onSaved, onOpenSources }: { id: string; serie
             {caught === 'asking' && (
               <div className="rounded-xl border border-ink-700 bg-ink-900/40 p-3">
                 <p className="max-w-prose text-[11px] leading-relaxed text-fog-300">
-                  {tr('Chapters already out are not fetched; only new ones are, from the next check. Chapters already here stay, and older ones can still be fetched from the chapter list.')}
+                  {tr('Only chapters released after the next check are fetched. Chapters already here stay, and you can still fetch older ones from the chapter list.')}
                 </p>
                 <div className="mt-2 flex flex-wrap gap-2">
                   <button type="button" onClick={() => void floorTo('caught_up')} disabled={caughtBusy} className="btn-key btn-key-primary">{tr('Mark caught up')}</button>
@@ -646,7 +683,7 @@ function LibraryRow({ id, series, onSaved }: { id: string; series: Series; onSav
   };
   return (
     <Row label={tr('Library')} htmlFor={sid} stacked
-      help={lib ? tr('Filed here by hand. Rescans and new libraries will leave it alone.') : tr('Whichever library covers this folder, most specific first.')}>
+      help={lib ? tr('Filed here by hand, and its folder was moved into this library. Rescans and new libraries will leave it alone.') : tr('Whichever library covers this folder, most specific first.')}>
       <select id={sid} value={lib} onChange={(e) => void pick(e.target.value)} className="field">
         <option value="">{tr('Automatic — follow the folder')}</option>
         {(libs?.content ?? []).map((l) => (
@@ -768,6 +805,21 @@ function ArtPanel({ id, series, onSaved, onNewBanner }: { id: string; series: Se
     setBusy('banner');
     try { await onNewBanner(); } finally { setBusy(null); }
   };
+  // Look the series up again and remake its automatic banner from the art it has now.
+  const refreshBanner = async () => {
+    if (busy) return;
+    setBusy('banner');
+    try {
+      await api(`/api/admin/series/${id}/banner/refresh`, { method: 'POST', json: {} });
+      onSaved();
+      await qc.refetchQueries({ queryKey: ['series', id] }, { cancelRefetch: false }).catch(() => {});
+      toast(tr('Banner refreshed'), 'success');
+    } catch (e) {
+      toast(artRefusal(e, 'banner'), 'error');
+    } finally {
+      setBusy(null);
+    }
+  };
   const choose = (kind: ArtKind) => { fileFor.current = kind; file.current?.click(); };
 
   // Reset is offered only where there is something of the admin's to take back, and Use the first page only where the
@@ -778,6 +830,7 @@ function ArtPanel({ id, series, onSaved, onNewBanner }: { id: string; series: Se
     { label: tr('Reset to automatic'), onSelect: () => void reset('cover'), disabled: !can.reset, hook: 'cover-reset' },
   ], { label: tr('More cover options') });
   const bannerMenu = useContextMenu(() => [
+    { label: tr('Refresh banner'), onSelect: () => void refreshBanner(), disabled: ov?.banner === 'upload', hook: 'banner-refresh' },
     { label: tr('From a link'), onSelect: () => setLinkFor('banner') },
     { label: tr('Reset to automatic'), onSelect: () => void reset('banner'), disabled: !ov?.banner },
   ], { label: tr('More banner options') });

@@ -223,7 +223,7 @@ its ceiling. The answer adds `{state, stage, ms, recorded}`: `state` is `pass`, 
 when the test's own deadline (`SOURCE_TEST_TIMEOUT_MS`, which now bounds every call inside it) ended it before
 anything failed, and `stage` is where (`search`, `chapters`, `pages`). `diagnosis.code` is never `ok` when
 `ok` is false; it can be `extension_error` (the extension engine answered with the extension's own error)
-or `unnumbered` (chapters listed without usable numbers), and `upstream_down` now means only that the engine
+or `unnumbered` (chapters listed without usable numbers; fork change: an extension that numbers *no* chapter now gets its list numbered 1..K by the source's own order, oldest first, so this only remains for lists that cannot be numbered), and `upstream_down` now means only that the engine
 itself did not answer or refused Uchiyomi's login. A pass reports `canClear` rather than clearing the
 block itself, because the smoke test stops at listing page URLs and never fetches an image byte. The
 `probe` is always present: `{httpStatus?, finalUrl?, transport?, looksHtml?, adapterOk, needsSolver}`,
@@ -301,6 +301,10 @@ the settings' `adultSources` list (one list, two ways to write it); `GET /api/ad
 loaded now. **400** for anything but 18 or null, **409** `too_many` past 200 rated sources (`messageSaid`
 `rating.tooMany`). Audited `source.age_rating`.
 
+**Fork change.** `GET /api/admin/limits` (admin) is read-only: `{limits: [{key, value, unit}], note}` for the knobs that only
+environment variables set (`SUWAYOMI_PAGE_CONCURRENCY`, `SOURCE_LATEST_TIMEOUT_MS`, `SOURCE_TEST_TIMEOUT_MS`,
+`SCAN_CONCURRENCY`, `BACKUP_KEEP`, `CACHE_MAX_BYTES`) with the value in effect. Numbers only; no secret is returned.
+
 `PATCH /api/admin/sources/custom/:id` (admin) changes a custom site's `base` address, its `lang`, or both, and
 nothing else. The source id is derived from its name and the library is keyed on that id, so editing in place is
 the only way to follow a site to a new domain without orphaning every series that came from it. A new `lang`
@@ -316,6 +320,8 @@ Everything that decides the answer still happens inline and still gets its own s
 server-wide), **409** `duplicate` (with the "add anyway" message), and **200** with `chapters: 0`
 for a title already in the library. A successful reply now carries `started: true`, which is what
 distinguishes "downloading now" from "already had it" — previously only `chapters === 0` said so.
+`POST /api/admin/series/:id/library` and `/api/admin/series/library` now also move the series folder into the library's first folder on disk (`moveFiles: false` opts out); a move that fails leaves the series where it was (**409** `move_failed`, or `problems` in the bulk answer).
+It also takes an optional `libraryId`: the series is filed under that library's first folder (so its files are in that library's root); **404** `no_such_library`, **403** for a library the account may not open.
 
 A successful reply also carries **`seriesId`**: the library id of the series the add landed on — the row it
 found already there, the one it minted, the one it revived, or the one it stamped with nothing left to
@@ -586,6 +592,9 @@ To add a whole *site* rather than one series, that is `POST /api/admin/sources/c
 curl -H "Authorization: Bearer $TOK" "https://your-server/api/sources/search-all?q=solo+leveling"
 ```
 
+Fork change: `sources=<id>,<id>,...` (at most 200) asks only those sources, as `source=<id>` asks one. Either narrows within the
+sources you may reach and never past them; absent or empty means every source.
+
 Since v0.40.0 this answers before the slow sources do. `GET /api/sources/search-all?q=<term>&wait=<ms>` returns
 when every source you may reach has answered, when `wait` milliseconds have passed (clamped to
 `SEARCH_FIRST_ANSWER_MS`, default 6000; omitted means that maximum), or `SEARCH_GRACE_MS` (default 1500) after
@@ -615,9 +624,9 @@ term alone, so a narrowed search reads whatever a full one already heard, and th
 Since v0.55.4 ([#158](https://github.com/AngeloSha/uchiyomi/discussions/158)) `&rating=all|safe|adult` filters the
 answer for 18+: `safe` (Discover's *Hide 18+*) leaves out every result known to be 18+, `adult` (*18+ only*) keeps only
 those, and `all` (the default; anything else reads as it) keeps everything. A result is 18+ when its source is (an
-extension that declares itself adult, or one on the source list of Admin → Settings → 18+ filter), when MangaDex rates
+extension that declares itself adult -- unless the admin set it to *Mixed* -- or one on the source list of Admin → Settings → Content ratings), when MangaDex rates
 the title erotica or pornographic, or when one of its genres is on the 18+ filter's genre list (trimmed and case-blind,
-as the library compares them). It is not 18+ when MangaDex rates it safe or suggestive, or when it names genres, the
+as the library compares them). A source the admin set to *Mixed* is not made 18+ by its extension's flag. It is not 18+ when MangaDex rates it safe or suggestive, or when it names genres, the
 genre list has some, and none of them match; otherwise it is unknown — kept under `all` and `safe`, left out of
 `adult`. A card is 18+ when any of its providers is — except that, since v0.55.5, a provider that is 18+ only because
 its extension declares itself adult counts only when every provider of the card is such a one (the flag covers a whole
@@ -670,6 +679,17 @@ ignoring it: the finding is then reported greyed (`ignored`, `info`), stays quie
 missing runs, a folder's files, since v0.72.0 how bad a disk finding was and what was wrong with a tracker sign-in)
 is part of what was ignored, and its ignore is forgotten once it has been gone for a week. Short chapters use
 confirm-short, which already records the same judgement.
+
+`POST /api/admin/health/recheck` takes `{check}` (a check id) and runs that one check again, read-only: `{generatedAt, check}`,
+`check` null when it has nothing to report any more. Health's Recheck beside each finding uses it.
+
+Since v0.56.0 Health has seven more checks: `files` (chapter files that are missing, empty or zips cut short; a few
+thousand files are looked at per run, never-seen and last-bad first, and Recheck looks at all of them), `covers`
+(series with no cover set, fetched or takeable from a chapter), `details` (no description or genres), `disk` (free
+space, and the library, downloads and config folders being readable and not empty-looking), `trackers` (sign-ins a
+tracker refused, failed syncs, and sign-ins expired or expiring within 14 days), and the information-only `stalled`
+(series whose status looks out of date) and `orphans` (reading data of removed series and chapters). All but
+`stalled` and `orphans` can be ignored per finding, and all seven can be rechecked.
 
 **Fix everything** (since v0.55.0). `POST /api/admin/health/autofix` (`{}`) starts one background run that drives
 every Health card it can to green -- 202 `{ok, runId}`, or 409 `{error: 'busy', running}` beside another run
@@ -909,20 +929,19 @@ chapter list, `GET /api/books/:id`, its pages, the offline manifest, next/previo
 refused to record what you read would lose data rather than tidy a screen; the last two used to answer 404 for a
 hidden series, so "Find missing chapters" disappeared with the chip off.
 
-**Since v0.46.0 an admin can widen what the same default hides** (Admin → Settings → 18+ filter): named
-**genres** take a series off every listing as though it sat in an 18+ library -- matched case-blind against the
-series' genres, or the admin's genre override when it has one, and a per-series *Always show* (`adultExempt` on
-`PUT /api/admin/series/:id/meta`) lets one title through -- and named **sources** are treated like sources whose
+**Since v0.46.0 an admin can widen what the same default hides** (Admin → Settings → Content ratings): named
+**genres** keep a title out of Discover (matched case-blind against its genres; a series already in the library is
+judged by its library's rating alone, so listings never read the genre list) -- and named **sources** are treated like sources whose
 extension declares `isNsfw`, below. The lists are read in SQL from `server_settings`, never interpolated, and they
 reach every surface the default does: listings, OPDS, the Komga-compatible API, notification digests, and the
 automatic source hunt, which never follows a named source onto a series that is not itself adult. They widen
 what is hidden and never what is allowed: `max_age_rating` stays the only permission.
-Since v0.50.0 a series rated 18+ itself (its own rating, or the admin's override) is hidden like one in an 18+
-library, and *Always show* lets a title through all three rules — the library's rating, its own and its genres.
-It is a shelf switch, not a permission: an account capped below the series' rating still cannot see it.
+A series' own rating no longer hides it from listings, and the per-series *Always show* (`adultExempt`) is no longer
+read: file the series in a library with the rating you want. A series' own rating still counts toward an account's
+`max_age_rating`, which stays the only permission.
 
-**Since v0.42.0 the same default covers Discover's sources.** A source whose extension declares itself
-adult (`isNsfw`) is a listing like any other, and hiding 18+ libraries while painting twelve adult
+**Since v0.42.0 the same default covers Discover's sources.** A source on the admin's 18+ source list is a listing
+like any other, and hiding 18+ libraries while painting twelve adult
 providers' covers on the browse screen was issue #64. The rule now reaches `GET /api/sources` (the provider
 list), `GET /api/sources/search` for one named source, `GET /api/sources/search-all` (it is not even
 **asked**, so no outbound request goes to it and nothing it answered for another account is read back),
@@ -932,6 +951,15 @@ that resolve something you named are deliberately **exempt**, for the same reaso
 `POST /api/sources/fill/scan`, `GET /api/sources/detail` and `POST /api/sources/add`. A series whose own
 source is adult has to stay fillable and fetchable while the chip is off, or the filter would break the
 library rather than tidy a screen.
+
+**Fork change: an extension's own `isNsfw` flag no longer hides a source, the titles are judged one by one.** Suwayomi
+sets `isNsfw` per extension, so it is on every site that can carry adult titles (MangaDex, MangaFire, Toonily, Tapas...)
+and hiding those left Show 18+ off with almost nothing to search. With the chip off such a source stays in the list, the
+fan-out and the walls, and each title is left out only for its own reason: a genre on the 18+ filter's list, an erotica or
+pornographic rating, or the source being named on the 18+ source list. A title nothing speaks for is **shown** (most
+extensions send no genres in a listing), so a site that is adult throughout belongs on the 18+ source list, which still
+hides it whole. This applies to `GET /api/sources/search`, `/latest`, `/popular` and `/search-all`. An account capped
+below 18 is unchanged: the age cap still refuses every declared-adult source by id and drops it from every list.
 
 A hidden source is **hidden, not refused**: `/search`, `/latest` and `/popular` answer `200 { "content":
 [] }` -- the same answer a disabled source gives -- because the hide is a preference the same account can
@@ -950,12 +978,12 @@ Chapter downloads and page streaming work either way; the age cap is a permissio
 
 `GET /api/libraries` reports `adult: true` for such a library so a client can offer the reveal, and drops
 any library rated above the caller's own `max_age_rating` entirely.
-`GET /api/adult-filter` answers `{ configured: boolean }`: whether Admin → Settings → 18+ filter names any
+`GET /api/adult-filter` answers `{ configured: boolean }`: whether Admin → Settings → Content ratings names any
 genre or source, so a client can offer the same reveal on an install with no 18+ library. Only the flag, never
 the lists, and always `false` for an account capped below 18.
 
 The Komga-compatible API cannot pass the parameter either, so the same preference lives on the **API
-token**: `POST /api/tokens { …, "showAdult": true }` (since v0.38.0; the *Include 18+ content* checkbox in
+token**: `POST /api/tokens { …, "showAdult": true }` (since v0.38.0; the *Show 18+ content (this token only)* checkbox in
 the mint dialog, off by default; `GET /api/tokens` rows carry `showAdult`). It decides whether 18+ libraries,
 and the genres and sources an admin named, appear in `/api/v1/libraries` and the series listings for that token; `/api/v1/series/:id`, its chapters,
 pages and progress resolve by id whatever it says, and the age cap is a permission and is unaffected. The
@@ -966,7 +994,9 @@ flag changes nothing on `/api/*` proper, where `?adult=1` remains the reveal.
 Many sources post announcements for readers as a short chapter numbered after the latest with a fraction: 100.5.
 An admin can hide them per series type. `PATCH /api/admin/settings {hideNoticeTypes: [...]}` takes any of
 `manga`, `manhwa`, `manhua`, `webtoon`, `comic` and `unknown`, replaced whole. It is read back as
-`hide_notice_types`, and an empty list (the default) is off. A single series overrides its type's switch with
+`hide_notice_types`. An empty list is off. Chapter 0 counts as a notice too (judged by its pages like 100.5). A server that has never chosen has every type switched on, once, at boot
+(*Only hide short ones* is on too, so a real chapter posted in parts stays); a list the admin saves, empty included, is
+never touched again. A single series overrides its type's switch with
 `PATCH /api/admin/series/:id {hideNotices: true | false | null}`, where `null` follows the type. The answer
 carries `hideNotices`, `hideNoticesEffective` and `hiddenNotices`: how many notice chapters that hides now, downloaded
 or only listed.
@@ -1477,10 +1507,22 @@ another copy. A number named in both lists is fetched as its pick; a second pick
 skipped as `duplicate` (the first was handled, this one was not). The audit line (`series.chapters_fetch`)
 carries `picks`.
 
+### Removing a chapter from the library
+
+`POST /api/admin/series/:id/chapters/remove {numbers: [..]}` (1-500 numbers; effective numbers, after any override) takes
+a chapter out of one series for good: owned files go through the same safe delete as `chapters/delete` (a bookmarked
+chapter is skipped), a ghost row is dropped, and the number is remembered in `series_chapter_removals` so no sweep,
+update check or slow archive fetches it again and no surface (web, Komga API, reader, OPDS) lists it. A live chapter
+this server does not own is refused as `not_owned`. The answer is `{removed, skipped: [{number, reason}], applied, bytes}`,
+or `{refused}` when the volume is not writable. Audit line `series.chapters_remove`.
+`GET .../chapters/removed` lists the remembered numbers as `{numbers}`; `POST .../chapters/restore {numbers: [..]}` or
+`{all: true}` forgets them again (audit `series.chapters_restore`), after which the chapter can be fetched as before.
+The app puts this in the chapter row's right-click menu (*Remove from library*) and lists the numbers, with *Restore*,
+in the series' Properties sheet.
+
 ### Bulk actions
 ```
 POST   /api/library/bulk/read     POST   /api/favorites/bulk
-POST   /api/collections/:id/items/bulk
 POST   /api/library/bulk/newest   GET    /api/library/bulk/newest
 ```
 The first three take `{ seriesIds: [...] }`, up to 500. An id that no longer exists is reported in `skipped`
@@ -1544,6 +1586,8 @@ GET    /api/favorites             POST   /api/favorites
 DELETE /api/favorites/:seriesId   PUT    /api/favorites/order
 GET    /api/history
 GET    /api/stats                 GET    /api/wrapped
+GET    /api/favorites/ids         PUT    /api/keep-reading/:seriesId
+GET    /api/ignored-titles        PUT    /api/ignored-titles
 GET    /api/stats/time            GET    /api/series/:id/reading-pace
 GET    /api/stats/insights
 GET    /api/settings              PUT    /api/settings
@@ -1555,6 +1599,13 @@ GET    /api/notes                GET    /api/notes/:seriesId
 POST   /api/notes
 PATCH  /api/notes/:id             DELETE /api/notes/:id
 PUT    /api/ratings/:seriesId     DELETE /api/ratings/:seriesId
+GET    /api/ratings/loved
+POST   /api/collections/:id/items/bulk
+POST   /api/collections/:id/wants
+DELETE /api/collections/:id/wants/:key
+GET    /api/collections/:id/export
+POST   /api/collections/import
+GET    /api/series/:id/other-titles
 GET    /api/tokens                POST   /api/tokens
 GET    /api/bookmarks             PUT    /api/bookmarks/:bookId/:page
 DELETE /api/bookmarks/:bookId/:page
@@ -1688,8 +1739,8 @@ Expected this week: their favourites and the series they read in the last 90 day
 from now and that are not yet quiet, monitored series only, soonest first, at most 30, each as a listing shows it to
 them (libraries, age cap, 18+ switch).
 
-**Lists** (collections; the app's *Lists*). `GET /api/collections/:id` answers `{id, name, accent, sort_order, items}`:
-the list's series in its own order (`position`, which `PUT /api/collections/:id/items {seriesIds}` rewrites; since
+**Lists** (collections; the app's *Lists*). `GET /api/collections/:id` answers `{id, name, accent, sort_order, description, items}` (`description` is the owner's free note, e.g. where the list came from; `PATCH /api/collections/:id {description}` sets it, an empty string clears it):
+`GET /api/collections/:id/export` downloads the list as `{format: "uchiyomi-list", version, name, description, items: [{title, coverUrl?}]}` and `POST /api/collections/import {list, collectionId?}` makes a list of the same name from one (or fills `collectionId`), linking titles the library holds and saving the rest; `wants` lists titles saved to it before the library held them (`{key, title, coverUrl}`; `POST /api/collections/:id/wants {title, coverUrl?}` saves one, `DELETE …/wants/:key` drops it) and moves any the library has since gained into `items`; the list's series in its own order (`position`, which `PUT /api/collections/:id/items {seriesIds}` rewrites; since
 v0.55.7 `POST /api/collections/:id/items` adds a series at the end, as the bulk add does), each enriched like every
 listing — `yomi.unread` is the cover's unread badge, against the caller's own progress — and a series hidden by the
 18+ switch or an age cap left out. Since v0.55.7 ([#164](https://github.com/AngeloSha/uchiyomi/discussions/164)) each
@@ -1703,6 +1754,14 @@ is not stored. The reader's defaults are the settings' `reader` object, and sinc
 `coverEdges` (default `true`): `false` takes the cover's colour off the reader's top and bottom edges.
 `homeCollections` controls which zero to three Lists also appear on Home and in what order. Home shows up to twelve
 series per selected rail; an empty selected List reserves its position and appears once it has a series.
+
+**Fork change.** `PUT /api/settings` shallow-merges the body into the account's settings row, as before, and now holds three
+keys to booleans (anything else answers `400 {error:"bad_request", fields:["<key>"]}`): `compactChapters` (the denser chapter
+list on a computer, default `false`), `showGhosts` (show chapters the sources list that this server lacks, default `true`)
+and `alsoFollow` (the Add dialog's "also check the other sources" switch, default `false`). They used to live only in the
+browser's localStorage; the web app still mirrors them there so the first paint and an offline launch do not wait for the
+server, and the server's value overwrites the local one once the session (`user.settings`) has loaded. No migration: the
+row is jsonb.
 
 **Smart and shared Lists** (since v0.61.0). `POST /api/collections {name, accent?, query?, shared?}`: a `query` makes a
 *smart* list, a saved Library search in the Library URL's own words -- `{v: 1, q?, read?: 'UNREAD' | 'IN_PROGRESS' |
@@ -1777,6 +1836,7 @@ DELETE /api/downloads/:bookId     GET    /api/books/:id/download-manifest
 ```
 GET    /api/admin/stats           GET    /api/admin/health
 GET    /api/admin/health/summary  POST   /api/admin/health/ignore
+POST   /api/admin/health/recheck
 POST   /api/admin/health/autofix  GET    /api/admin/health/autofix
 GET    /api/admin/health/autofix/:runId POST /api/admin/health/autofix/stop
 GET    /api/admin/settings        PATCH  /api/admin/settings
@@ -1786,6 +1846,7 @@ GET    /api/admin/notify-targets  POST   /api/admin/notify-targets
 PATCH  /api/admin/notify-targets/:id DELETE /api/admin/notify-targets/:id
 POST   /api/admin/notify-targets/:id/test
 GET    /api/admin/install-ping/preview
+GET    /api/admin/limits
 GET    /api/admin/users           POST   /api/admin/users
 PATCH  /api/admin/users/:id       DELETE /api/admin/users/:id
 GET    /api/admin/sessions        DELETE /api/admin/sessions/:id
@@ -1826,6 +1887,7 @@ GET    /api/admin/series/bulk/chapters/delete
 POST   /api/admin/series/bulk/chapters/delete/cancel
 GET    /api/admin/series/:id/scanlators GET    /api/admin/scanlators
 POST   /api/admin/series/:id/sources DELETE /api/admin/series/:id/sources/:sourceId
+GET    /api/admin/series/:id/sources/:sourceId/url
 POST   /api/admin/series/:id/main-source
 POST   /api/admin/series/:id/attach-source
 GET    /api/admin/series/:id/alt-titles POST   /api/admin/series/:id/alt-titles
@@ -1834,6 +1896,9 @@ GET    /api/admin/libraries       POST   /api/admin/libraries
 GET    /api/admin/libraries/preview
 GET    /api/admin/libraries/folders
 PATCH  /api/admin/libraries/:id   DELETE /api/admin/libraries/:id
+POST   /api/admin/libraries/:id/consolidate
+POST   /api/admin/libraries/:id/relocate
+POST   /api/admin/series/bulk/genres
 POST   /api/admin/series/:id/library
 POST   /api/admin/series/library
 GET    /api/admin/library/writable
@@ -1851,6 +1916,7 @@ POST   /api/admin/series/:id/merge
 GET    /api/admin/series/deleted
 POST   /api/admin/series/:id/check
 GET    /api/admin/series/:id/check
+POST   /api/admin/series/:id/banner/refresh
 GET    /api/admin/series/:id/numbering POST   /api/admin/series/:id/numbering
 GET    /api/admin/art/overview    GET    /api/admin/art/candidates/:id
 GET    /api/admin/series/:id/cover-candidates
@@ -1898,6 +1964,8 @@ A library can carry reading defaults: `readerPrefs {mode?, spread?, pagedDirecti
 as `libraryReader` on `GET /api/series/{id}` (for an admin also `library {id, name}`, the library the series is in).
 The reader layers them under the source's and the series' own choices. There is no theme: that stays each reader's own,
 and an unknown key (a theme among them) is dropped.
+
+`defaultVisible` (default true) on a library create or edit sets whether the library view starts with it selected; `GET /api/admin/libraries` returns it as `default_visible` and `GET /api/libraries` as `defaultVisible` (always true for the default library).
 
 Since v0.55.8 ([#168](https://github.com/AngeloSha/uchiyomi/discussions/168)), `anilistLookup` defaults true and
 `GET /api/admin/libraries` returns it as `anilist_lookup` on every row, including the default library. False prevents
@@ -2619,6 +2687,13 @@ a series the admin cannot see; audited as `series.attach_source`. `DELETE /api/a
 the series is left with no source (audited as `series.detach_main`); a series numbered by posting order refuses, since
 nothing could attach a new main to it afterwards. Files, progress and the folder never move either way.
 
+**Fork change. Opening a series on its source.** `GET /api/admin/series/:id/sources/:sourceId/url` (admin) answers
+`{url}`, the source's own page for this series -- what the Sources sheet opens when an admin clicks a source's name.
+It is read from the source each time rather than stored, so a source that renumbers or rehosts cannot leave a dead
+link behind. **404** when the series does not follow that source (`not_found`) or the source has no address of its own
+(`no_url`, which is ordinary for an extension source); **502** when it does not answer within 20 seconds
+(`unavailable`).
+
 **Making a follower the main source** (since v0.54.0). `POST /api/admin/series/:id/main-source {sourceId, old?}`
 makes a source the series already follows its main source -- only a followed one: its follow is the "same series?"
 judgement already made, and the sweep already merges its chapters, so the switch changes which source wins a tie
@@ -2698,8 +2773,9 @@ and the counts (each follow as `series.follow_source` with `via: find_sources`).
 /api/sources/jobs` carries its card to admins: `kind: find_sources`, `done`/`total` in series, `followed`,
 `current` (hidden like any run's), `downloads: false`, and `waiting` (`sweep`, `repair` or `check`, as the run's
 own `waiting`) while it waits for one of those. On Health, a failing (or turned-off) source that is some
-series' main source carries the action `find_sources` with `findSeries`, and so does a "Series that can no longer
-update" row whose reason is its source. Since v0.54.0 such a source row carries `replace_source` before it, when the
+series' main source carries the action `find_sources` with `findSeries`, and so does every "Series that can no longer
+update" row, whatever its reason (even a series with no source at all). Since v0.56.0 that row's item has
+`findScope: 'series'`: its key starts a run with `{ seriesIds: [seriesId] }` for that series alone, not the source. Each such row also carries `remove_series` (before `find_sources`): `DELETE /api/admin/series/{id}`, which hides the series and keeps its files and everyone's progress. Since v0.54.0 such a source row carries `replace_source` before it, when the
 source is switched off or failing at a step an update needs (the chapter list, the pages or the images, or the
 site's own offline notice; not a cooldown, not a failure at search alone): the replace mode below. The
 `frozen-series` check also lists a series whose main source is loaded but switched off or failing
@@ -2767,7 +2843,9 @@ would promote is marked `promote: true`. `POST /api/admin/sources/find/:runId/pr
 one: a follower's is switched to; a search's is checked as a follow, followed under the cap and switched to. It answers
 `{result}` (the proposal `promoted`, the result's `promoted`), **404** `not_found`, or **409** `decided` (with `state`),
 `posting_order`, `source_unavailable`, `language_differs` (with `edition`), `full`, `moved`, `busy`,
-`renumber_pending`, `not_followed` or `is_main`, with `messageSaid` where it has one. Find and Replace share the one
+`renumber_pending`, `not_followed` or `is_main`, with `messageSaid` where it has one. In a review over one source's
+series that is not a Replace (`{sourceId, review: true}`, Sources -> Add backups) promote keeps the old main source as a
+follower, and also makes an already followed proposal main. Find and Replace share the one
 run at a time (**409** `busy`). `GET /api/admin/sources/:id/replace-preview` answers what a Replace run over the
 source would do, counted as the run decides it: `{main, withBackup, toSearch, postingOrder, busy}` -- the series
 whose main source it is, those a working follower takes over at once, those it would search for, those numbered by
@@ -2874,6 +2952,7 @@ POST   /api/admin/extensions/solver
 POST   /api/admin/extensions/update-all
 GET    /api/admin/extensions/repos       POST   /api/admin/extensions/repos
 DELETE /api/admin/extensions/repos       POST   /api/admin/extensions/refresh
+POST   /api/admin/extensions/match
 GET    /api/admin/extensions/sources     POST   /api/admin/extensions/sources/:id
 POST   /api/admin/extensions/sources/bulk
 GET    /api/admin/extensions/sources/:id/preferences
@@ -3064,7 +3143,8 @@ GET    /img/series/:id/hero
 GET    /img/extensions/icon/:pkgName
 GET    /img/books/:id/thumb       GET    /img/books/:id/page/:n
 GET    /img/lib/series/:id/thumb  GET    /img/lib/books/:id/thumb
-GET    /img/lib/books/:id/page/:n GET    /img/sources/cover
+GET    /img/lib/books/:id/page/:n
+GET    /img/sources/cover
 GET    /opds                      GET    /opds/series
 GET    /opds/series/:id           GET    /opds/search
 GET    /opds/opensearch.xml       GET    /opds/book/:id/file
@@ -3216,7 +3296,7 @@ ignored. No
 reading event is written, so a sync from the phone does not count towards streaks, the leaderboard or
 Wrapped, exactly like the app's own bulk mark-read. Needs the `write` scope.
 
-**Notice chapters** (opt-in, *Settings → Notice chapters*, `hideNoticeTypes`, off by default). Many sources post
+**Notice chapters** (*Settings → Notice chapters*, `hideNoticeTypes`, every type on by default, applied once at boot). Many sources post
 announcements as a short chapter numbered after the latest with a fraction (100.5). For a series that hides them,
 every such chapter of 3 pages or fewer (with *Only hide short ones* off, since v0.55.3, every chapter numbered with a
 fraction) is absent from this API: not in `/api/v1/series/:id/books`, a 404 by id,

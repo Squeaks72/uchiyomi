@@ -213,7 +213,7 @@ test('the search follows a pause in the typing, Escape empties it, and the URL c
   const lib = page();
   assert.match(lib, /const q = \(params\.get\('q'\) \|\| ''\)\.trim\(\);/);
   assert.match(lib, /q=\{q\} onSearch=\{\(v\) => setParam\('q', v\)\}/, 'the search does not go through the page\'s one URL writer');
-  assert.match(lib, /queryKey: \['library', active\.key, dir, read, status, genres\.join\(','\), lib, src, anysrc, q\],/);
+  assert.match(lib, /queryKey: \['library', active\.key, dir, read, status, genres\.join\(','\), libKey, src, anysrc, q\],/);
   assert.match(lib, /query: q \|\| undefined, collapseEditions: true/, 'the search is not sent');
   // The count says how many match, and an empty search says so -- never "your library is empty".
   assert.match(lib, /\(total === 1 \? tr\('1 series matches'\) : tr\('\{n\} series match', \{ n: total \}\)\)/);
@@ -265,7 +265,7 @@ test('Comfortable is exactly the grid that shipped; Compact has more columns at 
   assert.match(gridClass('list'), /^grid grid-cols-1 /);
   const src = page();
   assert.match(src, /<div data-library-grid data-layout=\{layout\} aria-busy=\{refreshing \|\| undefined\} className=\{`relative isolate \$\{gridClass\(layout\)\}`\}>/);
-  assert.match(src, /\(layout === 'list'\s*\? <SeriesRow key=\{s\.id\} series=\{s\} eager=\{i < 12\} note=\{sortValue\(s, active\.key\)\}\s*selectable=\{selecting\} selected=\{picked\.has\(s\.id\)\} onToggle=\{\(e\) => togglePick\(s\.id, e\)\} \/>/,
+  assert.match(src, /\(layout === 'list'\s*\? <SeriesRow key=\{s\.id\} series=\{s\} eager=\{i < 12\} note=\{sortValue\(s, active\.key\)\}\s*selectable=\{selecting\} selected=\{picked\.has\(s\.id\)\} onToggle=\{\(e\) => togglePick\(s\.id, e\)\} onSelectionMenu=\{\(at\) => openSelectionMenu\(s\.id, at\)\} \/>/,
     'a list row is not the same link, select toggle and value line as a tile');
   assert.match(src, /compact=\{layout === 'compact'\}/);
 });
@@ -412,7 +412,7 @@ test('the toolbar sticks under the top bar, the filter panel clears it, and the 
   const src = page();
   // `--topbar-h` (65 px from lg, app/globals.css) since the UI refresh, rather than the number written out.
   assert.match(src, /<div className="sticky top-\[var\(--topbar-h\)\] max-h-\[calc\(100dvh-var\(--topbar-h\)\)\] overflow-y-auto pb-8 pt-6" data-lenis-prevent>/, 'the filter panel slides under the top bar');
-  assert.match(src, /<header className="safe-top sticky top-0 z-30 bg-ink-950\/85 px-4 pb-3 backdrop-blur-xl lg:contents">/, 'the phone header is not on the grid\'s gutter');
+  assert.match(src, /<header className="safe-top sticky top-0 z-30 bg-ink-950\/85 px-4 backdrop-blur-xl lg:contents">/, 'the phone header is not on the grid\'s gutter');
   assert.match(src, /className="mt-3 lg:sticky lg:top-\[var\(--topbar-h\)\] lg:z-20 /, 'the toolbar does not stick under the top bar');
   // 65 px: the 40 px keys, py-3 and the border, which is --topbar-h. The bar is see-through over a page's art (lib/overArt.ts)
   // and keeps its border's width there, transparent.

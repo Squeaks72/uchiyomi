@@ -2,7 +2,7 @@ import type { WidePages } from './readerSpread';
 import type { AutoGuess } from './readerAuto';
 import type { SeriesType } from './types';
 
-export type ReaderTheme = 'amoled' | 'sepia' | 'gray';
+export type ReaderTheme = 'amoled' | 'paper' | 'sepia' | 'gray';
 
 /**
  * What the reader does with a page that repeats across chapters -- a credit page, an advert.
@@ -410,6 +410,38 @@ export function saveSeriesPrefs(seriesId: string, partial: SeriesPrefs) {
   queueSync();
 }
 
+/** Whether this series holds a look of its own (mode, theme, spread or direction) that a reset would clear. */
+export function hasSeriesLook(seriesId: string): boolean {
+  const sp = loadSeriesPrefs(seriesId);
+  return !!(sp.mode || sp.theme || sp.spread !== undefined || sp.pagedDirection);
+}
+
+/**
+ * Forget a series' own look so it follows its source's default and the profile's again: the reader sheet's
+ * "Reset this series to my defaults".
+ *
+ * Only the look is cleared (mode, theme, spread, direction and the mark on it). The zoom stays: it is a view
+ * of the page rather than a reading setup, and the sheet's help says "mode, page tone, pages per view and
+ * direction". An entry left empty is removed, and the account hears of it through the usual debounced push:
+ * the server replaces `readerSeries` as a whole, so the omitted id is gone there too.
+ * Returns the reader's settings as they now stand: the stored global default with the source's look laid over.
+ * Reintroduce by leaving the keys in place: readerSeriesReset.test.ts finds them still stored.
+ */
+export function resetSeriesLook(seriesId: string, cur: ReaderPrefs, sourceId = '', libraryLook: SeriesPrefs | null = null): ReaderPrefs {
+  if (seriesId) {
+    try {
+      const sp = { ...loadSeriesPrefs(seriesId) };
+      delete sp.mode; delete sp.theme; delete sp.spread; delete sp.pagedDirection; delete sp.directionChosen;
+      if (Object.keys(sp).length) localStorage.setItem(`yomi_rs_${seriesId}`, JSON.stringify(sp));
+      else localStorage.removeItem(`yomi_rs_${seriesId}`);
+    } catch {}
+    queueSync();
+  }
+  const g = loadPrefs();
+  const base: ReaderPrefs = withTitleLook({ ...cur, mode: g.mode, theme: g.theme, spread: g.spread, pagedDirection: g.pagedDirection }, libraryLook ?? {});
+  return sourceId ? withTitleLook(base, loadSourcePrefs(sourceId)) : base;
+}
+
 // ---- per-source memory (the source is the best proxy the app has for the FORMAT) ----
 /**
  * Reader settings remembered per SOURCE.
@@ -552,6 +584,11 @@ function allSourcePrefs(): Record<string, SourcePrefs> {
 
 export const THEME_FILTER: Record<ReaderTheme, string> = {
   amoled: 'none',
+  // Printed manga is black ink on warm off-white paper, not on the pure white of a scan. This maps a white pixel to
+  // about #F0E8D8 (a light cream: red above green above blue, the order a CSS `sepia()` alone cannot give, because it
+  // clips red and green together at white), leaves black black, and keeps mid greys neutral-warm. The first brightness
+  // makes room under the clip for the tint; the last puts the page back at paper level.
+  paper: 'brightness(0.92) sepia(0.25) saturate(1.1) brightness(0.94)',
   sepia: 'sepia(0.55) saturate(1.15) brightness(0.94)',
   gray: 'grayscale(0.25) brightness(0.88) contrast(0.95)',
 };

@@ -72,7 +72,7 @@ test('the add dialog wires the switch into the request, the counts and the other
   // Reintroduce by dropping `numbering` from the add body: the switch is shown and ignored.
   // (#117's "Archive the rest slowly" rides after it, pinned in addSeriesDialog.test.ts.)
   // (v0.52.0's language edition rides after those, pinned in addSeriesDialog.test.ts.)
-  assert.match(src, /json: \{\s*source: picked\.source, sourceId: picked\.sourceId, chapterCount, chapterFrom, autoUpdate, force, alsoFollow: alsoFollowBody, numbering,?(?:\s*\.\.\.\(archiving \? \{ archive: true \} : \{\}\),?)?(?:\s*\.\.\.\(editionBody \? \{ edition: editionBody \} : \{\}\),?)?\s*\}/,
+  assert.match(src, /json: \{\s*source: picked\.source, sourceId: picked\.sourceId, chapterCount, chapterFrom, autoUpdate, force, alsoFollow: alsoFollowBody, numbering,?(?:\s*\.\.\.\(archiving \? \{ archive: true \} : \{\}\),?)?(?:\s*\.\.\.\(editionBody \? \{ edition: editionBody \} : \{\}\),?)?(?:\s*\.\.\.\(chosenLib && chosenLib !== 'lib' \? \{ libraryId: chosenLib \} : \{\}\),?)?\s*\}/,
     'the add body does not carry the numbering');
   assert.match(src, /const numbering = view\?\.send \?\? 'auto';/);
   assert.match(src, /const view = detail \? addNumberingView\(detail, flipNumbering\) : null;/, 'the counts do not follow the switch');
@@ -256,7 +256,7 @@ test('the versions sheet shows each copy\'s own title, and says when copies are 
     'two groups naming one chapter differently are versions');
   const sheet = code(read('components/ChapterVersionsSheet.tsx'));
   assert.match(sheet, /const titled = copyTitlesDiffer\(rows\);/);
-  assert.match(sheet, /\{titled && <span dir="auto" className="block truncate text-sm text-fog-100" data-copy-title>\{c\.title\?\.trim\(\) \|\| '—'\}<\/span>\}/,
+  assert.match(sheet, /\{titled && <span id=\{`\$\{rowId\}-\$\{i\}`\} dir="auto" className="block truncate text-sm text-fog-100" data-copy-title>\{c\.title\?\.trim\(\) \|\| '—'\}<\/span>\}/,
     'the copy\'s title is not its first line');
   assert.match(sheet, /\{sharing && \(/);
 });
