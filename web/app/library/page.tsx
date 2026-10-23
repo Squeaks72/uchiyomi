@@ -15,6 +15,7 @@ import { triggerRefresh } from '@/lib/refresh';
 import { useToast } from '@/components/Toast';
 import { Modal, ConfirmDialog, msgOf } from '@/components/ConfirmDialog';
 import { MoveToLibrary } from '@/components/MoveToLibrary';
+import { invalidateBrowsing } from '@/lib/browseKeys';
 import { useAuth, canDownload } from '@/lib/auth';
 import { AdultToggle, useAdultFilterConfigured, useAdultShown, useLibraries } from '@/components/AdultToggle';
 import { LibraryFilters, NO_SOURCE, READ_STATES, STATUSES, useLibrarySources } from '@/components/LibraryFilters';
@@ -312,6 +313,7 @@ function LibraryInner() {
     setPicked(new Set());
     qc.invalidateQueries({ queryKey: ['library'] });
     qc.invalidateQueries({ queryKey: ['home'] });
+    invalidateBrowsing(qc); // and the recommendation rows, which keep their own caches
   };
 
   const bulk = async (path: string, extra: Record<string, unknown>) => {

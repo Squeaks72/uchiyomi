@@ -17,6 +17,7 @@ import { useToast } from './Toast';
 import { ConfirmDialog, msgOf } from './ConfirmDialog';
 import { useArchiveEnqueue } from './ArchiveQueue';
 import { MoveToLibrary } from './MoveToLibrary';
+import { invalidateBrowsing } from '@/lib/browseKeys';
 import { CollectionPickerModal } from './CollectionPicker';
 import { FindStartDialog } from './FindSources';
 import { BulkChapterDeleteRunDialog } from './BulkChapterDeleteRun';
@@ -46,6 +47,7 @@ export function useSeriesActions({ onDone, builtinList }: { onDone?: () => void;
 
   const settle = () => {
     for (const key of [['library'], ['home'], ['collection'], ['series'], ['series-books'], ['favorite-ids']]) qc.invalidateQueries({ queryKey: key });
+    invalidateBrowsing(qc); // and the recommendation rows, which keep their own caches
     onDone?.();
   };
   const open = (d: Dialog, of: string[]) => { setIds(of); setDialog(d); };
