@@ -51,6 +51,7 @@ import { serverReachableHint } from '@/lib/desktop';
 import { IncognitoTag, incognitoRef } from '@/components/IncognitoBanner';
 import { useContextMenu, type MenuItem } from '@/components/ContextMenu';
 import { ReaderShortcuts, useHasKeyboard } from '@/components/ReaderShortcuts';
+import { ReaderAutoBar } from '@/components/ReaderAutoBar';
 import { capLabel } from '@/components/ReaderKeys';
 
 interface PageDim { number: number; width: number | null; height: number | null; junk?: boolean; missing?: boolean; join?: 'rtl' | 'ltr'; mark?: SpreadMark }
@@ -258,6 +259,10 @@ function ReaderInner() {
   const [scrubbing, setScrubbing] = useState(false); // slider drag in progress → show the page preview
 
   const [chrome, setChrome] = useState(true);
+  // Auto-scroll's transport: playing or paused (the speed itself is a reader setting, prefs.autoScroll / prefs.autoPage), and a
+  // count that restarts paged mode's countdown whenever the page is turned for it or by hand.
+  const [autoPlaying, setAutoPlaying] = useState(true);
+  const [autoTick, setAutoTick] = useState(0);
   const [showSettings, setShowSettings] = useState(false);
   const [showPages, setShowPages] = useState(false);
   const [showChapters, setShowChapters] = useState(false);
@@ -1322,14 +1327,7 @@ function ReaderInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [current, ready, flat.length, turnSettled]);
 
-  // ---- auto-scroll ----
-  useEffect(() => {
-    if (prefs.mode !== 'vertical' || prefs.autoScroll <= 0) return;
-    let raf = 0;
-    const step = () => { if (scrollRef.current) scrollRef.current.scrollTop += prefs.autoScroll; raf = requestAnimationFrame(step); };
-    raf = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(raf);
-  }, [prefs.autoScroll, prefs.mode]);
+  // ---- auto-scroll: see 'auto-scroll transport' below, after `perform` ----
 
   // ---- wake lock ----
   useEffect(() => {
@@ -1630,6 +1628,66 @@ function ReaderInner() {
   const performRef = useRef(perform);
   performRef.current = perform;
 
+  // ---- auto-scroll transport ----
+  // Webtoon: the column scrolls by itself at `prefs.autoScroll` (px per 60 Hz frame, kept in time so a 120 Hz screen is not
+  // twice as fast). Paged: a page turns every `prefs.autoPage` seconds. Both answer to the same controls (components/
+  // ReaderAutoBar.tsx) and keys, like a video: K starts, pauses and resumes (Space too, once it is on), J and L go back and
+  // forward ten seconds (a page, when paged), < and > slow it down and speed it up. A key somebody bound to a reader action
+  // stays theirs.
+  const autoVertical = prefs.mode === 'vertical';
+  const autoOn = autoVertical ? prefs.autoScroll > 0 : prefs.autoPage > 0;
+  // Switched off, the next start plays: a pause belongs to the run it paused.
+  useEffect(() => { if (!autoOn) setAutoPlaying(true); }, [autoOn]);
+  useEffect(() => {
+    if (!autoVertical || prefs.autoScroll <= 0 || !autoPlaying) return;
+    let raf = 0;
+    let last = 0;
+    let pos = -1; // the position as a fraction: scrollTop itself rounds on a normal-density screen, and slow speeds never moved
+    const step = (t: number) => {
+      const el = scrollRef.current;
+      if (el) {
+        if (pos < 0 || Math.abs(el.scrollTop - pos) > 2) pos = el.scrollTop; // somebody else moved it: a drag, a key, a jump
+        if (last) pos += prefs.autoScroll * 60 * Math.min(0.1, (t - last) / 1000);
+        el.scrollTop = pos;
+      }
+      last = t;
+      raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [autoVertical, prefs.autoScroll, autoPlaying]);
+  useEffect(() => {
+    if (autoVertical || prefs.autoPage <= 0 || !autoPlaying) return;
+    const t = setTimeout(() => {
+      const el = scrollRef.current;
+      if (!el) return;
+      // The last slide is Up Next (or the failure card): the run ends there, paused, for the reader to decide.
+      if (slideNow() >= Math.max(0, el.children.length - 1)) { setAutoPlaying(false); return; }
+      performRef.current('next');
+      setAutoTick((n) => n + 1);
+    }, prefs.autoPage * 1000);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoVertical, prefs.autoPage, autoPlaying, current, autoTick]);
+  const autoToggle = () => {
+    if (!autoOn) { setAutoPlaying(true); setPref(autoVertical ? { autoScroll: 2 } : { autoPage: 8 }); }
+    else setAutoPlaying((p) => !p);
+  };
+  const autoSkip = (dir: 1 | -1) => {
+    const el = scrollRef.current;
+    if (!el || !autoOn) return;
+    if (autoVertical) el.scrollBy({ top: dir * prefs.autoScroll * 60 * 10, behavior: 'auto' });
+    else { performRef.current(dir > 0 ? 'next' : 'prev'); setAutoTick((n) => n + 1); }
+  };
+  const autoFaster = (dir: 1 | -1) => {
+    if (!autoOn) return;
+    if (autoVertical) setPref({ autoScroll: Math.min(6, Math.max(0.5, Math.round((prefs.autoScroll + dir * 0.5) * 2) / 2)) });
+    else setPref({ autoPage: Math.min(30, Math.max(2, prefs.autoPage - dir)) });
+  };
+  const autoStop = () => setPref(autoVertical ? { autoScroll: 0 } : { autoPage: 0 });
+  const autoRef = useRef({ on: autoOn, toggle: autoToggle, skip: autoSkip, faster: autoFaster });
+  autoRef.current = { on: autoOn, toggle: autoToggle, skip: autoSkip, faster: autoFaster };
+
   // ---- keyboard (desktop) ----
   // The keys in force: this mode's defaults with this device's own bindings (lib/readerKeys.ts reproduces v0.60's).
   const keyMap = useMemo(() => keyMapFor(prefs.mode, device.keys), [prefs.mode, device.keys]);
@@ -1674,6 +1732,18 @@ function ReaderInner() {
       // (turning the page instead swallowed the click), a text field everything.
       const owned = !!t && (t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.tagName === 'TEXTAREA' || t.isContentEditable
         || !!t.closest('button, a, [role="button"], [role="dialog"]'));
+      // Auto-scroll's video keys, unless the reader bound the key to something of its own. Space is the video's play/pause once
+      // auto-scroll is on (it is the next page otherwise), and never takes a focused control's press.
+      if (!e.shiftKey || e.key === '<' || e.key === '>') {
+        const typing = !!t && (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable);
+        const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+        const mine = !typing && !READER_ACTIONS.some((a) => keyMap[a].includes(k) || keyMap[a].includes(e.key));
+        const auto = autoRef.current;
+        if (mine && k === 'k' && !e.repeat) { e.preventDefault(); auto.toggle(); return; }
+        if (mine && k === ' ' && auto.on && !owned && !e.repeat) { e.preventDefault(); auto.toggle(); return; }
+        if (mine && auto.on && (k === 'j' || k === 'l') && !e.repeat) { e.preventDefault(); auto.skip(k === 'l' ? 1 : -1); return; }
+        if (mine && auto.on && (k === '<' || k === ',' || k === '>' || k === '.')) { e.preventDefault(); auto.faster(k === '>' || k === '.' ? 1 : -1); return; }
+      }
       const action = actionForKey(e, keyMap, { owned });
       if (!action) return;
       // A bound key is the reader's: the browser's own handling of it (Space scrolling the page) is stopped.
@@ -2526,6 +2596,12 @@ function ReaderInner() {
 
       <AnimatePresence>
         {showKeys && <ReaderShortcuts keyMap={keyMap} onClose={() => setShowKeys(false)} />}
+        {autoOn && !showSettings && (
+          <ReaderAutoBar paged={!autoVertical} playing={autoPlaying} raised={chrome}
+            speed={autoVertical ? `${prefs.autoScroll.toFixed(1)}×` : tr('{n} s per page', { n: prefs.autoPage })}
+            onToggle={autoToggle} onBack={() => autoSkip(-1)} onForward={() => autoSkip(1)}
+            onSlower={() => autoFaster(-1)} onFaster={() => autoFaster(1)} onStop={autoStop} />
+        )}
         {showSettings && (
           <ReaderSettings
             prefs={prefs}

@@ -2,7 +2,7 @@
   "_meta": {
     "language": "zh",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 4994
+    "strings": 5008
   },
   "1 check found something": "1 项检查发现问题",
   "1 member": "1 位成员",
@@ -4997,5 +4997,19 @@
   "Only tell me about my next chapter": "仅在是我的下一章时通知我",
   "A new chapter notifies you only when it is the one you would read next: you are caught up, with nothing older unread or half read. A chapter upgraded to a preferred group still tells you. Saved to your account.": "仅当新章节正是你接下来要读的章节时才会通知你（你已追平，且没有更早的未读或读到一半的章节）。升级为首选字幕组版本的章节仍会通知。保存在你的账号中。",
   "Paper": "纸张",
-  "Genres to keep out of Discover while “Show 18+” is off. Series already in your library are not judged by genre: only their library’s age rating decides whether they are hidden.": "在“显示 18+”关闭时从 Discover 中隐藏的类型。已在你库中的系列不按类型判断：是否隐藏只取决于所在库的年龄分级。"
+  "Genres to keep out of Discover while “Show 18+” is off. Series already in your library are not judged by genre: only their library’s age rating decides whether they are hidden.": "在“显示 18+”关闭时从 Discover 中隐藏的类型。已在你库中的系列不按类型判断：是否隐藏只取决于所在库的年龄分级。",
+  "Auto-advance": "自动翻页",
+  "{n} s per page": "每页 {n} 秒",
+  "Turns the page by itself. Off by default; the K key starts and pauses it.": "自动翻页。默认关闭；按 K 键开始或暂停。",
+  "Auto-scroll controls": "自动滚动控制",
+  "Back 10 seconds": "后退 10 秒",
+  "Forward 10 seconds": "前进 10 秒",
+  "Pause auto-scroll": "暂停自动滚动",
+  "Play auto-scroll": "播放自动滚动",
+  "Slower": "减速",
+  "Faster": "加速",
+  "Stop auto-scroll": "停止自动滚动",
+  "Start, pause or resume auto-scroll": "开始、暂停或继续自动滚动",
+  "Back or forward 10 seconds, or a page when paged": "后退或前进 10 秒（分页模式为一页）",
+  "Slower or faster": "减速或加速"
 }

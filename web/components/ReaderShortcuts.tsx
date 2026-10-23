@@ -62,6 +62,9 @@ export function ReaderShortcuts({ keyMap, onClose }: { keyMap: KeyMap; onClose: 
         <ul className="divide-y divide-ink-800">
           {bound.map((a) => <Line key={a} caps={keyMap[a].map(capLabel)} label={actionLabel(a)} />)}
           <Line caps={[capLabel('Escape')]} label={actionLabel('exit')} />
+          <Line caps={['K']} label={tr('Start, pause or resume auto-scroll')} />
+          <Line caps={['J', 'L']} label={tr('Back or forward 10 seconds, or a page when paged')} />
+          <Line caps={['<', '>']} label={tr('Slower or faster')} />
           <Line caps={['?']} label={tr('Show this list')} />
         </ul>
         <p className="mt-3 text-[11px] leading-snug text-fog-500">
