@@ -1761,6 +1761,13 @@ function ReaderInner() {
       // (turning the page instead swallowed the click), a text field everything.
       const owned = !!t && (t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.tagName === 'TEXTAREA' || t.isContentEditable
         || !!t.closest('button, a, [role="button"], [role="dialog"]'));
+      // While auto-scroll is on, ← and → are its back and forward, like J and L (in reading order, not by side: a video's → is
+      // always forward). Off, they are what they were -- a page's side in paged mode, nothing in the column.
+      if (autoRef.current.on && !owned && !e.shiftKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+        e.preventDefault();
+        if (!e.repeat) autoRef.current.skip(e.key === 'ArrowRight' ? 1 : -1);
+        return;
+      }
       // Auto-scroll's video keys, unless the reader bound the key to something of its own. Space is the video's play/pause, and
       // starts auto-scroll when it is off (Shift+Space, ↓ and Page Down still turn the page); never a focused control's press.
       if (!e.shiftKey || e.key === '<' || e.key === '>') {
