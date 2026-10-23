@@ -2,7 +2,7 @@
   "_meta": {
     "language": "es",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 5274
+    "strings": 5275
   },
   "1 check found something": "1 comprobación encontró algo",
   "1 member": "1 miembro",
@@ -5277,5 +5277,6 @@
   "Stop auto-scroll": "Detener el desplazamiento automático",
   "Start, pause or resume auto-scroll": "Iniciar, pausar o reanudar el desplazamiento automático",
   "Back or forward 10 seconds, or a page when paged": "Retroceder o avanzar 10 segundos, o una página en modo paginado",
-  "Slower or faster": "Más lento o más rápido"
+  "Slower or faster": "Más lento o más rápido",
+  "Its only source, {source}, is having trouble. Add another source to keep it updating.": "Su única fuente, {source}, tiene problemas. Añade otra fuente para que siga actualizándose."
 }

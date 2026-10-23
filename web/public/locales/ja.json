@@ -2,7 +2,7 @@
   "_meta": {
     "language": "ja",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 5274
+    "strings": 5275
   },
   "1 check found something": "1 件のチェックで問題を検出",
   "1 member": "メンバー 1 人",
@@ -5277,5 +5277,6 @@
   "Stop auto-scroll": "自動スクロールを停止",
   "Start, pause or resume auto-scroll": "自動スクロールの開始・一時停止・再開",
   "Back or forward 10 seconds, or a page when paged": "10秒戻る／進む（ページ表示では1ページ）",
-  "Slower or faster": "遅く／速く"
+  "Slower or faster": "遅く／速く",
+  "Its only source, {source}, is having trouble. Add another source to keep it updating.": "唯一のソース {source} に問題があります。更新を続けるには別のソースを追加してください。"
 }
