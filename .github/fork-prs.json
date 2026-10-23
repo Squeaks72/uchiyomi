@@ -1,11 +1,4 @@
 {
   "upstream": "AngeloSha/uchiyomi",
-  "prs": [
-    {
-      "pr": 330,
-      "branch": "pr/drag-reorder-tim",
-      "base": "65e53bc4ef0c98862f29d626836ae02695e072c9",
-      "head": "c3a412a0528107d0f174c9935abb3b95a33b7e71"
-    }
-  ]
+  "prs": []
 }
