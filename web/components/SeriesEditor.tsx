@@ -129,7 +129,7 @@ function keepFocusIn(panel: HTMLElement, e: KeyboardEvent): void {
   else if (!e.shiftKey && at === last) { e.preventDefault(); first.focus(); }
 }
 
-export function SeriesEditor({ id, series, tab: opening = 'details', onClose, onSaved, onOpenSources, onNewBanner }: {
+export function SeriesEditor({ id, series, tab: opening = 'details', onClose, onSaved, onOpenSources, onNewBanner, onFiled }: {
   id: string;
   series: Series;
   /** The tab it opens on: Details from its key, Reading from the Sources sheet's language Change. */
@@ -137,6 +137,8 @@ export function SeriesEditor({ id, series, tab: opening = 'details', onClose, on
   onClose: () => void;
   /** After any save, so the page refetches what it shows. */
   onSaved: () => void;
+  /** The series was filed into another library; `adult` says it is rated 18+. */
+  onFiled?: (adult: boolean) => void;
   /** Close this and open Sources & translations, where the page has that sheet. */
   onOpenSources?: () => void;
   /** The series page's New banner, the automatic banner's shuffle: one action, with its own notices. */
@@ -299,7 +301,7 @@ export function SeriesEditor({ id, series, tab: opening = 'details', onClose, on
                   <UpdatesPane id={id} series={series} onSaved={onSaved} onOpenSources={onOpenSources} />
                 </Pane>
                 <Pane id={paneId('files')} tab={tabId('files')} shown={fields === 'files'} name="files">
-                  <FilesPane id={id} series={series} onSaved={onSaved} />
+                  <FilesPane id={id} series={series} onSaved={onSaved} onFiled={onFiled} />
                 </Pane>
               </div>
             </div>
@@ -650,11 +652,11 @@ function UpdatesPane({ id, series, onSaved, onOpenSources }: { id: string; serie
 
 /* =============================== Files =============================== */
 
-function FilesPane({ id, series, onSaved }: { id: string; series: Series; onSaved: () => void }) {
+function FilesPane({ id, series, onSaved, onFiled }: { id: string; series: Series; onSaved: () => void; onFiled?: (adult: boolean) => void }) {
   const toast = useToast();
   return (
     <>
-      <LibraryRow id={id} series={series} onSaved={onSaved} />
+      <LibraryRow id={id} series={series} onSaved={onSaved} onFiled={onFiled} />
       {/* Where it is on disk (#136): the folder as full paths, one per root its chapters are under, each copied with
           one tap. LTR whatever the page's direction: a path is not a sentence. */}
       {!!series.paths?.length && (
@@ -678,7 +680,7 @@ function FilesPane({ id, series, onSaved }: { id: string; series: Series; onSave
  * every series should stay on -- picking one explicitly is a decision that then survives rescans, new libraries, and
  * re-pathing an existing one, which is the whole point and also the reason not to do it by accident.
  */
-function LibraryRow({ id, series, onSaved }: { id: string; series: Series; onSaved: () => void }) {
+function LibraryRow({ id, series, onSaved, onFiled }: { id: string; series: Series; onSaved: () => void; onFiled?: (adult: boolean) => void }) {
   const { run } = useAutosave();
   const sid = useId();
   const [lib, setLib] = useState<string>(series.libraryPinned ? series.libraryId : '');
@@ -689,8 +691,10 @@ function LibraryRow({ id, series, onSaved }: { id: string; series: Series; onSav
   const pick = async (next: string) => {
     const prev = lib;
     setLib(next);
-    if (await run(() => api(`/api/admin/series/${id}/library`, { method: 'POST', json: { libraryId: next || null } }))) onSaved();
-    else setLib(prev);
+    if (await run(() => api(`/api/admin/series/${id}/library`, { method: 'POST', json: { libraryId: next || null } }))) {
+      onSaved();
+      onFiled?.(((libs?.content ?? []).find((l) => l.id === next)?.age_rating ?? 0) >= 18);
+    } else setLib(prev);
   };
   return (
     <Row label={tr('Library')} htmlFor={sid} stacked
