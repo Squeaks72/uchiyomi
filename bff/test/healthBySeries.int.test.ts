@@ -141,6 +141,7 @@ test("By series lists the series behind a source's trouble, and the ones that ha
     ]);
     const by = new Map(rows.map((r) => [r.seriesId, r.findings.map((f) => f.check).sort()]));
     assert.deepEqual(by.get('hbs_failed'), ['chapter-failures'], 'a series with a chapter that would not download is not listed');
+    assert.ok(rows.find((r) => r.seriesId === 'hbs_failed')!.findings[0].item.actions?.includes('find_sources'), 'no Find other source on a failed-chapters finding');
     assert.deepEqual(by.get('hbs_only'), ['sources'], 'a series whose only source is failing is not listed');
     assert.ok(!by.has('hbs_followed'), 'a series with another source was listed as having only the failing one');
     const only = rows.find((r) => r.seriesId === 'hbs_only')!.findings[0].item;
