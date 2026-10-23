@@ -17,6 +17,7 @@ import { Img, Backdrop, SectionTitle, useWideViewport } from '@/components/ui';
 import { SeriesCard } from '@/components/cards';
 import { useToast } from '@/components/Toast';
 import { MoveToLibrary } from '@/components/MoveToLibrary';
+import { adultShown } from '@/lib/adult';
 import { ConfirmDialog, Modal, msgOf } from '@/components/ConfirmDialog';
 import { seedMeta, metaBody } from '@/lib/seriesMeta';
 import { GenreTagInput } from '@/components/GenreTagInput';
@@ -1216,6 +1217,8 @@ function SeriesInner() {
     if (scroll) chaptersTop.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
   };
 
+  // Filed into an 18+ library with Show 18+ off: the series is hidden from every listing now, so leave its page too.
+  const leaveIfHidden = (adult?: boolean) => { if (adult && !adultShown()) back(); };
   const back = () => (typeof window !== 'undefined' && window.history.length > 1 ? router.back() : router.push('/'));
 
   const toggleFav = async () => {
@@ -2448,13 +2451,14 @@ function SeriesInner() {
         />
       )}
       {moving && (
-        <MoveToLibrary n={1} busy={moveBusy} onClose={() => setMoving(false)} onPick={async (libraryId) => {
+        <MoveToLibrary n={1} busy={moveBusy} onClose={() => setMoving(false)} onPick={async (libraryId, adult) => {
           setMoveBusy(true);
           try {
             const r = await api<{ applied: number; problems?: { reason?: string }[] }>('/api/admin/series/library', { json: { seriesIds: [id], libraryId } });
             if (r.problems?.length) toast(`${tr('1 folder could not be moved')}: ${r.problems[0].reason ?? ''}`, 'error');
             else toast(r.applied ? tr('1 series updated') : tr('That series is no longer in the library'), r.applied ? 'success' : 'error');
             for (const k of [['series', id], ['series-books', id], ['library'], ['home'], ['library-sources']]) qc.invalidateQueries({ queryKey: k });
+            if (r.applied && !r.problems?.length) leaveIfHidden(adult);
           } catch { toast(tr('Could not do that'), 'error'); }
           setMoveBusy(false);
           setMoving(false);
@@ -2471,7 +2475,7 @@ function SeriesInner() {
       )}
       {editing && series && (
         // Keyed by the series: its fields are seeded once, from the series it opened on.
-        <SeriesEditor key={id} id={id} series={series} tab={editing} onClose={() => setEditing(null)}
+        <SeriesEditor key={id} id={id} series={series} tab={editing} onClose={() => setEditing(null)} onFiled={(adult) => { setEditing(null); leaveIfHidden(adult); }}
           onSaved={() => { for (const k of [['series', id], ['series-books', id], ['home'], ['library']]) qc.invalidateQueries({ queryKey: k }); }}
           // Its Sources & translations link closes it first: one at a time, as the sheets above.
           onOpenSources={() => { setEditing(null); setSourcesOpen(true); }}
