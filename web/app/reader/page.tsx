@@ -1627,6 +1627,35 @@ function ReaderInner() {
   };
   const performRef = useRef(perform);
   performRef.current = perform;
+  // ↑ ↓ held in the webtoon column: a steady glide (px per second, in time, with the fraction kept) until the key comes up.
+  const holdScroll = useRef({ dir: 0, raf: 0, start: (_d: 1 | -1) => {}, stop: () => {} });
+  holdScroll.current.start = (dir) => {
+    const h = holdScroll.current;
+    if (h.dir === dir) return; // a held key repeats: it is already gliding
+    cancelAnimationFrame(h.raf);
+    h.dir = dir;
+    let last = 0;
+    let pos = -1;
+    const step = (t: number) => {
+      const el = scrollRef.current;
+      if (el) {
+        if (pos < 0 || Math.abs(el.scrollTop - pos) > 2) pos = el.scrollTop;
+        if (last) pos += dir * 1100 * Math.min(0.1, (t - last) / 1000);
+        el.scrollTop = pos;
+      }
+      last = t;
+      h.raf = requestAnimationFrame(step);
+    };
+    h.raf = requestAnimationFrame(step);
+  };
+  holdScroll.current.stop = () => { const h = holdScroll.current; cancelAnimationFrame(h.raf); h.dir = 0; };
+  useEffect(() => {
+    const up = (e: KeyboardEvent) => { if (e.key === 'ArrowDown' || e.key === 'ArrowUp') holdScroll.current.stop(); };
+    const off = () => holdScroll.current.stop();
+    window.addEventListener('keyup', up);
+    window.addEventListener('blur', off);
+    return () => { window.removeEventListener('keyup', up); window.removeEventListener('blur', off); holdScroll.current.stop(); };
+  }, []);
 
   // ---- auto-scroll transport ----
   // Webtoon: the column scrolls by itself at `prefs.autoScroll` (px per 60 Hz frame, kept in time so a 120 Hz screen is not
@@ -1746,6 +1775,14 @@ function ReaderInner() {
       }
       const action = actionForKey(e, keyMap, { owned });
       if (!action) return;
+      // The webtoon column's arrow keys glide at one steady speed for as long as they are held, instead of jumping most of
+      // a screen on each press (and each repeat). Space and Page Down keep the page-sized step, and a rebinding that took
+      // the arrow off Next/Previous is left alone.
+      if (prefs.mode === 'vertical' && (e.key === 'ArrowDown' || e.key === 'ArrowUp') && (action === 'next' || action === 'prev')) {
+        e.preventDefault();
+        holdScroll.current.start(e.key === 'ArrowDown' ? 1 : -1);
+        return;
+      }
       // A bound key is the reader's: the browser's own handling of it (Space scrolling the page) is stopped.
       e.preventDefault();
       performRef.current(action);
