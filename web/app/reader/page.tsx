@@ -1761,15 +1761,15 @@ function ReaderInner() {
       // (turning the page instead swallowed the click), a text field everything.
       const owned = !!t && (t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.tagName === 'TEXTAREA' || t.isContentEditable
         || !!t.closest('button, a, [role="button"], [role="dialog"]'));
-      // Auto-scroll's video keys, unless the reader bound the key to something of its own. Space is the video's play/pause once
-      // auto-scroll is on (it is the next page otherwise), and never takes a focused control's press.
+      // Auto-scroll's video keys, unless the reader bound the key to something of its own. Space is the video's play/pause, and
+      // starts auto-scroll when it is off (Shift+Space, ↓ and Page Down still turn the page); never a focused control's press.
       if (!e.shiftKey || e.key === '<' || e.key === '>') {
         const typing = !!t && (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable);
         const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
         const mine = !typing && !READER_ACTIONS.some((a) => keyMap[a].includes(k) || keyMap[a].includes(e.key));
         const auto = autoRef.current;
         if (mine && k === 'k' && !e.repeat) { e.preventDefault(); auto.toggle(); return; }
-        if (mine && k === ' ' && auto.on && !owned && !e.repeat) { e.preventDefault(); auto.toggle(); return; }
+        if (mine && k === ' ' && !owned && !e.repeat) { e.preventDefault(); auto.toggle(); return; }
         if (mine && auto.on && (k === 'j' || k === 'l') && !e.repeat) { e.preventDefault(); auto.skip(k === 'l' ? 1 : -1); return; }
         if (mine && auto.on && (k === '<' || k === ',' || k === '>' || k === '.')) { e.preventDefault(); auto.faster(k === '>' || k === '.' ? 1 : -1); return; }
       }

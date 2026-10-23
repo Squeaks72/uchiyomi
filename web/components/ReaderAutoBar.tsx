@@ -13,6 +13,8 @@ import { IcPause, IcPlay, IcX } from '@/components/icons';
  * `paged`: back and forward are the previous and next page; otherwise ten seconds of scrolling either way.
  * `raised`: the reader's own bars are up, so this sits above the footer instead of at the screen's edge.
  */
+/** After a mouse or touch click the button hands the keyboard back to the reader: a focused button owns Space, so it would click again instead of pausing. */
+const release = (e: { detail: number; currentTarget: HTMLElement }) => { if (e.detail > 0) e.currentTarget.blur(); };
 const SKIP = 'grid h-11 min-w-11 place-items-center rounded-xl px-2 text-white transition hover:bg-white/15 active:bg-white/25 disabled:opacity-40';
 
 function Skip({ forward }: { forward?: boolean }) {
@@ -51,22 +53,22 @@ export function ReaderAutoBar({ paged, playing, speed, raised, onToggle, onBack,
     <div role="toolbar" aria-label={tr('Auto-scroll controls')} data-auto-bar data-playing={playing ? '1' : '0'}
       className={`absolute inset-x-0 z-40 flex justify-center px-3 transition-opacity duration-300 ${raised ? 'bottom-[max(6rem,calc(env(safe-area-inset-bottom)+5rem))]' : 'bottom-[max(1.25rem,calc(env(safe-area-inset-bottom)+0.75rem))]'} ${shown ? 'opacity-100' : 'pointer-events-none opacity-0'}`}>
       <div className="flex items-center gap-0.5 rounded-2xl border border-white/10 bg-black/70 px-1.5 py-1 backdrop-blur-md" dir="ltr">
-        <button type="button" onClick={onBack} className={SKIP} aria-label={paged ? tr('Previous page') : tr('Back 10 seconds')} title={paged ? tr('Previous page') : tr('Back 10 seconds')}>
+        <button type="button" onClick={(e) => { release(e); onBack(); }} className={SKIP} aria-label={paged ? tr('Previous page') : tr('Back 10 seconds')} title={paged ? tr('Previous page') : tr('Back 10 seconds')}>
           <Skip />
         </button>
-        <button type="button" onClick={onToggle} className={`${SKIP} h-12 min-w-12`} aria-label={playing ? tr('Pause auto-scroll') : tr('Play auto-scroll')}
+        <button type="button" onClick={(e) => { release(e); onToggle(); }} className={`${SKIP} h-12 min-w-12`} aria-label={playing ? tr('Pause auto-scroll') : tr('Play auto-scroll')}
           title={playing ? tr('Pause auto-scroll') : tr('Play auto-scroll')} data-auto-toggle>
           {playing ? <IcPause width={26} height={26} /> : <IcPlay width={26} height={26} />}
         </button>
-        <button type="button" onClick={onForward} className={SKIP} aria-label={paged ? tr('Next page') : tr('Forward 10 seconds')} title={paged ? tr('Next page') : tr('Forward 10 seconds')}>
+        <button type="button" onClick={(e) => { release(e); onForward(); }} className={SKIP} aria-label={paged ? tr('Next page') : tr('Forward 10 seconds')} title={paged ? tr('Next page') : tr('Forward 10 seconds')}>
           <Skip forward />
         </button>
         <span className="mx-1 h-6 w-px bg-white/15" aria-hidden />
-        <button type="button" onClick={onSlower} className={`${SKIP} text-lg`} aria-label={tr('Slower')} title={tr('Slower')}>−</button>
+        <button type="button" onClick={(e) => { release(e); onSlower(); }} className={`${SKIP} text-lg`} aria-label={tr('Slower')} title={tr('Slower')}>−</button>
         <span className="min-w-12 select-none text-center text-xs tabular-nums text-white/90" data-auto-speed>{speed}</span>
-        <button type="button" onClick={onFaster} className={`${SKIP} text-lg`} aria-label={tr('Faster')} title={tr('Faster')}>+</button>
+        <button type="button" onClick={(e) => { release(e); onFaster(); }} className={`${SKIP} text-lg`} aria-label={tr('Faster')} title={tr('Faster')}>+</button>
         <span className="mx-1 h-6 w-px bg-white/15" aria-hidden />
-        <button type="button" onClick={onStop} className={SKIP} aria-label={tr('Stop auto-scroll')} title={tr('Stop auto-scroll')}>
+        <button type="button" onClick={(e) => { release(e); onStop(); }} className={SKIP} aria-label={tr('Stop auto-scroll')} title={tr('Stop auto-scroll')}>
           <IcX width={18} height={18} aria-hidden />
         </button>
       </div>
