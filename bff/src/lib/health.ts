@@ -2340,7 +2340,9 @@ async function seriesOfSourceRows(checks: readonly HealthCheck[]): Promise<Array
           title: r.title,
           sourceId: r.source_id,
           // No key, so no Ignore: an ignore is the SOURCE's row on its card, and would silence every series of it.
-          actions: ['retry'] as HealthAction[],
+          // Find other source: a source that will not give this series its chapters is one to add another to, for this series alone.
+          actions: ['retry', 'find_sources'] as HealthAction[],
+          findScope: 'series' as const,
           outcome: { kind: 'failures' as const, firstAt: new Date(r.since).toISOString(), lastAt: new Date(r.last_at).toISOString(), attempts: r.attempts, resetPending: r.attempts === 0 },
           ...detailOf([say('failures.detail', {
             n: r.chapters, series: 1, since: new Date(r.since).toISOString(), tries: r.attempts, capped: r.capped, cap: CHAPTER_RETRY_CAP,
