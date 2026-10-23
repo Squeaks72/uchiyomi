@@ -355,6 +355,15 @@ export function ReaderSettings({
             </Row>
           </>
         )}
+        {prefs.mode === 'paged' && (
+          <Row label={`${tr('Auto-advance')} · ${prefs.autoPage === 0 ? tr('off') : tr('{n} s per page', { n: prefs.autoPage })}`}>
+            <input type="range" min={0} max={30} step={1} value={prefs.autoPage}
+              aria-label={tr('Auto-advance')}
+              onChange={(e) => { const n = Number(e.target.value); set({ autoPage: n === 1 ? 2 : n }); }}
+              className="w-full accent-[rgb(var(--accent))]" data-auto-advance />
+            <p className="mt-2 text-[11px] leading-snug text-fog-500">{tr('Turns the page by itself. Off by default; the K key starts and pauses it.')}</p>
+          </Row>
+        )}
 
         <Row label={tr('Fit')}>
           <div className="grid grid-cols-2 gap-2">

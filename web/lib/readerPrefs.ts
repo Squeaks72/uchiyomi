@@ -31,6 +31,8 @@ export interface ReaderPrefs {
   brightness: number; // 0.25 .. 1
   mode: 'vertical' | 'paged';
   autoScroll: number; // px/frame, 0 = off
+  /** Paged mode's auto-advance: seconds each page stays up before the next turns by itself. 0 = off. */
+  autoPage: number;
   fitWidth: boolean;
   theme: ReaderTheme;
   spread: boolean; // paged mode: two pages side by side (manga double-page convention)
@@ -89,6 +91,7 @@ export const DEFAULT_PREFS: ReaderPrefs = {
   brightness: 1,
   mode: 'vertical',
   autoScroll: 0,
+  autoPage: 0,
   fitWidth: true,
   theme: 'amoled',
   spread: false,
@@ -148,6 +151,8 @@ export function migratePrefs(raw: unknown): ReaderPrefs {
   // #229: the same -- only a real `true` joins; an older row, or junk, reads as off.
   if (p.joinSplit !== true) p.joinSplit = false;
   if (p.autoMode !== true) p.autoMode = false;
+  // Seconds per page, or off: an older row has none, and anything outside the slider's range reads as off.
+  if (typeof p.autoPage !== 'number' || !Number.isFinite(p.autoPage) || p.autoPage < 2 || p.autoPage > 60) p.autoPage = 0;
   p.skipJunk = p.junkPages !== 'show';
   return p;
 }

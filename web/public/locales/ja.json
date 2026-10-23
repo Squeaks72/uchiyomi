@@ -2,7 +2,7 @@
   "_meta": {
     "language": "ja",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 5260
+    "strings": 5274
   },
   "1 check found something": "1 件のチェックで問題を検出",
   "1 member": "メンバー 1 人",
@@ -5263,5 +5263,19 @@
   "Search these series…": "これらの作品を検索…",
   "End of {chapter}": "{chapter}の終わり",
   "A new chapter notifies you only when it is the one you would read next: you are caught up, with nothing older unread or half read. A chapter upgraded to a preferred group still tells you. Saved to your account.": "新しい話は、次に読む話である場合にのみ通知されます（それより前に未読や読みかけの話がない場合）。優先グループの版に更新された話は引き続き通知されます。アカウントに保存されます。",
-  "Genres to keep out of Discover while “Show 18+” is off. Series already in your library are not judged by genre: only their library’s age rating decides whether they are hidden.": "「18禁を表示」がオフの間、Discover に出さないジャンルです。すでにライブラリにある作品はジャンルでは判定されず、非表示になるかどうかはそのライブラリの年齢区分だけで決まります。"
+  "Genres to keep out of Discover while “Show 18+” is off. Series already in your library are not judged by genre: only their library’s age rating decides whether they are hidden.": "「18禁を表示」がオフの間、Discover に出さないジャンルです。すでにライブラリにある作品はジャンルでは判定されず、非表示になるかどうかはそのライブラリの年齢区分だけで決まります。",
+  "Auto-advance": "自動ページ送り",
+  "{n} s per page": "1ページ{n}秒",
+  "Turns the page by itself. Off by default; the K key starts and pauses it.": "ページが自動でめくれます。初期設定ではオフで、Kキーで開始・一時停止できます。",
+  "Auto-scroll controls": "自動スクロールの操作",
+  "Back 10 seconds": "10秒戻る",
+  "Forward 10 seconds": "10秒進む",
+  "Pause auto-scroll": "自動スクロールを一時停止",
+  "Play auto-scroll": "自動スクロールを再生",
+  "Slower": "遅く",
+  "Faster": "速く",
+  "Stop auto-scroll": "自動スクロールを停止",
+  "Start, pause or resume auto-scroll": "自動スクロールの開始・一時停止・再開",
+  "Back or forward 10 seconds, or a page when paged": "10秒戻る／進む（ページ表示では1ページ）",
+  "Slower or faster": "遅く／速く"
 }

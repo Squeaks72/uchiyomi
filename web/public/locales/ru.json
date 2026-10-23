@@ -2,7 +2,7 @@
   "_meta": {
     "language": "ru",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 5260
+    "strings": 5274
   },
   "1 check found something": "1 проверка нашла проблему",
   "1 member": "1 участник",
@@ -5263,5 +5263,19 @@
   "Search these series…": "Поиск по этим сериям…",
   "End of {chapter}": "Конец: {chapter}",
   "A new chapter notifies you only when it is the one you would read next: you are caught up, with nothing older unread or half read. A chapter upgraded to a preferred group still tells you. Saved to your account.": "Новая глава уведомляет вас, только если вы прочитали бы её следующей: вы в курсе, нет более старых непрочитанных или начатых глав. Глава, обновлённая до предпочитаемой группы, по-прежнему уведомляет. Сохраняется в вашей учётной записи.",
-  "Genres to keep out of Discover while “Show 18+” is off. Series already in your library are not judged by genre: only their library’s age rating decides whether they are hidden.": "Жанры, которые скрываются в Discover, пока «Показать 18+» выключено. Серии, уже находящиеся в вашей библиотеке, по жанру не оцениваются: скрыты они или нет, решает только возрастной рейтинг их библиотеки."
+  "Genres to keep out of Discover while “Show 18+” is off. Series already in your library are not judged by genre: only their library’s age rating decides whether they are hidden.": "Жанры, которые скрываются в Discover, пока «Показать 18+» выключено. Серии, уже находящиеся в вашей библиотеке, по жанру не оцениваются: скрыты они или нет, решает только возрастной рейтинг их библиотеки.",
+  "Auto-advance": "Автолистание",
+  "{n} s per page": "{n} с на страницу",
+  "Turns the page by itself. Off by default; the K key starts and pauses it.": "Страницы листаются сами. По умолчанию выключено; клавиша K запускает и ставит на паузу.",
+  "Auto-scroll controls": "Управление автопрокруткой",
+  "Back 10 seconds": "Назад на 10 секунд",
+  "Forward 10 seconds": "Вперёд на 10 секунд",
+  "Pause auto-scroll": "Пауза автопрокрутки",
+  "Play auto-scroll": "Запустить автопрокрутку",
+  "Slower": "Медленнее",
+  "Faster": "Быстрее",
+  "Stop auto-scroll": "Остановить автопрокрутку",
+  "Start, pause or resume auto-scroll": "Запустить, приостановить или продолжить автопрокрутку",
+  "Back or forward 10 seconds, or a page when paged": "Назад или вперёд на 10 секунд, в постраничном режиме — на страницу",
+  "Slower or faster": "Медленнее или быстрее"
 }
