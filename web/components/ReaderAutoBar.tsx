@@ -16,10 +16,13 @@ import { IcPause, IcPlay, IcX } from '@/components/icons';
 const SKIP = 'grid h-11 min-w-11 place-items-center rounded-xl px-2 text-white transition hover:bg-white/15 active:bg-white/25 disabled:opacity-40';
 
 function Skip({ forward }: { forward?: boolean }) {
+  // Counter-clockwise for back, clockwise for forward: two drawn shapes, not one flipped, so the arrowhead sits on the end of its arc.
   return (
     <span className="relative grid place-items-center" aria-hidden>
-      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" className={forward ? '-scale-x-100' : ''}>
-        <path d="M4 12a8 8 0 1 0 2.6-5.9" /><path d="M4 4.5V8h3.5" />
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        {forward
+          ? <><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" /><path d="M21 3v5h-5" /></>
+          : <><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /></>}
       </svg>
       <span className="absolute text-[8px] font-semibold leading-none">10</span>
     </span>
