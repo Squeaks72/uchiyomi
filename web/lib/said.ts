@@ -398,6 +398,7 @@ const WORDS: Record<string, (p: P) => string | null> = {
   // ---- Source health (#115)
   // v0.53.0: the summary counts the card's two groups that need a look. 'sources.live', 'none', 'off', 'idle' and
   // 'unfinished' are no longer sent, and keep their words for a summary an older server stored (bff lib/said.ts).
+  'sources.only': (p) => tr('Its only source, {source}, is having trouble. Add another source to keep it updating.', { source: str(p, 'source') }),
   'sources.affected': (p) => (num(p, 'n') === 1 ? tr('1 source your series use needs a look') : tr('{n} sources your series use need a look', { n: num(p, 'n') })),
   'sources.failingUnused': (p) => (num(p, 'n') === 1 ? tr('1 source nothing uses is failing') : tr('{n} sources nothing uses are failing', { n: num(p, 'n') })),
   'sources.working': () => tr('All sources are working'),

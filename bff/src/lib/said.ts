@@ -244,6 +244,7 @@ const EN = {
   // while rows are listed for reference (never "all working" over a source nobody could test to the end), else
   // `sources.working`. The five after `sources.unused` are the summary before v0.53.0, no longer sent: a summary an
   // older server stored still carries them (the header reads the last stored report), so they keep their words.
+  'sources.only': ({ source }: { source: string }) => `Its only source, ${source}, is having trouble. Add another source to keep it updating.`,
   'sources.affected': ({ n }: { n: number }) => `${n} source${s(n, '', 's')} your series use ${s(n, 'needs', 'need')} a look`,
   'sources.failingUnused': ({ n }: { n: number }) => `${n} source${s(n, ' nothing uses is', 's nothing uses are')} failing`,
   'sources.working': () => 'All sources are working',

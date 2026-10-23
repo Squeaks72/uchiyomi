@@ -2282,6 +2282,14 @@ export async function groupBySeries(checks: readonly HealthCheck[]): Promise<Ser
       by.set(item.seriesId, g);
     }
   }
+  // Two cards are about SOURCES, a row each, so the loop above had no series to put them under: Chapters that would not
+  // download (one row per source) and Source health. Their series are added here -- by series, from the same rows.
+  for (const g of await seriesOfSourceRows(checks).catch(() => [])) {
+    const h = by.get(g.seriesId) ?? { seriesId: g.seriesId, title: g.item.title, status: 'warn' as const, findings: [] };
+    h.findings.push({ check: g.check, item: g.item });
+    if (g.status === 'problem') h.status = 'problem';
+    by.set(g.seriesId, h);
+  }
   if (!by.size) return [];
   // A row's title is its series' on every card but Downloads missing, whose rows are titled by their folder.
   const titles = new Map((await q<{ id: string; title: string }>('SELECT id, title FROM lib_series WHERE id = ANY($1)', [[...by.keys()]])
@@ -2289,6 +2297,85 @@ export async function groupBySeries(checks: readonly HealthCheck[]): Promise<Ser
   for (const g of by.values()) g.title = titles.get(g.seriesId) ?? g.title;
   return [...by.values()].sort((a, b) =>
     RANK[a.status] - RANK[b.status] || b.findings.length - a.findings.length || a.title.localeCompare(b.title));
+}
+
+/**
+ * The By series findings of the two source-level cards (Chapters that would not download, Source health), which have a
+ * row per SOURCE and so name no series themselves:
+ *  - every series with a chapter that would not download from a source whose row is a live finding (a source's waiting
+ *    or ignored row stays out, as it does on the card), one finding each, in the words of the card's own row;
+ *  - every series whose ONLY source is one that Source health lists as a finding: nothing else can update it while the
+ *    source is in trouble, so it is listed to be given another one (Find other source, for this series alone).
+ * Reintroduce the skipped cards: "By series lists the series behind a source's trouble" in healthBySeries.int.test.ts.
+ */
+async function seriesOfSourceRows(checks: readonly HealthCheck[]): Promise<Array<{ seriesId: string; check: string; status: HealthStatus; item: HealthItem }>> {
+  const out: Array<{ seriesId: string; check: string; status: HealthStatus; item: HealthItem }> = [];
+  const failures = checks.find((c) => c.id === 'chapter-failures');
+  const failing = failures && failures.status !== 'ok' ? [...new Set(allRows(failures).filter((i) => !i.info && i.sourceId).map((i) => i.sourceId!))] : [];
+  if (failing.length) {
+    const finish = await finishDownloadsOn();
+    const refusalCap = Math.max(CHAPTER_RETRY_CAP, REFUSAL_RETRY_CAP);
+    const rows = await q<{
+      series_id: string; source_id: string; title: string; chapters: number; since: string; last_at: string; attempts: number; capped: number;
+      latest_number: number; latest_status: string; latest_reason: string | null;
+    }>(
+      `SELECT f.series_id, f.source_id, ls.title, count(*)::int AS chapters,
+              min(COALESCE(f.first_at, f.at)) AS since, max(f.at) AS last_at, max(f.attempts)::int AS attempts,
+              count(*) FILTER (WHERE f.attempts >= CASE WHEN $2 AND f.status IN ('rate_limited', 'blocked') THEN $3::int ELSE $4::int END)::int AS capped,
+              (array_agg(f.number ORDER BY f.at DESC))[1] AS latest_number,
+              (array_agg(f.status ORDER BY f.at DESC))[1] AS latest_status,
+              (array_agg(f.reason ORDER BY f.at DESC))[1] AS latest_reason
+         FROM chapter_failures f JOIN lib_series ls ON ls.id = f.series_id AND ${visibleToAll('ls')}
+        WHERE f.source_id = ANY($1::text[])
+        GROUP BY f.series_id, f.source_id, ls.title
+       HAVING count(*) FILTER (WHERE f.status <> 'rate_limited') > 0
+        ORDER BY ls.title`,
+      [failing, finish, refusalCap, CHAPTER_RETRY_CAP],
+    );
+    for (const r of rows) {
+      out.push({
+        seriesId: r.series_id, check: 'chapter-failures', status: failures!.status,
+        item: {
+          seriesId: r.series_id,
+          title: r.title,
+          sourceId: r.source_id,
+          // No key, so no Ignore: an ignore is the SOURCE's row on its card, and would silence every series of it.
+          actions: ['retry'] as HealthAction[],
+          outcome: { kind: 'failures' as const, firstAt: new Date(r.since).toISOString(), lastAt: new Date(r.last_at).toISOString(), attempts: r.attempts, resetPending: r.attempts === 0 },
+          ...detailOf([say('failures.detail', {
+            n: r.chapters, series: 1, since: new Date(r.since).toISOString(), tries: r.attempts, capped: r.capped, cap: CHAPTER_RETRY_CAP,
+            title: r.title, number: Number(r.latest_number), status: r.latest_status,
+            reason: r.latest_reason ? String(r.latest_reason).slice(0, 160) : null,
+          })]),
+        },
+      });
+    }
+  }
+  const sources = checks.find((c) => c.id === 'sources');
+  const troubled = sources ? [...new Set(allRows(sources).filter((i) => !i.info && i.sourceId && i.state !== 'off').map((i) => i.sourceId!))] : [];
+  if (troubled.length) {
+    const rows = await q<{ id: string; title: string; source_id: string }>(
+      `SELECT ls.id, ls.title, ls.source_id FROM lib_series ls
+        WHERE ls.source_id = ANY($1::text[]) AND ${visibleToAll('ls')}
+          AND NOT EXISTS (SELECT 1 FROM series_sources ss WHERE ss.series_id = ls.id AND ss.source_id <> ls.source_id)
+        ORDER BY ls.title`,
+      [troubled],
+    );
+    for (const r of rows) {
+      out.push({
+        seriesId: r.id, check: 'sources', status: 'warn',
+        item: {
+          seriesId: r.id,
+          title: r.title,
+          sourceId: r.source_id,
+          findScope: 'series',
+          actions: ['find_sources'] as HealthAction[],
+          ...detailOf([say('sources.only', { source: sourceLabel(r.source_id) })]),
+        },
+      });
+    }
+  }
+  return out;
 }
 
 /**
