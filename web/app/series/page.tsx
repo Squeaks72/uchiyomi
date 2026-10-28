@@ -9,6 +9,7 @@ import { useReduceEffects } from '@/lib/effects';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, img } from '@/lib/api';
+import { useLibraries } from '@/components/AdultToggle';
 import { Book, EditionRow, Ghost, Listing, Page, Series, VersionCopy, Versions } from '@/lib/types';
 import { bookCountText, chapterLabel, chapterName, isVolumeName, languageName, relativeTime } from '@/lib/format';
 import { listDownloads, downloadChapter, deleteDownload } from '@/lib/downloads';
@@ -877,6 +878,7 @@ function SeriesInner() {
   // The same two queries lib/seriesPrefetch.ts asks for at the click that opens this page, so the page usually mounts on
   // them rather than on its placeholders.
   const { data: series } = useQuery({ ...seriesQuery(id), enabled: !!id });
+  const { data: libraries } = useLibraries();
   const { data: books } = useQuery({ ...seriesBooksQuery(id), enabled: !!id });
   // v0.87.0: which chapters have talk, and how much (GET /api/series/:id/comments); nothing while `on` is false, and never
   // asked on Uchiyomi Desktop, where the route does not exist. v0.90.0: nor by an account that switched Comments and
@@ -1980,7 +1982,10 @@ function SeriesInner() {
   );
 
   const span = series && books && !mostlyVolumes ? numberingSpan(books.content, series.booksCount) : null;
+  const libraryName = libraries?.find((l) => l.id === series?.libraryId)?.name;
   const metaBits: ReactNode[] = [
+    // Which library this series is in, at a glance; it opens the Library filtered to that one.
+    libraryName ? <Link href={`/library/?lib=${encodeURIComponent(series!.libraryId)}`} data-series-library className="rounded-md bg-white/10 px-2 py-0.5 text-2xs font-semibold uppercase tracking-wide text-fog-100 hover:bg-white/20 rtl:tracking-normal">{libraryName}</Link> : null,
     author ? <span className="text-fog-300">{tr('by {author}', { author: `\u2068${author}\u2069` })}</span> : null,
     meta?.status ? <span className="capitalize">{statusText(meta.status)}</span> : null,
     series ? <>{bookCountText(series.booksCount, mostlyVolumes)}</> : null,
