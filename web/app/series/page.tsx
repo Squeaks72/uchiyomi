@@ -1985,7 +1985,7 @@ function SeriesInner() {
   const libraryName = libraries?.find((l) => l.id === series?.libraryId)?.name;
   const metaBits: ReactNode[] = [
     // Which library this series is in, at a glance; it opens the Library filtered to that one.
-    libraryName ? <Link href={`/library/?lib=${encodeURIComponent(series!.libraryId)}`} data-series-library className="rounded-md bg-white/10 px-2 py-0.5 text-2xs font-semibold uppercase tracking-wide text-fog-100 hover:bg-white/20 rtl:tracking-normal">{libraryName}</Link> : null,
+    libraryName ? <Link href={`/library/?lib=${encodeURIComponent(series!.libraryId)}`} data-series-library className="pointer-events-auto relative rounded-md bg-white/10 px-2 py-0.5 text-2xs font-semibold uppercase tracking-wide text-fog-100 hover:bg-white/20 rtl:tracking-normal">{libraryName}</Link> : null,
     author ? <span className="text-fog-300">{tr('by {author}', { author: `\u2068${author}\u2069` })}</span> : null,
     meta?.status ? <span className="capitalize">{statusText(meta.status)}</span> : null,
     series ? <>{bookCountText(series.booksCount, mostlyVolumes)}</> : null,
