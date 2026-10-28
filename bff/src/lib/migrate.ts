@@ -1864,6 +1864,19 @@ CREATE INDEX IF NOT EXISTS collections_shared_idx ON collections (shared) WHERE 
 ALTER TABLE server_settings ADD COLUMN IF NOT EXISTS backup_enabled boolean NOT NULL DEFAULT true;
 ALTER TABLE server_settings ADD COLUMN IF NOT EXISTS backup_keep int;
 
+-- Admin -> Library -> Unmapped files: a file an admin deleted is moved to <downloads>/.recycle and recorded here, restorable
+-- until unmapped_recycle_days have passed (lib/unmapped.ts). Additive: older versions ignore both.
+CREATE TABLE IF NOT EXISTS unmapped_recycle (
+  id         text PRIMARY KEY,
+  orig       text NOT NULL,
+  stored     text NOT NULL,
+  size       bigint NOT NULL DEFAULT 0,
+  by_user    text,
+  deleted_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS unmapped_recycle_at_idx ON unmapped_recycle (deleted_at);
+ALTER TABLE server_settings ADD COLUMN IF NOT EXISTS unmapped_recycle_days int NOT NULL DEFAULT 14;
+
 -- The nightly repair's hour (0-23, local time). NULL keeps the old rhythm (REPAIR_HOURS after the last run ended, which
 -- drifts); a number runs it daily at that hour. Additive: older versions ignore the column.
 ALTER TABLE server_settings ADD COLUMN IF NOT EXISTS repair_hour int;

@@ -31,6 +31,7 @@ import { runSourceCheck } from './lib/sourceWatchdog';
 import { runSweep } from './lib/updater';
 import { behindCount, finishDownloadsOn, nextCooldownEnd as finishCooldownEnd, wantQuiet, FINISH_MINUTES, FINISH_PER_SERIES, FINISH_SWEEP_MAX } from './lib/finishDownloads';
 import { refreshMissingRadars } from './lib/releaseRadar';
+import { purgeRecycled } from './lib/unmapped';
 import { runRepair, setRepairNext, REPAIR_HOURS, repairHourOf } from './lib/repair';
 import { AFTER_NIGHTLY_AUTOFIX, autofixSettled, closeInterruptedAutofix, startAutofix } from './lib/autofix';
 import { startArchive } from './lib/archive';
@@ -599,6 +600,7 @@ async function main() {
     // ONE timer, always cleared before it is set, so a re-arm from the settings route (repair_hour) replaces the pending
     // run instead of adding a second. `hourDelay` is the wall-clock rhythm: with a repair hour set, the next such hour
     // whatever the last run's end was, never sooner than the boot floor. Null with no hour: the interval rhythm.
+    const repairFloor = () => firstRunFloor(30 * 60 * 1000, 'repair');
     let timer: NodeJS.Timeout | null = null;
     const armRepair = (delay: number) => {
       if (timer) clearTimeout(timer);
@@ -608,12 +610,12 @@ async function main() {
     };
     const hourDelay = async (): Promise<number | null> => {
       const h = repairHourOf((await pool.query('SELECT repair_hour FROM server_settings WHERE id = 1').catch(() => null))?.rows[0]?.repair_hour);
-      return h === null ? null : Math.max(firstRunFloor(30 * 60 * 1000, 'repair'), msUntilHour(h));
+      return h === null ? null : Math.max(repairFloor(), msUntilHour(h));
     };
     runtime.rearmRepair = () => { void (async () => {
       const d = await hourDelay();
       if (d !== null) armRepair(d);
-      else armRepair(Math.max(firstRunFloor(30 * 60 * 1000, 'repair'), (await lastRepairEnd()) + REPAIR_HOURS * 60 * 60 * 1000 - Date.now()));
+      else armRepair(Math.max(repairFloor(), (await lastRepairEnd()) + REPAIR_HOURS * 60 * 60 * 1000 - Date.now()));
     })(); };
     /** The nightly's last end, whichever it ran: the full repair writes repair_last_run, and a nightly Fix everything
      *  (v0.55.0) is a repair_runs row of its own -- without it a deploy after a nightly Fix everything ran the next one
@@ -679,7 +681,7 @@ async function main() {
     }
     void (async () => {
       const last = await lastRepairEnd();
-      const delay = (await hourDelay()) ?? Math.max(firstRunFloor(30 * 60 * 1000, 'repair'), last + REPAIR_HOURS * 60 * 60 * 1000 - Date.now());
+      const delay = (await hourDelay()) ?? Math.max(repairFloor(), last + REPAIR_HOURS * 60 * 60 * 1000 - Date.now());
       app.log.info(`repair: first run in ${Math.round(delay / 60000)} min`
         + (last ? ` (last completed ${new Date(last).toISOString()})` : ' (no completed run on record)'));
       armRepair(delay);
@@ -701,6 +703,22 @@ async function main() {
    * only: it reads lib_books.
    */
   if (OWNED) startHeroWarmup(app.log);
+
+  // The unmapped-files bin (lib/unmapped.ts): files an admin deleted from Admin -> Library wait here for
+  // `unmapped_recycle_days`, then go for good. Daily, first look twenty minutes after boot; the limit is read each time.
+  if (OWNED) {
+    const DAY = 24 * 60 * 60 * 1000;
+    const tick = async () => {
+      try {
+        const n = await purgeRecycled();
+        if (n) app.log.info(`unmapped bin: removed ${n} expired file${n === 1 ? '' : 's'}`);
+      } catch (e) {
+        app.log.error(e as any);
+      }
+      setTimeout(tick, DAY).unref();
+    };
+    setTimeout(tick, firstRunFloor(20 * 60 * 1000, 'unmappedBin')).unref();
+  }
 
   // Drop import batches nobody will come back to (`sweepImportBatches` in routes/admin.ts owns the rule:
   // finished ones after a week, unfinished ones after a month). Daily, first run fifteen minutes after

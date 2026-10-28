@@ -191,7 +191,9 @@ test('every scheduler first run keeps its server literal inside firstRunFloor', 
   const sites: Array<[string, RegExp]> = [
     ['sweep', /const delay = Math\.max\(firstRunFloor\(10 \* 60 \* 1000, 'sweep'\), due\);/],
     ['solver health', /setTimeout\(tick, firstRunFloor\(10 \* 60 \* 1000, 'solverHealth'\)\)\.unref\(\);/],
-    ['repair', /Math\.max\(firstRunFloor\(30 \* 60 \* 1000, 'repair'\), last \+ REPAIR_HOURS \* 60 \* 60 \* 1000 - Date\.now\(\)\)/],
+    ['repair', /const repairFloor = \(\) => firstRunFloor\(30 \* 60 \* 1000, 'repair'\);/],
+    ['repair first run', /Math\.max\(repairFloor\(\), last \+ REPAIR_HOURS \* 60 \* 60 \* 1000 - Date\.now\(\)\)/],
+    ['unmapped bin', /setTimeout\(tick, firstRunFloor\(20 \* 60 \* 1000, 'unmappedBin'\)\)\.unref\(\);/],
     ['import sweep', /setTimeout\(tick, firstRunFloor\(15 \* 60 \* 1000, 'importSweep'\)\)\.unref\(\);/],
     ['extension check', /Math\.max\(firstRunFloor\(10 \* 60 \* 1000, 'extensionCheck'\), last \+ hours \* 60 \* 60 \* 1000 - Date\.now\(\)\)/],
     ['cleanup', /setTimeout\(tick, firstRunFloor\(15 \* 60 \* 1000, 'cleanup'\)\)\.unref\(\);/],
@@ -201,7 +203,7 @@ test('every scheduler first run keeps its server literal inside firstRunFloor', 
     ['backups', /setTimeout\(backupLoop, firstRunFloor\(15 \* 60 \* 1000, 'backups'\)\)\.unref\(\);/],
   ];
   for (const [what, re] of sites) assert.match(s, re, `${what}: the first run lost its server literal or its firstRunFloor`);
-  assert.equal(s.match(/firstRunFloor\(/g)?.length, sites.length, 'a first-run site was added or removed; list it here');
+  assert.equal(s.match(/firstRunFloor\(/g)?.length, sites.length - 1, 'a first-run site was added or removed; list it here');
   // The watchdog: from its stamp on desktop, the fixed ten minutes on the server.
   // Reintroduce by dropping the else arm: the server's daily source check never starts.
   assert.match(s, /if \(isDesktop\(\)\) \{\s*void \(async \(\) => \{\s*const row = await one<\{ last: Date \| null \}>\('SELECT max\(checked_at\) AS last FROM source_health'\)[\s\S]{0,300}?stampDelay\(\{ last, interval: DAY, floor: DESKTOP_FLOORS\.watchdog, now: Date\.now\(\) \}\)[\s\S]{0,60}?\} else setTimeout\(tick, 10 \* 60 \* 1000\)\.unref\(\);/,
