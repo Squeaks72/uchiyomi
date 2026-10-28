@@ -8,6 +8,7 @@ import numberingRoutes from './numbering';
 import { lastNumber } from '../lib/chapterRanges';
 import findSourcesRoutes from './findSources';
 import autoHeroRoutes from './autoHero';
+import unmappedRoutes from './unmapped';
 import rescanRoutes from './rescan';
 import { content as komga } from '../lib/backend';
 import { cacheBytes } from '../lib/imageCache';
@@ -585,6 +586,8 @@ export default async function adminRoutes(app: FastifyInstance) {
   await app.register(rescanRoutes);
   await app.register(pageCleanupRoutes);
   await app.register(titleExtractionRoutes);
+  // Admin -> Library -> Unmapped files (routes/unmapped.ts).
+  await app.register(unmappedRoutes);
 
   /** Synchronous two-sided hand-off between updateSeries and destructive route writers. */
   const claimSeriesWriter = (seriesIds: readonly string[], folders: readonly string[]) =>
@@ -645,7 +648,7 @@ export default async function adminRoutes(app: FastifyInstance) {
   // ---- server settings ----
   const SETTINGS_COLS = 'server_name, allow_registration, local_pick, automatic_title_logos, automatic_cover_titles, automatic_cover_title_generation, automatic_cover_title_apply, updater_hours, extension_hours, extension_auto_update, '
     + 'update_check, install_ping, install_ping_last, scanlator_prefs, cleanup_read, cleanup_read_days, backup_hour, backup_enabled, auto_follow_on_failure, '
-    + 'repair_enabled, repair_hour, komga_ghost_chapters, adult_genres, adult_sources, source_prefs, group_upgrade, borrow_names, fill_details, discover_lookups, '
+    + 'repair_enabled, repair_hour, unmapped_recycle_days, komga_ghost_chapters, adult_genres, adult_sources, source_prefs, group_upgrade, borrow_names, fill_details, discover_lookups, '
     + 'mangadex_langs, unstated_lang, hide_notice_types, deleted_as_ghosts, update_smart, finish_downloads, '
     + ARCHIVE_SETTINGS_COLS;
   // `extensions_configured` is not a column: extension_hours has a NOT NULL default, so its presence says
@@ -764,6 +767,7 @@ export default async function adminRoutes(app: FastifyInstance) {
       // The local hour of the nightly backup. Until v0.39.0 it was shown under Tasks and editable nowhere.
       backupHour: z.number().int().min(0).max(23).optional(),
       // null = every REPAIR_HOURS from the last run's end (the old rhythm); a number = daily at that local hour.
+      unmappedRecycleDays: z.number().int().min(1).max(365).optional(),
       repairHour: z.number().int().min(0).max(23).nullable().optional(),
       // v0.61.1 (#199): the nightly backup's switch -- off skips the night, Run now still backs up -- and how many runs
       // to keep. The oldest beyond that go after the NEXT backup, never on save: a number typed in passing deletes nothing.
@@ -963,6 +967,7 @@ export default async function adminRoutes(app: FastifyInstance) {
     if (b.cleanupReadDays !== undefined) await q('UPDATE server_settings SET cleanup_read_days = $1, updated_at = now() WHERE id = 1', [b.cleanupReadDays]);
     if (b.repairEnabled !== undefined) await q('UPDATE server_settings SET repair_enabled = $1, updated_at = now() WHERE id = 1', [b.repairEnabled]);
     if (b.repairHour !== undefined) { await q('UPDATE server_settings SET repair_hour = $1, updated_at = now() WHERE id = 1', [b.repairHour]); runtime.rearmRepair?.(); }
+    if (b.unmappedRecycleDays !== undefined) await q('UPDATE server_settings SET unmapped_recycle_days = $1, updated_at = now() WHERE id = 1', [b.unmappedRecycleDays]);
     if (b.nightlyMode !== undefined) await q('UPDATE server_settings SET nightly_mode = $1, updated_at = now() WHERE id = 1', [b.nightlyMode]);
     // The scheduler is re-armed at once, so the change applies to the NEXT run rather than the one after: the
     // timer used to re-read the hour only when it fired (server.ts, the backup block says why).

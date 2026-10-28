@@ -670,6 +670,14 @@ function MaintenanceSection({ data, save }: { data: any; save: Save }) {
         )}
       </RowGroup>
 
+      <RowGroup title={tr('Unmapped files')}>
+        <RowBlock id="unmapped-recycle-days">
+          <NumberRow label={tr('Keep deleted files for (days)')} min={1} max={365} value={data.unmapped_recycle_days ?? 14}
+            help={tr('Files deleted from Library → Unmapped files wait in a bin this long, then are removed for good.')}
+            onSave={(n) => save({ unmappedRecycleDays: n })} />
+        </RowBlock>
+      </RowGroup>
+
       {data.extensions_configured && (
         <RowGroup title={tr('Extensions')}>
           <SwitchRow id="extension-auto-update" label={tr('Update extensions automatically')}

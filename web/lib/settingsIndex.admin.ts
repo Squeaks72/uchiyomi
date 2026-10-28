@@ -108,6 +108,8 @@ export const ADMIN_SETTINGS: SettingsIndex = {
     // ---- Maintenance ----
     { id: 'nightly-backup', cat: 'maintenance', label: 'Nightly backup', keywords: ['backup', 'database backup', 'dump', 'backup time'] },
     { id: 'nightly-repair', cat: 'maintenance', label: 'Repair the library nightly', keywords: ['repair', 'fix everything', 'autofix', 'nightly'] },
+    { id: 'repair-hour', cat: 'maintenance', label: 'Repair runs at', keywords: ['repair time', 'nightly time', 'overnight', 'hour', 'schedule'] },
+    { id: 'unmapped-recycle-days', cat: 'maintenance', label: 'Keep deleted files for (days)', keywords: ['unmapped', 'bin', 'recycle', 'trash', 'deleted files'] },
     { id: 'extension-auto-update', cat: 'maintenance', label: 'Update extensions automatically', when: ['extensions'], keywords: ['extension updates'] },
     { id: 'backups-keep', cat: 'maintenance', label: 'Backups to keep', keywords: ['backup limit', 'retention', 'old backups'] },
     { id: 'extension-hours', cat: 'maintenance', label: 'Extension check interval (hours)', when: ['extensions'],

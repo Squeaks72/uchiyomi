@@ -18,6 +18,7 @@ import { ArmButton, ConfirmKey, useArmed } from '@/components/ArmButton';
 import { Avatar } from '@/components/Avatar';
 import { IcChevronLeft, IcChevronRight, IcTrash, IcPlus, IcRefresh, IcX, IcGrid, IcShield, IcRows, IcGlobe, IcSparkle, IcUsers, IcUser, IcClock } from '@/components/icons';
 import { LibraryFolders } from '@/components/LibraryFolders';
+import { UnmappedFiles } from '@/components/UnmappedFiles';
 import { addFolder, foldersOf, heldByOthers, heldByText, previewQuery, previewText, sameFolders, toggleFolder, typedFolder } from '@/lib/libraryFolders';
 import { CardProgress, HealthCardActions, HealthRow, hasCardActions, scanState, scanWorking } from '@/components/HealthActions';
 import { FixEverythingDialog, FixEverythingKey, LastFixLine, SafeRepairLine } from '@/components/FixEverythingDialog';
@@ -2051,6 +2052,7 @@ function LibraryPanel() {
   return (
     <div className="board">
       <LibrariesSection />
+      <UnmappedFiles />
       {purge && (
         <ConfirmDialog
           title={tr('Delete the files for “{title}”?', { title: iso(purge.title) })}
