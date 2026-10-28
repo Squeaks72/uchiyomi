@@ -849,7 +849,8 @@ function DiscoverInner() {
             {tr('Creator searches only ask sources that support author and artist filters.')}
           </p>
         )}
-        {tagsOpen && <TagFinder onPick={pickRail} onSearch={searchFor} onClose={() => setTagsOpen(false)} />}
+        {tagsOpen && <TagFinder onPick={pickRail} onSearch={searchFor} onClose={() => setTagsOpen(false)}
+          filterSources={sources.filter((s) => s.filterable)} onOpenItem={(it) => open(it)} />}
       </header>
 
       {/*

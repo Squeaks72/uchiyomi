@@ -2,7 +2,7 @@
   "_meta": {
     "language": "de",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 5349
+    "strings": 5362
   },
   "1 check found something": "1 Prüfung hat etwas gefunden",
   "1 member": "1 Mitglied",
@@ -5352,5 +5352,18 @@
   "Searching AniList…": "AniList wird durchsucht…",
   "The search failed.": "Die Suche ist fehlgeschlagen.",
   "Nothing new matches all of those. Try fewer tags, or another origin.": "Nichts Neues passt zu allen. Versuche weniger Tags oder eine andere Herkunft.",
-  "Show more": "Mehr anzeigen"
+  "Show more": "Mehr anzeigen",
+  "Ascending": "Aufsteigend",
+  "Descending": "Absteigend",
+  "Reading the source’s filters…": "Filter der Quelle werden gelesen…",
+  "This source could not say what it can filter by.": "Diese Quelle konnte ihre Filter nicht nennen.",
+  "This source has no filters of its own.": "Diese Quelle hat keine eigenen Filter.",
+  "Words in the title (optional)": "Wörter im Titel (optional)",
+  "Search with filters ({n})": "Mit Filtern suchen ({n})",
+  "Asking the source…": "Quelle wird gefragt…",
+  "The source could not answer that.": "Die Quelle konnte das nicht beantworten.",
+  "Nothing matched those filters on this source.": "Nichts auf dieser Quelle passt zu diesen Filtern.",
+  "Where to search": "Wo gesucht wird",
+  "Across AniList": "Über AniList",
+  "On one source": "Auf einer Quelle"
 }

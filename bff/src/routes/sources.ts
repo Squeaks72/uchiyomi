@@ -2612,6 +2612,9 @@ export default async function sourceRoutes(app: FastifyInstance) {
           searchPages: typeof s.searchPage === 'function',
           creatorSearch: (['author', 'artist'] as const).some((field) => supportsCreatorSearch(s, field)),
           creatorFields: (['author', 'artist'] as const).filter((field) => supportsCreatorSearch(s, field)),
+          // Whether the source declares search filters of its own -- genres, tags, status, sort -- that Discover's Tags panel can
+          // drive (types.ts filters). Only the extension bridge does.
+          filterable: typeof s.filters === 'function',
           // What the reader has actually used. Health-then-alphabetical put "18 Porn Comic" and "1Manga.co"
           // at the front of this install's English group while Aqua Manga -- 176 of its 214 series, answering
           // in 2.5s -- was never in the first six fetched.
@@ -3589,6 +3592,53 @@ export default async function sourceRoutes(app: FastifyInstance) {
    * than a clever shared one: the two differ only in which adapter method runs, and a wrapper that hid that
    * would make the access checks harder to see rather than easier.
    */
+  // A source's own search filters, for Discover's Tags panel. Cached a while: an extension's lists change with its releases.
+  const filterCache = new Map<string, { at: number; filters: unknown[] }>();
+  const filterSource = (req: FastifyRequest, reply: FastifyReply, id: unknown) => {
+    const src = typeof id === 'string' ? getSource(id) : null;
+    if (!src || typeof src.filters !== 'function' || typeof src.filteredSearch !== 'function') { reply.code(404).send({ error: 'not_found', message: 'That source has no filters of its own.' }); return null; }
+    if (!sourceAllowedFor(src, vc(req).maxAgeRating)) { denySource(reply); return null; }
+    // The 18+ hide, as on every Discover listing (#64): a hidden source answers as if it were not there.
+    if (!discoverable(req).some((s) => s.id === src.id)) { reply.code(404).send({ error: 'not_found', message: 'That source has no filters of its own.' }); return null; }
+    return src;
+  };
+  app.get('/api/sources/filters', async (req, reply) => {
+    const src = filterSource(req, reply, (req.query as { source?: string }).source);
+    if (!src) return reply;
+    const hit = filterCache.get(src.id);
+    if (hit && Date.now() - hit.at < 10 * 60_000) return { filters: hit.filters };
+    try {
+      const filters = await src.filters!();
+      filterCache.set(src.id, { at: Date.now(), filters });
+      return { filters };
+    } catch (e) {
+      return reply.code(502).send({ error: 'source_error', message: `${src.name} could not say what it can filter by: ${(e as Error).message}`.slice(0, 300) });
+    }
+  });
+
+  // Browse a source by its filters: `q` may be empty, `changes` are the controls the reader moved from their defaults.
+  app.post('/api/sources/browse', async (req, reply) => {
+    const b = z.object({
+      source: z.string().min(1).max(100), q: z.string().max(200).optional(), page: z.number().int().min(1).max(50).optional(),
+      changes: z.array(z.object({
+        path: z.array(z.number().int().min(0).max(1000)).min(1).max(2),
+        checkbox: z.boolean().optional(), tri: z.enum(['IGNORE', 'INCLUDE', 'EXCLUDE']).optional(), text: z.string().max(200).optional(),
+        select: z.number().int().min(0).max(1000).optional(),
+        sort: z.object({ index: z.number().int().min(0).max(1000), ascending: z.boolean() }).optional(),
+      })).max(80),
+    }).safeParse(req.body);
+    if (!b.success) return reply.code(400).send({ error: 'bad_request' });
+    const src = filterSource(req, reply, b.data.source);
+    if (!src) return reply;
+    if (await isDisabled(src.id).catch(() => false)) return { content: [] };
+    try {
+      const results = await src.filteredSearch!(b.data.q ?? '', b.data.changes, b.data.page ?? 1);
+      return { content: await decorate(await ratedFor(req, results, src), src.id, vc(req)) };
+    } catch (e) {
+      return reply.code(502).send({ error: 'source_error', message: `${src.name} could not answer that: ${(e as Error).message}`.slice(0, 300) });
+    }
+  });
+
   app.get('/api/sources/popular', async (req, reply) => {
     const { source, page } = req.query as { source?: string; page?: string };
     const src = source ? getSource(source) : null;

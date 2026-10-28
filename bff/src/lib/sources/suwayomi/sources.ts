@@ -6,13 +6,14 @@
 // Suwayomi's own integer ids, and fetchMangaAndChapters/fetchChapterPages take those integer ids rather than any
 // source-native identifier. So a series' sourceId here is Suwayomi's manga id. That is stable for as long as
 // Suwayomi's database lives; wiping it orphans the routing, same as uninstalling an extension would.
-import { UNNUMBERED, type SourceAdapter, type SourceSeries, type SourceChapter } from '../types';
+import { UNNUMBERED, type SourceAdapter, type SourceSeries, type SourceChapter, type SourceFilter, type FilterChange } from '../types';
 import { gql as defaultGql, suwayomiUrl, suwayomiImageHeaders, onEngineOrigin, type Gql } from './client';
 import { decodeEntities } from '../../htmlText';
 import { OPS } from './operations';
 import { needsBrowserCheck, passSiteCheck, siteWasOpened } from './siteSessions';
 import { env } from '../../../env';
-import { creatorFilterPaths, creatorFilterChange, type FilterChange } from './creatorFilters';
+import { creatorFilterPaths, creatorFilterChange, type FilterChange as CreatorFilterChange } from './creatorFilters';
+import { filtersOf, toFilterChange } from './filters';
 
 export const SW_PREFIX = 'sw:';
 
@@ -247,13 +248,13 @@ export function makeSuwayomiAdapter(remote: RemoteSource, gqlRun: Gql = defaultG
     }
   };
 
-  const fetchList = async (type: 'SEARCH' | 'LATEST' | 'POPULAR', query: string | null, page: number, filters?: FilterChange[]): Promise<SourceSeries[]> => {
+  const fetchList = async (type: 'SEARCH' | 'LATEST' | 'POPULAR', query: string | null, page: number, filters?: unknown[]): Promise<SourceSeries[]> => {
     const d = await run<{ fetchSourceManga: { mangas: RemoteManga[] } }>(OPS.fetchSourceManga.doc, {
       source: remote.id,
       type,
       query,
       page: Math.max(1, page),
-      ...(filters ? { filters } : {}),
+      ...(filters?.length ? { filters } : {}),
     });
     const list = d?.fetchSourceManga?.mangas;
     if (!Array.isArray(list)) return [];
@@ -301,6 +302,16 @@ export function makeSuwayomiAdapter(remote: RemoteSource, gqlRun: Gql = defaultG
     // Every extension pages its search the way its site does (#331): the engine asks the page it is given.
     async searchPage(query, page) {
       return fetchList('SEARCH', query, page);
+    },
+
+    // The source's own search filters, and a search with some of them set (lib/sources/suwayomi/filters.ts).
+    async filters() {
+      const d = await run<{ source: { filters?: unknown[] } | null }>(OPS.sourceFilters.doc, { id: remote.id });
+      return filtersOf(d?.source?.filters);
+    },
+
+    async filteredSearch(query, changes, page) {
+      return fetchList('SEARCH', query.trim() || null, page, changes.map(toFilterChange).filter((c): c is Record<string, unknown> => !!c));
     },
 
     async getSeries(id) {
