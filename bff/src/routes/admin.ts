@@ -645,7 +645,7 @@ export default async function adminRoutes(app: FastifyInstance) {
   // ---- server settings ----
   const SETTINGS_COLS = 'server_name, allow_registration, local_pick, automatic_title_logos, automatic_cover_titles, automatic_cover_title_generation, automatic_cover_title_apply, updater_hours, extension_hours, extension_auto_update, '
     + 'update_check, install_ping, install_ping_last, scanlator_prefs, cleanup_read, cleanup_read_days, backup_hour, backup_enabled, auto_follow_on_failure, '
-    + 'repair_enabled, komga_ghost_chapters, adult_genres, adult_sources, source_prefs, group_upgrade, borrow_names, fill_details, discover_lookups, '
+    + 'repair_enabled, repair_hour, komga_ghost_chapters, adult_genres, adult_sources, source_prefs, group_upgrade, borrow_names, fill_details, discover_lookups, '
     + 'mangadex_langs, unstated_lang, hide_notice_types, deleted_as_ghosts, update_smart, finish_downloads, '
     + ARCHIVE_SETTINGS_COLS;
   // `extensions_configured` is not a column: extension_hours has a NOT NULL default, so its presence says
@@ -763,6 +763,8 @@ export default async function adminRoutes(app: FastifyInstance) {
       cleanupReadDays: z.number().int().min(0).max(3650).optional(),
       // The local hour of the nightly backup. Until v0.39.0 it was shown under Tasks and editable nowhere.
       backupHour: z.number().int().min(0).max(23).optional(),
+      // null = every REPAIR_HOURS from the last run's end (the old rhythm); a number = daily at that local hour.
+      repairHour: z.number().int().min(0).max(23).nullable().optional(),
       // v0.61.1 (#199): the nightly backup's switch -- off skips the night, Run now still backs up -- and how many runs
       // to keep. The oldest beyond that go after the NEXT backup, never on save: a number typed in passing deletes nothing.
       backupEnabled: z.boolean().optional(),
@@ -960,6 +962,7 @@ export default async function adminRoutes(app: FastifyInstance) {
     if (b.cleanupRead !== undefined) await q('UPDATE server_settings SET cleanup_read = $1, updated_at = now() WHERE id = 1', [b.cleanupRead]);
     if (b.cleanupReadDays !== undefined) await q('UPDATE server_settings SET cleanup_read_days = $1, updated_at = now() WHERE id = 1', [b.cleanupReadDays]);
     if (b.repairEnabled !== undefined) await q('UPDATE server_settings SET repair_enabled = $1, updated_at = now() WHERE id = 1', [b.repairEnabled]);
+    if (b.repairHour !== undefined) { await q('UPDATE server_settings SET repair_hour = $1, updated_at = now() WHERE id = 1', [b.repairHour]); runtime.rearmRepair?.(); }
     if (b.nightlyMode !== undefined) await q('UPDATE server_settings SET nightly_mode = $1, updated_at = now() WHERE id = 1', [b.nightlyMode]);
     // The scheduler is re-armed at once, so the change applies to the NEXT run rather than the one after: the
     // timer used to re-read the hour only when it fired (server.ts, the backup block says why).
@@ -1052,12 +1055,12 @@ export default async function adminRoutes(app: FastifyInstance) {
     scheduleVars: vars,
   });
   app.get('/api/admin/tasks', async (req) => {
-    const s = await one<{ updater_hours: number; backup_hour: number; backup_enabled: boolean; backup_last_run: string | null; backup_last_result: any; extension_hours: number; extension_auto_update: boolean; extension_last_run: string | null; extension_last_result: any; cleanup_read: boolean; cleanup_read_days: number; cleanup_read_last_run: string | null; cleanup_read_last_result: any; verify_last_run: string | null; verify_last_result: any; repair_enabled: boolean; repair_last_run: string | null; repair_last_result: any; rescan_last_run: string | null; rescan_last_result: any; match_check_last_run: string | null; match_check_last_result: any }>(
+    const s = await one<{ updater_hours: number; backup_hour: number; backup_enabled: boolean; backup_last_run: string | null; backup_last_result: any; extension_hours: number; extension_auto_update: boolean; extension_last_run: string | null; extension_last_result: any; cleanup_read: boolean; cleanup_read_days: number; cleanup_read_last_run: string | null; cleanup_read_last_result: any; verify_last_run: string | null; verify_last_result: any; repair_enabled: boolean; repair_hour: number | null; repair_last_run: string | null; repair_last_result: any; rescan_last_run: string | null; rescan_last_result: any; match_check_last_run: string | null; match_check_last_result: any }>(
       `SELECT updater_hours, backup_hour, backup_enabled, backup_last_run, backup_last_result,
               extension_hours, extension_auto_update, extension_last_run, extension_last_result,
               cleanup_read, cleanup_read_days, cleanup_read_last_run, cleanup_read_last_result,
               verify_last_run, verify_last_result,
-              repair_enabled, repair_last_run, repair_last_result,
+              repair_enabled, repair_hour, repair_last_run, repair_last_result,
               rescan_last_run, rescan_last_result,
               match_check_last_run, match_check_last_result
          FROM server_settings WHERE id = 1`,
@@ -1163,7 +1166,9 @@ export default async function adminRoutes(app: FastifyInstance) {
         name: 'Repair library',
         ...(s?.repair_enabled === false
           ? sched('switched off · on demand')
-          : sched('every {h}h · never during a chapter sweep', { h: REPAIR_HOURS })),
+          : s?.repair_hour != null
+            ? sched('daily at {hh}:00 · never during a chapter sweep', { hh: String(s.repair_hour).padStart(2, '0') })
+            : sched('every {h}h · never during a chapter sweep', { h: REPAIR_HOURS })),
         // Memory wins once this process has run it, including a run that threw (finishedAt set, lastResult
         // null): the verify's precedent above says why falling through to the stored row there would put an
         // older healthy result back on the panel over a run that died.

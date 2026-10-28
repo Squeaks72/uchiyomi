@@ -662,6 +662,12 @@ function MaintenanceSection({ data, save }: { data: any; save: Save }) {
             is a server that repairs. */}
         <NightlyModeRow mode={nightlyModeOf(data)} off={data.repair_enabled === false}
           onPick={(m) => save(m === 'off' ? { repairEnabled: false } : { repairEnabled: true, nightlyMode: m })} />
+        {data.repair_enabled !== false && (
+          <SelectRow id="repair-hour" label={tr('Repair runs at')} value={data.repair_hour == null ? 'any' : String(data.repair_hour)}
+            help={tr('Pick an hour so it runs overnight, local time. Without one it repeats every 24 hours from when the last run finished, which drifts through the day. Shown under Tasks.')}
+            options={[{ value: 'any', label: tr('Any time (every 24 hours)') }, ...hours.map((h) => ({ value: String(h), label: clockText(h) }))]}
+            onChange={(v) => save({ repairHour: v === 'any' ? null : Number(v) })} />
+        )}
       </RowGroup>
 
       {data.extensions_configured && (

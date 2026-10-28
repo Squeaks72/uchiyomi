@@ -34,7 +34,7 @@ import { runSourceCheck } from './lib/sourceWatchdog';
 import { runSweep } from './lib/updater';
 import { behindCount, finishDownloadsOn, nextCooldownEnd as finishCooldownEnd, wantQuiet, FINISH_MINUTES, FINISH_PER_SERIES, FINISH_SWEEP_MAX } from './lib/finishDownloads';
 import { refreshMissingRadars } from './lib/releaseRadar';
-import { runRepair, setRepairNext, REPAIR_HOURS } from './lib/repair';
+import { runRepair, setRepairNext, REPAIR_HOURS, repairHourOf } from './lib/repair';
 import { AFTER_NIGHTLY_AUTOFIX, autofixSettled, closeInterruptedAutofix, startAutofix } from './lib/autofix';
 import { startArchive } from './lib/archive';
 import { startHeroWarmup } from './lib/autoHero';
@@ -50,7 +50,7 @@ import { startSweeper } from './lib/imageCache';
 import { pruneAudit } from './lib/audit';
 import { pruneRing } from './lib/deviceRing';
 import { startActivityLog, flushActivityLog } from './lib/activityLog';
-import { runBackup, backupDelay, backupSettings, stampDelay } from './lib/backup';
+import { runBackup, backupDelay, backupSettings, stampDelay, msUntilHour } from './lib/backup';
 import { firstRunFloor, DESKTOP_FLOORS } from './lib/desktop';
 import { scoutTick, storeLook, SCOUT_TICK_MS } from './lib/sourceScout';
 import { backupUpkeep, BACKUP_UPKEEP_MS } from './lib/backupExtensions';
@@ -639,7 +639,38 @@ async function main() {
    * does not have. `OWNED`, for the reason given at the sweep above.
    */
   if (OWNED) {
-    const tick = async () => {
+    // ONE timer, always cleared before it is set, so a re-arm from the settings route (repair_hour) replaces the pending
+    // run instead of adding a second. `hourDelay` is the wall-clock rhythm: with a repair hour set, the next such hour
+    // whatever the last run's end was, never sooner than the boot floor. Null with no hour: the interval rhythm.
+    let timer: NodeJS.Timeout | null = null;
+    const armRepair = (delay: number) => {
+      if (timer) clearTimeout(timer);
+      setRepairNext(Date.now() + delay);
+      timer = setTimeout(tick, delay);
+      timer.unref();
+    };
+    const hourDelay = async (): Promise<number | null> => {
+      const h = repairHourOf((await pool.query('SELECT repair_hour FROM server_settings WHERE id = 1').catch(() => null))?.rows[0]?.repair_hour);
+      return h === null ? null : Math.max(firstRunFloor(30 * 60 * 1000, 'repair'), msUntilHour(h));
+    };
+    runtime.rearmRepair = () => { void (async () => {
+      const d = await hourDelay();
+      if (d !== null) armRepair(d);
+      else armRepair(Math.max(firstRunFloor(30 * 60 * 1000, 'repair'), (await lastRepairEnd()) + REPAIR_HOURS * 60 * 60 * 1000 - Date.now()));
+    })(); };
+    /** The nightly's last end, whichever it ran: the full repair writes repair_last_run, and a nightly Fix everything
+     *  (v0.55.0) is a repair_runs row of its own -- without it a deploy after a nightly Fix everything ran the next one
+     *  thirty minutes after boot. */
+    const lastRepairEnd = async (): Promise<number> => {
+      try {
+        const s = await pool.query(
+          `SELECT GREATEST(st.repair_last_run,
+                           (SELECT max(r.finished_at) FROM repair_runs r WHERE r.kind = 'autofix' AND r.origin = 'nightly' AND r.status <> 'interrupted')) AS last
+             FROM server_settings st WHERE st.id = 1`);
+        return s.rows[0]?.last ? new Date(s.rows[0].last).getTime() : 0;
+      } catch { return 0; /* settings row not readable yet -- run on the floor */ }
+    };
+    async function tick() {
       let next = REPAIR_HOURS * 60 * 60 * 1000;
       try {
         const s = await pool.query('SELECT repair_enabled, nightly_mode FROM server_settings WHERE id = 1');
@@ -684,27 +715,17 @@ async function main() {
         // Outside the re-arm below, so a run that threw does not end the schedule.
         app.log.error(e as any);
       }
-      // Told to the Health page and the Tasks row ("next run in 21 h") every time the timer is armed.
-      setRepairNext(Date.now() + next);
-      setTimeout(tick, next).unref();
-    };
+      // With a repair hour set the next run is that hour, read now so a change needs no restart. Told to the Health page
+      // and the Tasks row ("next run in 21 h") every time the timer is armed.
+      const atHour = await hourDelay().catch(() => null);
+      armRepair(atHour ?? next);
+    }
     void (async () => {
-      let last = 0;
-      try {
-        // The nightly's last end, whichever it ran: the full repair writes repair_last_run, and a nightly Fix everything
-        // (v0.55.0) is a repair_runs row of its own -- without it a deploy after a nightly Fix everything ran the next
-        // one thirty minutes after boot.
-        const s = await pool.query(
-          `SELECT GREATEST(st.repair_last_run,
-                           (SELECT max(r.finished_at) FROM repair_runs r WHERE r.kind = 'autofix' AND r.origin = 'nightly' AND r.status <> 'interrupted')) AS last
-             FROM server_settings st WHERE st.id = 1`);
-        last = s.rows[0]?.last ? new Date(s.rows[0].last).getTime() : 0;
-      } catch { /* settings row not readable yet -- run on the floor */ }
-      const delay = Math.max(firstRunFloor(30 * 60 * 1000, 'repair'), last + REPAIR_HOURS * 60 * 60 * 1000 - Date.now());
+      const last = await lastRepairEnd();
+      const delay = (await hourDelay()) ?? Math.max(firstRunFloor(30 * 60 * 1000, 'repair'), last + REPAIR_HOURS * 60 * 60 * 1000 - Date.now());
       app.log.info(`repair: first run in ${Math.round(delay / 60000)} min`
         + (last ? ` (last completed ${new Date(last).toISOString()})` : ' (no completed run on record)'));
-      setRepairNext(Date.now() + delay);
-      setTimeout(tick, delay).unref();
+      armRepair(delay);
     })();
   }
 
