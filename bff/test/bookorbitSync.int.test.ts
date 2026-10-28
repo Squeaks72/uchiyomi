@@ -47,6 +47,7 @@ before(async () => {
       if (req.url === '/api/v1/auth/me') return res.end('{}');
       if (req.url === '/api/v1/reading-progress' && req.method === 'PUT') {
         const w = JSON.parse(body).writes;
+        if (w.length > 25) { res.statusCode = 400; return res.end('{"message":"writes must contain no more than 25 elements"}'); }
         writes.push(...w);
         return res.end(JSON.stringify({ results: w.map((x: any) => ({ fileId: x.fileId, status: supersede ? 'superseded' : 'saved' })) }));
       }
@@ -131,4 +132,17 @@ test('wrong BookOrbit credentials are reported, not thrown', { skip }, async () 
   await S.saveLink(U, { dbUrl: 'postgres://nobody:x@127.0.0.1:1/none' });
   const r = await S.runSync({ full: true });
   assert.ok(r?.error, 'no error recorded');
+});
+
+test('more chapters than BookOrbit takes in one request are sent in batches', { skip }, async () => {
+  const { writeProgress } = await import('../src/lib/progress');
+  for (let n = 10; n < 70; n++) {
+    await q(`INSERT INTO lib_books (id, series_id, source, file, number, title, root, pages) VALUES ($1,'s_bo1','manga',$2,$3,$4,$5,20) ON CONFLICT (id) DO NOTHING`,
+      [`b_bo${n}`, `manga/Berserk/Chapter ${n}.cbz`, n, `Chapter ${n}`, DL]);
+    await bo.query(`INSERT INTO book_files VALUES ($1, $2) ON CONFLICT DO NOTHING`, [200 + n, `/books/m/manga/Berserk/Chapter ${n}.cbz`]);
+    await writeProgress({ userId: U, bookId: `b_bo${n}`, seriesId: 's_bo1', page: 3, completed: false });
+  }
+  const r = await S.runSync({ full: true });
+  assert.equal(r?.error, undefined);
+  assert.equal(r?.pushed, 60);
 });

@@ -263,8 +263,9 @@ export async function runSync(opts: { full?: boolean } = {}): Promise<Result | n
       }
     }
 
-    for (let i = 0; i < pushes.length; i += 50) {
-      const part = pushes.slice(i, i + 50);
+    // BookOrbit takes at most 25 writes a request (READING_PROGRESS_MAX_WRITES) and refuses the whole batch beyond that.
+    for (let i = 0; i < pushes.length; i += 25) {
+      const part = pushes.slice(i, i + 25);
       const r = await boFetch(link, '/reading-progress', {
         method: 'PUT',
         body: JSON.stringify({
@@ -279,7 +280,7 @@ export async function runSync(opts: { full?: boolean } = {}): Promise<Result | n
           }),
         }),
       });
-      if (!r.ok) throw new Error(`BookOrbit refused the progress write (${r.status})`);
+      if (!r.ok) throw new Error(`BookOrbit refused the progress write (${r.status}): ${(await r.text().catch(() => '')).slice(0, 200)}`);
       const out: any = await r.json().catch(() => ({}));
       const results: any[] = out.results ?? [];
       for (const [j, p] of part.entries()) {
