@@ -1864,6 +1864,10 @@ CREATE INDEX IF NOT EXISTS collections_shared_idx ON collections (shared) WHERE 
 ALTER TABLE server_settings ADD COLUMN IF NOT EXISTS backup_enabled boolean NOT NULL DEFAULT true;
 ALTER TABLE server_settings ADD COLUMN IF NOT EXISTS backup_keep int;
 
+-- The nightly repair's hour (0-23, local time). NULL keeps the old rhythm (REPAIR_HOURS after the last run ended, which
+-- drifts); a number runs it daily at that hour. Additive: older versions ignore the column.
+ALTER TABLE server_settings ADD COLUMN IF NOT EXISTS repair_hour int;
+
 -- v0.62.0: the language a chapter's file is in when that is not its source's (lib/copyLanguage.ts bookLang): set once,
 -- below, for the chapters MangaDex's English source took in another language before it stopped falling back, and
 -- cleared when the file is replaced (lib/library.ts setBookMeta, lib/partial.ts restampBook). NULL: its source's. The

@@ -114,6 +114,9 @@ function envInt(name: string, def: number, lo: number, hi: number): number {
 
 /** How often the nightly runs, counted from the END of the last completed run. server.ts owns the timer. */
 export const REPAIR_HOURS = envInt('REPAIR_HOURS', 24, 1, 168);
+
+/** `server_settings.repair_hour` as an hour of the day, or null (no hour chosen: the REPAIR_HOURS rhythm). */
+export const repairHourOf = (v: unknown): number | null => (Number.isInteger(v) && (v as number) >= 0 && (v as number) <= 23 ? (v as number) : null);
 /**
  * Chapter files whose pages one run counts. 2000 is about a minute of local disk on this install and drains
  * its 30,625 uncounted rows in a fortnight of nights; the point of a cap at all is that the count step runs
