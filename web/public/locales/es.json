@@ -2,7 +2,7 @@
   "_meta": {
     "language": "es",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 5053
+    "strings": 5070
   },
   "1 check found something": "1 comprobación encontró algo",
   "1 member": "1 miembro",
@@ -5056,5 +5056,22 @@
   "Every file needs a chapter number.": "Cada archivo necesita un número de capítulo.",
   "Two files have the same chapter number.": "Dos archivos tienen el mismo número de capítulo.",
   "Mapping…": "Asignando…",
-  "Map": "Asignar"
+  "Map": "Asignar",
+  "BookOrbit sync": "Sincronización con BookOrbit",
+  "Could not test the connection": "No se pudo probar la conexión",
+  "A sync is already running": "Ya hay una sincronización en curso",
+  "Sent to BookOrbit: {a} · Received: {b}": "Enviado a BookOrbit: {a} · Recibido: {b}",
+  "Could not sync": "No se pudo sincronizar",
+  "Keeps your reading place and finished chapters the same in Uchiyomi and BookOrbit, in both directions. Chapters are matched by file path, so only series BookOrbit also holds are synced. The newest change wins, and a finished chapter is never marked unread.": "Mantiene igual tu posición de lectura y los capítulos terminados en Uchiyomi y BookOrbit, en ambos sentidos. Los capítulos se emparejan por ruta de archivo, así que solo se sincronizan las series que BookOrbit también tiene. Gana el cambio más reciente y un capítulo terminado nunca se marca como no leído.",
+  "Sync with BookOrbit": "Sincronizar con BookOrbit",
+  "BookOrbit address": "Dirección de BookOrbit",
+  "BookOrbit username": "Usuario de BookOrbit",
+  "BookOrbit password": "Contraseña de BookOrbit",
+  "Saved. Type to replace it.": "Guardado. Escribe para reemplazarlo.",
+  "BookOrbit database (read-only)": "Base de datos de BookOrbit (solo lectura)",
+  "Where the downloads folder is inside BookOrbit": "Dónde está la carpeta de descargas dentro de BookOrbit",
+  "Sync everything now": "Sincronizar todo ahora",
+  "Last attempt failed: {error}": "El último intento falló: {error}",
+  "Last checked {when}. Sent to BookOrbit: {a} · Received: {b}": "Última comprobación {when}. Enviado a BookOrbit: {a} · Recibido: {b}",
+  "Waiting for the first check.": "Esperando la primera comprobación."
 }

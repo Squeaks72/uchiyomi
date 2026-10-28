@@ -51,6 +51,7 @@ import { discoverSources } from '@/lib/sourceGroups';
 import { memberDefaultsOf } from '@/lib/memberDefaults';
 import { joinSentences } from '@/lib/jobs';
 import { clockText, hoursText, intervalChoices } from '@/lib/settingsChoices';
+import { BookOrbitSync } from '@/components/BookOrbitSync';
 
 /** One PATCH. Resolves once the server has answered, so the row that called it can show its tick. */
 type Save = (body: Record<string, unknown>) => Promise<unknown>;
@@ -650,6 +651,10 @@ function MaintenanceSection({ data, save }: { data: any; save: Save }) {
             help={tr('Files deleted from Library → Unmapped files wait in a bin this long, then are removed for good.')}
             onSave={(n) => save({ unmappedRecycleDays: n })} />
         </RowBlock>
+      </RowGroup>
+
+      <RowGroup title={tr('BookOrbit sync')}>
+        <RowBlock id="bookorbit-sync"><BookOrbitSync /></RowBlock>
       </RowGroup>
 
       {data.extensions_configured && (
