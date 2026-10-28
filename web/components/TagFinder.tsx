@@ -7,6 +7,8 @@ import { api } from '@/lib/api';
 import { t as tr } from '@/lib/i18n';
 import { IcX } from '@/components/icons';
 import { MenuTrendingCard, type Trending } from '@/components/DiscoverHero';
+import { SourceFilters } from '@/components/SourceFilters';
+import type { SourceItem } from '@/components/cards';
 
 interface TagInfo { name: string; category: string; adult: boolean }
 interface TagList { tags: TagInfo[]; genres: string[] }
@@ -21,7 +23,12 @@ const SORTS: Array<{ id: string; label: () => string }> = [
 ];
 const GRID = 'grid grid-cols-3 gap-x-3 gap-y-5 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 lg:gap-x-4 xl:grid-cols-8';
 
-export function TagFinder({ onPick, onSearch, onClose }: { onPick: (t: Trending) => void; onSearch: (title: string) => void; onClose: () => void }) {
+export function TagFinder({ onPick, onSearch, onClose, filterSources, onOpenItem }: {
+  onPick: (t: Trending) => void; onSearch: (title: string) => void; onClose: () => void;
+  /** The sources that declare filters of their own, and what a result of one of them does when tapped. */
+  filterSources: Array<{ id: string; name: string; lang: string | null }>; onOpenItem: (it: SourceItem) => void;
+}) {
+  const [where, setWhere] = useState<'anilist' | 'source'>('anilist');
   const [picked, setPicked] = useState<string[]>([]);
   const [excluded, setExcluded] = useState<string[]>([]);
   const [text, setText] = useState('');
@@ -75,6 +82,13 @@ export function TagFinder({ onPick, onSearch, onClose }: { onPick: (t: Trending)
         <h2 className="font-display text-lg font-semibold text-fog-50">{tr('Find by tags')}</h2>
         <button type="button" onClick={onClose} aria-label={tr('Close')} className="text-fog-500 hover:text-fog-200"><IcX width={16} height={16} /></button>
       </div>
+      {filterSources.length > 0 && (
+        <div className="flex gap-2" role="group" aria-label={tr('Where to search')}>
+          <button type="button" aria-pressed={where === 'anilist'} onClick={() => setWhere('anilist')} className={`chip text-xs ${where === 'anilist' ? 'border-accent/60 text-fog-50' : ''}`}>{tr('Across AniList')}</button>
+          <button type="button" aria-pressed={where === 'source'} onClick={() => setWhere('source')} className={`chip text-xs ${where === 'source' ? 'border-accent/60 text-fog-50' : ''}`}>{tr('On one source')}</button>
+        </div>
+      )}
+      {where === 'source' && filterSources.length > 0 ? <SourceFilters sources={filterSources} onOpen={onOpenItem} /> : (<>
       <div className="flex flex-wrap items-center gap-1.5">
         {picked.map((n) => (
           <button key={n} type="button" onClick={() => setPicked((l) => l.filter((x) => x !== n))} className="chip text-xs border-accent/50 text-fog-100" aria-label={tr('Remove {tag}', { tag: n })}>{n} <span aria-hidden>×</span></button>
@@ -101,6 +115,14 @@ export function TagFinder({ onPick, onSearch, onClose }: { onPick: (t: Trending)
         )}
       </div>
       <p className="text-[11px] text-fog-500">{tr('A series must have every tag you pick. Start with - to leave one out, such as -gore.')}</p>
+      {(list.data?.genres?.length ?? 0) > 0 && (
+        <div className="flex flex-wrap gap-1.5" role="group" aria-label={tr('Genre')}>
+          {list.data!.genres.map((g) => {
+            const on = picked.includes(g);
+            return <button key={g} type="button" aria-pressed={on} onClick={() => setPicked((l) => (on ? l.filter((x) => x !== g) : [...l, g]))} className={`chip text-xs ${on ? 'border-accent/60 text-fog-50' : ''}`}>{g}</button>;
+          })}
+        </div>
+      )}
       {list.isError && <p className="text-xs text-amber-300">{tr('The tag list could not be loaded from AniList. Try again in a moment.')}</p>}
       <div className="flex flex-wrap items-center gap-2">
         {COUNTRIES.map((c) => (
@@ -134,6 +156,7 @@ export function TagFinder({ onPick, onSearch, onClose }: { onPick: (t: Trending)
           )}
         </>
       )}
+      </>)}
     </section>
   );
 }

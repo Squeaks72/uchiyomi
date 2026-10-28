@@ -99,6 +99,29 @@ export const unnumberedOf = (list: unknown): number => {
   return typeof n === 'number' && n > 0 ? n : 0;
 };
 
+/**
+ * One control of a source's own search filters (Mihon's FilterList), as the source declares it, with the value it starts at.
+ * `pos` is its index among its siblings -- headers and separators count -- which is how a change names it back to the engine.
+ * Only the extension bridge has filters; a built-in or scraped adapter has none.
+ */
+export type SourceFilter =
+  | { kind: 'checkbox'; pos: number; name: string; value: boolean }
+  | { kind: 'tri'; pos: number; name: string; value: 'IGNORE' | 'INCLUDE' | 'EXCLUDE' }
+  | { kind: 'text'; pos: number; name: string; value: string }
+  | { kind: 'select'; pos: number; name: string; values: string[]; value: number }
+  | { kind: 'sort'; pos: number; name: string; values: string[]; value: { index: number; ascending: boolean } }
+  | { kind: 'group'; pos: number; name: string; filters: SourceFilter[] };
+
+/** A filter the reader set: `path` is the positions from the top (a group's child is [group, child]). */
+export interface FilterChange {
+  path: number[];
+  checkbox?: boolean;
+  tri?: 'IGNORE' | 'INCLUDE' | 'EXCLUDE';
+  text?: string;
+  select?: number;
+  sort?: { index: number; ascending: boolean };
+}
+
 export interface SourceAdapter {
   id: string; // 'mangadex'
   name: string; // 'MangaDex'
@@ -109,6 +132,10 @@ export interface SourceAdapter {
    * first page alone, and GET /api/sources reports which can go further (`searchPages`).
    */
   searchPage?(query: string, page: number): Promise<SourceSeries[]>;
+  /** optional: the source's own search filters (genres, tags, status, sort...), when it declares any. */
+  filters?(): Promise<SourceFilter[]>;
+  /** optional: a search on the source with some of its filters set (`query` may be empty: browse by filter alone). */
+  filteredSearch?(query: string, changes: FilterChange[], page: number): Promise<SourceSeries[]>;
   getSeries(id: string): Promise<SourceSeries | null>;
   listChapters(seriesId: string): Promise<SourceChapter[]>;
   getPageUrls(chapterId: string): Promise<string[]>;

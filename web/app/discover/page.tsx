@@ -834,7 +834,8 @@ function DiscoverInner() {
               className={`chip shrink-0 py-2.5 text-sm ${tagsOpen ? 'border-accent/60 text-fog-50' : ''}`}>{tr('Tags')}</button>
           </form>
         </div>
-        {tagsOpen && <TagFinder onPick={pickRail} onSearch={searchFor} onClose={() => setTagsOpen(false)} />}
+        {tagsOpen && <TagFinder onPick={pickRail} onSearch={searchFor} onClose={() => setTagsOpen(false)}
+          filterSources={sources.filter((s) => s.filterable)} onOpenItem={(it) => open(it)} />}
       </header>
 
       {/*

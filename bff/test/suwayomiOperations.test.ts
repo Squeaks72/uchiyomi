@@ -91,6 +91,7 @@ async function recorder() {
     aboutServer: { aboutServer: { name: 'Suwayomi-Server', version: 'v2.3.2243', buildType: 'Stable' } },
     sources: { sources: { nodes: [{ id: '1', name: 'S', lang: 'en', contentWarning: 'SAFE', supportsLatest: true }] } },
     fetchSourceManga: { fetchSourceManga: { mangas: [manga] } },
+    sourceFilters: { source: { id: '1', filters: [{ __typename: 'GroupFilter', name: 'Genres', filters: [{ __typename: 'TriStateFilter', name: 'Action', triDefault: 'IGNORE' }] }] } },
     fetchManga: { fetchMangaAndChapters: { manga } },
     fetchChapters: { fetchMangaAndChapters: { chapters: [{ id: 1, chapterNumber: 1, name: 'One', uploadDate: '1704067200000', sourceOrder: 1, url: '/1' }] } },
     fetchChapterPages: { fetchChapterPages: { pages: ['/p/0'] } },
@@ -135,6 +136,8 @@ test('every adapter function sends documents from the registry, and every docume
   await a.search('t');
   await a.latest!(1);
   await a.popular!(1);
+  await a.filters!();
+  await a.filteredSearch!('', [{ path: [0, 0], tri: 'INCLUDE' }], 1);
   await a.getSeries('1');
   await a.listChapters('1');
   await a.getPageUrls('1');

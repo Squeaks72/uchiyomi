@@ -25,6 +25,8 @@ export interface Src {
   popular?: boolean;
   /** Whether a search on it goes on past the first page (v0.96.0, #331): Discover loads more of a search on it alone. */
   searchPages?: boolean;
+  /** Whether the source declares search filters of its own (genres, tags, status, sort): Discover's Tags panel can drive them. */
+  filterable?: boolean;
   /**
    * `quiet` is the server saying "this answers without error and returns nothing". It used to be
    * unrepresentable: a source whose listing had drifted threw nothing, so it never earned a cooldown, kept
