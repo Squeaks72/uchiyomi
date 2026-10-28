@@ -35,6 +35,7 @@ import { runSweep } from './lib/updater';
 import { behindCount, finishDownloadsOn, nextCooldownEnd as finishCooldownEnd, wantQuiet, FINISH_MINUTES, FINISH_PER_SERIES, FINISH_SWEEP_MAX } from './lib/finishDownloads';
 import { refreshMissingRadars } from './lib/releaseRadar';
 import { purgeRecycled } from './lib/unmapped';
+import { runSync } from './lib/bookorbitSync';
 import { runRepair, setRepairNext, REPAIR_HOURS, repairHourOf } from './lib/repair';
 import { AFTER_NIGHTLY_AUTOFIX, autofixSettled, closeInterruptedAutofix, startAutofix } from './lib/autofix';
 import { startArchive } from './lib/archive';
@@ -746,6 +747,23 @@ async function main() {
    * only: it reads lib_books.
    */
   if (OWNED) startHeroWarmup(app.log);
+
+  // BookOrbit reading-state sync (lib/bookorbitSync.ts): a pass every BOOKORBIT_SYNC_SECONDS (30), looking only at what
+  // moved since the last one; a full look on enabling and every six hours. Nothing happens until an admin sets it up.
+  if (OWNED) {
+    const every = Math.max(10, Number(process.env.BOOKORBIT_SYNC_SECONDS) || 30) * 1000;
+    const tick = async () => {
+      try {
+        const r = await runSync();
+        if (r?.error) app.log.warn(`bookorbit sync: ${r.error}`);
+        else if (r && (r.pushed || r.pulled)) app.log.info(`bookorbit sync: pushed ${r.pushed}, pulled ${r.pulled}${r.full ? ' (full)' : ''}`);
+      } catch (e) {
+        app.log.error(e as any);
+      }
+      setTimeout(tick, every).unref();
+    };
+    setTimeout(tick, firstRunFloor(2 * 60 * 1000, 'bookorbitSync')).unref();
+  }
 
   // The unmapped-files bin (lib/unmapped.ts): files an admin deleted from Admin -> Library wait here for
   // `unmapped_recycle_days`, then go for good. Daily, first look twenty minutes after boot; the limit is read each time.

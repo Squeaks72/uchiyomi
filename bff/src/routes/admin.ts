@@ -9,6 +9,7 @@ import { lastNumber } from '../lib/chapterRanges';
 import findSourcesRoutes from './findSources';
 import autoHeroRoutes from './autoHero';
 import unmappedRoutes from './unmapped';
+import bookorbitSyncRoutes from './bookorbitSync';
 import rescanRoutes from './rescan';
 import { content as komga } from '../lib/backend';
 import { cacheBytes } from '../lib/imageCache';
@@ -589,6 +590,7 @@ export default async function adminRoutes(app: FastifyInstance) {
   await app.register(titleExtractionRoutes);
   // Admin -> Library -> Unmapped files (routes/unmapped.ts).
   await app.register(unmappedRoutes);
+  await app.register(bookorbitSyncRoutes);
 
   /** Synchronous two-sided hand-off between updateSeries and destructive route writers. */
   const claimSeriesWriter = (seriesIds: readonly string[], folders: readonly string[]) =>

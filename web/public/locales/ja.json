@@ -2,7 +2,7 @@
   "_meta": {
     "language": "ja",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 5319
+    "strings": 5336
   },
   "1 check found something": "1 件のチェックで問題を検出",
   "1 member": "メンバー 1 人",
@@ -5322,5 +5322,22 @@
   "Every file needs a chapter number.": "すべてのファイルにチャプター番号が必要です。",
   "Two files have the same chapter number.": "2つのファイルのチャプター番号が同じです。",
   "Mapping…": "割り当て中…",
-  "Map": "割り当てる"
+  "Map": "割り当てる",
+  "BookOrbit sync": "BookOrbit 同期",
+  "Could not test the connection": "接続をテストできませんでした",
+  "A sync is already running": "同期はすでに実行中です",
+  "Sent to BookOrbit: {a} · Received: {b}": "BookOrbit へ送信: {a} · 受信: {b}",
+  "Could not sync": "同期できませんでした",
+  "Keeps your reading place and finished chapters the same in Uchiyomi and BookOrbit, in both directions. Chapters are matched by file path, so only series BookOrbit also holds are synced. The newest change wins, and a finished chapter is never marked unread.": "読書位置と読了チャプターを Uchiyomi と BookOrbit で双方向に同じに保ちます。チャプターはファイルパスで照合するため、BookOrbit にもあるシリーズのみ同期されます。最新の変更が優先され、読了チャプターが未読に戻ることはありません。",
+  "Sync with BookOrbit": "BookOrbit と同期する",
+  "BookOrbit address": "BookOrbit のアドレス",
+  "BookOrbit username": "BookOrbit のユーザー名",
+  "BookOrbit password": "BookOrbit のパスワード",
+  "Saved. Type to replace it.": "保存済み。入力すると置き換えます。",
+  "BookOrbit database (read-only)": "BookOrbit データベース（読み取り専用）",
+  "Where the downloads folder is inside BookOrbit": "BookOrbit 内でのダウンロードフォルダの場所",
+  "Sync everything now": "今すぐすべて同期",
+  "Last attempt failed: {error}": "前回の試行に失敗: {error}",
+  "Last checked {when}. Sent to BookOrbit: {a} · Received: {b}": "最終確認 {when}。BookOrbit へ送信: {a} · 受信: {b}",
+  "Waiting for the first check.": "最初の確認を待っています。"
 }

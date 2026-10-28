@@ -1896,6 +1896,32 @@ CREATE INDEX IF NOT EXISTS collections_shared_idx ON collections (shared) WHERE 
 ALTER TABLE server_settings ADD COLUMN IF NOT EXISTS backup_enabled boolean NOT NULL DEFAULT true;
 ALTER TABLE server_settings ADD COLUMN IF NOT EXISTS backup_keep int;
 
+-- Two-way reading-state sync with BookOrbit (lib/bookorbitSync.ts). One link (the admin who set it up, their own reading);
+-- secrets are sealed. bookorbit_sync_state remembers what each side looked like at the last sync, per chapter.
+CREATE TABLE IF NOT EXISTS bookorbit_link (
+  user_id      uuid PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  enabled      boolean NOT NULL DEFAULT false,
+  url          text NOT NULL DEFAULT '',
+  username     text NOT NULL DEFAULT '',
+  password_enc text,
+  db_url_enc   text,
+  path_prefix  text NOT NULL DEFAULT '/books/manga',
+  last_run     timestamptz,
+  full_at      timestamptz,
+  last_result  jsonb,
+  last_error   text
+);
+CREATE TABLE IF NOT EXISTS bookorbit_sync_state (
+  user_id   uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  book_id   text NOT NULL,
+  ui_page   int NOT NULL,
+  ui_done   boolean NOT NULL,
+  bo_page   int NOT NULL,
+  bo_done   boolean NOT NULL,
+  synced_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, book_id)
+);
+
 -- Admin -> Library -> Unmapped files: a file an admin deleted is moved to <downloads>/.recycle and recorded here, restorable
 -- until unmapped_recycle_days have passed (lib/unmapped.ts). Additive: older versions ignore both.
 CREATE TABLE IF NOT EXISTS unmapped_recycle (

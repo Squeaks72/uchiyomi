@@ -2,7 +2,7 @@
   "_meta": {
     "language": "ar",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 5326
+    "strings": 5343
   },
   "1 check found something": "فحص واحد وجد شيئًا",
   "1 member": "عضو واحد",
@@ -5329,5 +5329,22 @@
   "Every file needs a chapter number.": "يحتاج كل ملف إلى رقم فصل.",
   "Two files have the same chapter number.": "يحمل ملفان رقم الفصل نفسه.",
   "Mapping…": "جارٍ الربط…",
-  "Map": "ربط"
+  "Map": "ربط",
+  "BookOrbit sync": "مزامنة BookOrbit",
+  "Could not test the connection": "تعذّر اختبار الاتصال",
+  "A sync is already running": "المزامنة قيد التشغيل بالفعل",
+  "Sent to BookOrbit: {a} · Received: {b}": "أُرسل إلى BookOrbit: {a} · استُلم: {b}",
+  "Could not sync": "تعذّرت المزامنة",
+  "Keeps your reading place and finished chapters the same in Uchiyomi and BookOrbit, in both directions. Chapters are matched by file path, so only series BookOrbit also holds are synced. The newest change wins, and a finished chapter is never marked unread.": "تُبقي موضع قراءتك والفصول المنتهية متطابقة في Uchiyomi وBookOrbit في الاتجاهين. تُطابَق الفصول بمسار الملف، لذا تُزامَن فقط السلاسل التي يملكها BookOrbit أيضاً. يفوز أحدث تغيير ولا يُعلَّم فصل منتهٍ كغير مقروء أبداً.",
+  "Sync with BookOrbit": "المزامنة مع BookOrbit",
+  "BookOrbit address": "عنوان BookOrbit",
+  "BookOrbit username": "اسم مستخدم BookOrbit",
+  "BookOrbit password": "كلمة مرور BookOrbit",
+  "Saved. Type to replace it.": "محفوظ. اكتب للاستبدال.",
+  "BookOrbit database (read-only)": "قاعدة بيانات BookOrbit (للقراءة فقط)",
+  "Where the downloads folder is inside BookOrbit": "مكان مجلد التنزيلات داخل BookOrbit",
+  "Sync everything now": "زامِن كل شيء الآن",
+  "Last attempt failed: {error}": "فشلت المحاولة الأخيرة: {error}",
+  "Last checked {when}. Sent to BookOrbit: {a} · Received: {b}": "آخر فحص {when}. أُرسل إلى BookOrbit: {a} · استُلم: {b}",
+  "Waiting for the first check.": "في انتظار أول فحص."
 }
