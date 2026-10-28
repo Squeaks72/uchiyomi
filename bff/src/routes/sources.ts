@@ -103,7 +103,7 @@ import {
 } from '../lib/numbering';
 import { numKey } from '../lib/postingOrder';
 import { groupStats } from '../lib/groupStats';
-import { fetchAniListArt, TREND_COUNTRIES, type TrendCountry } from '../lib/anilist';
+import { fetchAniListArt, TREND_COUNTRIES, TAG_SORTS, fetchTagCollection, searchByTags, type TrendCountry, type TagSort, type TagInfo } from '../lib/anilist';
 import { trendingFor } from '../lib/trending';
 import { adultOk, becauseYouRead } from '../lib/anilistRelated';
 import { automaticAniListAllowed, withAniListMutation } from '../lib/anilistPolicy';
@@ -3754,6 +3754,59 @@ export default async function sourceRoutes(app: FastifyInstance) {
       return !held && adultOk({ adult: false, genres: t.genres }, ctx) && !seen.has(k) && (seen.add(k), true);
     });
     return { content: out.slice(0, TREND_KEEP), pending: false };
+  });
+
+  // Discover by tags: AniList's tag and genre lists for the picker, and manga that carry every tag asked for. Like trending,
+  // what the library already holds is left out, and what this viewer may not see (18+ for an account that hides it, or one
+  // capped below 18) is never asked for or shown.
+  app.get('/api/discover/tag-list', async (req, reply) => {
+    reply.header('cache-control', 'private, max-age=3600');
+    try {
+      const { tags, genres } = await fetchTagCollection();
+      const ctx = vc(req);
+      const hidden = ctx.hideAdultLibraries || (ctx.maxAgeRating !== null && ctx.maxAgeRating < 18);
+      return { tags: hidden ? tags.filter((t) => !t.adult) : tags, genres: hidden ? genres.filter((g) => g !== 'Hentai') : genres };
+    } catch {
+      return reply.code(503).send({ error: 'unavailable', message: 'AniList could not be reached for its tag list.' });
+    }
+  });
+
+  app.get('/api/discover/by-tags', async (req, reply) => {
+    reply.header('cache-control', 'no-store');
+    const qs = req.query as Record<string, string | string[] | undefined>;
+    const list = (k: string): string[] => [qs[k]].flat().flatMap((v) => String(v ?? '').split(',')).map((v) => v.trim()).filter(Boolean).slice(0, 12);
+    const { tags: known, genres: knownGenres } = await fetchTagCollection().catch(() => ({ tags: [] as TagInfo[], genres: [] as string[] }));
+    const tagNames = new Map(known.map((t) => [t.name.toLowerCase(), t.name]));
+    const genreNames = new Map(knownGenres.map((g) => [g.toLowerCase(), g]));
+    // Each asked-for name is one AniList knows (spelled its way); an unknown one is refused rather than silently dropped.
+    const tags: string[] = []; const genres: string[] = []; const notTags: string[] = [];
+    for (const n of list('tag')) { const t = tagNames.get(n.toLowerCase()); const g = genreNames.get(n.toLowerCase()); if (t) tags.push(t); else if (g) genres.push(g); else return reply.code(400).send({ error: 'bad_request', message: `AniList has no tag or genre called "${n}".` }); }
+    for (const n of list('exclude')) { const t = tagNames.get(n.toLowerCase()); if (t) notTags.push(t); }
+    if (!tags.length && !genres.length) return reply.code(400).send({ error: 'bad_request', message: 'Pick at least one tag or genre.' });
+    const country = String(qs.country ?? '').toUpperCase();
+    const sort = String(qs.sort ?? 'POPULARITY_DESC') as TagSort;
+    const ctx = vc(req);
+    const safeOnly = ctx.hideAdultLibraries || (ctx.maxAgeRating !== null && ctx.maxAgeRating < 18);
+    // An adult tag asked for by a viewer who may not see them answers nothing, instead of the unfiltered list.
+    if (safeOnly && tags.some((t) => known.find((k) => k.name === t)?.adult)) return { content: [], hasNext: false };
+    let found;
+    try {
+      found = await searchByTags({
+        tags, genres, notTags, safeOnly,
+        country: (TREND_COUNTRIES as readonly string[]).includes(country) ? (country as TrendCountry) : null,
+        sort: (TAG_SORTS as readonly string[]).includes(sort) ? sort : 'POPULARITY_DESC',
+        page: Math.min(20, Math.max(1, Number(qs.page) || 1)),
+      });
+    } catch (e) {
+      return reply.code(503).send({ error: 'unavailable', message: `AniList could not search: ${(e as Error).message}` });
+    }
+    const idx = await libraryIndex().catch(() => noIndex());
+    const out = found.items.filter((t) => {
+      const held = heldFor(idx, { source: '', sourceId: '', title: t.title }).length > 0
+        || (t.id != null && (idx.byWork.get(`al:${t.id}`)?.length ?? 0) > 0);
+      return !held && adultOk({ adult: t.adult, genres: t.genres }, ctx);
+    });
+    return { content: out, hasNext: found.hasNext };
   });
 
   /**

@@ -16,6 +16,7 @@ import { ProgressBar, Reveal } from '@/components/ui';
 import { SourceCard, SourceItem, StillLoadingCard } from '@/components/cards';
 import { ScrollRail } from '@/components/ScrollRail';
 import { useIsHiddenTitle } from '@/lib/ignoredTitles';
+import { TagFinder } from '@/components/TagFinder';
 import { DiscoverHero, heroPoll, MenuTrendingCard, Trending } from '@/components/DiscoverHero';
 import { ForYouBand } from '@/components/ForYouBand';
 import { pollAfter, type Recommendations } from '@/lib/recommendations';
@@ -263,6 +264,7 @@ function DiscoverInner() {
   // go by the page being fetched, so page 2 asks four at a time as page 1 does.
   const [upTo, setUpTo] = useState<Record<string, number>>({});
   const [seed, setSeed] = useState<AddSeed | null>(null);
+  const [tagsOpen, setTagsOpen] = useState(false);
   /**
    * What this visit added, by work (v0.56.0; by title before): off the wall at once, and "In library" in a search, with
    * no refetch. `fromKey` is the work of the card the open dialog came from -- null from the hero, which has none.
@@ -828,8 +830,11 @@ function DiscoverInner() {
               )}
             </div>
             <button type="submit" className="btn-accent shrink-0 px-5 py-2.5 text-sm">{tr('Search')}</button>
+            <button type="button" onClick={() => setTagsOpen((o) => !o)} aria-expanded={tagsOpen} data-tags-toggle
+              className={`chip shrink-0 py-2.5 text-sm ${tagsOpen ? 'border-accent/60 text-fog-50' : ''}`}>{tr('Tags')}</button>
           </form>
         </div>
+        {tagsOpen && <TagFinder onPick={pickRail} onSearch={searchFor} onClose={() => setTagsOpen(false)} />}
       </header>
 
       {/*

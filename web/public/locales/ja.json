@@ -2,7 +2,7 @@
   "_meta": {
     "language": "ja",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 5070
+    "strings": 5083
   },
   "1 check found something": "1 件のチェックで問題を検出",
   "1 member": "メンバー 1 人",
@@ -5073,5 +5073,18 @@
   "Sync everything now": "今すぐすべて同期",
   "Last attempt failed: {error}": "前回の試行に失敗: {error}",
   "Last checked {when}. Sent to BookOrbit: {a} · Received: {b}": "最終確認 {when}。BookOrbit へ送信: {a} · 受信: {b}",
-  "Waiting for the first check.": "最初の確認を待っています。"
+  "Waiting for the first check.": "最初の確認を待っています。",
+  "Tags": "タグ",
+  "Any origin": "すべての国",
+  "Trending": "トレンド",
+  "Find by tags": "タグで探す",
+  "Remove {tag}": "{tag} を外す",
+  "Add a tag or genre, such as Time Loop or Romance": "タグまたはジャンルを追加（例: Time Loop、Romance）",
+  "Add a tag or genre": "タグまたはジャンルを追加",
+  "A series must have every tag you pick. Start with - to leave one out, such as -gore.": "選んだタグをすべて含むシリーズが対象です。除外するには - で始めます（例: -gore）。",
+  "The tag list could not be loaded from AniList. Try again in a moment.": "AniList からタグ一覧を読み込めませんでした。少し待ってからもう一度お試しください。",
+  "Searching AniList…": "AniList を検索中…",
+  "The search failed.": "検索に失敗しました。",
+  "Nothing new matches all of those. Try fewer tags, or another origin.": "すべてに一致する新しい作品はありません。タグを減らすか、別の国をお試しください。",
+  "Show more": "もっと見る"
 }
