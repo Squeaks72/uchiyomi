@@ -2021,7 +2021,7 @@ function SeriesInner() {
   const libraryName = libraries?.find((l) => l.id === series?.libraryId)?.name;
   const metaBits: ReactNode[] = [
     // Which library this series is in, at a glance; it opens the Library filtered to that one.
-    libraryName ? <Link href={`/library/?lib=${encodeURIComponent(series!.libraryId)}`} data-series-library className="rounded-md bg-white/10 px-2 py-0.5 text-2xs font-semibold uppercase tracking-wide text-fog-100 hover:bg-white/20 rtl:tracking-normal">{libraryName}</Link> : null,
+    libraryName ? <Link href={`/library/?lib=${encodeURIComponent(series!.libraryId)}`} data-series-library className="pointer-events-auto relative rounded-md bg-white/10 px-2 py-0.5 text-2xs font-semibold uppercase tracking-wide text-fog-100 hover:bg-white/20 rtl:tracking-normal">{libraryName}</Link> : null,
     // v0.100.0 (#338): each name on the author line opens the Library showing that person's series. Only the author's: the
     // publisher shown in its place when there is none names no one the Library could list.
     meta?.author ? <AuthorLinks line={meta.author} />
