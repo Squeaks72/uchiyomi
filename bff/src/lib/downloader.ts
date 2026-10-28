@@ -24,6 +24,7 @@ import { fetchFollowingPublic, readCapped } from './safeFetch';
 import { isSwAdapterId } from './sources/suwayomi/sources';
 import { numKey } from './postingOrder';
 import { onEngineOrigin } from './sources/suwayomi/client';
+import { chapterFileName, comicTitle, OWN_FILE } from './chapterFile';
 
 /**
  * A title as a folder name.
@@ -66,7 +67,7 @@ function comicInfo(d: { series: string; number: number; title?: string; summary?
   return [
     '<?xml version="1.0" encoding="UTF-8"?>',
     '<ComicInfo>',
-    `  <Title>${esc(d.title || `Chapter ${d.number}`)}</Title>`,
+    `  <Title>${esc(comicTitle(d.series, d.title, d.number))}</Title>`,
     `  <Series>${esc(d.series)}</Series>`,
     `  <Number>${d.number}</Number>`,
     `  <Summary>${esc(d.summary)}</Summary>`,
@@ -301,10 +302,10 @@ export function freeBytes(): Promise<number | null> {
  * answers with `\` so none of the three ever matched. Identical on Linux, which is why only a static check
  * can catch a regression (desktopSwitchHygiene.test.ts).
  */
-export const chapterFileRel = (seriesFolder: string, number: number): string => posix.join(seriesFolder, `Chapter ${number}.cbz`);
+export const chapterFileRel = (seriesFolder: string, number: number): string => posix.join(seriesFolder, chapterFileName(seriesFolder, number));
 
 /** The downloader's own file name, and the number it spells: `Chapter 84.3.cbz`, `Chapter -1.cbz`. */
-const OWN_NAME = /^Chapter (-?\d+(?:\.\d+)?)\.cbz$/;
+const OWN_NAME = OWN_FILE;
 
 /**
  * Is chapter `number` already in the folder of `abs` under another spelling of its number: `Chapter

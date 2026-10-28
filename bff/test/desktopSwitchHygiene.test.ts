@@ -167,7 +167,7 @@ test('chapterFileRel joins with posix.join, so Windows stores `/` like everyone 
   // Reintroduce by writing `join(seriesFolder, …)` again: identical on Linux, `Src\T\Chapter 1.cbz` on Windows,
   // and the repair, the Health "Fix" chip and "Fetch again" never match that chapter.
   const dl = code(read('lib/downloader.ts'));
-  assert.match(dl, /export const chapterFileRel = \(seriesFolder: string, number: number\): string => posix\.join\(seriesFolder, `Chapter \$\{number\}\.cbz`\);/,
+  assert.match(dl, /export const chapterFileRel = \(seriesFolder: string, number: number\): string => posix\.join\(seriesFolder, chapterFileName\(seriesFolder, number\)\);/,
     'chapterFileRel does not use posix.join');
 });
 

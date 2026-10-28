@@ -41,7 +41,7 @@ import { cleanSourceOrder } from '../lib/sourcePrefs';
 import { editionInfo } from '../lib/editions';
 import { effectiveLang, seriesLanguage } from '../lib/seriesLang';
 import { copyLang, languageRulesFor, type LanguageRules } from '../lib/copyLanguage';
-import { chapterFileRel } from '../lib/downloader';
+import { isOwnFile } from '../lib/chapterFile';
 import { DL_ROOT, LIBRARY_ROOT, lastScanFailure, lastScanReport, scanProgress, scanRunning } from '../lib/library';
 import { noticeBook, noticeListed, noticesShortOnly } from '../lib/noticeChapters';
 import { noticeTypes, hiddenCount } from '../lib/noticeSettings';
@@ -991,7 +991,7 @@ export default async function catalogRoutes(app: FastifyInstance) {
       const bookIds: string[] = [];
       for (const b of books) {
         const number = Number(b.number);
-        if (b.number_end != null || b.root !== DL_ROOT || b.file !== chapterFileRel(series.folder, number) || !replaceable.has(number)) continue;
+        if (b.number_end != null || b.root !== DL_ROOT || !isOwnFile(b.file, series.folder, number) || !replaceable.has(number)) continue;
         const lang = otherLanguageOf({ lang: b.lang, source: b.source_id });
         if (!lang) continue;
         bookIds.push(b.id);

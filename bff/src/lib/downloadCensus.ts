@@ -14,7 +14,7 @@ import { join, posix } from 'path';
 import { stat, statfs } from 'fs/promises';
 import { q } from './db';
 import { DL_ROOT, SKIP_DIR, SCAN_MAX_DEPTH, listDir, nodeFs, lastScanReport, type WalkFs, type ScanReport, type WalkReason } from './library';
-import { chapterFileRel } from './downloader';
+import { chapterFileNames } from './chapterFile';
 import { visibleToAll } from './visibility';
 import { english, joined, say, saidOf, type Part, type Said } from './said';
 import { setAsideByRoot } from './setAside';
@@ -324,14 +324,14 @@ export const countsAsMissing = (m: MissingFolder): boolean => m.ours || m.kind !
 export async function notInLibrary(folder: string, numbers: number[]): Promise<number[]> {
   const uniq = [...new Set(numbers)];
   if (!uniq.length) return [];
-  const files = uniq.map((n) => chapterFileRel(folder, n));
+  const files = uniq.flatMap((n) => chapterFileNames(folder, n).map((f) => posix.join(folder, f)));
   const rows = await q<{ file: string }>(
     `SELECT b.file FROM lib_books b JOIN lib_series s ON s.id = b.series_id
       WHERE b.root = $1 AND b.file = ANY($2) AND b.pruned_at IS NULL AND ${visibleToAll('s')}`,
     [DL_ROOT, files],
   );
   const have = new Set(rows.map((r) => r.file));
-  return uniq.filter((n) => !have.has(chapterFileRel(folder, n)));
+  return uniq.filter((n) => !chapterFileNames(folder, n).some((f) => have.has(posix.join(folder, f))));
 }
 
 /** The job card's words for chapters that landed on disk and not in the library. */
