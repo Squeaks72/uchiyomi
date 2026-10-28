@@ -2,7 +2,7 @@
   "_meta": {
     "language": "de",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 5336
+    "strings": 5349
   },
   "1 check found something": "1 Prüfung hat etwas gefunden",
   "1 member": "1 Mitglied",
@@ -5339,5 +5339,18 @@
   "Sync everything now": "Jetzt alles abgleichen",
   "Last attempt failed: {error}": "Letzter Versuch fehlgeschlagen: {error}",
   "Last checked {when}. Sent to BookOrbit: {a} · Received: {b}": "Zuletzt geprüft {when}. An BookOrbit gesendet: {a} · Empfangen: {b}",
-  "Waiting for the first check.": "Warte auf die erste Prüfung."
+  "Waiting for the first check.": "Warte auf die erste Prüfung.",
+  "Tags": "Tags",
+  "Any origin": "Beliebige Herkunft",
+  "Trending": "Im Trend",
+  "Find by tags": "Nach Tags suchen",
+  "Remove {tag}": "{tag} entfernen",
+  "Add a tag or genre, such as Time Loop or Romance": "Tag oder Genre hinzufügen, z. B. Time Loop oder Romance",
+  "Add a tag or genre": "Tag oder Genre hinzufügen",
+  "A series must have every tag you pick. Start with - to leave one out, such as -gore.": "Eine Serie muss alle gewählten Tags haben. Mit - beginnen, um eines auszuschließen, z. B. -gore.",
+  "The tag list could not be loaded from AniList. Try again in a moment.": "Die Tag-Liste konnte nicht von AniList geladen werden. Versuche es gleich noch einmal.",
+  "Searching AniList…": "AniList wird durchsucht…",
+  "The search failed.": "Die Suche ist fehlgeschlagen.",
+  "Nothing new matches all of those. Try fewer tags, or another origin.": "Nichts Neues passt zu allen. Versuche weniger Tags oder eine andere Herkunft.",
+  "Show more": "Mehr anzeigen"
 }

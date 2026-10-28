@@ -2,7 +2,7 @@
   "_meta": {
     "language": "ar",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 5343
+    "strings": 5356
   },
   "1 check found something": "فحص واحد وجد شيئًا",
   "1 member": "عضو واحد",
@@ -5346,5 +5346,18 @@
   "Sync everything now": "زامِن كل شيء الآن",
   "Last attempt failed: {error}": "فشلت المحاولة الأخيرة: {error}",
   "Last checked {when}. Sent to BookOrbit: {a} · Received: {b}": "آخر فحص {when}. أُرسل إلى BookOrbit: {a} · استُلم: {b}",
-  "Waiting for the first check.": "في انتظار أول فحص."
+  "Waiting for the first check.": "في انتظار أول فحص.",
+  "Tags": "الوسوم",
+  "Any origin": "أي أصل",
+  "Trending": "الرائج",
+  "Find by tags": "البحث بالوسوم",
+  "Remove {tag}": "إزالة {tag}",
+  "Add a tag or genre, such as Time Loop or Romance": "أضف وسماً أو نوعاً، مثل Time Loop أو Romance",
+  "Add a tag or genre": "إضافة وسم أو نوع",
+  "A series must have every tag you pick. Start with - to leave one out, such as -gore.": "يجب أن تحمل السلسلة كل الوسوم التي تختارها. ابدأ بـ - لاستبعاد وسم، مثل -gore.",
+  "The tag list could not be loaded from AniList. Try again in a moment.": "تعذّر تحميل قائمة الوسوم من AniList. حاول مجدداً بعد قليل.",
+  "Searching AniList…": "جارٍ البحث في AniList…",
+  "The search failed.": "فشل البحث.",
+  "Nothing new matches all of those. Try fewer tags, or another origin.": "لا جديد يطابقها كلها. جرّب وسوماً أقل أو أصلاً آخر.",
+  "Show more": "عرض المزيد"
 }

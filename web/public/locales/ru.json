@@ -2,7 +2,7 @@
   "_meta": {
     "language": "ru",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 5336
+    "strings": 5349
   },
   "1 check found something": "1 проверка нашла проблему",
   "1 member": "1 участник",
@@ -5339,5 +5339,18 @@
   "Sync everything now": "Синхронизировать всё сейчас",
   "Last attempt failed: {error}": "Последняя попытка не удалась: {error}",
   "Last checked {when}. Sent to BookOrbit: {a} · Received: {b}": "Последняя проверка {when}. Отправлено в BookOrbit: {a} · Получено: {b}",
-  "Waiting for the first check.": "Ожидание первой проверки."
+  "Waiting for the first check.": "Ожидание первой проверки.",
+  "Tags": "Теги",
+  "Any origin": "Любое происхождение",
+  "Trending": "В тренде",
+  "Find by tags": "Поиск по тегам",
+  "Remove {tag}": "Убрать {tag}",
+  "Add a tag or genre, such as Time Loop or Romance": "Добавьте тег или жанр, например Time Loop или Romance",
+  "Add a tag or genre": "Добавить тег или жанр",
+  "A series must have every tag you pick. Start with - to leave one out, such as -gore.": "У серии должны быть все выбранные теги. Начните с -, чтобы исключить тег, например -gore.",
+  "The tag list could not be loaded from AniList. Try again in a moment.": "Не удалось загрузить список тегов из AniList. Повторите чуть позже.",
+  "Searching AniList…": "Поиск в AniList…",
+  "The search failed.": "Поиск не удался.",
+  "Nothing new matches all of those. Try fewer tags, or another origin.": "Нового, подходящего под все теги, нет. Попробуйте меньше тегов или другое происхождение.",
+  "Show more": "Показать ещё"
 }
