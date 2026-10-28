@@ -328,7 +328,7 @@ test('the digest says which version each extension moved from and to', async () 
   const r = await runExtensionCheck({}, d.deps as any);
 
   assert.deepEqual(r.updated, [{ name: 'Alpha', from: '1.4.8', to: '1.4.9' }]);
-  assert.match(d.pushes[0].body, /1\.4\.8 → 1\.4\.9/);
+  assert.deepEqual(d.pushes, [], 'extension updates are no notification');
 });
 
 test('with automatic updates off, updates are counted and named but never applied', async () => {
@@ -343,13 +343,7 @@ test('with automatic updates off, updates are counted and named but never applie
   assert.deepEqual(r.updatesAvailable, ['Alpha']);
   assert.deepEqual(r.updated, []);
   assert.ok(!e.ops.some((o) => o.startsWith('update:')), 'the kill switch did not stop the install');
-  assert.equal(d.pushes.length, 1);
-  assert.match(d.pushes[0].title, /waiting/);
-
-  // Reintroduce by removing the comparison with settings.last: the same waiting set nags on every check.
-  const before = d.pushes.length;
-  await runExtensionCheck({}, d.deps as any);
-  assert.equal(d.pushes.length, before, 'the same set of waiting updates notified twice');
+  assert.deepEqual(d.pushes, [], 'updates waiting are no notification either');
 });
 
 test('"Update all" overrides the kill switch, because a person just asked for it', async () => {
@@ -545,7 +539,7 @@ test('a check that throws clears the last result rather than leaving the last go
   assert.ok(lines.some((l) => /boom/.test(l)), 'the reason has to reach the log');
 });
 
-test('a backup\'s update is no notification: it is updated like any other, and named only in the panel', async () => {
+test('extension updates are no notification, a backup\'s included: it is updated like any other, and named only in the panel', async () => {
   // v0.82.0 (lib/backupExtensions.ts): nobody installed a backup extension, and "MangaBolt updated" would be news about
   // something nobody chose. Reintroduce by notifying them all (drop `quiet` in runExtensionCheck): MangaBolt is in the
   // push.
@@ -556,9 +550,7 @@ test('a backup\'s update is no notification: it is updated like any other, and n
   const r = await runExtensionCheck({}, d.deps as any);
 
   assert.deepEqual(r.updated.map((u) => u.name).sort(), ['Alpha', 'MangaBolt'], 'both are updated, and the panel says both');
-  assert.equal(d.pushes.length, 1);
-  assert.match(d.pushes[0].title, /^Alpha updated$/, 'the push names only the one a person installed');
-  assert.doesNotMatch(d.pushes[0].body, /MangaBolt/);
+  assert.deepEqual(d.pushes, [], 'extension updates are no notification');
 
   // A check where only a backup changed sends nothing at all.
   const e2 = engine([upToDate('org.x.a', 'Alpha'), hasNewer('org.x.bolt', 'MangaBolt')], { repos: ['https://r/i.json'] });
