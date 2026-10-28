@@ -81,7 +81,8 @@ import {
   startDownloadJob, clearLatestCache, FILL_MAX_CHAPTERS, REFRESH_BUDGET_MS,
 } from './sources';
 import { confirmsTitle } from '../lib/confirmTitle';
-import { chapterFileRel, sanitize } from '../lib/downloader';
+import { sanitize } from '../lib/downloader';
+import { isOwnFile } from '../lib/chapterFile';
 import { REFETCH_BAK } from '../lib/fsAtomic';
 import type { SourceChapter } from '../lib/sources/types';
 import { getPlan, followable } from '../lib/fill';
@@ -2840,7 +2841,7 @@ export default async function adminRoutes(app: FastifyInstance) {
       // The root itself can never be the chapter file (the path check below already forbids it: a chapter
       // file ends in `Chapter <n>.cbz`), but the rename below is a destructive move and the comparison is
       // free -- the same guard the delete route and the cleanup carry.
-      if (!abs || realSafe !== abs || abs === root || r.file !== chapterFileRel(s.folder, number)) { skipped.push({ id: bid, reason: 'not_ours' }); continue; }
+      if (!abs || realSafe !== abs || abs === root || !isOwnFile(r.file, s.folder, number)) { skipped.push({ id: bid, reason: 'not_ours' }); continue; }
       eligible.push({ id: bid, number, file: r.file, abs, pruned: !!r.pruned_at });
     }
     // The listing is refreshed FIRST, so the copy fetched is the one the release rules choose NOW -- which

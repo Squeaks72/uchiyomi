@@ -7,7 +7,8 @@ import { actsAsAdmin, authenticate, userIdOf, roleOf } from '../lib/auth';
 import { getSource, listSources, isSwAdapterId, SW_PREFIX, swAdapterId, withTimeout } from '../lib/sources';
 import { MANGADEX_GROUP } from '../lib/sources/mangadex';
 import type { SourceAdapter, SourceSeries, SourceChapter } from '../lib/sources/types';
-import { chapterFileRel, sanitize, type DownloadInput } from '../lib/downloader';
+import { sanitize, type DownloadInput } from '../lib/downloader';
+import { isOwnFile } from '../lib/chapterFile';
 import { downloadWithFallback } from '../lib/chapterFallback';
 import { selectChapters, type ChapterFrom } from '../lib/selectChapters';
 import { noteChapterFailure } from '../lib/chapterFailures';
@@ -3029,7 +3030,7 @@ export default async function sourceRoutes(app: FastifyInstance) {
       && row.root === DL_ROOT
       && Number.isFinite(n)
       && row.number_end == null
-      && row.file === chapterFileRel(row.folder, n)
+      && isOwnFile(row.file, row.folder, n)
       && deliberatelyDeleted({ pruned: row.pruned_at != null, prunedReason: row.pruned_reason })
       && !!row.source_id
       && !!row.source_chapter_id;
@@ -3110,7 +3111,7 @@ export default async function sourceRoutes(app: FastifyInstance) {
           if (!current || current.series_id !== row.series_id || current.root !== DL_ROOT
               || Number(current.number) !== n || current.number_end != null
               || current.source_id !== row.source_id || current.source_chapter_id !== row.source_chapter_id
-              || current.file !== chapterFileRel(current.folder, n)
+              || !isOwnFile(current.file, current.folder, n)
               || !deliberatelyDeleted({ pruned: current.pruned_at != null, prunedReason: current.pruned_reason })) return false;
           const currentPath = await realContainedPath(DL_ROOT, current.file);
           const currentSource = getSource(current.source_id!);

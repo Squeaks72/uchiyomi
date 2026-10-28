@@ -40,7 +40,7 @@ import { cbzPageDims, DL_ROOT, LIBRARY_ROOT, lastScanReport, QUIET_WALK, type Wa
 import { longStrip, type PageDim } from './longStrip';
 import { countsAsMissing, downloadCensus, fsTypeOf, type Census } from './downloadCensus';
 import { applyIgnores, keepIgnoresAlive, loadIgnores, noIgnores, type Finding, type IgnorableCheck, type IgnoreCtx } from './healthIgnore';
-import { chapterFileRel } from './downloader';
+import { isOwnFile } from './chapterFile';
 import { slowedSources } from './pace';
 import { forDesktop, isDesktop } from './desktop';
 import { archiveHoles, archiveTakes, type ArchiveHoles } from './archiveBoundaries';
@@ -829,7 +829,7 @@ async function shortChapters(): Promise<HealthCheck> {
     // "Fix" replaces the file, so it is offered ONLY for a file this server downloaded and named itself:
     // the download root, under exactly the name chapterFileRel writes. Somebody's own copy in the read
     // library is never ours to replace -- for that, the only honest chip is "It's fine".
-    const owned = r.root === DL_ROOT && r.file === chapterFileRel(r.folder, Number(r.number));
+    const owned = r.root === DL_ROOT && isOwnFile(r.file, r.folder, Number(r.number));
     const confirmed = r.short_confirmed_at ? new Date(r.short_confirmed_at) : null;
     // Saved with placeholder pages (lib/partial.ts): the chapter sweep re-fetches those, up to 10 a night,
     // and the repair's short step skips the chapter (`missing_pages IS NULL`), so "Fix" on it did nothing at

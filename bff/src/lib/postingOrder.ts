@@ -522,7 +522,9 @@ export function renumberedFile(file: string, n: number, k = 1): string {
   const base = file.slice(cut + 1);
   const dot = base.lastIndexOf('.');
   const ext = dot > 0 ? base.slice(dot) : '';
-  return `${dir}Chapter ${n}${k > 1 ? ` (${k})` : ''}${ext}`;
+  // A file that carries its series (`Blue Box - Chapter 7.cbz`, lib/chapterFile.ts) keeps it.
+  const prefix = /^(.* - )Chapter -?\d+(?:\.\d+)?(?: \(\d+\))?\.[A-Za-z0-9]+$/.exec(base)?.[1] ?? '';
+  return `${dir}${prefix}Chapter ${n}${k > 1 ? ` (${k})` : ''}${ext}`;
 }
 
 const baseName = (file: string): string => {

@@ -57,7 +57,8 @@ import { numberHiddenNow } from './hiddenChapters';
 import { archiveHoles, type ArchiveHoles } from './archiveBoundaries';
 import { DL_ROOT, persistScan, setBookDates, setBookMeta } from './library';
 import { restampBook } from './partial';
-import { chapterFileRel, downloadChapter, DownloadPreflightError, type DownloadInput, type DownloadPreflight } from './downloader';
+import { isOwnFile } from './chapterFile';
+import { downloadChapter, DownloadPreflightError, type DownloadInput, type DownloadPreflight } from './downloader';
 import { getSource, withTimeout, type SourceChapter } from './sources';
 import { budgetFor } from './sources/budget';
 import { resetSolverSessions, solverPing } from './sources/flaresolverr';
@@ -962,7 +963,7 @@ async function whyNotShort(bookId: string): Promise<string> {
 async function stepShort(r: RepairResult, opts: RepairOpts, budget: { left: number }, notes: Notes, log?: Log): Promise<RepairResult['stopped']> {
   // An unmonitored series (auto_update off) is left out of the unattended pass; a Fix pressed on one of its chapters
   // (`opts.bookId`) is a person asking, and still runs.
-  // ⚠️ `b.file = <folder>/Chapter <n>.cbz` is chapterFileRel (lib/downloader.ts) written in SQL, which is
+  // ⚠️ `b.file = <folder>/[<series> - ]Chapter <n>.cbz` is chapterFileRel (lib/downloader.ts) written in SQL, which is
   // safe only because `b.number = floor(b.number)` is in the same WHERE: the cast to int is exact for a
   // whole number and nothing else. A file under any other name is somebody's own copy, not ours.
   const cap = opts.bookId ? REPAIR_SHORT_MAX : opts.autofix ? UNCAPPED : REPAIR_SHORT_MAX;
@@ -972,7 +973,9 @@ async function stepShort(r: RepairResult, opts: RepairOpts, budget: { left: numb
        FROM lib_books b JOIN lib_series s ON s.id = b.series_id AND ${visibleToAll('s')}
       WHERE b.pages BETWEEN 1 AND 2 AND b.number = floor(b.number)
         AND b.pruned_at IS NULL AND b.short_confirmed_at IS NULL AND b.missing_pages IS NULL
-        AND b.root = $1 AND b.file = s.folder || '/Chapter ' || (b.number::int)::text || '.cbz'
+        AND b.root = $1 AND starts_with(b.file, s.folder || '/')
+        AND (b.file = s.folder || '/Chapter ' || (b.number::int)::text || '.cbz'
+             OR right(b.file, length(' - Chapter ' || (b.number::int)::text || '.cbz')) = ' - Chapter ' || (b.number::int)::text || '.cbz')
         AND NOT ${atHiddenNumber('b')}
         ${opts.bookId ? 'AND b.id = $3' : 'AND s.auto_update'}
       ORDER BY b.mtime DESC LIMIT $2`,
@@ -983,7 +986,7 @@ async function stepShort(r: RepairResult, opts: RepairOpts, budget: { left: numb
   // the LIMIT mean "twenty candidates"); this is the answer. If the two ever disagree -- a rename of the
   // downloader's layout, a locale that formats a number differently -- this one wins, and it fails in the
   // safe direction: a chapter skipped, never somebody's read-library file replaced.
-  const named = rows0.filter((b) => b.file === chapterFileRel(b.folder, Number(b.number)));
+  const named = rows0.filter((b) => isOwnFile(b.file, b.folder, Number(b.number)));
   // ...and a chapter stitched into one or two long strips is left alone (v0.60.1, found in Squeaks72's fork): that is
   // what the series IS, not a failed download -- the rule Health has reported by since v0.55.10 (lib/longStrip.ts), which
   // this step never asked. So the nightly hunted other sources for intact webtoon chapters Health no longer showed, and
@@ -1361,7 +1364,7 @@ async function stepGroups(r: RepairResult, opts: RepairOpts, notes: Notes, log?:
   const candidates: GroupBook[] = [];
   for (const b of rows0) {
     if (candidates.length >= REPAIR_GROUPS_MAX) break;
-    if (b.file !== chapterFileRel(b.folder, Number(b.number))) continue;
+    if (!isOwnFile(b.file, b.folder, Number(b.number))) continue;
     const open = await automaticCopiesFor(b.series_id, b.copies ?? []);
     if (betterCopy(b, open, await prefsFor(b), null)) candidates.push(b);
   }

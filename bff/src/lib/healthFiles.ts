@@ -21,7 +21,7 @@
 import { q } from './db';
 import { visibleToAll } from './visibility';
 import { DL_ROOT } from './library';
-import { chapterFileRel } from './downloader';
+import { isOwnFile } from './chapterFile';
 import { containedPath } from './fsGuard';
 import { countPagesOrNull } from './pageCount';
 import { numKey } from './postingOrder';
@@ -93,7 +93,7 @@ export async function chapterFiles(ctx: IgnoreCtx = noIgnores()): Promise<Health
       const s = books[0];
       // Fetch again replaces the file, so it is offered ONLY for a file this server downloaded and named itself: the
       // download root, under exactly the name chapterFileRel writes -- what the refetch route itself refuses otherwise.
-      const owned = books.filter((b) => b.root === DL_ROOT && b.file === chapterFileRel(b.folder, Number(b.number)));
+      const owned = books.filter((b) => b.root === DL_ROOT && isOwnFile(b.file, b.folder, Number(b.number)));
       const others = books.length - owned.length;
       return {
         seriesId: s.series_id,
