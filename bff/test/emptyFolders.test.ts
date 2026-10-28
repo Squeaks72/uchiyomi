@@ -75,3 +75,24 @@ test('a root that is missing is skipped, not an error', async () => {
   const r = await sweepEmptyFolders(['/nonexistent/uchiyomi-root'], new Set());
   assert.deepEqual(r.removed, []);
 });
+
+test('after a series moved: its emptied source folder goes too, but never a parent that still holds something', async () => {
+  const { root, done } = await tree();
+  try {
+    const { pruneEmptyAncestors } = await import('../src/lib/emptyFolders');
+    await mkdir(join(root, 'Src (EN)/Title'), { recursive: true });
+    await mkdir(join(root, 'Busy (EN)/Title'), { recursive: true });
+    await mkdir(join(root, 'Busy (EN)/Other'), { recursive: true });
+    await mkdir(join(root, 'Lib/Kept'), { recursive: true });
+    const gone = await pruneEmptyAncestors([root], 'Src (EN)/Title', new Set(['Lib']));
+    assert.deepEqual(gone.map((p) => p.slice(root.length)), ['/Src (EN)/Title', '/Src (EN)']);
+    await pruneEmptyAncestors([root], 'Busy (EN)/Title', new Set());
+    assert.ok(await exists(join(root, 'Busy (EN)/Other')), 'a sibling series folder was removed');
+    assert.ok(!(await exists(join(root, 'Busy (EN)/Title'))));
+    await pruneEmptyAncestors([root], 'Lib/Kept', new Set(['Lib', 'Lib/Kept']));
+    assert.ok(await exists(join(root, 'Lib/Kept')), 'a kept folder was removed');
+    await writeFile(join(root, 'Busy (EN)/Other/c.cbz'), 'x');
+    await pruneEmptyAncestors([root], 'Busy (EN)/Other', new Set());
+    assert.ok(await exists(join(root, 'Busy (EN)/Other/c.cbz')), 'a file was lost');
+  } finally { await done(); }
+});
