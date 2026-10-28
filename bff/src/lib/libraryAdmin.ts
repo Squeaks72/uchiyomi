@@ -36,6 +36,7 @@ import { carries, standingsOf } from './sourceStanding';
 import { followGuard } from './seriesLang';
 import { followerLimit } from './followLimit';
 import { removeMergeDuplicates } from './extraCopies';
+import { pruneEmptyAncestors } from './emptyFolders';
 
 export interface SeriesRow {
   id: string;
@@ -1285,6 +1286,9 @@ export async function renameSeriesFolder(id: string, newFolder: string): Promise
       [id, dest, row.folder],
     );
   });
+  // The move can leave the folder it came out of (a source folder, say) empty; tidy it now, not at the nightly sweep.
+  // Best-effort: the rename is done, and a leftover empty folder is only clutter.
+  if (dest.toLowerCase() !== row.folder.toLowerCase()) await pruneEmptyAncestors(roots, row.folder).catch(() => []);
   return { ok: true };
 }
 

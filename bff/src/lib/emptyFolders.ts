@@ -15,12 +15,45 @@ import { DL_ROOT, LIBRARY_ROOT } from './library';
 const RECENT_MS = 60 * 60 * 1000;
 const SKIP = /^[.#@]/;
 
-export async function removeEmptyFolders(log?: { info: (m: string) => void; warn: (m: string) => void }): Promise<{ removed: string[] }> {
+/** The relative folders nothing may remove: library paths, and every folder a series row points at. */
+async function keptFolders(): Promise<Set<string>> {
   const keep = new Set<string>();
   for (const r of await q<{ p: string }>(
     `SELECT path AS p FROM library_paths UNION SELECT path FROM libraries WHERE path <> '' UNION SELECT folder FROM lib_series`)) {
     if (r.p) keep.add(r.p.replace(/^\/+|\/+$/g, ''));
   }
+  return keep;
+}
+
+/**
+ * After a series' folder moved away: remove what that left empty, walking up from its old spot. The old folder
+ * itself, then each parent in turn (the source folder it sat in), stopping at the first one that still holds
+ * anything, is a library folder or another series' folder, or is the root. `rmdir` only, so no file can be lost.
+ * No age check, unlike the nightly sweep: the folder was emptied by this very move, which is the point.
+ */
+export async function pruneEmptyAncestors(roots: string[], oldFolder: string, kept?: Set<string>): Promise<string[]> {
+  const keep = kept ?? await keptFolders();
+  const removed: string[] = [];
+  for (const root of roots) {
+    let rel = oldFolder.replace(/^\/+|\/+$/g, '');
+    while (rel && !keep.has(rel)) {
+      const dir = join(root, rel);
+      try {
+        if ((await stat(dir)).isSymbolicLink() || !(await stat(dir)).isDirectory()) break;
+        await rmdir(dir);
+        removed.push(dir);
+      } catch (e) {
+        if ((e as NodeJS.ErrnoException).code !== 'ENOENT') break;
+      }
+      const i = rel.lastIndexOf('/');
+      rel = i < 0 ? '' : rel.slice(0, i);
+    }
+  }
+  return removed;
+}
+
+export async function removeEmptyFolders(log?: { info: (m: string) => void; warn: (m: string) => void }): Promise<{ removed: string[] }> {
+  const keep = await keptFolders();
   const { removed } = await sweepEmptyFolders([...new Set([LIBRARY_ROOT, DL_ROOT])], keep);
   if (removed.length) log?.info(`empty folders: removed ${removed.length}`);
   return { removed };
