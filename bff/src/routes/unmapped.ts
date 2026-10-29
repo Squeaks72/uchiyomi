@@ -15,6 +15,7 @@ import { claimWriterFolders } from '../lib/bulkNewest';
 import { jobBusy } from './sources';
 import { runsInside } from '../lib/updater';
 import { listUnmapped, mapFiles, recycleFiles, listRecycled, restoreRecycled, purgeRecycled } from '../lib/unmapped';
+import { visibleToAll } from '../lib/visibility';
 
 /** A title as a folder name: no separators or characters a share refuses, no trailing dots. */
 export const folderNameOf = (title: string): string =>
@@ -31,9 +32,9 @@ export default async function unmappedRoutes(app: FastifyInstance) {
     if (!term) return { content: [] };
     return {
       content: await q<{ id: string; title: string; folder: string }>(
-        `SELECT id, title, folder FROM lib_series
-          WHERE deleted_at IS NULL AND merged_into IS NULL AND (title ILIKE $1 OR folder ILIKE $1)
-          ORDER BY title LIMIT 20`, [`%${term.replace(/[%_\\]/g, '\\$&')}%`]),
+        `SELECT s.id, s.title, s.folder FROM lib_series s
+          WHERE ${visibleToAll('s')} AND (s.title ILIKE $1 OR s.folder ILIKE $1)
+          ORDER BY s.title LIMIT 20`, [`%${term.replace(/[%_\\]/g, '\\$&')}%`]),
     };
   });
 
@@ -49,7 +50,7 @@ export default async function unmappedRoutes(app: FastifyInstance) {
     let id: string | null = null;
     if (b.data.seriesId) {
       const row = await one<{ id: string; folder: string }>(
-        'SELECT id, folder FROM lib_series WHERE id = $1 AND deleted_at IS NULL AND merged_into IS NULL', [b.data.seriesId]);
+        `SELECT s.id, s.folder FROM lib_series s WHERE s.id = $1 AND ${visibleToAll('s')}`, [b.data.seriesId]);
       if (!row) return reply.code(404).send({ error: 'not_found' });
       ({ id, folder } = row);
     } else {

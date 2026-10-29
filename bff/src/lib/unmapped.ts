@@ -18,6 +18,7 @@ import { q, one } from './db';
 import { DL_ROOT, SKIP_DIR, listDir, nodeFs } from './library';
 import { containedPath } from './fsGuard';
 import { setAsideByRoot } from './setAside';
+import { visibleToAll } from './visibility';
 
 /** What the scan reads as a chapter archive. EPUBs are not: a novel is not a chapter, so it is an "other file". */
 export const ARCHIVE_EXT = /\.(cbz|cbr|zip|rar|pdf)$/i;
@@ -109,7 +110,7 @@ export async function listUnmapped(): Promise<UnmappedListing> {
   await walk('', 0);
 
   const series = await q<{ id: string; title: string; folder: string }>(
-    'SELECT id, title, folder FROM lib_series WHERE deleted_at IS NULL AND merged_into IS NULL');
+    `SELECT id, title, folder FROM lib_series s WHERE ${visibleToAll('s')}`);
   const bySquash = new Map<string, { id: string; title: string; folder: string }>();
   for (const s of series) {
     for (const k of [squash(s.title), squash(posix.basename(s.folder))]) if (k && !bySquash.has(k)) bySquash.set(k, s);
