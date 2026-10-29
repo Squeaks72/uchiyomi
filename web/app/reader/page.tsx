@@ -1657,6 +1657,7 @@ function ReaderInner() {
     else if (action === 'fullscreen') toggleFullscreen();
     else if (action === 'menu') setChrome((c) => !c);
     else if (action === 'focus') toggleFocus();
+    else if (action === 'bookmark') void toggleBookmark();
     else if (action === 'exit') back();
   };
   const performRef = useRef(perform);
@@ -2150,10 +2151,19 @@ function ReaderInner() {
       .catch(() => {});
   }, [seriesId]);
 
+  // The mark that pops on the page when a bookmark is set or taken off (the key B, the star, the menu, a controller button): the
+  // star in the top bar may be hidden, and a key that changes nothing visible reads as a key that did nothing.
+  const [markFlash, setMarkFlash] = useState<{ on: boolean; page: number; at: number } | null>(null);
+  useEffect(() => {
+    if (!markFlash) return;
+    const t = setTimeout(() => setMarkFlash(null), 1300);
+    return () => clearTimeout(t);
+  }, [markFlash]);
   const toggleBookmark = async () => {
     if (!activeChapter || !pageInChapter) return;
     const k = markKey(activeChapter.id, pageInChapter);
     const on = marks.has(k);
+    setMarkFlash({ on: !on, page: pageInChapter, at: Date.now() });
     // Optimistic: the star is a one-tap control in a reader, and waiting on a round-trip to redraw it makes
     // it feel broken. Reverted if the write fails.
     setMarks((prev) => { const n = new Set(prev); on ? n.delete(k) : n.add(k); return n; });
@@ -2162,6 +2172,8 @@ function ReaderInner() {
         { method: on ? 'DELETE' : 'PUT', json: on ? undefined : {} });
     } catch {
       setMarks((prev) => { const n = new Set(prev); on ? n.add(k) : n.delete(k); return n; });
+      setMarkFlash(null);
+      toast(tr('Could not change the bookmark'), 'error');
     }
   };
   const chapterPageCount = activeChapter?.pages.length ?? 0;
@@ -2325,6 +2337,20 @@ function ReaderInner() {
     // `data-page` / `data-chapter`: what is being read, for the browser walks (test/e2e/v610Walk-reader.mjs) -- the counter
     // that says it lives in the auto-hiding footer. Nothing reads them in the app.
     <div className="fixed inset-0 z-40 bg-ink-950" data-page={pageInChapter || undefined} data-chapter={activeChapter?.id}>
+      {/* A bookmark set or taken off, said on the page itself (the key B, the star, the menu, a controller button): the star in
+          the top bar is hidden with the controls, and a key that changes nothing visible reads as a key that did nothing. A polite
+          status for a screen reader; the pop stands still under reduced motion. */}
+      <div role="status" aria-live="polite" data-bookmark-flash={markFlash ? (markFlash.on ? 'on' : 'off') : undefined}
+        className="pointer-events-none absolute inset-x-0 top-[16%] z-[60] flex justify-center px-4">
+        {markFlash && (
+          <div key={markFlash.at} className="flex animate-fade-up items-center gap-2 rounded-full bg-black/75 px-4 py-2 text-sm font-medium text-white shadow-lg ring-1 ring-white/15 backdrop-blur motion-reduce:animate-none">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill={markFlash.on ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className={markFlash.on ? 'text-accent' : 'text-white/70'}>
+              <path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1z" />
+            </svg>
+            <span>{markFlash.on ? tr('Bookmarked · page {n}', { n: markFlash.page }) : tr('Bookmark removed · page {n}', { n: markFlash.page })}</span>
+          </div>
+        )}
+      </div>
       {readerMenu.element}
       <div className="pointer-events-none absolute inset-0 z-30 bg-black" style={{ opacity: 1 - prefs.brightness }} />
       {/* Ambient cover wash framing the reader: the look, by default. Its switch (Cover colour at the edges, #170)

@@ -369,6 +369,12 @@ const EN = {
   'version.current': ({ version }: { version: string }) => `Running v${version} — up to date`,
   'version.running': ({ version }: { version: string }) => `Running v${version}`,
   'version.unasked': () => 'GitHub could not be reached just now, so this is not a clean bill of health.',
+  // How to take the newer release, by where this runs (lib/platform.ts InstallPlatform). Back up first: a release may migrate the database.
+  'version.how': ({ platform }: { platform: string }) =>
+    platform === 'desktop' ? 'The desktop app updates itself when it restarts, or install the new release from its page'
+      : platform === 'unraid' ? 'On Unraid: Docker tab, Check for updates, then Update on this container (back up its appdata first)'
+      : platform === 'compose' ? 'With Compose: docker compose pull && docker compose up -d (back up the data folder first)'
+      : 'Pull the new image and recreate the container on your host, keeping the same volumes (back up /data first)',
   'version.newer': () => 'a newer release is published; see the changelog before upgrading',
 
   // ---- Extension source limit
@@ -382,6 +388,7 @@ const EN = {
       'to get under it.',
   ),
   'cap.title': () => forDesktop('SUWAYOMI_MAX_SOURCES', 'Source limit'),
+  'cap.used': ({ n }: { n: number }) => `Used by ${n} series`,
   'cap.detail': ({ n, cap }: { n: number; cap: number }) => forDesktop(
     `${n} enabled sources not registered; the limit is ${cap}. Hide languages you do not read, or raise the limit.`,
     `${n} enabled sources not registered; the limit is ${cap}. Hide the languages you don't read.`,

@@ -525,6 +525,13 @@ const WORDS: Record<string, (p: P) => string | null> = {
   'version.current': (p) => tr('Running v{version} — up to date', { version: str(p, 'version') }),
   'version.running': (p) => tr('Running v{version}', { version: str(p, 'version') }),
   'version.unasked': () => tr('GitHub could not be reached just now, so this is not a clean bill of health.'),
+  'version.how': (p) => {
+    const platform = str(p, 'platform');
+    return platform === 'desktop' ? tr('The desktop app updates itself when it restarts, or install the new release from its page')
+      : platform === 'unraid' ? tr('On Unraid: Docker tab, Check for updates, then Update on this container (back up its appdata first)')
+      : platform === 'compose' ? tr('With Compose: docker compose pull && docker compose up -d (back up the data folder first)')
+      : tr('Pull the new image and recreate the container on your host, keeping the same volumes (back up /data first)');
+  },
   'version.newer': () => tr('a newer release is published; see the changelog before upgrading'),
 
   // ---- Extension source limit
@@ -537,6 +544,7 @@ const WORDS: Record<string, (p: P) => string | null> = {
     ? tr('Every registered source is searched at once, which is why there is a limit. Hide the languages you don\'t read to get under it.')
     : tr('Every registered source is searched at once, which is why there is a limit. Hiding the languages you do not read is the cheap way under it; SUWAYOMI_MAX_SOURCES raises it.')),
   'cap.title': () => (isDesktop() ? tr('Source limit') : 'SUWAYOMI_MAX_SOURCES'),
+  'cap.used': (p) => tr('Used by {n} series', { n: num(p, 'n') }),
   'cap.detail': (p) => {
     const v = { n: num(p, 'n'), cap: num(p, 'cap') };
     if (isDesktop()) {

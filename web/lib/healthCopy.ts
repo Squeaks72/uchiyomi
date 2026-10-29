@@ -245,6 +245,29 @@ export const ACTION_COPY: Readonly<Record<string, ActionCopy>> = {
     what: () => tr('Hides this series from the library. No files are deleted, everyone keeps their reading progress, and Admin → Library puts it back.'),
     eta: moment,
   },
+  // Chapter gaps: the numbers a source never published, accepted as how the series is (the same hide as a chapter's Hide).
+  accept_gap: {
+    label: () => tr('Accept this gap'),
+    what: () => tr('Marks these missing chapter numbers as not existing. They are never fetched, and stop counting as a gap. Nothing is deleted, and the series page’s More → Show hidden chapters brings them back.'),
+    eta: moment,
+  },
+  // Source health: a source switched off, switched back on (the same as Admin → Sources).
+  enable: {
+    label: () => tr('Turn on'),
+    what: () => tr('Starts asking this source again, for the series that follow it and for Discover. If it is still failing it goes back to this list.'),
+    eta: moment,
+  },
+  // Tracker sync: only the member can sign in again.
+  remind: {
+    label: () => tr('Remind them'),
+    what: () => tr('Sends the member a notification on their own devices asking them to sign in to this tracker again. It names nothing but the tracker.'),
+    eta: moment,
+  },
+  disconnect: {
+    label: () => tr('Disconnect'),
+    what: () => tr('Removes this member’s connection to the tracker. Their reading progress here is untouched; they can connect again under Profile → Connections.'),
+    eta: moment,
+  },
   // Card-level: the step acts on every source that blames the solver, whatever row was pressed.
   solver_reset: {
     label: (c) => (c.n === 1 ? tr('Reset the solver (1 source)') : tr('Reset the solver ({n} sources)', { n: c.n ?? 0 })),

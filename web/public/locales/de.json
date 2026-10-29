@@ -2,7 +2,7 @@
   "_meta": {
     "language": "de",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 5377
+    "strings": 5400
   },
   "1 check found something": "1 Prüfung hat etwas gefunden",
   "1 member": "1 Mitglied",
@@ -5380,5 +5380,28 @@
   "{n} folders the server cannot write to": "{n} Ordner, in die der Server nicht schreiben kann",
   "The server can write to every series folder": "Der Server kann in jeden Serienordner schreiben",
   "The server cannot write to the downloads folder itself": "Der Server kann nicht in den Download-Ordner selbst schreiben",
-  "Moving a series to another library, renaming a folder, merging and downloading all need the server (running as {me}) to write to the folder and the one above it. A folder made by a root shell or by another container is the usual cause. Uchiyomi cannot change ownership it has no right to, so run the command on the host (replace <host path> with where the downloads folder is on the host), then press Recheck.": "Eine Serie in eine andere Bibliothek verschieben, einen Ordner umbenennen, zusammenführen und herunterladen — all das braucht Schreibrechte des Servers (läuft als {me}) im Ordner und im darüberliegenden. Meist wurde der Ordner von einer Root-Shell oder einem anderen Container angelegt. Uchiyomi kann Besitzrechte, die es nicht hat, nicht ändern: Führe den Befehl auf dem Host aus (ersetze <host path> durch den Ort des Download-Ordners auf dem Host) und drücke dann Erneut prüfen."
+  "Moving a series to another library, renaming a folder, merging and downloading all need the server (running as {me}) to write to the folder and the one above it. A folder made by a root shell or by another container is the usual cause. Uchiyomi cannot change ownership it has no right to, so run the command on the host (replace <host path> with where the downloads folder is on the host), then press Recheck.": "Eine Serie in eine andere Bibliothek verschieben, einen Ordner umbenennen, zusammenführen und herunterladen — all das braucht Schreibrechte des Servers (läuft als {me}) im Ordner und im darüberliegenden. Meist wurde der Ordner von einer Root-Shell oder einem anderen Container angelegt. Uchiyomi kann Besitzrechte, die es nicht hat, nicht ändern: Führe den Befehl auf dem Host aus (ersetze <host path> durch den Ort des Download-Ordners auf dem Host) und drücke dann Erneut prüfen.",
+  "Accept this gap": "Diese Lücke akzeptieren",
+  "Accepted: those chapters will not be fetched or counted": "Akzeptiert: Diese Kapitel werden nicht geladen oder gezählt",
+  "That source is switched on": "Diese Quelle ist eingeschaltet",
+  "Remind them": "Erinnern",
+  "Reminded {name}": "{name} wurde erinnert",
+  "{name} has no device that can be notified; ask them directly": "{name} hat kein Gerät für Benachrichtigungen; bitte direkt ansprechen",
+  "Disconnect this tracker?": "Diesen Tracker trennen?",
+  "Their reading progress here is untouched. They will need to connect again under Profile → Connections.": "Ihr Lesefortschritt hier bleibt unverändert. Sie müssen sich unter Profil → Verbindungen neu verbinden.",
+  "Fetching chapter {n}: the download shows under Library → Downloads": "Kapitel {n} wird geladen: der Download erscheint unter Bibliothek → Downloads",
+  "Could not start that fetch": "Der Abruf konnte nicht gestartet werden",
+  "Try again now from every source this series follows, and keep the best copy if none has it whole.": "Jetzt von jeder Quelle dieser Serie erneut versuchen und die beste Kopie behalten, falls keine sie vollständig hat.",
+  "Fetch now": "Jetzt laden",
+  "Marks these missing chapter numbers as not existing. They are never fetched, and stop counting as a gap. Nothing is deleted, and the series page’s More → Show hidden chapters brings them back.": "Markiert diese fehlenden Kapitelnummern als nicht vorhanden. Sie werden nie geladen und zählen nicht mehr als Lücke. Nichts wird gelöscht; Mehr → Ausgeblendete Kapitel anzeigen auf der Serienseite holt sie zurück.",
+  "Starts asking this source again, for the series that follow it and for Discover. If it is still failing it goes back to this list.": "Fragt diese Quelle wieder ab, für die Serien, die ihr folgen, und für Entdecken. Schlägt sie weiter fehl, erscheint sie wieder in dieser Liste.",
+  "Sends the member a notification on their own devices asking them to sign in to this tracker again. It names nothing but the tracker.": "Sendet dem Mitglied eine Benachrichtigung auf seinen Geräten mit der Bitte, sich bei diesem Tracker neu anzumelden. Genannt wird nur der Tracker.",
+  "Removes this member’s connection to the tracker. Their reading progress here is untouched; they can connect again under Profile → Connections.": "Entfernt die Verbindung dieses Mitglieds zum Tracker. Der Lesefortschritt hier bleibt unverändert; es kann sich unter Profil → Verbindungen neu verbinden.",
+  "The desktop app updates itself when it restarts, or install the new release from its page": "Die Desktop-App aktualisiert sich beim Neustart, oder installiere die neue Version von ihrer Seite",
+  "On Unraid: Docker tab, Check for updates, then Update on this container (back up its appdata first)": "Unter Unraid: Docker-Tab, „Auf Updates prüfen“, dann bei diesem Container „Update“ (zuerst sein Appdata sichern)",
+  "With Compose: docker compose pull && docker compose up -d (back up the data folder first)": "Mit Compose: docker compose pull && docker compose up -d (zuerst den Datenordner sichern)",
+  "Pull the new image and recreate the container on your host, keeping the same volumes (back up /data first)": "Das neue Image ziehen und den Container auf deinem Host mit denselben Volumes neu erstellen (zuerst /data sichern)",
+  "Could not change the bookmark": "Das Lesezeichen konnte nicht geändert werden",
+  "Bookmarked · page {n}": "Lesezeichen gesetzt · Seite {n}",
+  "Bookmark removed · page {n}": "Lesezeichen entfernt · Seite {n}"
 }

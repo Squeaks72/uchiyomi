@@ -266,7 +266,7 @@ function useRowRecheck(check: HealthCheck, item: HealthItem) {
  * removes the row above it.
  */
 /** Keys that act on a whole source, not on one series: left out of the By series view (HealthRow `bySeries`). */
-const SOURCE_WIDE_ACTIONS: readonly HealthAction[] = ['replace_source', 'free_slot', 'test', 'unblock', 'disable'];
+const SOURCE_WIDE_ACTIONS: readonly HealthAction[] = ['replace_source', 'free_slot', 'test', 'unblock', 'disable', 'enable'];
 
 export function HealthRow({ check, item: itemIn, rowKey, links, children, compact, bySeries }: {
   check: HealthCheck;
@@ -295,7 +295,7 @@ export function HealthRow({ check, item: itemIn, rowKey, links, children, compac
   const slot = slots[slotKey];
   // Answers-at-once actions keep their own state: pressed, asked, re-checked, then what they said.
   const [sync, setSync] = useState<{ action: HealthAction; state: ActionState; at: number } | null>(null);
-  const [asking, setAsking] = useState<'delete' | 'disable' | 'merge' | 'link' | 'find' | 'hand' | 'pick' | 'hand-picked' | 'replace' | 'remove' | 'keep_one' | null>(null);
+  const [asking, setAsking] = useState<'delete' | 'disconnect' | 'disable' | 'merge' | 'link' | 'find' | 'hand' | 'pick' | 'hand-picked' | 'replace' | 'remove' | 'keep_one' | null>(null);
   // The series an admin picked from a source row to search by hand for ('pick' -> 'hand-picked').
   const [handSeries, setHandSeries] = useState<{ id: string; title: string } | null>(null);
   // #116: the renumbering plan a numbering key opened, and which key opened it (its row state is that key's).
@@ -552,6 +552,35 @@ export function HealthRow({ check, item: itemIn, rowKey, links, children, compac
         return { ...base, danger: true, label: tr('Remove from library'), onRun: () => setAsking('remove') };
       case 'link_editions':
         return { ...base, primary: true, label: tr('Link as editions'), onRun: () => setAsking('link') };
+      // Gaps: the missing numbers accepted as how the series is. The series' own hide route, so it is audited and reversible from
+      // the series page (More → Show hidden chapters); the row leaves the card when Health answers again.
+      case 'accept_gap':
+        return {
+          ...base, label: tr('Accept this gap'),
+          onRun: () => act(a, async () => {
+            await api(`/api/admin/series/${encodeURIComponent(item.seriesId || '')}/chapters/hide`, { method: 'POST', json: { numbers: item.numbers ?? [] } });
+            return { text: tr('Accepted: those chapters will not be fetched or counted') };
+          }),
+        };
+      case 'enable':
+        return {
+          ...base, label: tr('Turn on'),
+          onRun: () => act(a, async () => {
+            await api(`/api/admin/sources/${encodeURIComponent(item.sourceId || '')}/enable`, { method: 'POST' });
+            return { text: tr('That source is switched on') };
+          }),
+        };
+      case 'remind':
+        return {
+          ...base, label: tr('Remind them'),
+          onRun: () => act(a, async () => {
+            const [provider, userId] = (item.key || '').split(':');
+            const r = await api<{ sent: boolean; username: string }>('/api/admin/trackers/remind', { method: 'POST', json: { provider, userId } });
+            return r.sent ? { text: tr('Reminded {name}', { name: r.username }) } : { text: tr('{name} has no device that can be notified; ask them directly', { name: r.username }), ok: false };
+          }),
+        };
+      case 'disconnect':
+        return { ...base, danger: true, label: tr('Disconnect'), onRun: () => setAsking('disconnect') };
       case 'ignore':
         return { ...base, label: tr('Ignore'), onRun: () => act(a, async () => ({ text: await postIgnore(check.id, item, true) })) };
       case 'unignore':
@@ -735,6 +764,24 @@ export function HealthRow({ check, item: itemIn, rowKey, links, children, compac
         <OnBody>
           <ReplaceDialog sourceId={item.sourceId} name={check.id === 'sources' ? itemTitle(item) : undefined} fr={fr} slot={replaceKey}
             onClose={() => setAsking(null)} />
+        </OnBody>
+      )}
+
+      {asking === 'disconnect' && (
+        <OnBody>
+          <ConfirmDialog
+            title={tr('Disconnect this tracker?')}
+            confirmLabel={tr('Disconnect')}
+            danger
+            body={<p>{tr('Their reading progress here is untouched. They will need to connect again under Profile → Connections.')}</p>}
+            onConfirm={() => act('disconnect', async () => {
+              setAsking(null);
+              const [provider, userId] = (item.key || '').split(':');
+              await api('/api/admin/trackers/disconnect', { method: 'POST', json: { provider, userId } });
+              return { text: tr('Disconnected') };
+            })}
+            onClose={() => setAsking(null)}
+          />
         </OnBody>
       )}
 
@@ -923,6 +970,7 @@ export function HealthRow({ check, item: itemIn, rowKey, links, children, compac
  */
 function FailedChapters({ item, onChanged }: { item: HealthItem; onChanged: () => void }) {
   const toast = useToast();
+  const qc = useQueryClient();
   const [busy, setBusy] = useState<string | null>(null);
   const rows = item.failed ?? [];
   if (!rows.length) return null;
@@ -938,6 +986,22 @@ function FailedChapters({ item, onChanged }: { item: HealthItem; onChanged: () =
     }
     setBusy(null);
   };
+  // Every source the series follows is asked, in turn, and the best copy is kept even when it has pages missing.
+  const fetchNow = async (seriesId: string, number: number) => {
+    const key = `${seriesId}:${number}`;
+    setBusy(key);
+    try {
+      await api(`/api/admin/series/${encodeURIComponent(seriesId)}/chapters/fetch-missing`, { method: 'POST', json: { numbers: [number] } });
+      void kickDownloads(qc);
+      toast(tr('Fetching chapter {n}: the download shows under Library → Downloads', { n: number }), 'info');
+      onChanged();
+    } catch (e: any) {
+      let msg = e?.message || tr('Could not start that fetch');
+      try { const b = JSON.parse(e?.body || '{}'); if (b.message) msg = b.message; } catch {}
+      toast(msg, 'error');
+    }
+    setBusy(null);
+  };
   return (
     <ul data-health-failed className="mt-2 space-y-1.5">
       {rows.map((c) => (
@@ -949,6 +1013,9 @@ function FailedChapters({ item, onChanged }: { item: HealthItem; onChanged: () =
               ? tr('waiting for its first try here, it will be tried by itself')
               : `${c.reason ?? c.status}${c.attempts > 0 ? ` · ${tr('Tries: {n}', { n: c.attempts })}` : ''}`}
           </span>
+          <button type="button" data-health-fetch disabled={busy === `${c.seriesId}:${c.number}`} onClick={() => void fetchNow(c.seriesId, c.number)}
+            title={tr('Try again now from every source this series follows, and keep the best copy if none has it whole.')}
+            aria-label={`${tr('Fetch now')}: ${c.title} ${tr('Ch. {n}', { n: c.number })}`} className="btn-key ms-auto text-[11px]">{tr('Fetch now')}</button>
           <button type="button" data-health-skip disabled={busy === `${c.seriesId}:${c.number}`} onClick={() => void skip(c.seriesId, c.number)}
             title={tr('Never fetch this chapter. Nothing is deleted, and the series page can show it again.')}
             aria-label={`${tr('Skip')}: ${c.title} ${tr('Ch. {n}', { n: c.number })}`} className="btn-key ms-auto text-[11px]">{tr('Skip')}</button>

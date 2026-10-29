@@ -2,7 +2,7 @@
   "_meta": {
     "language": "zh",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 5377
+    "strings": 5400
   },
   "1 check found something": "1 项检查发现问题",
   "1 member": "1 位成员",
@@ -5380,5 +5380,28 @@
   "{n} folders the server cannot write to": "{n} 个服务器无法写入的文件夹",
   "The server can write to every series folder": "服务器可写入所有系列文件夹",
   "The server cannot write to the downloads folder itself": "服务器无法写入下载文件夹本身",
-  "Moving a series to another library, renaming a folder, merging and downloading all need the server (running as {me}) to write to the folder and the one above it. A folder made by a root shell or by another container is the usual cause. Uchiyomi cannot change ownership it has no right to, so run the command on the host (replace <host path> with where the downloads folder is on the host), then press Recheck.": "将系列移到另一个资源库、重命名文件夹、合并和下载，都需要服务器（以 {me} 运行）能写入该文件夹及其上级文件夹。常见原因是文件夹由 root 终端或其他容器创建。Uchiyomi 无权更改所有者，请在主机上运行该命令（把 <host path> 换成下载文件夹在主机上的位置），然后点击“重新检查”。"
+  "Moving a series to another library, renaming a folder, merging and downloading all need the server (running as {me}) to write to the folder and the one above it. A folder made by a root shell or by another container is the usual cause. Uchiyomi cannot change ownership it has no right to, so run the command on the host (replace <host path> with where the downloads folder is on the host), then press Recheck.": "将系列移到另一个资源库、重命名文件夹、合并和下载，都需要服务器（以 {me} 运行）能写入该文件夹及其上级文件夹。常见原因是文件夹由 root 终端或其他容器创建。Uchiyomi 无权更改所有者，请在主机上运行该命令（把 <host path> 换成下载文件夹在主机上的位置），然后点击“重新检查”。",
+  "Accept this gap": "接受此缺口",
+  "Accepted: those chapters will not be fetched or counted": "已接受：这些章节不会被获取或计入",
+  "That source is switched on": "该来源已开启",
+  "Remind them": "提醒他们",
+  "Reminded {name}": "已提醒 {name}",
+  "{name} has no device that can be notified; ask them directly": "{name} 没有可通知的设备，请直接告知",
+  "Disconnect this tracker?": "断开此追踪器？",
+  "Their reading progress here is untouched. They will need to connect again under Profile → Connections.": "其阅读进度不受影响。他们需要在“个人资料 → 连接”中重新连接。",
+  "Fetching chapter {n}: the download shows under Library → Downloads": "正在获取第 {n} 章：可在“资源库 → 下载”中查看",
+  "Could not start that fetch": "无法开始获取",
+  "Try again now from every source this series follows, and keep the best copy if none has it whole.": "立即从该系列关注的所有来源重试；若无完整版本则保留最佳副本。",
+  "Fetch now": "立即获取",
+  "Marks these missing chapter numbers as not existing. They are never fetched, and stop counting as a gap. Nothing is deleted, and the series page’s More → Show hidden chapters brings them back.": "将这些缺失的章节号标为不存在。它们不会被获取，也不再算作缺口。不会删除任何内容，可在系列页的“更多 → 显示隐藏章节”中恢复。",
+  "Starts asking this source again, for the series that follow it and for Discover. If it is still failing it goes back to this list.": "重新向此来源发起请求，供关注它的系列和“发现”使用。若仍失败，会回到此列表。",
+  "Sends the member a notification on their own devices asking them to sign in to this tracker again. It names nothing but the tracker.": "向该成员的设备发送通知，请其重新登录此追踪器。通知中只提到追踪器名称。",
+  "Removes this member’s connection to the tracker. Their reading progress here is untouched; they can connect again under Profile → Connections.": "移除该成员与追踪器的连接。其阅读进度不受影响；可在“个人资料 → 连接”中重新连接。",
+  "The desktop app updates itself when it restarts, or install the new release from its page": "桌面应用会在重启时自动更新，或从其页面安装新版本",
+  "On Unraid: Docker tab, Check for updates, then Update on this container (back up its appdata first)": "在 Unraid 中：Docker 标签页，检查更新，然后对此容器点击更新（先备份其 appdata）",
+  "With Compose: docker compose pull && docker compose up -d (back up the data folder first)": "使用 Compose：docker compose pull && docker compose up -d（先备份数据文件夹）",
+  "Pull the new image and recreate the container on your host, keeping the same volumes (back up /data first)": "拉取新镜像，并在主机上用相同的卷重新创建容器（先备份 /data）",
+  "Could not change the bookmark": "无法更改书签",
+  "Bookmarked · page {n}": "已加书签 · 第 {n} 页",
+  "Bookmark removed · page {n}": "已移除书签 · 第 {n} 页"
 }

@@ -2,7 +2,7 @@
   "_meta": {
     "language": "ar",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 5384
+    "strings": 5407
   },
   "1 check found something": "فحص واحد وجد شيئًا",
   "1 member": "عضو واحد",
@@ -5387,5 +5387,28 @@
   "{n} folders the server cannot write to": "{n} مجلدات لا يستطيع الخادم الكتابة فيها",
   "The server can write to every series folder": "يستطيع الخادم الكتابة في كل مجلدات السلاسل",
   "The server cannot write to the downloads folder itself": "لا يستطيع الخادم الكتابة في مجلد التنزيلات نفسه",
-  "Moving a series to another library, renaming a folder, merging and downloading all need the server (running as {me}) to write to the folder and the one above it. A folder made by a root shell or by another container is the usual cause. Uchiyomi cannot change ownership it has no right to, so run the command on the host (replace <host path> with where the downloads folder is on the host), then press Recheck.": "نقل سلسلة إلى مكتبة أخرى وإعادة تسمية مجلد والدمج والتنزيل كلها تحتاج أن يستطيع الخادم (يعمل بصفة {me}) الكتابة في المجلد وفي المجلد الأعلى منه. السبب المعتاد مجلد أنشأه طرفية root أو حاوية أخرى. لا يستطيع Uchiyomi تغيير ملكية لا يملك حق تغييرها، فنفّذ الأمر على المضيف (استبدل <host path> بمكان مجلد التنزيلات على المضيف) ثم اضغط إعادة الفحص."
+  "Moving a series to another library, renaming a folder, merging and downloading all need the server (running as {me}) to write to the folder and the one above it. A folder made by a root shell or by another container is the usual cause. Uchiyomi cannot change ownership it has no right to, so run the command on the host (replace <host path> with where the downloads folder is on the host), then press Recheck.": "نقل سلسلة إلى مكتبة أخرى وإعادة تسمية مجلد والدمج والتنزيل كلها تحتاج أن يستطيع الخادم (يعمل بصفة {me}) الكتابة في المجلد وفي المجلد الأعلى منه. السبب المعتاد مجلد أنشأه طرفية root أو حاوية أخرى. لا يستطيع Uchiyomi تغيير ملكية لا يملك حق تغييرها، فنفّذ الأمر على المضيف (استبدل <host path> بمكان مجلد التنزيلات على المضيف) ثم اضغط إعادة الفحص.",
+  "Accept this gap": "قبول هذه الفجوة",
+  "Accepted: those chapters will not be fetched or counted": "تم القبول: لن تُجلب هذه الفصول ولن تُحتسب",
+  "That source is switched on": "تم تشغيل هذا المصدر",
+  "Remind them": "ذكّرهم",
+  "Reminded {name}": "تم تذكير {name}",
+  "{name} has no device that can be notified; ask them directly": "لا يملك {name} جهازاً يمكن إشعاره؛ أخبره مباشرة",
+  "Disconnect this tracker?": "فصل هذا المتتبع؟",
+  "Their reading progress here is untouched. They will need to connect again under Profile → Connections.": "لا يتأثر تقدّم قراءتهم هنا. سيحتاجون للاتصال مجدداً من الملف الشخصي ← الاتصالات.",
+  "Fetching chapter {n}: the download shows under Library → Downloads": "جارٍ جلب الفصل {n}: يظهر التنزيل في المكتبة ← التنزيلات",
+  "Could not start that fetch": "تعذّر بدء الجلب",
+  "Try again now from every source this series follows, and keep the best copy if none has it whole.": "أعد المحاولة الآن من كل مصدر تتابعه هذه السلسلة، واحتفظ بأفضل نسخة إن لم توجد كاملة.",
+  "Fetch now": "اجلب الآن",
+  "Marks these missing chapter numbers as not existing. They are never fetched, and stop counting as a gap. Nothing is deleted, and the series page’s More → Show hidden chapters brings them back.": "يعلّم أرقام الفصول المفقودة هذه كغير موجودة. لا تُجلب أبداً ولا تُحتسب فجوة. لا يُحذف شيء، ويعيدها «المزيد ← إظهار الفصول المخفية» في صفحة السلسلة.",
+  "Starts asking this source again, for the series that follow it and for Discover. If it is still failing it goes back to this list.": "يعيد سؤال هذا المصدر للسلاسل التي تتابعه وللاستكشاف. إن استمر فشله يعود إلى هذه القائمة.",
+  "Sends the member a notification on their own devices asking them to sign in to this tracker again. It names nothing but the tracker.": "يرسل إلى العضو إشعاراً على أجهزته يطلب منه تسجيل الدخول إلى هذا المتتبع مجدداً. لا يذكر سوى اسم المتتبع.",
+  "Removes this member’s connection to the tracker. Their reading progress here is untouched; they can connect again under Profile → Connections.": "يزيل اتصال هذا العضو بالمتتبع. لا يتأثر تقدّم قراءته هنا، ويمكنه الاتصال مجدداً من الملف الشخصي ← الاتصالات.",
+  "The desktop app updates itself when it restarts, or install the new release from its page": "يُحدّث تطبيق سطح المكتب نفسه عند إعادة التشغيل، أو ثبّت الإصدار الجديد من صفحته",
+  "On Unraid: Docker tab, Check for updates, then Update on this container (back up its appdata first)": "في Unraid: تبويب Docker ثم التحقق من التحديثات ثم تحديث هذه الحاوية (انسخ بيانات appdata احتياطياً أولاً)",
+  "With Compose: docker compose pull && docker compose up -d (back up the data folder first)": "مع Compose: docker compose pull && docker compose up -d (انسخ مجلد البيانات احتياطياً أولاً)",
+  "Pull the new image and recreate the container on your host, keeping the same volumes (back up /data first)": "اسحب الصورة الجديدة وأعد إنشاء الحاوية على مضيفك بالمجلدات نفسها (انسخ /data احتياطياً أولاً)",
+  "Could not change the bookmark": "تعذّر تغيير الإشارة المرجعية",
+  "Bookmarked · page {n}": "تمت إضافة إشارة مرجعية · الصفحة {n}",
+  "Bookmark removed · page {n}": "أُزيلت الإشارة المرجعية · الصفحة {n}"
 }

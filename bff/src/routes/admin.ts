@@ -8,6 +8,9 @@ import numberingRoutes from './numbering';
 import { lastNumber } from '../lib/chapterRanges';
 import findSourcesRoutes from './findSources';
 import autoHeroRoutes from './autoHero';
+import { isProvider } from '../lib/trackerProviders';
+import { disconnect as disconnectTracker } from '../lib/trackers';
+import { notifyUser } from '../lib/push';
 import unmappedRoutes from './unmapped';
 import bookorbitSyncRoutes from './bookorbitSync';
 import rescanRoutes from './rescan';
@@ -3112,6 +3115,84 @@ export default async function adminRoutes(app: FastifyInstance) {
     } finally {
       releaseDownloadJobClaim(claim);
     }
+  });
+
+  /**
+   * Fetch chapters the library is MISSING, from whichever source can serve them (Health → Chapters that would not download,
+   * "Fetch now"). The chapter is taken from the series' listing as the sweep takes it -- its chosen copy -- and goes through
+   * the same download job as every fetch, which falls to the other sources the series follows when the first refuses or
+   * serves it short, and writes the best copy it was served with placeholders for the missing pages when none has it
+   * whole. So this is "try again, from everywhere", not a second download path: the listing is refreshed first, a source
+   * the series does not follow is never asked, and a source in a cooldown or switched off is reported, not hammered.
+   */
+  app.post('/api/admin/series/:id/chapters/fetch-missing', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const b = z.object({ numbers: z.array(z.number().finite().min(-1000).max(100000)).min(1).max(20) }).safeParse(req.body);
+    if (!b.success) return reply.code(400).send({ error: 'bad_request' });
+    const s = await one<any>(
+      `SELECT id, title, folder, summary, author, genres, web, status, source_id FROM lib_series WHERE id = $1 AND ${visibleToAll('lib_series')}`, [id]);
+    if (!s) return reply.code(404).send({ error: 'not_found' });
+    if (jobBusy(s.folder)) return reply.code(409).send({ error: 'busy', message: 'A download for that series is already running.' });
+    await withTimeout(updateSeries(id, 0), REFRESH_BUDGET_MS).catch(() => {});
+    const listed = new Map((await q<{ number: number; source_id: string; status: string; chosen: SourceChapter }>(
+      'SELECT number, source_id, status, chosen FROM series_listing WHERE series_id = $1 AND number = ANY($2::real[])',
+      [id, b.data.numbers],
+    )).map((r) => [Number(r.number), r]));
+    const followed = new Set([
+      ...(s.source_id ? [s.source_id as string] : []),
+      ...(await q<{ source_id: string }>('SELECT source_id FROM series_sources WHERE series_id = $1', [id]).catch(() => [])).map((r) => r.source_id),
+    ]);
+    const skipped: Array<{ number: number; reason: string }> = [];
+    const chapters: Array<SourceChapter> = [];
+    for (const n of [...new Set(b.data.numbers)]) {
+      const l = listed.get(n);
+      if (!l) { skipped.push({ number: n, reason: 'not_listed' }); continue; }
+      if (l.status === 'blocked') { skipped.push({ number: n, reason: 'blocked_group' }); continue; }
+      if (!followed.has(l.source_id) || !getSource(l.source_id) || await isDisabled(l.source_id).catch(() => false)) { skipped.push({ number: n, reason: 'source_unavailable' }); continue; }
+      if (await blockedNow(l.source_id).catch(() => null)) { skipped.push({ number: n, reason: 'cooldown' }); continue; }
+      chapters.push({ ...l.chosen, source: l.source_id });
+    }
+    if (!chapters.length) return reply.code(409).send({ error: 'nothing_to_fetch', message: 'None of those chapters can be fetched right now.', skipped });
+    const w = await allWritable([DL_ROOT]);
+    if (!w.ok) return reply.code(409).send({ error: 'refused', message: w.reason, fix: w.fix });
+    const claim = claimDownloadJob(s.folder, id);
+    if (!claim) return reply.code(409).send({ error: 'busy', message: 'Another task is changing that series.' });
+    try {
+      await logAudit('series.chapters_fetch_missing', { userId: userIdOf(req), detail: { id, title: s.title, numbers: chapters.map((c) => c.number), skipped }, req });
+      const { total } = startDownloadJob({
+        origin: 'fetch', folder: s.folder, title: s.title, seriesId: id,
+        chapters: chapters.sort((a, c) => a.number - c.number),
+        meta: { series: s.title, summary: s.summary, author: s.author, genres: s.genres, url: s.web, status: s.status },
+        by: userIdOf(req),
+      }, claim);
+      return { ok: true, started: true, folder: s.folder, total, skipped };
+    } finally {
+      releaseDownloadJobClaim(claim);
+    }
+  });
+
+  // Health → Tracker sync. Only the member can sign in again, so the admin can ask them to (a push to their own devices, naming
+  // nothing but the tracker) or drop a connection nobody will renew. Both are audited, and neither touches reading progress.
+  const trackerTarget = z.object({ userId: z.string().min(1).max(64), provider: z.string().min(1).max(40) });
+  app.post('/api/admin/trackers/remind', async (req, reply) => {
+    const b = trackerTarget.safeParse(req.body);
+    if (!b.success || !isProvider(b.data.provider)) return reply.code(400).send({ error: 'bad_request' });
+    const row = await one<{ username: string }>(
+      'SELECT u.username FROM user_trackers t JOIN users u ON u.id = t.user_id WHERE t.user_id = $1 AND t.provider = $2', [b.data.userId, b.data.provider]);
+    if (!row) return reply.code(404).send({ error: 'not_found' });
+    const sent = await notifyUser(b.data.userId, 'Sign in to your tracker again', `Your ${b.data.provider} connection needs signing in again. Open Profile → Connections.`, '/profile/', 'tracker');
+    await logAudit('tracker.remind', { userId: userIdOf(req), detail: { member: row.username, provider: b.data.provider, sent }, req });
+    return { ok: true, sent, username: row.username };
+  });
+  app.post('/api/admin/trackers/disconnect', async (req, reply) => {
+    const b = trackerTarget.safeParse(req.body);
+    if (!b.success || !isProvider(b.data.provider)) return reply.code(400).send({ error: 'bad_request' });
+    const row = await one<{ username: string }>(
+      'SELECT u.username FROM user_trackers t JOIN users u ON u.id = t.user_id WHERE t.user_id = $1 AND t.provider = $2', [b.data.userId, b.data.provider]);
+    if (!row) return reply.code(404).send({ error: 'not_found' });
+    await disconnectTracker(b.data.userId, b.data.provider);
+    await logAudit('tracker.disconnect', { userId: userIdOf(req), detail: { member: row.username, provider: b.data.provider, by: 'admin' }, req });
+    return { ok: true, username: row.username };
   });
 
   type FolderMove = { id: string; title: string; from: string; to: string; status: 'planned' | 'conflict' | 'moved' | 'refused'; reason?: string; fix?: string };

@@ -2,7 +2,7 @@
   "_meta": {
     "language": "pt-BR",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 5377
+    "strings": 5400
   },
   "1 check found something": "1 verificação encontrou algo",
   "1 member": "1 membro",
@@ -5380,5 +5380,28 @@
   "{n} folders the server cannot write to": "{n} pastas em que o servidor não pode escrever",
   "The server can write to every series folder": "O servidor pode escrever em todas as pastas de séries",
   "The server cannot write to the downloads folder itself": "O servidor não pode escrever na própria pasta de downloads",
-  "Moving a series to another library, renaming a folder, merging and downloading all need the server (running as {me}) to write to the folder and the one above it. A folder made by a root shell or by another container is the usual cause. Uchiyomi cannot change ownership it has no right to, so run the command on the host (replace <host path> with where the downloads folder is on the host), then press Recheck.": "Mover uma série para outra biblioteca, renomear uma pasta, mesclar e baixar exigem que o servidor (rodando como {me}) escreva na pasta e na de cima. A causa comum é uma pasta criada por um shell root ou outro contêiner. O Uchiyomi não pode mudar um dono que não tem direito de mudar: rode o comando no host (troque <host path> pelo local da pasta de downloads no host) e pressione Verificar de novo."
+  "Moving a series to another library, renaming a folder, merging and downloading all need the server (running as {me}) to write to the folder and the one above it. A folder made by a root shell or by another container is the usual cause. Uchiyomi cannot change ownership it has no right to, so run the command on the host (replace <host path> with where the downloads folder is on the host), then press Recheck.": "Mover uma série para outra biblioteca, renomear uma pasta, mesclar e baixar exigem que o servidor (rodando como {me}) escreva na pasta e na de cima. A causa comum é uma pasta criada por um shell root ou outro contêiner. O Uchiyomi não pode mudar um dono que não tem direito de mudar: rode o comando no host (troque <host path> pelo local da pasta de downloads no host) e pressione Verificar de novo.",
+  "Accept this gap": "Aceitar esta lacuna",
+  "Accepted: those chapters will not be fetched or counted": "Aceito: esses capítulos não serão baixados nem contados",
+  "That source is switched on": "Essa fonte está ativada",
+  "Remind them": "Lembrar",
+  "Reminded {name}": "{name} foi lembrado",
+  "{name} has no device that can be notified; ask them directly": "{name} não tem dispositivo para notificar; avise diretamente",
+  "Disconnect this tracker?": "Desconectar este tracker?",
+  "Their reading progress here is untouched. They will need to connect again under Profile → Connections.": "O progresso de leitura deles aqui não muda. Eles precisarão reconectar em Perfil → Conexões.",
+  "Fetching chapter {n}: the download shows under Library → Downloads": "Baixando o capítulo {n}: o download aparece em Biblioteca → Downloads",
+  "Could not start that fetch": "Não foi possível iniciar essa busca",
+  "Try again now from every source this series follows, and keep the best copy if none has it whole.": "Tentar de novo agora em todas as fontes que esta série segue e manter a melhor cópia se nenhuma a tiver inteira.",
+  "Fetch now": "Baixar agora",
+  "Marks these missing chapter numbers as not existing. They are never fetched, and stop counting as a gap. Nothing is deleted, and the series page’s More → Show hidden chapters brings them back.": "Marca esses números de capítulos ausentes como inexistentes. Nunca são baixados e deixam de contar como lacuna. Nada é excluído; Mais → Mostrar capítulos ocultos na página da série os traz de volta.",
+  "Starts asking this source again, for the series that follow it and for Discover. If it is still failing it goes back to this list.": "Volta a consultar esta fonte, para as séries que a seguem e para o Descobrir. Se continuar falhando, volta a esta lista.",
+  "Sends the member a notification on their own devices asking them to sign in to this tracker again. It names nothing but the tracker.": "Envia ao membro uma notificação em seus dispositivos pedindo que entre de novo neste tracker. Cita apenas o tracker.",
+  "Removes this member’s connection to the tracker. Their reading progress here is untouched; they can connect again under Profile → Connections.": "Remove a conexão deste membro com o tracker. O progresso de leitura dele aqui não muda; ele pode reconectar em Perfil → Conexões.",
+  "The desktop app updates itself when it restarts, or install the new release from its page": "O app de desktop se atualiza ao reiniciar, ou instale a nova versão pela página dele",
+  "On Unraid: Docker tab, Check for updates, then Update on this container (back up its appdata first)": "No Unraid: aba Docker, Verificar atualizações e depois Atualizar neste contêiner (faça backup do appdata antes)",
+  "With Compose: docker compose pull && docker compose up -d (back up the data folder first)": "Com Compose: docker compose pull && docker compose up -d (faça backup da pasta de dados antes)",
+  "Pull the new image and recreate the container on your host, keeping the same volumes (back up /data first)": "Baixe a nova imagem e recrie o contêiner no seu host, mantendo os mesmos volumes (faça backup de /data antes)",
+  "Could not change the bookmark": "Não foi possível alterar o marcador",
+  "Bookmarked · page {n}": "Marcador adicionado · página {n}",
+  "Bookmark removed · page {n}": "Marcador removido · página {n}"
 }

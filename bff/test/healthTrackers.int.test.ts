@@ -91,3 +91,14 @@ test('no connection at all, and every connection fine', { skip }, async () => {
   assert.deepEqual(card.items, []);
   assert.deepEqual(card.summarySaid, [{ code: 'trackers.fine', params: { n: 1 } }]);
 });
+
+test('a finding can be reminded or disconnected by the admin; a heads-up row is not offered them', { skip }, async () => {
+  const { trackerSync } = await import('../src/lib/healthTrackers');
+  await connect(A, 'anilist', { enabled: false, error: null });
+  await connect(B, 'myanimelist', { inDays: 20 });
+  const c = await trackerSync();
+  const finding = c.items.find((i) => !i.info && i.key === `anilist:${A}`)!;
+  assert.deepEqual(finding.actions?.filter((a) => a !== 'ignore'), ['remind', 'disconnect']);
+  const heads = c.items.find((i) => i.key === `myanimelist:${B}`);
+  if (heads) assert.ok(!heads.actions?.some((a) => a === 'remind' || a === 'disconnect'), 'a row listed for reference was given the keys for a finding');
+});

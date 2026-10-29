@@ -2,7 +2,7 @@
   "_meta": {
     "language": "ja",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 5377
+    "strings": 5400
   },
   "1 check found something": "1 件のチェックで問題を検出",
   "1 member": "メンバー 1 人",
@@ -5380,5 +5380,28 @@
   "{n} folders the server cannot write to": "サーバーが書き込めないフォルダ {n} 件",
   "The server can write to every series folder": "サーバーはすべてのシリーズフォルダに書き込めます",
   "The server cannot write to the downloads folder itself": "サーバーはダウンロードフォルダ自体に書き込めません",
-  "Moving a series to another library, renaming a folder, merging and downloading all need the server (running as {me}) to write to the folder and the one above it. A folder made by a root shell or by another container is the usual cause. Uchiyomi cannot change ownership it has no right to, so run the command on the host (replace <host path> with where the downloads folder is on the host), then press Recheck.": "シリーズを別のライブラリへ移す、フォルダ名を変える、統合する、ダウンロードする、いずれもサーバー（{me} で動作）がそのフォルダと上位フォルダに書き込める必要があります。root のシェルや別のコンテナが作ったフォルダが主な原因です。Uchiyomi には権限のない所有者変更はできないため、ホストでコマンドを実行し（<host path> はホスト上のダウンロードフォルダの場所に置き換え）、再確認を押してください。"
+  "Moving a series to another library, renaming a folder, merging and downloading all need the server (running as {me}) to write to the folder and the one above it. A folder made by a root shell or by another container is the usual cause. Uchiyomi cannot change ownership it has no right to, so run the command on the host (replace <host path> with where the downloads folder is on the host), then press Recheck.": "シリーズを別のライブラリへ移す、フォルダ名を変える、統合する、ダウンロードする、いずれもサーバー（{me} で動作）がそのフォルダと上位フォルダに書き込める必要があります。root のシェルや別のコンテナが作ったフォルダが主な原因です。Uchiyomi には権限のない所有者変更はできないため、ホストでコマンドを実行し（<host path> はホスト上のダウンロードフォルダの場所に置き換え）、再確認を押してください。",
+  "Accept this gap": "この欠番を受け入れる",
+  "Accepted: those chapters will not be fetched or counted": "承認しました。これらのチャプターは取得も集計もされません",
+  "That source is switched on": "そのソースをオンにしました",
+  "Remind them": "通知する",
+  "Reminded {name}": "{name} に通知しました",
+  "{name} has no device that can be notified; ask them directly": "{name} には通知できる端末がありません。直接伝えてください",
+  "Disconnect this tracker?": "このトラッカーを切断しますか？",
+  "Their reading progress here is untouched. They will need to connect again under Profile → Connections.": "ここでの読書進捗は変わりません。プロフィール → 連携から再接続が必要です。",
+  "Fetching chapter {n}: the download shows under Library → Downloads": "チャプター {n} を取得中: ライブラリ → ダウンロードで確認できます",
+  "Could not start that fetch": "取得を開始できませんでした",
+  "Try again now from every source this series follows, and keep the best copy if none has it whole.": "このシリーズが追跡する全ソースから今すぐ再試行し、完全なものがなければ最良のコピーを残します。",
+  "Fetch now": "今すぐ取得",
+  "Marks these missing chapter numbers as not existing. They are never fetched, and stop counting as a gap. Nothing is deleted, and the series page’s More → Show hidden chapters brings them back.": "欠けているこれらのチャプター番号を存在しないものとして扱います。取得されず、欠番としても数えられません。何も削除されず、シリーズページの「その他 → 非表示のチャプターを表示」で戻せます。",
+  "Starts asking this source again, for the series that follow it and for Discover. If it is still failing it goes back to this list.": "このソースへの問い合わせを再開します（フォロー中のシリーズと「見つける」用）。まだ失敗する場合はこの一覧に戻ります。",
+  "Sends the member a notification on their own devices asking them to sign in to this tracker again. It names nothing but the tracker.": "メンバーの端末に、このトラッカーへ再度サインインするよう求める通知を送ります。通知にはトラッカー名のみが含まれます。",
+  "Removes this member’s connection to the tracker. Their reading progress here is untouched; they can connect again under Profile → Connections.": "このメンバーのトラッカー連携を削除します。ここでの読書進捗は変わりません。プロフィール → 連携から再接続できます。",
+  "The desktop app updates itself when it restarts, or install the new release from its page": "デスクトップアプリは再起動時に自動更新されます。またはページから新しいリリースをインストールしてください",
+  "On Unraid: Docker tab, Check for updates, then Update on this container (back up its appdata first)": "Unraid では Docker タブで「更新を確認」し、このコンテナの「更新」を実行します（先に appdata をバックアップ）",
+  "With Compose: docker compose pull && docker compose up -d (back up the data folder first)": "Compose の場合: docker compose pull && docker compose up -d（先にデータフォルダをバックアップ）",
+  "Pull the new image and recreate the container on your host, keeping the same volumes (back up /data first)": "新しいイメージを取得し、同じボリュームでホスト上のコンテナを再作成してください（先に /data をバックアップ）",
+  "Could not change the bookmark": "ブックマークを変更できませんでした",
+  "Bookmarked · page {n}": "ブックマークしました · {n} ページ",
+  "Bookmark removed · page {n}": "ブックマークを外しました · {n} ページ"
 }

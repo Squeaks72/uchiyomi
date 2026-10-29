@@ -417,7 +417,7 @@ test('a source you turned off is listed but never a warning', { skip: DSN ? fals
     // v0.49.1: and Find other sources, for the one series whose main source it is (lib/findSources.ts).
     assert.deepEqual(down.actions, ['test', 'disable', 'find_sources', 'ignore'], 'a live failing source offers Test and Turn off');
     assert.equal(down.findSeries, 1);
-    assert.deepEqual(off.actions, ['test'], 'one already turned off is not offered Turn off again (nor Ignore: it is quiet already)');
+    assert.deepEqual(off.actions, ['test', 'enable'], 'one already turned off is not offered Turn off again (nor Ignore: it is quiet already), but Turn on');
 
     await q('DELETE FROM lib_series WHERE id = $1', [S_DOWN]);
     await q('DELETE FROM source_health WHERE source_id = ANY($1::text[])', [[DOWN, UNUSED]]);
@@ -553,7 +553,7 @@ test('Source health groups its rows, names each one\'s state, lists what the lib
     assert.equal(row('hg-busy').icon, undefined, 'and only then');
     // The actions are what they were: the primary key is the client's choice from `state`, and nothing is lost.
     assert.deepEqual(row('hg-busy').actions, ['test', 'unblock', 'disable', 'find_sources', 'ignore']);
-    assert.deepEqual(row('hg-off').actions, ['test']);
+    assert.deepEqual(row('hg-off').actions, ['test', 'enable']);
 
     // The whole list in the card's order, other files' rows included: no group after a later one.
     const RANK: Record<string, number> = { affected: 0, unused: 1, quiet: 2, off: 3 };
@@ -758,7 +758,7 @@ test('a deliberate deletion is not a gap, a file that went missing is, and a ren
     assert.ok(item, 'the missing file is a gap');
     assert.match(item.detail, /^1 missing — 3/, `only the missing one (${item.detail})`);
     assert.deepEqual(item.numbers, [3], 'the chip is told which numbers, so it can say so');
-    assert.deepEqual(item.actions, ['fill', 'ignore'], 'and offers to look for a source that has them (or to stop being told)');
+    assert.deepEqual(item.actions, ['fill', 'accept_gap', 'ignore'], 'and offers to look for a source that has them (or to stop being told)');
 
     // An admin renumbers chapter 5 to 3 through the series page: the hole is filled by a row that is
     // already there, and the finding must clear itself.
@@ -1785,7 +1785,7 @@ test("a source that is off or failing and is some series' main offers Replace; a
     const c = (await runHealthChecks()).checks.find((x: any) => x.id === 'sources');
     await assertSaid([c]);
     const row = (id: string) => c.items.find((i: any) => i.sourceId === id);
-    assert.deepEqual(row('hr-off').actions, ['test', 'replace_source', 'find_sources'], 'a switched-off main source offers Replace');
+    assert.deepEqual(row('hr-off').actions, ['test', 'enable', 'replace_source', 'find_sources'], 'a switched-off main source offers Replace');
     assert.deepEqual(row('hr-fail').actions, ['test', 'disable', 'replace_source', 'find_sources', 'ignore'], 'a failing main source offers Replace');
     assert.equal(row('hr-fail').findSeries, 1, 'over the series whose main source it is');
     assert.deepEqual(row('hr-cool').actions, ['test', 'unblock', 'disable', 'find_sources', 'ignore'], 'a cooldown does not offer Replace: it ends by itself');

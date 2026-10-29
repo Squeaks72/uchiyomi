@@ -101,6 +101,12 @@ const ACTIONS: { action: string; labels: string[]; wants: RegExp }[] = [
   // v0.72.0, Chapter files: the series page's own Fetch again for the files the row names, which keeps each old file
   // until its new copy lands -- never a delete, and no confirmation.
   { action: 'refetch', labels: ["tr('Fetch again')"], wants: /\/api\/admin\/series\/\$\{encodeURIComponent\(item\.seriesId \|\| ''\)\}\/chapters\/refetch`, \{ method: 'POST', json: \{ bookIds \} \}\)/ },
+  // The second round: a gap accepted as how the series is (the series' own hide), a source switched back on, a member's tracker
+  // sign-in reminded or disconnected (the latter asks first).
+  { action: 'accept_gap', labels: ["tr('Accept this gap')"], wants: /\/api\/admin\/series\/\$\{encodeURIComponent\(item\.seriesId \|\| ''\)\}\/chapters\/hide`, \{ method: 'POST', json: \{ numbers: item\.numbers \?\? \[\] \} \}\)/ },
+  { action: 'enable', labels: ["tr('Turn on')"], wants: /\/api\/admin\/sources\/\$\{encodeURIComponent\(item\.sourceId \|\| ''\)\}\/enable`, \{ method: 'POST' \}\)/ },
+  { action: 'remind', labels: ["tr('Remind them')"], wants: /\/api\/admin\/trackers\/remind', \{ method: 'POST', json: \{ provider, userId \} \}\)/ },
+  { action: 'disconnect', labels: ["tr('Disconnect')"], wants: /setAsking\('disconnect'\)/ },
 ];
 
 test('every action the health check can offer renders one key, with the label and the request it promises', () => {
@@ -218,7 +224,7 @@ test('every dialog a Health card opens is on <body>, out of the card', () => {
   // its overflow-hidden cuts the dialog off. Reintroduce by rendering a ConfirmDialog in place: this names it.
   const src = code(read(KEYS));
   const opens = [...src.matchAll(/<ConfirmDialog\b/g)].map((m) => m.index!);
-  assert.equal(opens.length, 9, 'the Health confirmations moved -- update this count');
+  assert.equal(opens.length, 10, 'the Health confirmations moved -- update this count');
   for (const at of opens) {
     const before = src.slice(0, at);
     assert.ok(before.lastIndexOf('<OnBody>') > before.lastIndexOf('</OnBody>'), `a Health confirmation is rendered inside its card: ${src.slice(at, at + 90)}`);

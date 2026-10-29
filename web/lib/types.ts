@@ -630,7 +630,10 @@ export type HealthAction =
   | 'refetch'
   // The same chapter saved twice, two files of one chapter in one series: Keep one of each for the row's series
   // (POST /api/admin/series/:id/chapters/keep-once), confirmed first.
-  | 'keep_one';
+  | 'keep_one'
+  // The second round of tools: accept a gap as how the series is (hide the missing numbers), switch a source back on, and for a
+  // member's tracker sign-in remind them to renew it, or disconnect it.
+  | 'accept_gap' | 'enable' | 'remind' | 'disconnect';
 
 /** One step of the nightly repair (`bff/src/lib/repair.ts`), as `POST /api/admin/tasks/repair/run` takes it. */
 export type RepairStep = 'solver' | 'count' | 'failures' | 'short' | 'gaps' | 'groups' | 'names' | 'directions' | 'details';

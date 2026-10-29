@@ -46,6 +46,7 @@ import { forDesktop, isDesktop } from './desktop';
 import { archiveHoles, archiveTakes, type ArchiveHoles } from './archiveBoundaries';
 import { renumberRunning, type NumberingNote } from './numbering';
 import { detailOf, joined, noteOf, own, say, saidOf, summaryOf, type Part, type Said } from './said';
+import { installPlatform } from './platform';
 import { mainSourceCounts } from './findScope';
 import { carries, EXTENSION_OFF, EXTENSION_OFF_BY, standingOf, standingRows, type Standing, type StandingRow } from './sourceStanding';
 import { numKey } from './postingOrder';
@@ -71,6 +72,9 @@ export type HealthStatus = 'ok' | 'warn' | 'problem';
  */
 export type HealthAction =
   | 'fix_short' | 'confirm_short' | 'delete' | 'fill' | 'retry' | 'test' | 'unblock' | 'disable' | 'merge' | 'solver_reset'
+  // The second round of tools (v0.102): accept a gap as how the series is (hide the missing numbers), switch a source back on,
+  // and, for a member's tracker sign-in, remind them to renew it or disconnect it.
+  | 'accept_gap' | 'enable' | 'remind' | 'disconnect'
   | 'ignore' | 'unignore'
   // #72: point the extension engine's own Cloudflare helper at Uchiyomi's (POST /api/admin/extensions/solver).
   | 'engine_solver'
@@ -633,7 +637,7 @@ async function chapterGaps(held: HeldSeries[], ctx: IgnoreCtx = noIgnores()): Pr
         scouted.get(r.s.id),
       ]),
       numbers: r.numbers,
-      actions: ['fill'] as HealthAction[],
+      actions: ['fill', 'accept_gap'] as HealthAction[],
       ...(archived ? {
         outcome: {
           kind: 'gaps' as const, at: null, why: 'archiving', followed: null, coverage: null,
@@ -1418,7 +1422,7 @@ export async function sourceTrouble(ctx: IgnoreCtx = noIgnores()): Promise<Healt
       actions: [
         'test',
         ...(r.blocked_until ? ['unblock' as const] : []),
-        ...(r.disabled ? [] : ['disable' as const]),
+        ...(r.disabled ? ['enable' as const] : ['disable' as const]),
         // v0.49.1: its series need another source while it fails -- or while it is off, which is the same for them.
         // Not on a quiet row (untested, inconclusive, used by nothing): nothing there is failing its series.
         ...(replaceHere ? ['replace_source' as const] : []),
@@ -1997,7 +2001,7 @@ async function updateCheck(): Promise<HealthCheck> {
     ...noteOf([!latest && say('version.unasked')]),
     // `info` for the same reason as the solver's version row: advisory, and never the reason the page is amber.
     items: behind
-      ? [{ title: `v${running} → ${latest}`, ...detailOf([say('version.newer')]), info: true }]
+      ? [{ title: `v${running} → ${latest}`, ...detailOf([say('version.newer'), joined('sentence', say('version.how', { platform: installPlatform() }))]), info: true }]
       : [],
   };
 }
@@ -2028,9 +2032,30 @@ async function extensionCap(): Promise<HealthCheck> {
         : say('cap.inUse', { n: load?.registered ?? 0, cap })]),
     ...noteOf([say('cap.note')]),
     items: skipped
-      ? [{ title: title.text, titleSaid: saidOf(title), ...detailOf([say('cap.detail', { n: skipped, cap })]) }]
+      ? [{ title: title.text, titleSaid: saidOf(title), ...detailOf([say('cap.detail', { n: skipped, cap })]), info: true },
+         ...(await leastUsedSources())]
       : [],
   };
+}
+
+/**
+ * The enabled extension sources the fewest series use (none first), each with a Turn off: the quickest way to make room under
+ * the source limit. A source that is some series' main source is never offered with 0 -- its count says how many it carries.
+ */
+async function leastUsedSources(limit = 8): Promise<HealthItem[]> {
+  const rows = await q<{ source_id: string; name: string | null; used: number }>(
+    `SELECT 'sw:' || ss.source_id AS source_id, ss.name,
+            (SELECT count(*)::int FROM lib_series ls WHERE ls.source_id = 'sw:' || ss.source_id AND ${visibleToAll('ls')})
+          + (SELECT count(*)::int FROM series_sources f WHERE f.source_id = 'sw:' || ss.source_id) AS used
+       FROM suwayomi_sources ss WHERE ss.enabled ORDER BY used, ss.name LIMIT $1`, [limit],
+  ).catch(() => [] as Array<{ source_id: string; name: string | null; used: number }>);
+  return rows.map((r) => ({
+    title: sourceLabel(r.source_id, r.name),
+    sourceId: r.source_id,
+    ...detailOf([say('cap.used', { n: r.used })]),
+    actions: ['disable'] as HealthAction[],
+    info: true,
+  }));
 }
 
 /**
