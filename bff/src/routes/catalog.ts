@@ -497,13 +497,6 @@ export default async function catalogRoutes(app: FastifyInstance) {
     }
   });
 
-  // The English / romanised / Japanese titles of the series' AniList entry, for the series page.
-  app.get('/api/series/:id/other-titles', async (req, reply) => {
-    const { id } = req.params as { id: string };
-    if (!(await seriesVisible(id, vc(req)))) return reply.code(404).send({ error: 'not_found' });
-    return { titles: await otherTitlesFor(id) };
-  });
-
   app.get('/api/series/:id', async (req) => {
     const { id } = req.params as { id: string };
     const series = await komga.series(vc(req), id);
