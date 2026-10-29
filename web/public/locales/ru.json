@@ -2,7 +2,7 @@
   "_meta": {
     "language": "ru",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 5362
+    "strings": 5377
   },
   "1 check found something": "1 проверка нашла проблему",
   "1 member": "1 участник",
@@ -5365,5 +5365,20 @@
   "Nothing matched those filters on this source.": "На этом источнике ничего не подошло под эти фильтры.",
   "Where to search": "Где искать",
   "Across AniList": "По AniList",
-  "On one source": "В одном источнике"
+  "On one source": "В одном источнике",
+  "Chapter {n} will not be fetched again": "Глава {n} больше не будет загружаться",
+  "Could not skip that chapter": "Не удалось пропустить главу",
+  "waiting for its first try here, it will be tried by itself": "ждёт первой попытки здесь, попробуется автоматически",
+  "Tries: {n}": "Попыток: {n}",
+  "Never fetch this chapter. Nothing is deleted, and the series page can show it again.": "Больше не загружать эту главу. Ничего не удаляется, страница серии может показать её снова.",
+  "Folder permissions": "Права на папки",
+  "Unmapped files and bin": "Неотнесённые файлы и корзина",
+  "Owned by {owner}, mode {mode}; the server runs as {me}.": "Владелец {owner}, режим {mode}; сервер работает от {me}.",
+  "Series under it: {n}.": "Серий внутри: {n}.",
+  "On the host, as root: {command}": "На хосте от root: {command}",
+  "1 folder the server cannot write to": "1 папка, в которую сервер не может писать",
+  "{n} folders the server cannot write to": "{n} папок, в которые сервер не может писать",
+  "The server can write to every series folder": "Сервер может писать во все папки серий",
+  "The server cannot write to the downloads folder itself": "Сервер не может писать в саму папку загрузок",
+  "Moving a series to another library, renaming a folder, merging and downloading all need the server (running as {me}) to write to the folder and the one above it. A folder made by a root shell or by another container is the usual cause. Uchiyomi cannot change ownership it has no right to, so run the command on the host (replace <host path> with where the downloads folder is on the host), then press Recheck.": "Перенос серии в другую библиотеку, переименование папки, слияние и загрузка требуют, чтобы сервер (работает от {me}) мог писать в папку и в папку выше. Обычная причина — папка, созданная оболочкой root или другим контейнером. Uchiyomi не может менять владельца без прав: выполните команду на хосте (замените <host path> на путь к папке загрузок на хосте), затем нажмите «Проверить снова»."
 }

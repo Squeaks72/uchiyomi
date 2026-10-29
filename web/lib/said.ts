@@ -1065,6 +1065,18 @@ const WORDS: Record<string, (p: P) => string | null> = {
   'files.notOurs': (p) => (num(p, 'n') === 1
     ? tr('1 of them is in a library you built: replace it by hand')
     : tr('{n} of them are in a library you built: replace them by hand', { n: num(p, 'n') })),
+  // Folder permissions (bff lib/healthPermissions.ts).
+  'perm.detail': (p) => {
+    const n = num(p, 'n');
+    const command = str(p, 'command');
+    return tr('Owned by {owner}, mode {mode}; the server runs as {me}.', { owner: str(p, 'owner'), mode: str(p, 'mode'), me: str(p, 'me') })
+      + ' ' + tr('Series under it: {n}.', { n })
+      + (command ? ' ' + tr('On the host, as root: {command}', { command }) : '');
+  },
+  'perm.live': (p) => (num(p, 'n') === 1 ? tr('1 folder the server cannot write to') : tr('{n} folders the server cannot write to', { n: num(p, 'n') })),
+  'perm.none': () => tr('The server can write to every series folder'),
+  'perm.root': () => tr('The server cannot write to the downloads folder itself'),
+  'perm.note': (p) => tr('Moving a series to another library, renaming a folder, merging and downloading all need the server (running as {me}) to write to the folder and the one above it. A folder made by a root shell or by another container is the usual cause. Uchiyomi cannot change ownership it has no right to, so run the command on the host (replace <host path> with where the downloads folder is on the host), then press Recheck.', { me: str(p, 'me') }),
   'files.live': (p) => {
     const n = num(p, 'n');
     const m = num(p, 'm');

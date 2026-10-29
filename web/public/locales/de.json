@@ -2,7 +2,7 @@
   "_meta": {
     "language": "de",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 5362
+    "strings": 5377
   },
   "1 check found something": "1 Prüfung hat etwas gefunden",
   "1 member": "1 Mitglied",
@@ -5365,5 +5365,20 @@
   "Nothing matched those filters on this source.": "Nichts auf dieser Quelle passt zu diesen Filtern.",
   "Where to search": "Wo gesucht wird",
   "Across AniList": "Über AniList",
-  "On one source": "Auf einer Quelle"
+  "On one source": "Auf einer Quelle",
+  "Chapter {n} will not be fetched again": "Kapitel {n} wird nicht mehr geladen",
+  "Could not skip that chapter": "Das Kapitel konnte nicht übersprungen werden",
+  "waiting for its first try here, it will be tried by itself": "wartet auf den ersten Versuch hier, wird von selbst versucht",
+  "Tries: {n}": "Versuche: {n}",
+  "Never fetch this chapter. Nothing is deleted, and the series page can show it again.": "Dieses Kapitel nie laden. Nichts wird gelöscht, die Serienseite kann es wieder anzeigen.",
+  "Folder permissions": "Ordnerberechtigungen",
+  "Unmapped files and bin": "Nicht zugeordnete Dateien und Papierkorb",
+  "Owned by {owner}, mode {mode}; the server runs as {me}.": "Gehört {owner}, Modus {mode}; der Server läuft als {me}.",
+  "Series under it: {n}.": "Serien darunter: {n}.",
+  "On the host, as root: {command}": "Auf dem Host, als root: {command}",
+  "1 folder the server cannot write to": "1 Ordner, in den der Server nicht schreiben kann",
+  "{n} folders the server cannot write to": "{n} Ordner, in die der Server nicht schreiben kann",
+  "The server can write to every series folder": "Der Server kann in jeden Serienordner schreiben",
+  "The server cannot write to the downloads folder itself": "Der Server kann nicht in den Download-Ordner selbst schreiben",
+  "Moving a series to another library, renaming a folder, merging and downloading all need the server (running as {me}) to write to the folder and the one above it. A folder made by a root shell or by another container is the usual cause. Uchiyomi cannot change ownership it has no right to, so run the command on the host (replace <host path> with where the downloads folder is on the host), then press Recheck.": "Eine Serie in eine andere Bibliothek verschieben, einen Ordner umbenennen, zusammenführen und herunterladen — all das braucht Schreibrechte des Servers (läuft als {me}) im Ordner und im darüberliegenden. Meist wurde der Ordner von einer Root-Shell oder einem anderen Container angelegt. Uchiyomi kann Besitzrechte, die es nicht hat, nicht ändern: Führe den Befehl auf dem Host aus (ersetze <host path> durch den Ort des Download-Ordners auf dem Host) und drücke dann Erneut prüfen."
 }

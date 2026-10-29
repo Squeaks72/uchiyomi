@@ -2,7 +2,7 @@
   "_meta": {
     "language": "ar",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 5369
+    "strings": 5384
   },
   "1 check found something": "فحص واحد وجد شيئًا",
   "1 member": "عضو واحد",
@@ -5372,5 +5372,20 @@
   "Nothing matched those filters on this source.": "لا شيء في هذا المصدر يطابق هذه المرشحات.",
   "Where to search": "مكان البحث",
   "Across AniList": "عبر AniList",
-  "On one source": "في مصدر واحد"
+  "On one source": "في مصدر واحد",
+  "Chapter {n} will not be fetched again": "لن يُجلب الفصل {n} مرة أخرى",
+  "Could not skip that chapter": "تعذّر تخطي هذا الفصل",
+  "waiting for its first try here, it will be tried by itself": "بانتظار أول محاولة هنا، ستُجرَّب تلقائياً",
+  "Tries: {n}": "المحاولات: {n}",
+  "Never fetch this chapter. Nothing is deleted, and the series page can show it again.": "لا تجلب هذا الفصل أبداً. لا يُحذف شيء ويمكن لصفحة السلسلة إظهاره مجدداً.",
+  "Folder permissions": "أذونات المجلدات",
+  "Unmapped files and bin": "الملفات غير المرتبطة والسلة",
+  "Owned by {owner}, mode {mode}; the server runs as {me}.": "المالك {owner}، الوضع {mode}؛ يعمل الخادم بصفة {me}.",
+  "Series under it: {n}.": "السلاسل تحته: {n}.",
+  "On the host, as root: {command}": "على المضيف، بصفة root: {command}",
+  "1 folder the server cannot write to": "مجلد واحد لا يستطيع الخادم الكتابة فيه",
+  "{n} folders the server cannot write to": "{n} مجلدات لا يستطيع الخادم الكتابة فيها",
+  "The server can write to every series folder": "يستطيع الخادم الكتابة في كل مجلدات السلاسل",
+  "The server cannot write to the downloads folder itself": "لا يستطيع الخادم الكتابة في مجلد التنزيلات نفسه",
+  "Moving a series to another library, renaming a folder, merging and downloading all need the server (running as {me}) to write to the folder and the one above it. A folder made by a root shell or by another container is the usual cause. Uchiyomi cannot change ownership it has no right to, so run the command on the host (replace <host path> with where the downloads folder is on the host), then press Recheck.": "نقل سلسلة إلى مكتبة أخرى وإعادة تسمية مجلد والدمج والتنزيل كلها تحتاج أن يستطيع الخادم (يعمل بصفة {me}) الكتابة في المجلد وفي المجلد الأعلى منه. السبب المعتاد مجلد أنشأه طرفية root أو حاوية أخرى. لا يستطيع Uchiyomi تغيير ملكية لا يملك حق تغييرها، فنفّذ الأمر على المضيف (استبدل <host path> بمكان مجلد التنزيلات على المضيف) ثم اضغط إعادة الفحص."
 }

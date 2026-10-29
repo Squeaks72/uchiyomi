@@ -38,6 +38,7 @@ const SAMPLE: Record<string, (c: number) => unknown> = {
   version: () => '3.4.6', latest: () => '3.5.0', root: () => 'downloads', folder: () => 'Walk/Gap', holder: () => 'Walk',
   ancestor: () => 'Walk', above: () => 'Walk', names: () => ['Manga Ball', 'MangaDex'], numbers: () => [21, 22],
   files: () => ['Chapter 1.cbz', 'Chapter 2.cbz'], cut: () => true, error: () => 'EACCES', reason: () => 'no images downloaded',
+  owner: () => '0:0', mode: () => '0755', me: () => '99:100', command: () => 'chown -R 99:100 "<host path>/Walk"',
   detail: () => 'the same folder as "Walk", reached again through a mount', text: () => 'as sent', file: () => 'Chapter 21.cbz',
   label: () => 'Image quality', value: () => 'best', url: () => 'http://solver:8191', host: () => 'aquareader.org',
   transport: () => 'ENOTFOUND', name: () => 'Webtoons', source: () => 'aqua', from: () => 'Aqua', to: () => 'MangaDex',

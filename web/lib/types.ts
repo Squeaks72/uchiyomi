@@ -675,6 +675,8 @@ export interface HealthItem {
   /** v0.52.0, on a duplicates row: the language of each of `seriesIds`, for Link as editions' confirmation. */
   langs?: string[];
   /** Which chips this item offers. Absent or empty means the item is a statement, not a task. */
+  /** Chapters that would not download (that check's rows): the newest few, each with a Skip key (bff lib/health.ts). */
+  failed?: Array<{ seriesId: string; title: string; number: number; status: string; reason: string | null; attempts: number; waiting: boolean }>;
   actions?: HealthAction[];
   /** Already dealt with, and when -- a confirmed-short chapter, a gap nobody lists. */
   fixed?: { at: string; what: string };

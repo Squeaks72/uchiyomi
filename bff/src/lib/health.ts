@@ -55,6 +55,7 @@ import { ALL_ROWS, DAY_MS, MAX_BOOK_IDS, MAX_ITEMS, allRows, hiddenPart, ignored
 import { diskAndFolders } from './healthDisk';
 import { trackerSync } from './healthTrackers';
 import { chapterFiles, recountUnreadable } from './healthFiles';
+import { folderPermissions } from './healthPermissions';
 
 export type HealthStatus = 'ok' | 'warn' | 'problem';
 
@@ -102,6 +103,17 @@ export type HealthAction =
   // The same chapter saved twice, two files of one chapter in one series (lib/heldTwice.ts): Keep one of each, for the
   // row's series (POST /api/admin/series/{id}/chapters/keep-once). Like a merge's keep-once, never run by itself.
   | 'keep_one';
+
+export interface FailedChapter {
+  seriesId: string;
+  title: string;
+  number: number;
+  status: string;
+  reason: string | null;
+  attempts: number;
+  /** Not tried at this source yet (moved here from another), or refused for room: it will be tried by itself. */
+  waiting: boolean;
+}
 
 export interface HealthItem {
   seriesId?: string;
@@ -159,6 +171,11 @@ export interface HealthItem {
   copies?: Array<{ id: string; chapters: number; source: { id: string; name: string; standing: Standing } | null }>;
   /** v0.52.0, beside `seriesIds` on a duplicates row: the language each is in, for Link as editions' confirmation. */
   langs?: string[];
+  /**
+   * Chapters that would not download (chapter-failures), the newest few of the row's source, each with what is known and
+   * whether it is merely waiting for its first try here. The web lists them under the row with a Skip key apiece.
+   */
+  failed?: FailedChapter[];
   /** What an admin can do about this item, in the order the chips are shown. */
   actions?: HealthAction[];
   /**
@@ -905,6 +922,7 @@ async function chapterFailures(ctx: IgnoreCtx = noIgnores()): Promise<HealthChec
     source_id: string; chapters: number; series: number; since: string; last_at: string; attempts: number; capped: number;
     latest_title: string; latest_number: number; latest_status: string; latest_reason: string | null; failing: string[]; limited: number;
     blocked_until: string | null; disabled: boolean;
+    failed: Array<{ seriesId: string; title: string; number: number; status: string; reason: string | null; attempts: number }>;
   }>(
     // `since` is the FIRST failure (first_at, v0.49.0; `at` is the latest attempt and a Retry now moves it
     // to now). COALESCE for rows from before the column, and rows a v0.48.4 rollback writes.
@@ -934,7 +952,12 @@ async function chapterFailures(ctx: IgnoreCtx = noIgnores()): Promise<HealthChec
             (array_agg(f.status  ORDER BY f.at DESC))[1] AS latest_status,
             (array_agg(f.reason  ORDER BY f.at DESC))[1] AS latest_reason,
             max(h.blocked_until) FILTER (WHERE h.blocked_until > now()) AS blocked_until,
-            COALESCE(bool_or(h.disabled), false) AS disabled
+            COALESCE(bool_or(h.disabled), false) AS disabled,
+            -- The newest few chapters, for the keys under the row (Skip): the row itself stays one per source.
+            (SELECT COALESCE(json_agg(x), '[]'::json) FROM (
+               SELECT f2.series_id AS "seriesId", l2.title, f2.number, f2.status, f2.reason, f2.attempts
+                 FROM chapter_failures f2 JOIN lib_series l2 ON l2.id = f2.series_id AND ${visibleToAll('l2')}
+                WHERE f2.source_id = f.source_id ORDER BY f2.at DESC, f2.number LIMIT 8) x) AS failed
        FROM chapter_failures f JOIN lib_series ls ON ls.id = f.series_id AND ${visibleToAll('ls')}
        LEFT JOIN source_health h ON h.source_id = f.source_id
       GROUP BY f.source_id ORDER BY chapters DESC`,
@@ -945,6 +968,10 @@ async function chapterFailures(ctx: IgnoreCtx = noIgnores()): Promise<HealthChec
     sourceId: r.source_id,
     key: `source:${r.source_id}`,
     members: r.failing ?? [],
+    failed: ((r.failed ?? []) as Array<{ seriesId: string; title: string; number: number; status: string; reason: string | null; attempts: number }>).map((c): FailedChapter => ({
+      seriesId: c.seriesId, title: c.title, number: Number(c.number), status: c.status, reason: c.reason ? String(c.reason).slice(0, 200) : null,
+      attempts: c.attempts, waiting: c.status === 'rate_limited' || (c.status === 'moved' && c.attempts === 0),
+    })),
     // Every chapter here was refused for room, or waits for this source's pause (v0.55.3): a statement, not a finding,
     // as Fix everything's "clears by itself" says it. One chapter failing any other way keeps the row a finding.
     // Reintroduce by dropping it: "chapters refused only for room are waiting, not failing" in health.int.test.ts finds
@@ -2247,6 +2274,7 @@ export async function runHealthChecks(opts: { bySeries?: boolean } = {}): Promis
     diskAndFolders(ctx).catch(() => null),
     trackerSync(ctx).catch(() => null),
     chapterFiles(ctx).catch(() => null),
+    folderPermissions(ctx).catch(() => null),
   ])).filter((c): c is HealthCheck => c !== null);
   await keepIgnoresAlive(ctx);
   // worst first, so the page opens on whatever needs attention
@@ -2399,6 +2427,7 @@ export async function findingOf(check: IgnorableCheck, key: string): Promise<Fin
     case 'disk': await diskAndFolders(ctx); break;
     case 'trackers': await trackerSync(ctx); break;
     case 'files': await chapterFiles(ctx); break;
+    case 'permissions': await folderPermissions(ctx); break;
   }
   return ctx.found.get(`${check}\u0000${key}`) ?? null;
 }
@@ -2409,7 +2438,7 @@ export const RECHECKABLE_CHECKS = [
   'folders-twice', 'extension-cap', 'extension-engine',
   // The row's Recheck on these three used to answer "Invalid option": they are in the full run and have rows with a Recheck, but were
   // never in this list.
-  'disk', 'trackers', 'files',
+  'disk', 'trackers', 'files', 'permissions',
 ] as const;
 export type RecheckableCheck = typeof RECHECKABLE_CHECKS[number];
 
@@ -2439,6 +2468,7 @@ export async function recheckCheck(id: RecheckableCheck): Promise<HealthCheck | 
     case 'extension-engine': return extensionEngineCheck().catch(() => null);
     case 'disk': return diskAndFolders(ctx).catch(() => null);
     case 'trackers': return trackerSync(ctx).catch(() => null);
+    case 'permissions': return folderPermissions(ctx).catch(() => null);
     // Recheck here means looking again: the flagged files are counted again first (a few hundred), so a file that was stamped
     // unreadable by a failed read, not by being broken, leaves the card.
     case 'files': await recountUnreadable({ max: 1000 }).catch(() => null); return chapterFiles(ctx).catch(() => null);

@@ -2,7 +2,7 @@
   "_meta": {
     "language": "ja",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 5362
+    "strings": 5377
   },
   "1 check found something": "1 件のチェックで問題を検出",
   "1 member": "メンバー 1 人",
@@ -5365,5 +5365,20 @@
   "Nothing matched those filters on this source.": "このソースにはそのフィルターに一致するものがありません。",
   "Where to search": "検索場所",
   "Across AniList": "AniList 全体",
-  "On one source": "1つのソースで"
+  "On one source": "1つのソースで",
+  "Chapter {n} will not be fetched again": "チャプター {n} は再取得されません",
+  "Could not skip that chapter": "そのチャプターをスキップできませんでした",
+  "waiting for its first try here, it will be tried by itself": "ここでの最初の試行待ち。自動で試されます",
+  "Tries: {n}": "試行回数: {n}",
+  "Never fetch this chapter. Nothing is deleted, and the series page can show it again.": "このチャプターを取得しません。何も削除されず、シリーズページで再表示できます。",
+  "Folder permissions": "フォルダの権限",
+  "Unmapped files and bin": "未割り当てのファイルとごみ箱",
+  "Owned by {owner}, mode {mode}; the server runs as {me}.": "所有者 {owner}、モード {mode}。サーバーは {me} で動作しています。",
+  "Series under it: {n}.": "配下のシリーズ: {n}。",
+  "On the host, as root: {command}": "ホストで root として: {command}",
+  "1 folder the server cannot write to": "サーバーが書き込めないフォルダ 1 件",
+  "{n} folders the server cannot write to": "サーバーが書き込めないフォルダ {n} 件",
+  "The server can write to every series folder": "サーバーはすべてのシリーズフォルダに書き込めます",
+  "The server cannot write to the downloads folder itself": "サーバーはダウンロードフォルダ自体に書き込めません",
+  "Moving a series to another library, renaming a folder, merging and downloading all need the server (running as {me}) to write to the folder and the one above it. A folder made by a root shell or by another container is the usual cause. Uchiyomi cannot change ownership it has no right to, so run the command on the host (replace <host path> with where the downloads folder is on the host), then press Recheck.": "シリーズを別のライブラリへ移す、フォルダ名を変える、統合する、ダウンロードする、いずれもサーバー（{me} で動作）がそのフォルダと上位フォルダに書き込める必要があります。root のシェルや別のコンテナが作ったフォルダが主な原因です。Uchiyomi には権限のない所有者変更はできないため、ホストでコマンドを実行し（<host path> はホスト上のダウンロードフォルダの場所に置き換え）、再確認を押してください。"
 }

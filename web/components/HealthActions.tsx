@@ -25,6 +25,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { ConfirmDialog, msgOf } from '@/components/ConfirmDialog';
 import { useToast } from '@/components/Toast';
+import { seriesHref } from '@/lib/healthLinks';
 import { ActionKeys, ActionList, ActionStatus, type ActionSpec } from '@/components/ActionList';
 import { useContextMenu, type MenuItem } from '@/components/ContextMenu';
 import { Disclosure } from '@/components/settings';
@@ -894,6 +895,7 @@ export function HealthRow({ check, item: itemIn, rowKey, links, children, compac
       {caveats.map((c) => (
         <p key={c.text} data-health-caveat={c.tone} className={`mt-1 text-[11px] leading-relaxed ${c.tone === 'calm' ? 'text-fog-300' : 'text-amber-300'}`}>{c.text}</p>
       ))}
+      <FailedChapters item={item} onChanged={() => { void rr.recheck().catch(() => {}); }} />
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
         {specs.length > 0 && <ActionKeys actions={specs} />}
         {finds.length > 0 && <ActionKeys actions={finds} />}
@@ -910,6 +912,49 @@ export function HealthRow({ check, item: itemIn, rowKey, links, children, compac
 
       {dialogs}
     </div>
+  );
+}
+
+/**
+ * Chapters that would not download, one line each under their source's row (bff lib/health.ts FailedChapter). A chapter only
+ * WAITING for its first try at the series' current source says so in words, so it is not read as a failure; one that has been
+ * tried says why it failed and how often. Skip hides the number for everyone -- never fetched again, nothing deleted, and the
+ * series page's More → Show hidden chapters brings it back -- which also takes it off this list and out of the gap check.
+ */
+function FailedChapters({ item, onChanged }: { item: HealthItem; onChanged: () => void }) {
+  const toast = useToast();
+  const [busy, setBusy] = useState<string | null>(null);
+  const rows = item.failed ?? [];
+  if (!rows.length) return null;
+  const skip = async (seriesId: string, number: number) => {
+    const key = `${seriesId}:${number}`;
+    setBusy(key);
+    try {
+      await api(`/api/admin/series/${encodeURIComponent(seriesId)}/chapters/hide`, { method: 'POST', json: { numbers: [number] } });
+      toast(tr('Chapter {n} will not be fetched again', { n: number }), 'success');
+      onChanged();
+    } catch (e: any) {
+      toast(e?.message || tr('Could not skip that chapter'), 'error');
+    }
+    setBusy(null);
+  };
+  return (
+    <ul data-health-failed className="mt-2 space-y-1.5">
+      {rows.map((c) => (
+        <li key={`${c.seriesId}:${c.number}`} className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] leading-relaxed text-fog-300">
+          <a href={seriesHref(c.seriesId, c.number)} dir="auto" className="min-w-0 truncate text-fog-100 hover:underline">{c.title}</a>
+          <span className="shrink-0 tabular-nums">{tr('Ch. {n}', { n: c.number })}</span>
+          <span className={c.waiting ? 'text-fog-400' : 'text-amber-300'}>
+            {c.waiting
+              ? tr('waiting for its first try here, it will be tried by itself')
+              : `${c.reason ?? c.status}${c.attempts > 0 ? ` · ${tr('Tries: {n}', { n: c.attempts })}` : ''}`}
+          </span>
+          <button type="button" data-health-skip disabled={busy === `${c.seriesId}:${c.number}`} onClick={() => void skip(c.seriesId, c.number)}
+            title={tr('Never fetch this chapter. Nothing is deleted, and the series page can show it again.')}
+            aria-label={`${tr('Skip')}: ${c.title} ${tr('Ch. {n}', { n: c.number })}`} className="btn-key ms-auto text-[11px]">{tr('Skip')}</button>
+        </li>
+      ))}
+    </ul>
   );
 }
 

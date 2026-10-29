@@ -806,6 +806,19 @@ const EN = {
     'Only the person can sign in again, under Profile → Connections; a sign-in the tracker refused stays off until they ' +
     'do. A sign-in ending within 14 days is a finding, and within 30 days is listed for reference.',
 
+  // ---- Folder permissions (lib/healthPermissions.ts). `owner` and `me` are uid:gid; `mode` octal; `n` the series under it.
+  'perm.detail': ({ owner, mode, me, n, command }: { owner: string; mode: string; me: string; n: number; command: string }) =>
+    `Owned by ${owner}, mode ${mode}; the server runs as ${me}. Series under it: ${n}.` +
+    (command ? ` On the host, as root: ${command}` : ''),
+  'perm.live': ({ n }: { n: number }) => `${n} folder${s(n, '', 's')} the server cannot write to`,
+  'perm.none': () => 'The server can write to every series folder',
+  'perm.root': () => 'The server cannot write to the downloads folder itself',
+  'perm.note': ({ me }: { me: string }) =>
+    `Moving a series to another library, renaming a folder, merging and downloading all need the server (running as ${me}) ` +
+    'to write to the folder and the one above it. A folder made by a root shell or by another container is the usual cause. ' +
+    'Uchiyomi cannot change ownership it has no right to, so run the command on the host (replace <host path> with where ' +
+    'the downloads folder is on the host), then press Recheck.',
+
   // ---- Chapter files (v0.72.0, lib/healthFiles.ts, rebuilt from @Squeaks72's #252). `numbers` the first five, `more`
   // how many besides.
   'files.detail': ({ n, numbers, more }: { n: number; numbers: number[]; more: number }) =>
