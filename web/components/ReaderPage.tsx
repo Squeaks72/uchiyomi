@@ -18,7 +18,7 @@ import { ChapterSeam } from '@/components/ChapterTalk';
  */
 
 /** How tall the chapter divider is. The reader's height model reserves the same (app/reader/page.tsx). */
-export const DIVIDER_H = 60;
+export const DIVIDER_H = 168;
 
 /** The parts of a reading-flow item a row draws (lib/readerFlow.ts FlowItem). */
 export interface RowItem {
@@ -49,13 +49,15 @@ export interface RowItem {
  * `seamActive`: the strip is near the screen, so its chapter's talk is worth asking for.
  */
 export const ReaderPageRow = memo(function ReaderPageRow({
-  item, height, gap, divider, seam, seamLabel, seamSeries, seamActive, onSeam, src, stripSrc, recollapsible, missingSource, wide, rightFirst, crop,
+  item, height, gap, divider, dividerPrev, seam, seamLabel, seamSeries, seamActive, onSeam, src, stripSrc, recollapsible, missingSource, wide, rightFirst, crop,
   imgFilter, onLoaded, onRetry, onExpand, onCollapse,
 }: {
   item: RowItem;
   height: number;
   gap: number;
   divider: string | null;
+  /** The chapter that just ended, for the line above the next one's (the divider's "Finished"). */
+  dividerPrev?: string | null;
   seam?: string | null;
   seamLabel?: string | null;
   seamSeries?: string | null;
@@ -83,11 +85,14 @@ export const ReaderPageRow = memo(function ReaderPageRow({
       {divider != null && seam && onSeam ? (
         <ChapterSeam bookId={seam} seriesId={seamSeries} label={seamLabel ?? ''} next={divider} active={!!seamActive} onOpen={onSeam} />
       ) : divider != null && (
-        <div style={{ height: DIVIDER_H }} className="flex items-center justify-center gap-3 text-xs text-fog-500">
-          <span className="h-px w-8 bg-ink-700" />
-          <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-fog-600">{tr('Up Next')}</span>
-          <span className="text-fog-400">{divider}</span>
-          <span className="h-px w-8 bg-ink-700" />
+        // A clear break between chapters (it was a thin grey "Up Next" line, easy to scroll straight past, and not every chapter
+        // opens on a title page): the end of the one that finished, and the one that begins, on a band of their own.
+        <div style={{ height: DIVIDER_H }} data-chapter-divider
+          className="flex flex-col items-center justify-center gap-2 border-y border-accent/30 bg-ink-950 px-6 text-center">
+          {dividerPrev && <p dir="auto" className="max-w-full truncate text-xs text-fog-500">{tr('End of {chapter}', { chapter: dividerPrev })}</p>}
+          <span aria-hidden className="h-px w-10 bg-accent/60" />
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-accent">{tr('Next chapter')}</p>
+          <p dir="auto" className="max-w-full truncate font-display text-base font-semibold text-fog-100">{divider}</p>
         </div>
       )}
       <div style={{ height: height || undefined, marginBottom: gap }} className="relative w-full bg-ink-900"

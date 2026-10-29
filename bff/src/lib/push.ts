@@ -79,7 +79,7 @@ async function sendToUser(userId: string, payload: object): Promise<void> {
  * chapters that landed, for the accounts that only want the one they would read next (lib/nextUp.ts); without them
  * everyone who favorited it is told.
  */
-export async function notifyNewChapter(seriesId: string, title: string, addedCount: number, numbers?: readonly number[]): Promise<void> {
+export async function notifyNewChapter(seriesId: string, title: string, addedCount: number, numbers?: readonly number[], body?: string): Promise<void> {
   if (!enabled) return;
   const fans = await q<{ user_id: string; role: string }>(
     `SELECT f.user_id, u.role FROM favorites f JOIN users u ON u.id = f.user_id WHERE f.series_id = $1 AND NOT u.disabled`, [seriesId]);
@@ -99,7 +99,7 @@ export async function notifyNewChapter(seriesId: string, title: string, addedCou
   if (!users.length) return;
   const payload = {
     title,
-    body: addedCount > 1 ? `${addedCount} new chapters available` : 'A new chapter is available',
+    body: body ?? (addedCount > 1 ? `${addedCount} new chapters available` : 'A new chapter is available'),
     url: `/series/?id=${seriesId}`,
     tag: `series-${seriesId}`,
   };

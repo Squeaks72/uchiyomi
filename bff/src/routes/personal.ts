@@ -6,7 +6,7 @@ import { q, one, tx } from '../lib/db';
 // backend-agnostic content client: the owned library in owned mode, Komga otherwise. The old direct
 // `lib/komga` import silently nulled every series lookup here after the owned-library cutover.
 import { content as komga } from '../lib/backend';
-import { viewCtxFor, visible, browsable, browsableIds, Params, type ViewCtx, hideAdult, sourceAllowedFor } from '../lib/visibility';
+import { viewCtxFor, seriesVisible, visible, browsable, browsableIds, Params, type ViewCtx, hideAdult, sourceAllowedFor, visibleToAll } from '../lib/visibility';
 import { getSource } from '../lib/sources';
 import { startBulkNewest, bulkNewestState } from '../lib/bulkNewest';
 // The download strip's "is a job running for this folder" lives with the strip, in routes/sources.ts, and
@@ -19,6 +19,7 @@ import { env } from '../env';
 import { pushEnabled, vapidPublicKey, saveSubscription, removeSubscription } from '../lib/push';
 import { statusFor, saveConnection, disconnect, whoAmI, pushSeriesProgress, pushSeriesProgressAsync, clearTrackerFloor, testConnection } from '../lib/trackers';
 import { ADAPTERS, isProvider, verdictOf, type Provider } from '../lib/trackerProviders';
+import { normTitle } from '../lib/titleMatch';
 import { logAudit } from '../lib/audit';
 import { ssoOnly } from '../lib/authMode';
 import { MAX_MANAGED_PROFILES, freeUsername, inheritRestrictions, placeholderPasswordHash, profileKind, profileRefusal } from '../lib/profiles';
@@ -71,11 +72,15 @@ function listOut(l: ListRow, uid: string) {
   const mine = l.user_id === uid;
   const query = mine && kindOf(l) === 'smart' ? parseQuery(l.query) : null;
   return {
-    id: l.id, name: l.name, accent: l.accent, sort_order: l.sort_order,
+    id: l.id, name: l.name, accent: l.accent, sort_order: l.sort_order, description: l.description ?? null,
     kind: kindOf(l), shared: l.shared === true, mine,
     ...(query ? { query } : {}),
   };
 }
+
+/** A title folded for comparison: case, accents, spacing and punctuation gone, any script's letters and digits kept. */
+const titleKey = (title: string): string =>
+  String(title ?? '').normalize('NFKD').replace(/\p{M}+/gu, '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
 
 export default async function personalRoutes(app: FastifyInstance) {
   // server.ts registers the limiter at the root; a test or a tool that mounts this plugin bare gets it here instead,
@@ -304,6 +309,12 @@ export default async function personalRoutes(app: FastifyInstance) {
     return { content: await enrichSeries(req, series) };
   });
 
+  // Just the ids, for a card that needs to know whether its series is a favourite (Discover's menu) without resolving every one.
+  app.get('/api/favorites/ids', async (req) => {
+    const rows = await q<{ series_id: string }>('SELECT series_id FROM favorites WHERE user_id = $1', [userIdOf(req)]);
+    return { ids: rows.map((r) => r.series_id) };
+  });
+
   app.post('/api/favorites', async (req, reply) => {
     const uid = userIdOf(req);
     const { seriesId } = z.object({ seriesId: z.string().min(1) }).parse(req.body);
@@ -334,6 +345,25 @@ export default async function personalRoutes(app: FastifyInstance) {
     return { ok: true, favorite: false };
   });
 
+  // ---- ignored titles (Discover: "Ignore" on a series that is not in the library) ----
+  app.get('/api/ignored-titles', async (req) => ({
+    content: await q('SELECT key, title, created_at AS "createdAt" FROM ignored_titles WHERE user_id = $1 ORDER BY created_at DESC', [userIdOf(req)]),
+  }));
+
+  app.put('/api/ignored-titles', async (req) => {
+    const uid = userIdOf(req);
+    const { title, ignored } = z.object({ title: z.string().trim().min(1).max(500), ignored: z.boolean() }).parse(req.body);
+    const key = titleKey(title);
+    if (!key) return { ok: true, ignored: false };
+    if (ignored) {
+      await q('INSERT INTO ignored_titles (user_id, key, title) VALUES ($1, $2, $3) ON CONFLICT (user_id, key) DO NOTHING', [uid, key, title]);
+    } else {
+      await q('DELETE FROM ignored_titles WHERE user_id = $1 AND key = $2', [uid, key]);
+    }
+    return { ok: true, ignored };
+  });
+
+  const FAVORITES_ID = 'favorites';
   // ---- collections (the app's Lists) ----
   //
   // v0.61.0: smart and shared lists (lib/lists.ts, lib/smartLists.ts). Reading a list -- GET of one, or the ?scope=all
@@ -369,15 +399,16 @@ export default async function personalRoutes(app: FastifyInstance) {
     const b = z.object({
       name: listName,
       accent: z.string().regex(HEX_COLOR).optional(),
+      description: z.string().max(4000).optional(),
       // v0.61.0: a smart list's saved Library search, and whether the household may read the list.
       query: smartQuery.optional(),
       shared: z.boolean().optional(),
     }).safeParse(req.body);
     if (!b.success) return reply.code(400).send({ error: 'bad_request', message: 'Give the list a name; a smart list needs a valid search.' });
     const row = await one<ListRow>(
-      `INSERT INTO collections (user_id, name, accent, query, shared) VALUES ($1, $2, $3, $4::jsonb, $5)
-       RETURNING id, user_id, name, accent, sort_order, query, shared`,
-      [uid, b.data.name, b.data.accent ?? null, b.data.query ? JSON.stringify(b.data.query) : null, b.data.shared === true],
+      `INSERT INTO collections (user_id, name, accent, description, query, shared) VALUES ($1, $2, $3, $4, $5::jsonb, $6)
+       RETURNING id, user_id, name, accent, sort_order, description, query, shared`,
+      [uid, b.data.name, b.data.accent ?? null, b.data.description?.trim() || null, b.data.query ? JSON.stringify(b.data.query) : null, b.data.shared === true],
     );
     return listOut(row!, uid);
   });
@@ -388,6 +419,7 @@ export default async function personalRoutes(app: FastifyInstance) {
       name: listName.optional(),
       accent: z.string().regex(HEX_COLOR).nullable().optional(),
       sortOrder: z.number().int().optional(),
+      description: z.string().max(4000).optional(),
       query: smartQuery.optional(),
       shared: z.boolean().optional(),
     }).safeParse(req.body ?? {});
@@ -402,11 +434,13 @@ export default async function personalRoutes(app: FastifyInstance) {
          name = COALESCE($3, name),
          accent = COALESCE($4, accent),
          sort_order = COALESCE($5, sort_order),
+         description = CASE WHEN $8::boolean THEN NULLIF(btrim($9), '') ELSE description END,
          query = COALESCE($6::jsonb, query),
          shared = COALESCE($7, shared)
-       WHERE id = $1 AND user_id = $2 RETURNING id, user_id, name, accent, sort_order, query, shared`,
+       WHERE id = $1 AND user_id = $2 RETURNING id, user_id, name, accent, sort_order, description, query, shared`,
       [list.id, uid, b.data.name ?? null, b.data.accent ?? null, b.data.sortOrder ?? null,
-        b.data.query ? JSON.stringify(b.data.query) : null, b.data.shared ?? null],
+        b.data.query ? JSON.stringify(b.data.query) : null, b.data.shared ?? null,
+        b.data.description !== undefined, b.data.description ?? ''],
     );
     return listOut(row!, uid);
   });
@@ -427,19 +461,37 @@ export default async function personalRoutes(app: FastifyInstance) {
     const { id } = req.params as { id: string };
     const raw = (req.query as { limit?: string }).limit;
     const limit = raw === undefined ? undefined : Math.max(1, Math.min(200, Math.floor(Number(raw)) || 200));
-    const list = await listFor(uid, id);
-    if (!list) return reply.code(404).send({ error: 'not_found' });
-    const kind = kindOf(list);
-    const { items: found, total } = await listItems(list, vc(req), 0, kind === 'smart' ? (limit ?? 200) : limit);
-    // Someone else's shared list exists for a member only while it shows them something, as the listing has it.
-    if (list.user_id !== uid && total === 0) return reply.code(404).send({ error: 'not_found' });
+    // Favorites is a list that always exists and is the viewer's own favourites, newest first. It has no row of its
+    // own, so it cannot be renamed, deleted or added to here; the heart does that.
+    const builtin = id === FAVORITES_ID;
+    const list = builtin ? null : await listFor(uid, id);
+    if (!builtin && !list) return reply.code(404).send({ error: 'not_found' });
+    let found: any[];
+    let total: number;
+    if (list) {
+      const kind = kindOf(list);
+      const r = await listItems(list, vc(req), 0, kind === 'smart' ? (limit ?? 200) : limit);
+      found = r.items as any[];
+      total = r.total;
+      // Someone else's shared list exists for a member only while it shows them something, as the listing has it.
+      if (list.user_id !== uid && total === 0) return reply.code(404).send({ error: 'not_found' });
+    } else {
+      const ids = (await q<{ series_id: string }>('SELECT series_id FROM favorites WHERE user_id = $1 ORDER BY created_at DESC', [uid])).map((r) => r.series_id);
+      // A collection is a listing like any other, so a title in an 18+ library stays out of it while hidden.
+      const shown = await browsableIds(ids, vc(req));
+      found = (await Promise.all(ids.filter((sid) => shown.has(sid)).map((sid) => komga.series(vc(req), sid).catch(() => null)))).filter(Boolean) as any[];
+      total = found.length;
+    }
     const items = await enrichSeries(req, found);
     // The list's sorts (#164) order by two dates no series payload carries; they ride on these items alone. The items
     // stay in the list's own order: the web sorts them, a list being one request and never paged.
     const dates = await listDates(uid, items.map((s: any) => s.id));
+    const wants = list && list.user_id === uid && kindOf(list) === 'manual' ? await promoteWants(list.id, req) : [];
     return {
-      ...listOut(list, uid),
-      ...(list.user_id === uid ? {} : { owner: await ownerOf(list) }),
+      ...(list
+        ? { ...listOut(list, uid), ...(list.user_id === uid ? {} : { owner: await ownerOf(list) }) }
+        : { id: FAVORITES_ID, name: 'Favorites', accent: null, sort_order: -1, description: null, builtin: true, kind: 'manual', shared: false, mine: true }),
+      wants,
       total,
       items: items.map((s: any) => ({ ...s, lastReadAt: dates.read.get(s.id) ?? null, latestChapterAt: dates.latest.get(s.id) ?? null })),
     };
@@ -489,6 +541,21 @@ export default async function personalRoutes(app: FastifyInstance) {
       [uid, seriesId, stars],
     );
     return { ok: true, stars };
+  });
+
+  // The series this person most recently gave four or five stars, for Home's "Because you rated" rail.
+  app.get('/api/ratings/loved', async (req) => {
+    const uid = userIdOf(req);
+    const vc = await viewCtxFor(uid, roleOf(req), { hideAdult: hideAdult(req) });
+    const rows = await q<{ id: string; title: string; custom: string | null; stars: number }>(
+      `SELECT s.id, s.title, o.title AS custom, r.stars FROM ratings r
+         JOIN lib_series s ON s.id = r.series_id AND ${visibleToAll('s')}
+         LEFT JOIN series_overrides o ON o.series_id = s.id
+        WHERE r.user_id = $1 AND r.stars >= 4 ORDER BY r.updated_at DESC LIMIT 10`, [uid]);
+    for (const r of rows) {
+      if (await seriesVisible(r.id, vc)) return { series: { id: r.id, name: r.custom || r.title, stars: r.stars } };
+    }
+    return { series: null };
   });
 
   app.delete('/api/ratings/:seriesId', async (req) => {
@@ -1005,6 +1072,181 @@ export default async function personalRoutes(app: FastifyInstance) {
       await q(`DELETE FROM favorites WHERE user_id = $1 AND series_id = ANY($2)`, [uid, live]);
     }
     return { ok: true, applied: live.length, skipped: skippedOf(b.data.seriesIds, live) };
+  });
+
+  // ---- titles saved to a list before the library holds them ----
+  const wantBody = z.object({ title: z.string().trim().min(1).max(300), coverUrl: z.string().max(2000).nullish() });
+
+  app.post('/api/collections/:id/wants', async (req, reply) => {
+    const uid = userIdOf(req);
+    const { id } = req.params as { id: string };
+    const b = wantBody.safeParse(req.body);
+    if (!b.success) return reply.code(400).send({ error: 'bad_request' });
+    const owns = await one('SELECT id FROM collections WHERE id = $1 AND user_id = $2', [id, uid]);
+    if (!owns) return reply.code(404).send({ error: 'not_found' });
+    const key = normTitle(b.data.title);
+    if (!key) return reply.code(400).send({ error: 'bad_request' });
+    await q(
+      `INSERT INTO collection_wants (collection_id, title_key, title, cover_url, position)
+       VALUES ($1, $2, $3, $4, COALESCE((SELECT max(position) + 1 FROM collection_wants WHERE collection_id = $1), 0))
+       ON CONFLICT (collection_id, title_key) DO UPDATE SET cover_url = COALESCE(collection_wants.cover_url, EXCLUDED.cover_url)`,
+      [id, key, b.data.title, b.data.coverUrl ?? null],
+    );
+    return { ok: true };
+  });
+
+  app.delete('/api/collections/:id/wants/:key', async (req, reply) => {
+    const uid = userIdOf(req);
+    const { id, key } = req.params as { id: string; key: string };
+    const owns = await one('SELECT id FROM collections WHERE id = $1 AND user_id = $2', [id, uid]);
+    if (!owns) return reply.code(404).send({ error: 'not_found' });
+    await q('DELETE FROM collection_wants WHERE collection_id = $1 AND title_key = $2', [id, key]);
+    return { ok: true };
+  });
+
+  /** The saved titles still not in the library; any it has gained since move into the list proper. */
+  async function promoteWants(collectionId: string, req: any) {
+    const wants = await q<{ title_key: string; title: string; cover_url: string | null }>(
+      'SELECT title_key, title, cover_url FROM collection_wants WHERE collection_id = $1 ORDER BY position, created_at', [collectionId]);
+    if (!wants.length) return [];
+    const held = await q<{ id: string; k: string }>(
+      `SELECT DISTINCT ON (k) s.id, k FROM (
+         SELECT s.id, regexp_replace(lower(s.title), '[^a-z0-9]+', '', 'g') AS k FROM lib_series s WHERE ${visibleToAll('s')}
+       ) s WHERE k = ANY($1) ORDER BY k, id`, [wants.map((w) => w.title_key)]);
+    const byKey = new Map(held.map((h) => [h.k, h.id]));
+    for (const w of wants) {
+      const sid = byKey.get(w.title_key);
+      if (!sid) continue;
+      await q(
+        `INSERT INTO collection_items (collection_id, series_id, position)
+         VALUES ($1, $2, COALESCE((SELECT max(position) + 1 FROM collection_items WHERE collection_id = $1), 0))
+         ON CONFLICT DO NOTHING`, [collectionId, sid]);
+      await q('DELETE FROM collection_wants WHERE collection_id = $1 AND title_key = $2', [collectionId, w.title_key]);
+    }
+    return wants.filter((w) => !byKey.has(w.title_key)).map((w) => ({ key: w.title_key, title: w.title, coverUrl: w.cover_url }));
+  }
+
+  // ---- sharing a list: a file one person exports and another imports ----
+  //
+  // Titles, not ids: ids belong to one server, a title is the one thing both libraries share. Importing links the
+  // titles this library holds and saves the rest on the list for later ("Not in your library yet").
+  const LIST_FORMAT = 'uchiyomi-list';
+  const listFile = z.object({
+    format: z.literal(LIST_FORMAT),
+    version: z.number().int().min(1).max(2),
+    name: z.string().trim().min(1).max(120),
+    description: z.string().max(4000).nullish(),
+    items: z.array(z.object({
+      title: z.string().trim().min(1).max(300), coverUrl: z.string().url().max(1000).nullish(),
+      // Where the exporter's library got the title (v2): enough for an importer starting from nothing to add it.
+      lang: z.string().max(35).nullish(),
+      sources: z.array(z.object({ source: z.string().min(1).max(200), sourceId: z.string().min(1).max(200), name: z.string().max(200).nullish(), pkgName: z.string().max(200).nullish() })).max(12).nullish(),
+    })).max(5000),
+  });
+  type ListSource = { source: string; sourceId: string; name?: string | null; pkgName?: string | null };
+  // The primary source first, then the followed ones; each once, named by the extension that serves it.
+  const sourcesOf = (primary: { source_id: string | null; source_series_id: string | null }, followed: ListSource[] | null, pkgs: Map<string, string> = new Map()): ListSource[] => {
+    const out: ListSource[] = [];
+    const add = (s: string | null | undefined, id: string | null | undefined) => {
+      if (!s || !id || out.some((o) => o.source === s && o.sourceId === id)) return;
+      out.push({ source: s, sourceId: id, name: getSource(s)?.name ?? null, ...(pkgs.get(s) ? { pkgName: pkgs.get(s) } : {}) });
+    };
+    add(primary.source_id, primary.source_series_id);
+    for (const f of followed ?? []) add(f.source, f.sourceId);
+    return out;
+  };
+
+  app.get('/api/collections/:id/export', async (req, reply) => {
+    const uid = userIdOf(req);
+    const { id } = req.params as { id: string };
+    const builtin = id === FAVORITES_ID;
+    const col = builtin
+      ? { name: 'Favorites', description: null }
+      : await one<{ name: string; description: string | null }>('SELECT name, description FROM collections WHERE id = $1 AND user_id = $2', [id, uid]);
+    if (!col) return reply.code(404).send({ error: 'not_found' });
+    type Held = { title: string; lang: string | null; source_id: string | null; source_series_id: string | null; followed: ListSource[] | null };
+    const cols = `COALESCE(NULLIF(btrim(o.title), ''), s.title) AS title, s.lang, s.source_id, s.source_series_id,
+         (SELECT json_agg(json_build_object('source', ss.source_id, 'sourceId', ss.source_series_id) ORDER BY ss.created_at)
+            FROM series_sources ss WHERE ss.series_id = s.id) AS followed`;
+    const held = builtin ? await q<Held>(
+      `SELECT ${cols}
+         FROM favorites f JOIN lib_series s ON s.id = f.series_id
+         LEFT JOIN series_overrides o ON o.series_id = s.id
+        WHERE f.user_id = $1 AND ${visibleToAll('s')} ORDER BY f.created_at DESC`, [uid]) : await q<Held>(
+      `SELECT ${cols}
+         FROM collection_items ci JOIN lib_series s ON s.id = ci.series_id
+         LEFT JOIN series_overrides o ON o.series_id = s.id
+        WHERE ci.collection_id = $1 AND ${visibleToAll('s')} ORDER BY ci.position`, [id]);
+    const wants = builtin ? [] : await q<{ title: string; cover_url: string | null; sources: ListSource[] | null }>(
+      'SELECT title, cover_url, sources FROM collection_wants WHERE collection_id = $1 ORDER BY position, created_at', [id]);
+    // Which extension package serves each source, so an importer without it knows what to install.
+    const pkgs = new Map((await q<{ source_id: string; pkg_name: string }>(
+      `SELECT 'sw:' || source_id AS source_id, pkg_name FROM suwayomi_sources WHERE pkg_name IS NOT NULL`).catch(() => [])).map((r) => [r.source_id, r.pkg_name]));
+    const withSources = (sources: ListSource[]) => (sources.length ? { sources } : {});
+    const file = {
+      format: LIST_FORMAT, version: 2, name: col.name, description: col.description,
+      items: [
+        ...held.map((h) => ({ title: h.title, ...(h.lang ? { lang: h.lang } : {}), ...withSources(sourcesOf(h, h.followed, pkgs)) })),
+        ...wants.map((w) => ({ title: w.title, ...(w.cover_url ? { coverUrl: w.cover_url } : {}), ...withSources(sourcesOf({ source_id: null, source_series_id: null }, w.sources, pkgs)) })),
+      ],
+    };
+    const safe = col.name.replace(/[^\p{L}\p{N} _-]+/gu, '').trim().slice(0, 60) || 'list';
+    return reply.header('content-disposition', `attachment; filename="${encodeURIComponent(safe)}.uchiyomi-list.json"`).send(file);
+  });
+
+  app.post('/api/collections/import', async (req, reply) => {
+    const uid = userIdOf(req);
+    const b = z.object({ list: listFile, collectionId: z.string().min(1).max(64).optional() }).safeParse(req.body);
+    if (!b.success) return reply.code(400).send({ error: 'bad_request', message: 'That is not an exported Uchiyomi list.' });
+    const { list } = b.data;
+    let target: { id: string; name: string } | null;
+    if (b.data.collectionId) {
+      target = await one('SELECT id, name FROM collections WHERE id = $1 AND user_id = $2', [b.data.collectionId, uid]);
+      if (!target) return reply.code(404).send({ error: 'not_found' });
+    } else {
+      target = await one('INSERT INTO collections (user_id, name, description) VALUES ($1, $2, $3) RETURNING id, name', [uid, list.name, list.description?.trim() || null]);
+    }
+    const id = target!.id;
+    const seen = new Map<string, { title: string; coverUrl: string | null; sources: ListSource[] }>();
+    for (const it of list.items) { const k = normTitle(it.title); if (k && !seen.has(k)) seen.set(k, { title: it.title, coverUrl: it.coverUrl ?? null, sources: (it.sources ?? []).map((x) => ({ source: x.source, sourceId: x.sourceId, name: x.name ?? null, pkgName: x.pkgName ?? null })) }); }
+    const keys = [...seen.keys()];
+    const held = keys.length ? await q<{ id: string; k: string }>(
+      `SELECT DISTINCT ON (k) s.id, k FROM (
+         SELECT s.id, regexp_replace(lower(s.title), '[^a-z0-9]+', '', 'g') AS k FROM lib_series s WHERE ${visibleToAll('s')}
+       ) s WHERE k = ANY($1) ORDER BY k, id`, [keys]) : [];
+    const byKey = new Map(held.map((h) => [h.k, h.id]));
+    let added = 0; let saved = 0;
+    const toAdd: Array<{ title: string; sources: ListSource[] }> = [];
+    for (const [k, v] of seen) {
+      const sid = byKey.get(k);
+      if (sid) {
+        const r = await q(
+          `INSERT INTO collection_items (collection_id, series_id, position)
+           VALUES ($1, $2, COALESCE((SELECT max(position) + 1 FROM collection_items WHERE collection_id = $1), 0))
+           ON CONFLICT DO NOTHING RETURNING 1`, [id, sid]);
+        added += r.length;
+      } else {
+        const r = await q(
+          `INSERT INTO collection_wants (collection_id, title_key, title, cover_url, sources, position)
+           VALUES ($1, $2, $3, $4, $5, COALESCE((SELECT max(position) + 1 FROM collection_wants WHERE collection_id = $1), 0))
+           ON CONFLICT (collection_id, title_key) DO UPDATE SET sources = COALESCE(collection_wants.sources, EXCLUDED.sources)
+           RETURNING (xmax = 0) AS fresh`, [id, k, v.title, v.coverUrl, v.sources.length ? JSON.stringify(v.sources) : null]);
+        saved += r.filter((x: any) => x.fresh).length;
+        if (v.sources.length) toAdd.push({ title: v.title, sources: v.sources });
+      }
+    }
+    // Sources this server has no adapter for (an extension it lacks) go last, and are listed once so an admin can be
+    // offered the extensions that would supply them.
+    const missing = new Map<string, { source: string; name: string | null; pkgName: string | null; titles: number }>();
+    for (const t of toAdd) {
+      t.sources.sort((a, b) => Number(!getSource(a.source)) - Number(!getSource(b.source)));
+      for (const x of t.sources) {
+        if (getSource(x.source)) continue;
+        const m = missing.get(x.source) ?? { source: x.source, name: x.name ?? null, pkgName: x.pkgName ?? null, titles: 0 };
+        m.titles++; missing.set(x.source, m);
+      }
+    }
+    return { ok: true, id, name: target!.name, added, saved, total: seen.size, toAdd, missing: [...missing.values()] };
   });
 
   app.post('/api/collections/:id/items/bulk', async (req, reply) => {

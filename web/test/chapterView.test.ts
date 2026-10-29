@@ -35,13 +35,13 @@ test('Columns unless this device chose List; junk and a storage that throws read
 
 test('Columns is exactly the grid that shipped; List is one list, on every width', () => {
   // Reintroduce a restyle of everyone's default by changing the Columns string: this fails.
-  assert.equal(chapterRowsClass('columns'), 'lg:grid lg:gap-x-8 lg:[grid-template-columns:repeat(auto-fill,minmax(250px,1fr))]');
+  assert.equal(chapterRowsClass('columns'), 'lg:grid lg:gap-x-8 lg:[grid-template-columns:repeat(auto-fill,minmax(min(var(--chap-col,250px),100%),var(--chap-max,1fr)))]');
   assert.doesNotMatch(chapterRowsClass('list'), /grid/, 'List still lays the rows out in columns');
 });
 
 test('the series page lays its rows out by the device\'s choice, and the toolbar offers it from lg up', () => {
   const src = read('app/series/page.tsx');
-  assert.match(src, /<div className=\{chapterRowsClass\(view\)\} data-chapter-rows=\{view\}>\s*\{pageRows\.map/, 'the rows ignore the layout');
+  assert.match(src, /<div className=\{chapterRowsClass\(view\)\} data-chapter-rows=\{view\} style=\{[^\n]*\}>\s*\{pageRows\.map/, 'the rows ignore the layout');
   // Read after mount, like the compact list: the static export renders without storage.
   assert.match(src, /const \[view, setView\] = useState<ChapterView>\('columns'\);\s*useEffect\(\(\) => \{ setView\(chapterViewOn\(\)\); \}, \[\]\);/);
   const bar = src.slice(src.indexOf('<div data-chapter-toolbar'), src.indexOf('{group !== ALL_GROUPS && ('));

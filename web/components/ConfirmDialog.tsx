@@ -7,11 +7,13 @@
 //
 // `confirmText` asks the user to type the name of what they are about to change. Worth the friction only
 // where the action moves other people's data — deleting a series a household is reading, merging two.
-import { useEffect, useRef, useState } from 'react';
+import { coarsePointer } from '@/lib/touch';
+import { useEffect, useId, useRef, useState } from 'react';
 import { t as tr } from '@/lib/i18n';
 import { saidText } from '@/lib/said';
 import { confirmsTitle } from '@/lib/confirmTitle';
 import { useLayer } from '@/lib/layers';
+import { trapTab, FIELD_BASE, BACKDROP_CLS } from './ui';
 
 export function Modal({
   title,
@@ -19,6 +21,7 @@ export function Modal({
   children,
   wide,
   fieldFocus = true,
+  xwide,
 }: {
   title: string;
   onClose: () => void;
@@ -29,6 +32,8 @@ export function Modal({
    * close key and a phone's keyboard does not open over the list the moment the dialog does.
    */
   fieldFocus?: boolean;
+  /** Wider still: a dialog with a picture beside its text. */
+  xwide?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const fieldFirst = useRef(fieldFocus);
@@ -57,9 +62,11 @@ export function Modal({
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeRef.current(); };
     document.addEventListener('keydown', onKey);
     // A field if there is one; the close button only when there is nothing to type into.
-    const first = (fieldFirst.current ? ref.current?.querySelector<HTMLElement>('input, textarea, select') : null)
+    const first = (fieldFirst.current && !coarsePointer() ? ref.current?.querySelector<HTMLElement>('input, textarea, select') : null)
       ?? ref.current?.querySelector<HTMLElement>('button');
-    first?.focus();
+    // On a phone a focused field raises the keyboard over the panel's own buttons: focus the panel instead.
+    const target = first ?? (coarsePointer() ? ref.current : null);
+    target?.focus();
     return () => { document.removeEventListener('keydown', onKey); opener?.focus(); };
   }, []);
 
@@ -71,19 +78,21 @@ export function Modal({
   // is capped at the viewport minus that band and the top padding (7.5 rem = 5.5 + 1 + 1); from `lg` up it
   // is the centred 88vh dialog it always was. The same 5.5 rem the Sheet's `overBottomNav` uses.
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-ink-950/70 p-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] backdrop-blur-xs lg:pb-4" onClick={onClose}>
+    <div className={`fixed inset-0 z-50 grid place-items-center ${BACKDROP_CLS} p-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] lg:pb-4`} onClick={onClose}>
       <div
         ref={ref}
         role="dialog"
         aria-modal="true"
         aria-label={title}
+        tabIndex={-1}
+        onKeyDown={(e) => trapTab(e, ref.current)}
         data-lenis-prevent
-        className={`glass max-h-[calc(100dvh-7.5rem-env(safe-area-inset-bottom))] w-full lg:max-h-[88vh] ${wide ? 'max-w-lg' : 'max-w-md'} overflow-y-auto rounded-2xl border border-ink-700 p-5`}
+        className={`glass outline-none max-h-[calc(100dvh-7.5rem-env(safe-area-inset-bottom))] w-full lg:max-h-[88vh] ${xwide ? 'max-w-xl' : wide ? 'max-w-lg' : 'max-w-md'} overflow-y-auto overscroll-contain rounded-2xl border border-ink-700 p-5`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-3 flex items-start justify-between gap-3">
           <h3 className="font-display text-lg font-semibold leading-tight">{title}</h3>
-          <button onClick={onClose} aria-label={tr('Close')} className="shrink-0 text-fog-500 hover:text-fog-200">✕</button>
+          <button onClick={onClose} aria-label={tr('Close')} className="-m-3 grid h-11 w-11 shrink-0 place-items-center text-fog-500 hover:text-fog-200"><span aria-hidden>✕</span></button>
         </div>
         {children}
       </div>
@@ -94,7 +103,7 @@ export function Modal({
 export function ConfirmDialog({
   title,
   body,
-  confirmLabel = tr('Confirm'),
+  confirmLabel,
   confirmText,
   danger,
   busy,
@@ -112,6 +121,7 @@ export function ConfirmDialog({
   onClose: () => void;
 }) {
   const [typed, setTyped] = useState('');
+  const fieldId = useId();
   // Compared the way a person can actually type it, through the fold `lib/confirmTitle.ts` explains and the
   // route (routes/admin.ts `sameTitle`) applies to the same string: curly apostrophes, en and em dashes, a
   // literal `&amp;` the source never decoded, a non-breaking space and an NFD accent all read as what they
@@ -156,7 +166,7 @@ export function ConfirmDialog({
       {confirmText && (
         <>
           <div className="mb-1 mt-4 flex items-center justify-between gap-2">
-            <label className="text-xs font-semibold uppercase tracking-wider text-fog-500">
+            <label htmlFor={fieldId} className="text-xs font-semibold uppercase tracking-wider text-fog-500">
               {before}<span className="text-fog-200">{confirmText}</span>{after}
             </label>
             {canCopy && (
@@ -170,9 +180,10 @@ export function ConfirmDialog({
             )}
           </div>
           <input
+            id={fieldId}
             value={typed}
             onChange={(e) => setTyped(e.target.value)}
-            className="w-full rounded-lg border border-ink-700 bg-ink-900/60 px-3 py-2 text-sm text-fog-50 outline-hidden focus:border-accent"
+            className={`w-full px-3 py-2 text-fog-50 ${FIELD_BASE}`}
             autoComplete="off"
           />
         </>
@@ -186,7 +197,7 @@ export function ConfirmDialog({
             danger ? 'bg-rose-500/90 text-white hover:bg-rose-500' : 'btn-accent'
           }`}
         >
-          {busy ? tr('Working…') : confirmLabel}
+          {busy ? tr('Working…') : (confirmLabel ?? tr('Confirm'))}
         </button>
       </div>
     </Modal>

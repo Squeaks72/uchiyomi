@@ -5,7 +5,7 @@ import { isWide, joinedOrder, pageHeight, pairSlides, type WidePages } from '@/l
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, apiWithHeaders, img } from '@/lib/api';
 import { fetchAllBooks } from '@/lib/seriesBooks';
 import { chapterOutcome } from '@/lib/readerState';
@@ -24,6 +24,8 @@ import { activeLocale, chapterLabel, languageName } from '@/lib/format';
 import { editionChipLabels, readerTarget } from '@/lib/editions';
 import { numLabel } from '@/lib/numbering';
 import { useToast } from '@/components/Toast';
+import { msgOf } from '@/components/ConfirmDialog';
+import { kickDownloads } from '@/lib/useServerDownloads';
 import { deviceId } from '@/lib/device';
 import { ReaderEndLabel, ReaderEndRadar } from '@/components/ReaderEndRadar';
 import { getOfflineChapter, getPageBlob, queueProgress, noteOfflineProgress, listSeriesDownloads, setOfflinePageJunk, setOfflineSpreadMarks } from '@/lib/downloads';
@@ -270,7 +272,8 @@ function ReaderInner() {
   const openTalk = useCallback((id: string) => setTalkFor(id), []);
   const hasKeyboard = useHasKeyboard();
   const [current, setCurrent] = useState(0);
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
+  const qc = useQueryClient();
   /** Source id -> display name from the series' own followed sources (set with the reading direction). */
   const [seriesSourceNames, setSeriesSourceNames] = useState<Record<string, string>>({});
   // The series' PRIMARY source, which keys the per-source reader default (lib/readerPrefs.ts seriesSourceOf).
@@ -1967,6 +1970,19 @@ function ReaderInner() {
 
   const total = flat.length;
   const pageInChapter = activeChapter ? (flat[current]?.number ?? 0) : 0;
+  // The page slider spans the CHAPTER being read, not everything loaded: the column appends the next chapter(s) after this one, and
+  // a slider over all of them put page 1 of chapter 2 a third of the way along and never reached its end at the chapter's last page.
+  // `flat` holds each chapter's pages contiguously, so the range is the run around `current` with the same chapter index.
+  const sliderCi = flat[current]?.ci;
+  const chapRange = useMemo(() => {
+    if (sliderCi == null) return { lo: 0, hi: Math.max(0, flat.length - 1) };
+    let lo = Math.min(current, flat.length - 1);
+    while (lo > 0 && flat[lo - 1].ci === sliderCi) lo--;
+    let hi = Math.min(current, flat.length - 1);
+    while (hi < flat.length - 1 && flat[hi + 1].ci === sliderCi) hi++;
+    return { lo, hi };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flat, sliderCi]);
 
   // ---- translated pages (v0.85.0) ----
   // The chapter being read is asked for from the page it is on, and the next one once it is done: the server does one
@@ -2099,6 +2115,20 @@ function ReaderInner() {
    * the "You finished" card mid-series. Both told them to stop looking.
    */
   const retry = () => { setFailed(null); setReady(false); setReloadKey((k) => k + 1); };
+  const [redownloading, setRedownloading] = useState(false);
+  const redownload = async () => {
+    const c = activeChapter;
+    if (!c || redownloading) return;
+    setRedownloading(true);
+    try {
+      const res = await api<{ total: number; skipped: Array<{ reason: string }> }>(`/api/admin/series/${c.seriesId}/chapters/refetch`, { method: 'POST', json: { bookIds: [c.id] } });
+      if (res.total > 0) { void kickDownloads(qc); toast(tr('Downloading this chapter again. Try it in a minute.'), 'info'); }
+      else toast(tr('This chapter cannot be downloaded again from here. Use the series page.'), 'error');
+    } catch (e) {
+      toast(msgOf(e, tr('Could not start.')), 'error');
+    }
+    setRedownloading(false);
+  };
   const failureCard = (
     <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}
       className="mx-auto w-full max-w-3xl px-6 py-16 text-center">
@@ -2122,6 +2152,7 @@ function ReaderInner() {
         {/* No Try again for a pruned chapter: there is nothing to retry, and a button that cannot work is
             worse than no button. */}
         {failed !== 'pruned' && <button onClick={retry} className="btn-accent text-sm">{tr('Try again')}</button>}
+        {isAdmin && !activeChapter?.offline && <button onClick={redownload} disabled={redownloading} className="btn-ghost text-sm">{tr('Redownload this chapter')}</button>}
         <button onClick={() => (seriesHref ? router.push(seriesHref) : back())} className={`text-sm ${failed === 'pruned' ? 'btn-accent' : 'btn-ghost'}`}>{tr('Back to series')}</button>
       </div>
     </motion.div>
@@ -2198,12 +2229,13 @@ function ReaderInner() {
           content in view desynchronises it from `current` with no symptom and no way to detect it. */}
       {prefs.mode === 'vertical' ? (
         <div ref={scrollRef} data-lenis-prevent style={{ overflowAnchor: 'none' }} onScroll={onScroll} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerEnd} onPointerCancel={onPointerEnd} onDoubleClick={onTrackDoubleClick} {...menuBind}
-          className={`h-screen-d touch-pan-y overflow-y-auto overscroll-contain ${zoom > 1 ? 'overflow-x-auto' : 'overflow-x-hidden'}`}>
+          className={`h-screen-d overflow-y-auto overscroll-contain ${zoom > 1 ? 'touch-pan-x touch-pan-y overflow-x-auto' : 'touch-pan-y overflow-x-hidden'}`}>
           <div className="mx-auto" style={{ width: colW || '100%', filter: THEME_FILTER[prefs.theme] }}>
             <div className="h-2" />
             {flat.map((p, i) => (
               <ReaderPageRow key={p.key} item={p} height={heights[i]} gap={prefs.gap}
                 divider={p.firstOfChapter && p.ci > 0 ? (chapters[p.ci]?.title || tr('Next chapter')) : null}
+                dividerPrev={p.firstOfChapter && p.ci > 0 ? (chapters[p.ci - 1]?.title || null) : null}
                 seam={talkOn && p.firstOfChapter && p.ci > 0 ? chapters[p.ci - 1]?.id ?? null : null}
                 seamLabel={p.firstOfChapter && p.ci > 0 ? chapters[p.ci - 1]?.title ?? null : null}
                 seamSeries={p.firstOfChapter && p.ci > 0 ? chapters[p.ci - 1]?.seriesId ?? null : null}
@@ -2373,7 +2405,7 @@ function ReaderInner() {
         {chrome && (
           <>
             <motion.header initial={{ y: -64, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -64, opacity: 0 }}
-              className="absolute inset-x-0 top-0 z-40 flex items-center gap-2 bg-linear-to-b from-black/90 via-black/55 to-transparent px-3 pb-8 pt-[max(0.9rem,calc(env(safe-area-inset-top)+0.55rem))] before:pointer-events-none before:absolute before:inset-x-0 before:bottom-full before:h-16 before:bg-black/90">
+              className="pointer-events-none absolute inset-x-0 top-0 z-40 flex items-center gap-2 [&>*]:pointer-events-auto bg-linear-to-b from-black/90 via-black/55 to-transparent pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))] pb-8 landscape:pb-3 pt-[max(0.9rem,calc(env(safe-area-inset-top)+0.55rem))] before:pointer-events-none before:absolute before:inset-x-0 before:bottom-full before:h-16 before:bg-black/90">
               <button onClick={back} className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-black/45 text-white backdrop-blur">
                 <IcChevronLeft width={22} height={22} />
               </button>
@@ -2434,14 +2466,14 @@ function ReaderInner() {
             </motion.header>
 
             <motion.footer initial={{ y: 64, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 64, opacity: 0 }}
-              className="absolute inset-x-0 bottom-0 z-40 bg-linear-to-t from-black/90 via-black/55 to-transparent px-4 pt-10 pb-[max(0.9rem,calc(env(safe-area-inset-bottom)+0.4rem))] after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-16 after:bg-black/90">
+              className="pointer-events-none absolute inset-x-0 bottom-0 z-40 bg-linear-to-t from-black/90 via-black/55 to-transparent pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] pt-10 landscape:pt-4 pb-[max(0.9rem,calc(env(safe-area-inset-bottom)+0.4rem))] after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-16 after:bg-black/90">
               {/* In paged mode the bar follows the TRACK, both ways: on a right-to-left read the previous chapter
                   is on the right, next on the left, and the slider fills from the right, so dragging it moves the
                   way the pages do. On a left-to-right read it is stated LTR rather than inherited -- under the
                   Arabic interface it used to inherit RTL and run opposite to its own pages. The chevrons swap to
                   keep pointing outwards; the counter stays LTR so "12/40" never reorders. The webtoon column
                   has no horizontal direction, so there the bar inherits the page's, as it always has. */}
-              <div dir={prefs.mode === 'paged' ? (pagedRtl ? 'rtl' : 'ltr') : undefined} className="relative mx-auto flex max-w-3xl items-center gap-2">
+              <div dir={prefs.mode === 'paged' ? (pagedRtl ? 'rtl' : 'ltr') : undefined} className="pointer-events-auto relative mx-auto flex max-w-3xl items-center gap-2">
                 {/* scrubber preview: a small render of the target page while dragging */}
                 {scrubbing && flat[current] && (() => {
                   const it = flat[current];
@@ -2461,25 +2493,25 @@ function ReaderInner() {
                   );
                 })()}
                 <button onClick={() => goChapter(prevId, true)} disabled={!prevId} aria-label={tr('Previous chapter')}
-                  className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-black/45 text-white backdrop-blur disabled:opacity-30">
+                  className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-black/45 text-white backdrop-blur disabled:opacity-30">
                   {pagedRtl ? <IcChevronRight width={18} height={18} /> : <IcChevronLeft width={18} height={18} />}
                 </button>
                 {/* The counter is the button. A long-press would be invisible on a phone, which this repo
                     already learned once from a hover-only affordance nobody found. */}
                 <button dir="ltr" data-reader-pages onClick={() => setShowPages(true)} aria-label={tr('Jump to a page')}
-                  className="shrink-0 rounded-full px-1.5 py-0.5 text-[11px] tabular-nums text-fog-300 transition hover:bg-white/10 hover:text-white">
+                  className="grid min-h-10 shrink-0 place-items-center rounded-full px-2.5 text-xs tabular-nums text-fog-300 transition hover:bg-white/10 hover:text-white">
                   {chapterPageCount ? `${pageInChapter}/${chapterPageCount}` : `${current + 1}/${total}`}
                 </button>
-                <input type="range" min={0} max={Math.max(0, total - 1)} value={current}
+                <input type="range" min={chapRange.lo} max={chapRange.hi} value={Math.min(Math.max(current, chapRange.lo), chapRange.hi)}
                   onPointerDown={() => setScrubbing(true)}
                   // Let go of focus after a drag: a slider that keeps it owns Space and the arrows, so in the
                   // webtoon column Space stopped scrolling until the controls hid. Tab still reaches it.
                   onPointerUp={(e) => { setScrubbing(false); e.currentTarget.blur(); }}
                   onPointerCancel={() => setScrubbing(false)} onBlur={() => setScrubbing(false)}
                   onChange={(e) => jumpTo(Number(e.target.value))}
-                  className="h-1 flex-1 accent-[rgb(var(--accent))]" />
+                  className="h-10 min-w-0 flex-1 touch-none accent-[rgb(var(--accent))]" />
                 <button onClick={goNext} disabled={!nextId} aria-label={armedNext != null ? tr('Tap again to skip to the next chapter') : tr('Next chapter')}
-                  className={`grid h-9 w-9 shrink-0 place-items-center rounded-full text-white backdrop-blur disabled:opacity-30 ${armedNext != null ? 'bg-accent' : 'bg-black/45'}`}>
+                  className={`grid h-10 w-10 shrink-0 place-items-center rounded-full text-white backdrop-blur disabled:opacity-30 ${armedNext != null ? 'bg-accent' : 'bg-black/45'}`}>
                   {pagedRtl ? <IcChevronLeft width={18} height={18} /> : <IcChevronRight width={18} height={18} />}
                 </button>
               </div>

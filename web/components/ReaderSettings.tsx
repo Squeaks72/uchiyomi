@@ -133,7 +133,7 @@ export function ReaderSettings({
         <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-ink-600" />
         <div className="mb-1 flex items-center justify-between">
           <h3 className="font-display text-lg font-semibold">{tr('Reader')}</h3>
-          <button onClick={onClose} className="text-fog-500"><IcX width={20} height={20} /></button>
+          <button onClick={onClose} aria-label={tr('Close')} className="-m-2 grid h-11 w-11 place-items-center text-fog-500"><IcX width={20} height={20} /></button>
         </div>
 
         <Row label={tr('Mode')}>
@@ -182,7 +182,7 @@ export function ReaderSettings({
         )}
 
         <Row label={tr('Theme')}>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-4 gap-2">
             {(['amoled', 'paper', 'sepia', 'gray'] as const).map((t) => (
               <button key={t} onClick={() => set({ theme: t })}
                 className={`rounded-2xl border py-3 text-sm ${prefs.theme === t ? 'border-accent bg-accent-soft text-accent' : 'border-ink-700 text-fog-300'}`}>

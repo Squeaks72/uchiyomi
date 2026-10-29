@@ -54,7 +54,7 @@ import type { ListingCopy } from './seriesListing';
 import { ALL_ROWS, DAY_MS, MAX_BOOK_IDS, MAX_ITEMS, allRows, hiddenPart, ignoredPart, truncate, verdict, withAll } from './healthKit';
 import { diskAndFolders } from './healthDisk';
 import { trackerSync } from './healthTrackers';
-import { chapterFiles } from './healthFiles';
+import { chapterFiles, recountUnreadable } from './healthFiles';
 
 export type HealthStatus = 'ok' | 'warn' | 'problem';
 
@@ -92,6 +92,9 @@ export type HealthAction =
   // v0.55.0: a frozen row whose source is dropped by SUWAYOMI_MAX_SOURCES -- open Admin → Sources on `sourceId` to free
   // a slot (no server action). Offered in place of Replace there: the source works, the limit is the cause.
   | 'free_slot'
+  // v0.56.0: a frozen series, removed from the library right there (DELETE /api/admin/series/{id}): hidden, files kept,
+  // everyone's progress kept, and Admin → Library puts it back.
+  | 'remove_series'
   // v0.72.0, the Chapter files card (lib/healthFiles.ts): Fetch again for the row's `bookIds` -- the series page's own
   // route (POST /api/admin/series/{id}/chapters/refetch), which sets each old file aside until the new copy lands and
   // puts it back when it does not. Only on files Uchiyomi downloaded and named itself.
@@ -138,6 +141,11 @@ export interface HealthItem {
    * for -- every series whose main source it is (lib/findScope.ts), the run's own `total`.
    */
   findSeries?: number;
+  /**
+   * v0.56.0, beside a `find_sources` action on a "Series that can no longer update" row: the run is over THIS row's
+   * series alone (POST /api/admin/sources/find {seriesIds: [seriesId]}), not every series of `sourceId`.
+   */
+  findScope?: 'series';
   /**
    * Of `seriesIds`, the one the merge should keep (lib/libraryAdmin.ts keepOrder, v0.57.0): one in a work, then the one
    * whose main source still works, then more live chapters, more readers, the older.
@@ -1148,7 +1156,7 @@ export async function frozenSeries(
         ? say('frozen.followingDown', { source: named(r), state: stall, names: followed.get(r.id)! })
         : say('frozen.following', { source: r.source_id ? named(r) : null, names: followed.get(r.id)! })]),
       info: true,
-      ...keysFor(r, ['replace_source']),
+      ...keysFor(r, []),
     });
   }
   return withAll({
@@ -2304,4 +2312,46 @@ export async function findingOf(check: IgnorableCheck, key: string): Promise<Fin
     case 'files': await chapterFiles(ctx); break;
   }
   return ctx.found.get(`${check}\u0000${key}`) ?? null;
+}
+
+export const RECHECKABLE_CHECKS = [
+  'chapter-gaps', 'numbering', 'short-chapters', 'outliers', 'saved-twice', 'duplicates', 'sources',
+  'chapter-failures', 'frozen-series', 'solver', 'update', 'library-scan', 'downloads-missing',
+  'folders-twice', 'extension-cap', 'extension-engine',
+  // The row's Recheck on these three used to answer "Invalid option": they are in the full run and have rows with a Recheck, but were
+  // never in this list.
+  'disk', 'trackers', 'files',
+] as const;
+export type RecheckableCheck = typeof RECHECKABLE_CHECKS[number];
+
+/**
+ * One check, run again on its own: what a row's Recheck asks. The same function the full run calls, with the same
+ * ignore list, so the answer is what the next full run would say about this check. Null when the check has nothing
+ * to say any more (numbering with no series left to renumber, the two folders no longer side by side).
+ */
+export async function recheckCheck(id: RecheckableCheck): Promise<HealthCheck | null> {
+  const ctx = await loadIgnores();
+  switch (id) {
+    case 'chapter-gaps': return chapterGaps(await heldBySeries(), ctx);
+    case 'outliers': return outlierChapters(await heldBySeries(), ctx);
+    case 'numbering': return numberingCheck();
+    case 'short-chapters': return shortChapters();
+    case 'saved-twice': return savedTwice();
+    case 'duplicates': return duplicateSeries(ctx);
+    case 'sources': return sourceTrouble(ctx);
+    case 'chapter-failures': return chapterFailures(ctx);
+    case 'frozen-series': return frozenSeries(ctx);
+    case 'solver': return solverHealth();
+    case 'update': return updateCheck();
+    case 'library-scan': return libraryScan();
+    case 'downloads-missing': return downloadsMissing(ctx);
+    case 'folders-twice': return foldersScannedTwice().catch(() => null);
+    case 'extension-cap': return suwayomiConfigured() ? extensionCap() : null;
+    case 'extension-engine': return extensionEngineCheck().catch(() => null);
+    case 'disk': return diskAndFolders(ctx).catch(() => null);
+    case 'trackers': return trackerSync(ctx).catch(() => null);
+    // Recheck here means looking again: the flagged files are counted again first (a few hundred), so a file that was stamped
+    // unreadable by a failed read, not by being broken, leaves the card.
+    case 'files': await recountUnreadable({ max: 1000 }).catch(() => null); return chapterFiles(ctx).catch(() => null);
+  }
 }

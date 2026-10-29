@@ -37,7 +37,7 @@ test('page mutations send the exact revision, explicit confirmation and correctl
     return new Response(JSON.stringify(preview), { status: 200, headers: { 'content-type': 'application/json' } });
   });
   await savePageCleanup('book/a b', preview, 'remove', new Set([1]));
-  assert.equal(calls[0].url, '/api/admin/books/book%2Fa%20b/page-cleanup');
+  assert.equal(calls[0].url, '/api/admin/books/book%2Fa%20b/page-cleanup?adult=1');
   assert.deepEqual(calls[0].body, { action: 'remove', pages: [1], revision: preview.revision, confirm: true });
   await savePageCleanup('book/a b', preview, 'purge-unused', new Set());
   assert.deepEqual(calls[1].body.pages, []);
