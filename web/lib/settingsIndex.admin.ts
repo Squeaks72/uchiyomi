@@ -68,7 +68,7 @@ export const ADMIN_SETTINGS: SettingsIndex = {
     { id: 'notice-chapters', cat: 'series', label: 'Notice chapters',
       keywords: ['notices', 'announcements', 'hiatus', 'short chapters'] },
     { id: 'notice-short-only', cat: 'series', label: 'Only hide short ones (3 pages or fewer)', editor: 'notice-chapters' },
-    { id: 'mixed-unknown', cat: 'series', label: 'Show titles from Mixed sources that cannot be judged', keywords: ['mixed', 'unknown', 'unjudged', '18+', 'adult'],
+    { id: 'mixed-unknown', cat: 'series', editor: 'adult-filter', label: 'Show titles from Mixed sources that cannot be judged', keywords: ['mixed', 'unknown', 'unjudged', '18+', 'adult'],
       help: 'A Mixed source is searched while “Show 18+” is off and each title is judged by its genres and rating. Titles with neither are hidden unless this is on.' },
     { id: 'adult-filter', cat: 'series', label: '18+ filter', keywords: ['adult', 'nsfw', 'mature', 'show 18+', 'genres', 'mixed sources'] },
     { id: 'deleted-ghosts', cat: 'series', label: 'Show deleted chapters as ghosts', keywords: ['deleted chapters', 'ghost', 'fetch again'] },

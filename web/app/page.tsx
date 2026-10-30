@@ -15,6 +15,7 @@ import { SeriesCard, ContinueCard } from '@/components/cards';
 import { KeepReadingHidden } from '@/components/KeepReadingHidden';
 import { HeroCarousel } from '@/components/HeroCarousel';
 import { useTitleArtPolling } from '@/lib/useTitleArtPolling';
+import { useBanners } from '@/lib/bannerPref';
 import { useArtUnderChrome } from '@/lib/overArt';
 import { IcPlay, IcSparkle, IcRefresh, IcBell, IcSliders } from '@/components/icons';
 import { PullToRefresh } from '@/components/PullToRefresh';
@@ -94,6 +95,7 @@ function greeting(name?: string) {
 
 export default function HomePage() {
   const { user, status: authStatus } = useAuth();
+  const [banners] = useBanners();
   const [quickOpen, setQuickOpen] = useState(false);
   const qc = useQueryClient();
   // A second reason for the 18+ reveal to render: a genre or source on the admin's 18+ filter.

@@ -2355,7 +2355,16 @@ function SeriesInner() {
               <span data-series-status className="rounded-md bg-white/10 px-2 py-0.5 text-2xs font-semibold uppercase tracking-wide text-fog-100 backdrop-blur rtl:tracking-normal">{statusText(meta.status)}</span>
             </div>
           )}
-          <HeroTitle series={series ?? { id, name: title, metadata: {} }} title={title} />
+          <div className="flex items-center gap-3">
+            <HeroTitle series={series ?? { id, name: title, metadata: {} }} title={title} />
+            {isAdmin && (
+              <button type="button" onClick={checkNow} disabled={checking} data-check-new-header aria-busy={checking || undefined}
+                title={tr('Check this series for new chapters')} aria-label={tr('Check this series for new chapters')}
+                className="pointer-events-auto grid h-9 w-9 shrink-0 place-items-center rounded-full bg-ink-800/70 text-fog-100 backdrop-blur hover:text-white disabled:opacity-60">
+                <IcRefresh width={18} height={18} className={checking ? 'animate-spin' : ''} />
+              </button>
+            )}
+          </div>
           <div className="mt-2">{Meta}</div>
           {/* The block is pointer-events-none over the banner; the chips take their taps back. */}
           {editions && <EditionChips editions={editions} onAdd={addLanguage} className="pointer-events-auto mt-3" />}
