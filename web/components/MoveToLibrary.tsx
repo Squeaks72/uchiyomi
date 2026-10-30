@@ -14,7 +14,9 @@ import { foldersOf } from '@/lib/libraryFolders';
  * whose path contains these folders will not quietly undo it.
  */
 export function MoveToLibrary({ n, busy, onClose, onPick }: {
-  n: number; busy: boolean; onClose: () => void; onPick: (libraryId: string | null) => void;
+  n: number; busy: boolean; onClose: () => void;
+  /** `adult`: the chosen library is rated 18+ (never for Automatic, whose library is the folder's). */
+  onPick: (libraryId: string | null, adult?: boolean) => void;
 }) {
   const { data } = useQuery({
     queryKey: ['admin-libraries'],
@@ -24,7 +26,7 @@ export function MoveToLibrary({ n, busy, onClose, onPick }: {
     <Modal title={n === 1 ? tr('File this series') : tr('File {n} series', { n })} onClose={onClose}>
       <div className="space-y-1">
         {(data?.content ?? []).map((l) => (
-          <button key={l.id} disabled={busy} onClick={() => onPick(l.id)}
+          <button key={l.id} disabled={busy} onClick={() => onPick(l.id, (l.age_rating ?? 0) >= 18)}
             className="flex w-full items-center justify-between gap-3 rounded-lg px-2.5 py-2 text-start hover:bg-ink-800/60 disabled:opacity-50">
             <span className="min-w-0">
               <span className="block truncate text-sm text-fog-100">{l.name}</span>

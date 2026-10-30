@@ -316,9 +316,9 @@ test('each Needs-you item has its one key: its page, its card, or Admin → Sett
   const keyOf = (body: string) => /data-fix-key="([a-z]+)"/.exec(body)?.[1] ?? null;
   assert.deepEqual(items.map((m) => [m[1], keyOf(m[2])]), [['chapter-gaps', 'open'], ['solver', 'health'], ['extension-cap', 'settings']], 'an item has no key');
   // A page of the app's own is a client-side link (Next's Link, which writes the address without the slash).
-  assert.match(items[0][2], /<a class="btn-key shrink-0" data-fix-key="open" href="\/series\/?\?id=s6">Open<\/a>/);
-  assert.match(items[2][2], /<a href="\/admin\/\?tab=Settings" class="btn-key shrink-0" data-fix-key="settings">Settings<\/a>/, 'Admin → Settings is not a whole page load');
-  assert.match(items[1][2], /<button type="button" class="btn-key shrink-0" data-fix-key="health">Show the card<\/button>/);
+  assert.match(items[0][2], /<a aria-label="Open: [^"]+" class="btn-key shrink-0" data-fix-key="open" href="\/series\/?\?id=s6">Open<\/a>/);
+  assert.match(items[2][2], /<a href="\/admin\/\?tab=Settings" aria-label="Settings: [^"]+" class="btn-key shrink-0" data-fix-key="settings">Settings<\/a>/, 'Admin → Settings is not a whole page load');
+  assert.match(items[1][2], /<button type="button" aria-label="Show the card: [^"]+" class="btn-key shrink-0" data-fix-key="health">Show the card<\/button>/);
   // Sentences in the reader's language take the page's direction: `dir="auto"` read an Arabic sentence opening on a name
   // ("Omniscient Reader، الفصول 12–14…") left-to-right, the name at its far end (the Arabic 390 screenshot). Reintroduce
   // `dir="auto"` on the item's text: this fails.
@@ -327,7 +327,7 @@ test('each Needs-you item has its one key: its page, its card, or Admin → Sett
   // The card key closes the dialog, opens the card and scrolls to it, clear of the top bar.
   const health = slice(code('app/admin/page.tsx'), 'function Health()', 'function DesktopUpdateNote()');
   // v0.72.0: from the By series view it goes back to the cards first -- a card is only there By check.
-  assert.match(health, /setFixing\(false\);\s*if \(view !== 'checks'\) pickView\('checks'\);\s*setOpen\(id\);\s*requestAnimationFrame\(\(\) => document\.querySelector\(`\[data-health-check="\$\{CSS\.escape\(id\)\}"\]`\)\?\.scrollIntoView/);
+  assert.match(health, /setFixing\(false\);\s*if \(view !== 'checks'\) pickView\('checks'\);\s*setOpen\(id\);\s*requestAnimationFrame\(\(\) => requestAnimationFrame\(\(\) => document\.querySelector\(`\[data-health-check="\$\{CSS\.escape\(id\)\}"\]`\)\?\.scrollIntoView/);
   assert.match(health, /data-health-check=\{c\.id\} className=\{`[^`]*\bscroll-mt-4\b[^`]*\blg:scroll-mt-20\b/, 'the card scrolls under the top bar');
   // What clears by itself: one muted line each, with when.
   const at = new Date(Date.now() + 3 * 3_600_000 + 60_000).toISOString();

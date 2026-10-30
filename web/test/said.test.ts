@@ -38,6 +38,7 @@ const SAMPLE: Record<string, (c: number) => unknown> = {
   version: () => '3.4.6', latest: () => '3.5.0', root: () => 'downloads', folder: () => 'Walk/Gap', holder: () => 'Walk',
   ancestor: () => 'Walk', above: () => 'Walk', names: () => ['Manga Ball', 'MangaDex'], numbers: () => [21, 22],
   files: () => ['Chapter 1.cbz', 'Chapter 2.cbz'], cut: () => true, error: () => 'EACCES', reason: () => 'no images downloaded',
+  platform: () => 'unraid', owner: () => '0:0', mode: () => '0755', me: () => '99:100',
   detail: () => 'the same folder as "Walk", reached again through a mount', text: () => 'as sent', file: () => 'Chapter 21.cbz',
   label: () => 'Image quality', value: () => 'best', url: () => 'http://solver:8191', host: () => 'aquareader.org',
   transport: () => 'ENOTFOUND', name: () => 'Webtoons', source: () => 'aqua', from: () => 'Aqua', to: () => 'MangaDex',
@@ -553,12 +554,12 @@ test('a stage named mid-sentence is lower-case, as the server\'s English says it
   }
 });
 
-test('every view that prints a download\'s reason words it: Library → Downloads, the series band, Discover, Find missing', () => {
+test('every view that prints a download\'s reason words it: Library → Downloads, the series band, Find missing', () => {
   // The job card's, the run card's and a chapter's reason come with codes (bff routes/sources.ts, lib/downloadJobs.ts,
   // lib/downloadActivity.ts); a view that prints `.reason` itself prints English in every language. Reintroduce
   // `{a.job.reason || tr('Fetch stopped. Try another source or wait.')}` in ServerDownloadsView: it is named here.
   const ROOT = join(__dirname, '..');
-  for (const f of ['components/ServerDownloadsView.tsx', 'components/SeriesServerDownloads.tsx', 'app/discover/page.tsx',
+  for (const f of ['components/ServerDownloadsView.tsx', 'components/SeriesServerDownloads.tsx',
     'components/FindMissingDialog.tsx', 'app/series/page.tsx']) {
     const src = readFileSync(join(ROOT, f), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
     const bare = src.match(/\{[^{}]*\b(?:j|r|f|a\.job|failed\.job|job|ended)\??\.reason\s*(?:\|\||\?\s*[`'])[^{}]*\}|toast\([^)]*\bended\??\.reason\s*\|\|/g);

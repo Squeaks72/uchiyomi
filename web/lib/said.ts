@@ -398,6 +398,7 @@ const WORDS: Record<string, (p: P) => string | null> = {
   // ---- Source health (#115)
   // v0.53.0: the summary counts the card's two groups that need a look. 'sources.live', 'none', 'off', 'idle' and
   // 'unfinished' are no longer sent, and keep their words for a summary an older server stored (bff lib/said.ts).
+  'sources.only': (p) => tr('Its only source, {source}, is having trouble. Add another source to keep it updating.', { source: str(p, 'source') }),
   'sources.affected': (p) => (num(p, 'n') === 1 ? tr('1 source your series use needs a look') : tr('{n} sources your series use need a look', { n: num(p, 'n') })),
   'sources.failingUnused': (p) => (num(p, 'n') === 1 ? tr('1 source nothing uses is failing') : tr('{n} sources nothing uses are failing', { n: num(p, 'n') })),
   'sources.working': () => tr('All sources are working'),
@@ -524,6 +525,13 @@ const WORDS: Record<string, (p: P) => string | null> = {
   'version.current': (p) => tr('Running v{version} — up to date', { version: str(p, 'version') }),
   'version.running': (p) => tr('Running v{version}', { version: str(p, 'version') }),
   'version.unasked': () => tr('GitHub could not be reached just now, so this is not a clean bill of health.'),
+  'version.how': (p) => {
+    const platform = str(p, 'platform');
+    return platform === 'desktop' ? tr('The desktop app updates itself when it restarts, or install the new release from its page')
+      : platform === 'unraid' ? tr('On Unraid: Docker tab, Check for updates, then Update on this container (back up its appdata first)')
+      : platform === 'compose' ? tr('With Compose: docker compose pull && docker compose up -d (back up the data folder first)')
+      : tr('Pull the new image and recreate the container on your host, keeping the same volumes (back up /data first)');
+  },
   'version.newer': () => tr('a newer release is published; see the changelog before upgrading'),
 
   // ---- Extension source limit
@@ -536,6 +544,7 @@ const WORDS: Record<string, (p: P) => string | null> = {
     ? tr('Every registered source is searched at once, which is why there is a limit. Hide the languages you don\'t read to get under it.')
     : tr('Every registered source is searched at once, which is why there is a limit. Hiding the languages you do not read is the cheap way under it; SUWAYOMI_MAX_SOURCES raises it.')),
   'cap.title': () => (isDesktop() ? tr('Source limit') : 'SUWAYOMI_MAX_SOURCES'),
+  'cap.used': (p) => tr('Used by {n} series', { n: num(p, 'n') }),
   'cap.detail': (p) => {
     const v = { n: num(p, 'n'), cap: num(p, 'cap') };
     if (isDesktop()) {
@@ -857,6 +866,9 @@ const WORDS: Record<string, (p: P) => string | null> = {
   'autofix.now.searching': (p) => tr('Searching {name}', { name: str(p, 'name') }),
   'autofix.now.removing': (p) => tr('Removing {name}', { name: str(p, 'name') }),
   'autofix.now.files': () => tr('Deleting chapters saved twice or numbered impossibly'),
+  'autofix.now.groups': () => tr('Swapping chapters for a preferred group’s copy'),
+  'autofix.now.names': () => tr('Borrowing chapter names from other sources'),
+  'autofix.now.directions': () => tr('Working out reading directions'),
   'autofix.now.rechecking': () => tr('Checking Health again'),
   'autofix.now.waitSweep': () => tr('Waiting for the chapter sweep to finish'),
 
@@ -902,6 +914,13 @@ const WORDS: Record<string, (p: P) => string | null> = {
     : tr('Tried {n} extensions: none of the series were there', { n: num(p, 'n') })),
   'autofix.done.deletedTwice': (p) => (num(p, 'n') === 1 ? tr('Deleted 1 chapter saved twice') : tr('Deleted {n} chapters saved twice', { n: num(p, 'n') })),
   'autofix.done.deletedOdd': (p) => (num(p, 'n') === 1 ? tr('Deleted 1 chapter numbered impossibly') : tr('Deleted {n} chapters numbered impossibly', { n: num(p, 'n') })),
+  'autofix.done.groupsUpgraded': (p) => (num(p, 'n') === 1
+    ? tr('Swapped 1 chapter for a preferred group’s copy')
+    : tr('Swapped {n} chapters for a preferred group’s copy', { n: num(p, 'n') })),
+  'autofix.done.named': (p) => (num(p, 'n') === 1 ? tr('Named 1 chapter from another source') : tr('Named {n} chapters from another source', { n: num(p, 'n') })),
+  'autofix.done.directions': (p) => (num(p, 'n') === 1
+    ? tr('Worked out the reading direction of 1 series')
+    : tr('Worked out the reading direction of {n} series', { n: num(p, 'n') })),
 
   'autofix.item.tested': (p) => (p.ok ? tr('{name} passed its test', { name: str(p, 'name') }) : tr('{name} failed its test again', { name: str(p, 'name') })),
   'autofix.item.unblocked': (p) => tr('Cleared the block on {name}', { name: str(p, 'name') }),
@@ -986,6 +1005,7 @@ const WORDS: Record<string, (p: P) => string | null> = {
   'autofix.needs.downloadsMissing': (p) => (num(p, 'n') === 1
     ? tr('1 downloaded chapter is where the library scan never looks')
     : tr('{n} downloaded chapters are where the library scan never looks', { n: num(p, 'n') })),
+  'autofix.needs.other': (p) => tr('{title} needs a look', { title: str(p, 'title') }),
   'autofix.needs.noRoom': (p) => tr('{name} may carry your series, but the source limit is full: free a slot', { name: str(p, 'name') }),
   // v0.72.0: the cards no run changes (bff lib/healthDisk.ts, lib/healthTrackers.ts, lib/healthFiles.ts).
   'autofix.needs.disk': (p) => (num(p, 'n') === 1 ? tr('1 disk or folder needs a look') : tr('{n} disks or folders need a look', { n: num(p, 'n') })),
@@ -1053,6 +1073,18 @@ const WORDS: Record<string, (p: P) => string | null> = {
   'files.notOurs': (p) => (num(p, 'n') === 1
     ? tr('1 of them is in a library you built: replace it by hand')
     : tr('{n} of them are in a library you built: replace them by hand', { n: num(p, 'n') })),
+  // Folder permissions (bff lib/healthPermissions.ts).
+  'perm.detail': (p) => {
+    const n = num(p, 'n');
+    const command = str(p, 'command');
+    return tr('Owned by {owner}, mode {mode}; the server runs as {me}.', { owner: str(p, 'owner'), mode: str(p, 'mode'), me: str(p, 'me') })
+      + ' ' + tr('Series under it: {n}.', { n })
+      + (command ? ' ' + tr('On the host, as root: {command}', { command }) : '');
+  },
+  'perm.live': (p) => (num(p, 'n') === 1 ? tr('1 folder the server cannot write to') : tr('{n} folders the server cannot write to', { n: num(p, 'n') })),
+  'perm.none': () => tr('The server can write to every series folder'),
+  'perm.root': () => tr('The server cannot write to the downloads folder itself'),
+  'perm.note': (p) => tr('Moving a series to another library, renaming a folder, merging and downloading all need the server (running as {me}) to write to the folder and the one above it. A folder made by a root shell or by another container is the usual cause. Uchiyomi cannot change ownership it has no right to, so run the command on the host (replace <host path> with where the downloads folder is on the host), then press Recheck.', { me: str(p, 'me') }),
   'files.live': (p) => {
     const n = num(p, 'n');
     const m = num(p, 'm');

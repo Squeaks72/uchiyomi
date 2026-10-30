@@ -20,7 +20,7 @@ export const TASK_NAMES = keys(
  */
 export const SCHEDULE_KEYS = keys(
   'on demand', 'every {h}h', 'daily at {hh}:00', 'in the background, rechecked every 6h',
-  'on demand · after a database-only restore', 'switched off · on demand', 'every {h}h · never during a chapter sweep',
+  'on demand · after a database-only restore', 'switched off · on demand', 'every {h}h · never during a chapter sweep', 'daily at {hh}:00 · never during a chapter sweep',
   'hourly · as soon as everyone has finished', 'hourly · 1 day after everyone has finished',
   'hourly · {n} days after everyone has finished', 'every {h}h · check only',
 );

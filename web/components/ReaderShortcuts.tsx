@@ -57,11 +57,14 @@ export function ReaderShortcuts({ keyMap, onClose }: { keyMap: KeyMap; onClose: 
         className="relative max-h-[85dvh] w-full max-w-md overflow-y-auto overscroll-contain rounded-3xl border border-ink-700 bg-ink-900/95 px-5 py-4 backdrop-blur-xl focus-visible:outline-none">
         <div className="mb-1 flex items-center justify-between">
           <h2 className="font-display text-lg font-semibold">{tr('Keyboard shortcuts')}</h2>
-          <button onClick={onClose} aria-label={tr('Close')} className="grid h-8 w-8 place-items-center text-fog-500 hover:text-fog-200"><IcX width={20} height={20} aria-hidden /></button>
+          <button onClick={onClose} aria-label={tr('Close')} className="grid h-10 w-10 place-items-center text-fog-500 hover:text-fog-200"><IcX width={20} height={20} aria-hidden /></button>
         </div>
         <ul className="divide-y divide-ink-800">
           {bound.map((a) => <Line key={a} caps={keyMap[a].map(capLabel)} label={actionLabel(a)} />)}
           <Line caps={[capLabel('Escape')]} label={actionLabel('exit')} />
+          <Line caps={[capLabel('Space'), 'K']} label={tr('Start, pause or resume auto-scroll')} />
+          <Line caps={['J', 'L', '←', '→']} label={tr('Back or forward 10 seconds, or a page when paged')} />
+          <Line caps={['<', '>']} label={tr('Slower or faster')} />
           <Line caps={['?']} label={tr('Show this list')} />
         </ul>
         <p className="mt-3 text-[11px] leading-snug text-fog-500">

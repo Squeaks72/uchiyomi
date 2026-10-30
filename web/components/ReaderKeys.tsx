@@ -24,6 +24,7 @@ const ACTION_LABEL: Record<ReaderAction, () => string> = {
   fullscreen: () => tr('Full screen'),
   menu: () => tr('Show or hide the controls'),
   focus: () => tr('One page of a pair, or both'),
+  bookmark: () => tr('Bookmark this page'),
   exit: () => tr('Leave the reader'),
 };
 export const actionLabel = (a: ReaderAction) => ACTION_LABEL[a]();

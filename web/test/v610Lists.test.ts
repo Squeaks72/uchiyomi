@@ -167,7 +167,7 @@ test('one query key per shape: every list, the plain answer, a list, and a rail 
     if (c.key === "['collections']") assert.equal(c.call, '/api/collections', c.where);
     if (c.call.includes('limit=')) assert.match(c.key, /'rail'\]$/, c.where);
   }
-  assert.ok(calls.some((c) => c.where.startsWith('app/series/page.tsx') && c.key === "['collections']"), 'the Add to collection sheet reads the plain answer');
+  assert.ok(calls.some((c) => c.where.startsWith('components/CollectionPicker.tsx') && c.key === "['collections']"), 'the Add to collection sheet (CollectionPicker, which the series page opens) reads the plain answer');
   for (const f of ['app/page.tsx', 'app/collections/page.tsx', 'components/ProfileYou.tsx']) {
     assert.ok(calls.some((c) => c.where.startsWith(f) && c.key === "['lists-all']")
       || code(read(f)).includes('useListsAll('), `${f} does not read every list`);

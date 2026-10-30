@@ -167,7 +167,7 @@ test('chapterFileRel joins with posix.join, so Windows stores `/` like everyone 
   // Reintroduce by writing `join(seriesFolder, …)` again: identical on Linux, `Src\T\Chapter 1.cbz` on Windows,
   // and the repair, the Health "Fix" chip and "Fetch again" never match that chapter.
   const dl = code(read('lib/downloader.ts'));
-  assert.match(dl, /export const chapterFileRel = \(seriesFolder: string, number: number\): string => posix\.join\(seriesFolder, `Chapter \$\{number\}\.cbz`\);/,
+  assert.match(dl, /export const chapterFileRel = \(seriesFolder: string, number: number\): string => posix\.join\(seriesFolder, chapterFileName\(seriesFolder, number\)\);/,
     'chapterFileRel does not use posix.join');
 });
 
@@ -197,7 +197,10 @@ test('every scheduler first run keeps its server literal inside firstRunFloor', 
   const sites: Array<[string, RegExp]> = [
     ['sweep', /const delay = Math\.max\(firstRunFloor\(10 \* 60 \* 1000, 'sweep'\), due\);/],
     ['solver health', /setTimeout\(tick, firstRunFloor\(10 \* 60 \* 1000, 'solverHealth'\)\)\.unref\(\);/],
-    ['repair', /Math\.max\(firstRunFloor\(30 \* 60 \* 1000, 'repair'\), last \+ REPAIR_HOURS \* 60 \* 60 \* 1000 - Date\.now\(\)\)/],
+    ['repair', /const repairFloor = \(\) => firstRunFloor\(30 \* 60 \* 1000, 'repair'\);/],
+    ['repair first run', /Math\.max\(repairFloor\(\), last \+ REPAIR_HOURS \* 60 \* 60 \* 1000 - Date\.now\(\)\)/],
+    ['bookorbit sync', /setTimeout\(tick, firstRunFloor\(2 \* 60 \* 1000, 'bookorbitSync'\)\)\.unref\(\);/],
+    ['unmapped bin', /setTimeout\(tick, firstRunFloor\(20 \* 60 \* 1000, 'unmappedBin'\)\)\.unref\(\);/],
     ['import sweep', /setTimeout\(tick, firstRunFloor\(15 \* 60 \* 1000, 'importSweep'\)\)\.unref\(\);/],
     ['extension check', /Math\.max\(firstRunFloor\(10 \* 60 \* 1000, 'extensionCheck'\), last \+ hours \* 60 \* 60 \* 1000 - Date\.now\(\)\)/],
     ['cleanup', /setTimeout\(tick, firstRunFloor\(15 \* 60 \* 1000, 'cleanup'\)\)\.unref\(\);/],
@@ -207,7 +210,7 @@ test('every scheduler first run keeps its server literal inside firstRunFloor', 
     ['backups', /setTimeout\(backupLoop, firstRunFloor\(15 \* 60 \* 1000, 'backups'\)\)\.unref\(\);/],
   ];
   for (const [what, re] of sites) assert.match(s, re, `${what}: the first run lost its server literal or its firstRunFloor`);
-  assert.equal(s.match(/firstRunFloor\(/g)?.length, sites.length, 'a first-run site was added or removed; list it here');
+  assert.equal(s.match(/firstRunFloor\(/g)?.length, sites.length - 1, 'a first-run site was added or removed; list it here');
   // The watchdog: from its stamp on desktop, the fixed ten minutes on the server.
   // Reintroduce by dropping the else arm: the server's daily source check never starts.
   assert.match(s, /if \(isDesktop\(\)\) \{\s*void \(async \(\) => \{\s*const row = await one<\{ last: Date \| null \}>\('SELECT max\(checked_at\) AS last FROM source_health'\)[\s\S]{0,300}?stampDelay\(\{ last, interval: DAY, floor: DESKTOP_FLOORS\.watchdog, now: Date\.now\(\) \}\)[\s\S]{0,60}?\} else setTimeout\(tick, 10 \* 60 \* 1000\)\.unref\(\);/,
@@ -257,11 +260,8 @@ test('the desktop-only filesystem rules sit behind isDesktop(), with the server 
   // Reintroduce by running the lower(folder) lookup on the server: two series whose titles differ only in case
   // (on a case-sensitive disk, two real folders) would be merged into one on add.
   const add = code(read('routes/sources.ts'));
-  assert.match(add, /let folder = edition \? editionFolder\(srcDir, title, edition\.lang\) : `\$\{srcDir\}\/\$\{sanitize\(title\)\}`;\s*if \(isDesktop\(\)\) \{\s*const stored = await one<\{ folder: string \}>\(\s*'SELECT folder FROM lib_series WHERE lower\(folder\) = lower\(\$1\)/);
-  // The source's folder is made Windows-safe on Windows only; a server keeps the name as it always stored it.
-  // Reintroduce by using `src.name` raw: a custom site called `Site: EN` cannot be created as a folder on
-  // Windows at all. Or by sanitizing everywhere: a Linux server's `A.B.` source moves to a new folder.
-  assert.match(add, /const srcDir = process\.platform === 'win32' \? sanitize\(src\.name\) : src\.name;/);
+  assert.match(add, /let folder = edition \? editionFolder\('', title, edition\.lang\) : sanitize\(title\);\s*if \(isDesktop\(\)\) \{\s*const stored = await one<\{ folder: string \}>\(\s*'SELECT folder FROM lib_series WHERE lower\(folder\) = lower\(\$1\)/);
+  // The folder is the title alone (no source-name level), sanitized.
 });
 
 test('typed library paths are stored with `/`, and on desktop in the spelling the disk has', () => {
@@ -275,6 +275,6 @@ test('typed library paths are stored with `/`, and on desktop in the spelling th
   const folders = code(read('lib/libraryFolders.ts'));
   assert.match(folders, /const typed = trimTrailingSlashes\(toStoredRel\(r\)\.replace\(/, 'a library\'s folder skips toStoredRel');
   assert.match(folders, /const path = await diskSpelling\(\[LIBRARY_ROOT, DL_ROOT\], typed\);/, 'a library\'s folder skips diskSpelling');
-  assert.equal(admin.match(/await storedFolders\(/g)?.length, 3, 'the preview, the create or the edit takes a folder without storedFolders');
+  assert.equal(admin.match(/await storedFolders\(/g)?.length, 7, 'the preview, the create, the edit, the gather or the relocate takes a folder without storedFolders');
   assert.match(code(read('lib/libraryAdmin.ts')), /const typed = toStoredRel\(newFolder\)\.replace\(/, 'the rename destination skips toStoredRel');
 });

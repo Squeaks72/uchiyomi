@@ -5,7 +5,7 @@ import { isWide, joinedOrder, pageHeight, pairSlides, type WidePages } from '@/l
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, apiWithHeaders, img } from '@/lib/api';
 import { fetchAllBooks } from '@/lib/seriesBooks';
 import { chapterOutcome } from '@/lib/readerState';
@@ -24,6 +24,8 @@ import { activeLocale, chapterLabel, languageName } from '@/lib/format';
 import { editionChipLabels, readerTarget } from '@/lib/editions';
 import { numLabel } from '@/lib/numbering';
 import { useToast } from '@/components/Toast';
+import { msgOf } from '@/components/ConfirmDialog';
+import { kickDownloads } from '@/lib/useServerDownloads';
 import { deviceId } from '@/lib/device';
 import { ReaderEndLabel, ReaderEndRadar } from '@/components/ReaderEndRadar';
 import { getOfflineChapter, getPageBlob, queueProgress, noteOfflineProgress, listSeriesDownloads, setOfflinePageJunk, setOfflineSpreadMarks } from '@/lib/downloads';
@@ -50,6 +52,7 @@ import { serverReachableHint } from '@/lib/desktop';
 import { IncognitoTag, incognitoRef } from '@/components/IncognitoBanner';
 import { useContextMenu, type MenuItem } from '@/components/ContextMenu';
 import { ReaderShortcuts, useHasKeyboard } from '@/components/ReaderShortcuts';
+import { ReaderAutoBar } from '@/components/ReaderAutoBar';
 import { capLabel } from '@/components/ReaderKeys';
 
 interface PageDim { number: number; width: number | null; height: number | null; junk?: boolean; missing?: boolean; removed?: boolean; restorable?: boolean; contentVersion?: string; join?: 'rtl' | 'ltr'; mark?: SpreadMark }
@@ -257,6 +260,10 @@ function ReaderInner() {
   const [scrubbing, setScrubbing] = useState(false); // slider drag in progress → show the page preview
 
   const [chrome, setChrome] = useState(true);
+  // Auto-scroll's transport: playing or paused (the speed itself is a reader setting, prefs.autoScroll / prefs.autoPage), and a
+  // count that restarts paged mode's countdown whenever the page is turned for it or by hand.
+  const [autoPlaying, setAutoPlaying] = useState(true);
+  const [autoTick, setAutoTick] = useState(0);
   const [showSettings, setShowSettings] = useState(false);
   const [showPages, setShowPages] = useState(false);
   const [cleanupFor, setCleanupFor] = useState<{ id: string; restore?: number } | null>(null);
@@ -270,7 +277,8 @@ function ReaderInner() {
   const openTalk = useCallback((id: string) => setTalkFor(id), []);
   const hasKeyboard = useHasKeyboard();
   const [current, setCurrent] = useState(0);
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
+  const qc = useQueryClient();
   /** Source id -> display name from the series' own followed sources (set with the reading direction). */
   const [seriesSourceNames, setSeriesSourceNames] = useState<Record<string, string>>({});
   // The series' PRIMARY source, which keys the per-source reader default (lib/readerPrefs.ts seriesSourceOf).
@@ -1323,14 +1331,7 @@ function ReaderInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [current, ready, flat.length, turnSettled]);
 
-  // ---- auto-scroll ----
-  useEffect(() => {
-    if (prefs.mode !== 'vertical' || prefs.autoScroll <= 0) return;
-    let raf = 0;
-    const step = () => { if (scrollRef.current) scrollRef.current.scrollTop += prefs.autoScroll; raf = requestAnimationFrame(step); };
-    raf = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(raf);
-  }, [prefs.autoScroll, prefs.mode]);
+  // ---- auto-scroll: see 'auto-scroll transport' below, after `perform` ----
 
   // ---- wake lock ----
   useEffect(() => {
@@ -1656,10 +1657,100 @@ function ReaderInner() {
     else if (action === 'fullscreen') toggleFullscreen();
     else if (action === 'menu') setChrome((c) => !c);
     else if (action === 'focus') toggleFocus();
+    else if (action === 'bookmark') void toggleBookmark();
     else if (action === 'exit') back();
   };
   const performRef = useRef(perform);
   performRef.current = perform;
+  // ↑ ↓ held in the webtoon column: a steady glide (px per second, in time, with the fraction kept) until the key comes up.
+  const holdScroll = useRef({ dir: 0, raf: 0, start: (_d: 1 | -1) => {}, stop: () => {} });
+  holdScroll.current.start = (dir) => {
+    const h = holdScroll.current;
+    if (h.dir === dir) return; // a held key repeats: it is already gliding
+    cancelAnimationFrame(h.raf);
+    h.dir = dir;
+    let last = 0;
+    let pos = -1;
+    const step = (t: number) => {
+      const el = scrollRef.current;
+      if (el) {
+        if (pos < 0 || Math.abs(el.scrollTop - pos) > 2) pos = el.scrollTop;
+        if (last) pos += dir * 1100 * Math.min(0.1, (t - last) / 1000);
+        el.scrollTop = pos;
+      }
+      last = t;
+      h.raf = requestAnimationFrame(step);
+    };
+    h.raf = requestAnimationFrame(step);
+  };
+  holdScroll.current.stop = () => { const h = holdScroll.current; cancelAnimationFrame(h.raf); h.dir = 0; };
+  useEffect(() => {
+    const up = (e: KeyboardEvent) => { if (e.key === 'ArrowDown' || e.key === 'ArrowUp') holdScroll.current.stop(); };
+    const off = () => holdScroll.current.stop();
+    window.addEventListener('keyup', up);
+    window.addEventListener('blur', off);
+    return () => { window.removeEventListener('keyup', up); window.removeEventListener('blur', off); holdScroll.current.stop(); };
+  }, []);
+
+  // ---- auto-scroll transport ----
+  // Webtoon: the column scrolls by itself at `prefs.autoScroll` (px per 60 Hz frame, kept in time so a 120 Hz screen is not
+  // twice as fast). Paged: a page turns every `prefs.autoPage` seconds. Both answer to the same controls (components/
+  // ReaderAutoBar.tsx) and keys, like a video: K starts, pauses and resumes (Space too, once it is on), J and L go back and
+  // forward ten seconds (a page, when paged), < and > slow it down and speed it up. A key somebody bound to a reader action
+  // stays theirs.
+  const autoVertical = prefs.mode === 'vertical';
+  const autoOn = autoVertical ? prefs.autoScroll > 0 : prefs.autoPage > 0;
+  // Switched off, the next start plays: a pause belongs to the run it paused.
+  useEffect(() => { if (!autoOn) setAutoPlaying(true); }, [autoOn]);
+  useEffect(() => {
+    if (!autoVertical || prefs.autoScroll <= 0 || !autoPlaying) return;
+    let raf = 0;
+    let last = 0;
+    let pos = -1; // the position as a fraction: scrollTop itself rounds on a normal-density screen, and slow speeds never moved
+    const step = (t: number) => {
+      const el = scrollRef.current;
+      if (el) {
+        if (pos < 0 || Math.abs(el.scrollTop - pos) > 2) pos = el.scrollTop; // somebody else moved it: a drag, a key, a jump
+        if (last) pos += prefs.autoScroll * 60 * Math.min(0.1, (t - last) / 1000);
+        el.scrollTop = pos;
+      }
+      last = t;
+      raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [autoVertical, prefs.autoScroll, autoPlaying]);
+  useEffect(() => {
+    if (autoVertical || prefs.autoPage <= 0 || !autoPlaying) return;
+    const t = setTimeout(() => {
+      const el = scrollRef.current;
+      if (!el) return;
+      // The last slide is Up Next (or the failure card): the run ends there, paused, for the reader to decide.
+      if (slideNow() >= Math.max(0, el.children.length - 1)) { setAutoPlaying(false); return; }
+      performRef.current('next');
+      setAutoTick((n) => n + 1);
+    }, prefs.autoPage * 1000);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoVertical, prefs.autoPage, autoPlaying, current, autoTick]);
+  const autoToggle = () => {
+    if (!autoOn) { setAutoPlaying(true); setPref(autoVertical ? { autoScroll: 2 } : { autoPage: 8 }); }
+    else setAutoPlaying((p) => !p);
+  };
+  const autoSkip = (dir: 1 | -1) => {
+    const el = scrollRef.current;
+    if (!el || !autoOn) return;
+    if (autoVertical) el.scrollBy({ top: dir * prefs.autoScroll * 60 * 10, behavior: 'auto' });
+    else { performRef.current(dir > 0 ? 'next' : 'prev'); setAutoTick((n) => n + 1); }
+  };
+  const autoFaster = (dir: 1 | -1) => {
+    if (!autoOn) return;
+    if (autoVertical) setPref({ autoScroll: Math.min(6, Math.max(0.5, Math.round((prefs.autoScroll + dir * 0.5) * 2) / 2)) });
+    else setPref({ autoPage: Math.min(30, Math.max(2, prefs.autoPage - dir)) });
+  };
+  const autoStop = () => setPref(autoVertical ? { autoScroll: 0 } : { autoPage: 0 });
+  const autoRef = useRef({ on: autoOn, toggle: autoToggle, skip: autoSkip, faster: autoFaster });
+  autoRef.current = { on: autoOn, toggle: autoToggle, skip: autoSkip, faster: autoFaster };
 
   // ---- keyboard (desktop) ----
   // The keys in force: this mode's defaults with this device's own bindings (lib/readerKeys.ts reproduces v0.60's).
@@ -1705,8 +1796,35 @@ function ReaderInner() {
       // (turning the page instead swallowed the click), a text field everything.
       const owned = !!t && (t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.tagName === 'TEXTAREA' || t.isContentEditable
         || !!t.closest('button, a, [role="button"], [role="dialog"]'));
+      // While auto-scroll is on, ← and → are its back and forward, like J and L (in reading order, not by side: a video's → is
+      // always forward). Off, they are what they were -- a page's side in paged mode, nothing in the column.
+      if (autoRef.current.on && !owned && !e.shiftKey && /^Arrow(Left|Right)$/.test(e.key)) {
+        e.preventDefault();
+        if (!e.repeat) autoRef.current.skip(e.key.endsWith('Right') ? 1 : -1);
+        return;
+      }
+      // Auto-scroll's video keys, unless the reader bound the key to something of its own. Space is the video's play/pause, and
+      // starts auto-scroll when it is off (Shift+Space, ↓ and Page Down still turn the page); never a focused control's press.
+      if (!e.shiftKey || e.key === '<' || e.key === '>') {
+        const typing = !!t && (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable);
+        const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+        const mine = !typing && !READER_ACTIONS.some((a) => keyMap[a].includes(k) || keyMap[a].includes(e.key));
+        const auto = autoRef.current;
+        if (mine && k === 'k' && !e.repeat) { e.preventDefault(); auto.toggle(); return; }
+        if (mine && k === ' ' && !owned && !e.repeat) { e.preventDefault(); auto.toggle(); return; }
+        if (mine && auto.on && (k === 'j' || k === 'l') && !e.repeat) { e.preventDefault(); auto.skip(k === 'l' ? 1 : -1); return; }
+        if (mine && auto.on && (k === '<' || k === ',' || k === '>' || k === '.')) { e.preventDefault(); auto.faster(k === '>' || k === '.' ? 1 : -1); return; }
+      }
       const action = actionForKey(e, keyMap, { owned });
       if (!action) return;
+      // The webtoon column's arrow keys glide at one steady speed for as long as they are held, instead of jumping most of
+      // a screen on each press (and each repeat). Space and Page Down keep the page-sized step, and a rebinding that took
+      // the arrow off Next/Previous is left alone.
+      if (prefs.mode === 'vertical' && (e.key === 'ArrowDown' || e.key === 'ArrowUp') && (action === 'next' || action === 'prev')) {
+        e.preventDefault();
+        holdScroll.current.start(e.key === 'ArrowDown' ? 1 : -1);
+        return;
+      }
       // A bound key is the reader's: the browser's own handling of it (Space scrolling the page) is stopped.
       e.preventDefault();
       performRef.current(action);
@@ -1967,6 +2085,19 @@ function ReaderInner() {
 
   const total = flat.length;
   const pageInChapter = activeChapter ? (flat[current]?.number ?? 0) : 0;
+  // The page slider spans the CHAPTER being read, not everything loaded: the column appends the next chapter(s) after this one, and
+  // a slider over all of them put page 1 of chapter 2 a third of the way along and never reached its end at the chapter's last page.
+  // `flat` holds each chapter's pages contiguously, so the range is the run around `current` with the same chapter index.
+  const sliderCi = flat[current]?.ci;
+  const chapRange = useMemo(() => {
+    if (sliderCi == null) return { lo: 0, hi: Math.max(0, flat.length - 1) };
+    let lo = Math.min(current, flat.length - 1);
+    while (lo > 0 && flat[lo - 1].ci === sliderCi) lo--;
+    let hi = Math.min(current, flat.length - 1);
+    while (hi < flat.length - 1 && flat[hi + 1].ci === sliderCi) hi++;
+    return { lo, hi };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flat, sliderCi]);
 
   // ---- translated pages (v0.85.0) ----
   // The chapter being read is asked for from the page it is on, and the next one once it is done: the server does one
@@ -2020,10 +2151,19 @@ function ReaderInner() {
       .catch(() => {});
   }, [seriesId]);
 
+  // The mark that pops on the page when a bookmark is set or taken off (the key B, the star, the menu, a controller button): the
+  // star in the top bar may be hidden, and a key that changes nothing visible reads as a key that did nothing.
+  const [markFlash, setMarkFlash] = useState<{ on: boolean; page: number; at: number } | null>(null);
+  useEffect(() => {
+    if (!markFlash) return;
+    const t = setTimeout(() => setMarkFlash(null), 1300);
+    return () => clearTimeout(t);
+  }, [markFlash]);
   const toggleBookmark = async () => {
     if (!activeChapter || !pageInChapter) return;
     const k = markKey(activeChapter.id, pageInChapter);
     const on = marks.has(k);
+    setMarkFlash({ on: !on, page: pageInChapter, at: Date.now() });
     // Optimistic: the star is a one-tap control in a reader, and waiting on a round-trip to redraw it makes
     // it feel broken. Reverted if the write fails.
     setMarks((prev) => { const n = new Set(prev); on ? n.delete(k) : n.add(k); return n; });
@@ -2032,6 +2172,8 @@ function ReaderInner() {
         { method: on ? 'DELETE' : 'PUT', json: on ? undefined : {} });
     } catch {
       setMarks((prev) => { const n = new Set(prev); on ? n.add(k) : n.delete(k); return n; });
+      setMarkFlash(null);
+      toast(tr('Could not change the bookmark'), 'error');
     }
   };
   const chapterPageCount = activeChapter?.pages.length ?? 0;
@@ -2099,6 +2241,20 @@ function ReaderInner() {
    * the "You finished" card mid-series. Both told them to stop looking.
    */
   const retry = () => { setFailed(null); setReady(false); setReloadKey((k) => k + 1); };
+  const [redownloading, setRedownloading] = useState(false);
+  const redownload = async () => {
+    const c = activeChapter;
+    if (!c || redownloading) return;
+    setRedownloading(true);
+    try {
+      const res = await api<{ total: number; skipped: Array<{ reason: string }> }>(`/api/admin/series/${c.seriesId}/chapters/refetch`, { method: 'POST', json: { bookIds: [c.id] } });
+      if (res.total > 0) { void kickDownloads(qc); toast(tr('Downloading this chapter again. Try it in a minute.'), 'info'); }
+      else toast(tr('This chapter cannot be downloaded again from here. Use the series page.'), 'error');
+    } catch (e) {
+      toast(msgOf(e, tr('Could not start.')), 'error');
+    }
+    setRedownloading(false);
+  };
   const failureCard = (
     <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}
       className="mx-auto w-full max-w-3xl px-6 py-16 text-center">
@@ -2122,6 +2278,7 @@ function ReaderInner() {
         {/* No Try again for a pruned chapter: there is nothing to retry, and a button that cannot work is
             worse than no button. */}
         {failed !== 'pruned' && <button onClick={retry} className="btn-accent text-sm">{tr('Try again')}</button>}
+        {isAdmin && !activeChapter?.offline && <button onClick={redownload} disabled={redownloading} className="btn-ghost text-sm">{tr('Redownload this chapter')}</button>}
         <button onClick={() => (seriesHref ? router.push(seriesHref) : back())} className={`text-sm ${failed === 'pruned' ? 'btn-accent' : 'btn-ghost'}`}>{tr('Back to series')}</button>
       </div>
     </motion.div>
@@ -2180,6 +2337,20 @@ function ReaderInner() {
     // `data-page` / `data-chapter`: what is being read, for the browser walks (test/e2e/v610Walk-reader.mjs) -- the counter
     // that says it lives in the auto-hiding footer. Nothing reads them in the app.
     <div className="fixed inset-0 z-40 bg-ink-950" data-page={pageInChapter || undefined} data-chapter={activeChapter?.id}>
+      {/* A bookmark set or taken off, said on the page itself (the key B, the star, the menu, a controller button): the star in
+          the top bar is hidden with the controls, and a key that changes nothing visible reads as a key that did nothing. A polite
+          status for a screen reader; the pop stands still under reduced motion. */}
+      <div role="status" aria-live="polite" data-bookmark-flash={markFlash ? (markFlash.on ? 'on' : 'off') : undefined}
+        className="pointer-events-none absolute inset-x-0 top-[16%] z-[60] flex justify-center px-4">
+        {markFlash && (
+          <div key={markFlash.at} className="flex animate-fade-up items-center gap-2 rounded-full bg-black/75 px-4 py-2 text-sm font-medium text-white shadow-lg ring-1 ring-white/15 backdrop-blur motion-reduce:animate-none">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill={markFlash.on ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className={markFlash.on ? 'text-accent' : 'text-white/70'}>
+              <path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1z" />
+            </svg>
+            <span>{markFlash.on ? tr('Bookmarked · page {n}', { n: markFlash.page }) : tr('Bookmark removed · page {n}', { n: markFlash.page })}</span>
+          </div>
+        )}
+      </div>
       {readerMenu.element}
       <div className="pointer-events-none absolute inset-0 z-30 bg-black" style={{ opacity: 1 - prefs.brightness }} />
       {/* Ambient cover wash framing the reader: the look, by default. Its switch (Cover colour at the edges, #170)
@@ -2198,12 +2369,13 @@ function ReaderInner() {
           content in view desynchronises it from `current` with no symptom and no way to detect it. */}
       {prefs.mode === 'vertical' ? (
         <div ref={scrollRef} data-lenis-prevent style={{ overflowAnchor: 'none' }} onScroll={onScroll} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerEnd} onPointerCancel={onPointerEnd} onDoubleClick={onTrackDoubleClick} {...menuBind}
-          className={`h-screen-d touch-pan-y overflow-y-auto overscroll-contain ${zoom > 1 ? 'overflow-x-auto' : 'overflow-x-hidden'}`}>
+          className={`h-screen-d overflow-y-auto overscroll-contain ${zoom > 1 ? 'touch-pan-x touch-pan-y overflow-x-auto' : 'touch-pan-y overflow-x-hidden'}`}>
           <div className="mx-auto" style={{ width: colW || '100%', filter: THEME_FILTER[prefs.theme] }}>
             <div className="h-2" />
             {flat.map((p, i) => (
               <ReaderPageRow key={p.key} item={p} height={heights[i]} gap={prefs.gap}
                 divider={p.firstOfChapter && p.ci > 0 ? (chapters[p.ci]?.title || tr('Next chapter')) : null}
+                dividerPrev={p.firstOfChapter && p.ci > 0 ? (chapters[p.ci - 1]?.title || null) : null}
                 seam={talkOn && p.firstOfChapter && p.ci > 0 ? chapters[p.ci - 1]?.id ?? null : null}
                 seamLabel={p.firstOfChapter && p.ci > 0 ? chapters[p.ci - 1]?.title ?? null : null}
                 seamSeries={p.firstOfChapter && p.ci > 0 ? chapters[p.ci - 1]?.seriesId ?? null : null}
@@ -2373,7 +2545,7 @@ function ReaderInner() {
         {chrome && (
           <>
             <motion.header initial={{ y: -64, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -64, opacity: 0 }}
-              className="absolute inset-x-0 top-0 z-40 flex items-center gap-2 bg-linear-to-b from-black/90 via-black/55 to-transparent px-3 pb-8 pt-[max(0.9rem,calc(env(safe-area-inset-top)+0.55rem))] before:pointer-events-none before:absolute before:inset-x-0 before:bottom-full before:h-16 before:bg-black/90">
+              className="pointer-events-none absolute inset-x-0 top-0 z-40 flex items-center gap-2 [&>*]:pointer-events-auto bg-linear-to-b from-black/90 via-black/55 to-transparent pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))] pb-8 landscape:pb-3 pt-[max(0.9rem,calc(env(safe-area-inset-top)+0.55rem))] before:pointer-events-none before:absolute before:inset-x-0 before:bottom-full before:h-16 before:bg-black/90">
               <button onClick={back} className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-black/45 text-white backdrop-blur">
                 <IcChevronLeft width={22} height={22} />
               </button>
@@ -2434,14 +2606,14 @@ function ReaderInner() {
             </motion.header>
 
             <motion.footer initial={{ y: 64, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 64, opacity: 0 }}
-              className="absolute inset-x-0 bottom-0 z-40 bg-linear-to-t from-black/90 via-black/55 to-transparent px-4 pt-10 pb-[max(0.9rem,calc(env(safe-area-inset-bottom)+0.4rem))] after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-16 after:bg-black/90">
+              className="pointer-events-none absolute inset-x-0 bottom-0 z-40 bg-linear-to-t from-black/90 via-black/55 to-transparent pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] pt-10 landscape:pt-4 pb-[max(0.9rem,calc(env(safe-area-inset-bottom)+0.4rem))] after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-16 after:bg-black/90">
               {/* In paged mode the bar follows the TRACK, both ways: on a right-to-left read the previous chapter
                   is on the right, next on the left, and the slider fills from the right, so dragging it moves the
                   way the pages do. On a left-to-right read it is stated LTR rather than inherited -- under the
                   Arabic interface it used to inherit RTL and run opposite to its own pages. The chevrons swap to
                   keep pointing outwards; the counter stays LTR so "12/40" never reorders. The webtoon column
                   has no horizontal direction, so there the bar inherits the page's, as it always has. */}
-              <div dir={prefs.mode === 'paged' ? (pagedRtl ? 'rtl' : 'ltr') : undefined} className="relative mx-auto flex max-w-3xl items-center gap-2">
+              <div dir={prefs.mode === 'paged' ? (pagedRtl ? 'rtl' : 'ltr') : undefined} className="pointer-events-auto relative mx-auto flex max-w-3xl items-center gap-2">
                 {/* scrubber preview: a small render of the target page while dragging */}
                 {scrubbing && flat[current] && (() => {
                   const it = flat[current];
@@ -2461,25 +2633,25 @@ function ReaderInner() {
                   );
                 })()}
                 <button onClick={() => goChapter(prevId, true)} disabled={!prevId} aria-label={tr('Previous chapter')}
-                  className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-black/45 text-white backdrop-blur disabled:opacity-30">
+                  className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-black/45 text-white backdrop-blur disabled:opacity-30">
                   {pagedRtl ? <IcChevronRight width={18} height={18} /> : <IcChevronLeft width={18} height={18} />}
                 </button>
                 {/* The counter is the button. A long-press would be invisible on a phone, which this repo
                     already learned once from a hover-only affordance nobody found. */}
                 <button dir="ltr" data-reader-pages onClick={() => setShowPages(true)} aria-label={tr('Jump to a page')}
-                  className="shrink-0 rounded-full px-1.5 py-0.5 text-[11px] tabular-nums text-fog-300 transition hover:bg-white/10 hover:text-white">
+                  className="grid min-h-10 shrink-0 place-items-center rounded-full px-2.5 text-xs tabular-nums text-fog-300 transition hover:bg-white/10 hover:text-white">
                   {chapterPageCount ? `${pageInChapter}/${chapterPageCount}` : `${current + 1}/${total}`}
                 </button>
-                <input type="range" min={0} max={Math.max(0, total - 1)} value={current}
+                <input type="range" min={chapRange.lo} max={chapRange.hi} value={Math.min(Math.max(current, chapRange.lo), chapRange.hi)}
                   onPointerDown={() => setScrubbing(true)}
                   // Let go of focus after a drag: a slider that keeps it owns Space and the arrows, so in the
                   // webtoon column Space stopped scrolling until the controls hid. Tab still reaches it.
                   onPointerUp={(e) => { setScrubbing(false); e.currentTarget.blur(); }}
                   onPointerCancel={() => setScrubbing(false)} onBlur={() => setScrubbing(false)}
                   onChange={(e) => jumpTo(Number(e.target.value))}
-                  className="h-1 flex-1 accent-[rgb(var(--accent))]" />
+                  className="h-10 min-w-0 flex-1 touch-none accent-[rgb(var(--accent))]" />
                 <button onClick={goNext} disabled={!nextId} aria-label={armedNext != null ? tr('Tap again to skip to the next chapter') : tr('Next chapter')}
-                  className={`grid h-9 w-9 shrink-0 place-items-center rounded-full text-white backdrop-blur disabled:opacity-30 ${armedNext != null ? 'bg-accent' : 'bg-black/45'}`}>
+                  className={`grid h-10 w-10 shrink-0 place-items-center rounded-full text-white backdrop-blur disabled:opacity-30 ${armedNext != null ? 'bg-accent' : 'bg-black/45'}`}>
                   {pagedRtl ? <IcChevronLeft width={18} height={18} /> : <IcChevronRight width={18} height={18} />}
                 </button>
               </div>
@@ -2528,6 +2700,12 @@ function ReaderInner() {
 
       <AnimatePresence>
         {showKeys && <ReaderShortcuts keyMap={keyMap} onClose={() => setShowKeys(false)} />}
+        {autoOn && !showSettings && (
+          <ReaderAutoBar paged={!autoVertical} playing={autoPlaying} raised={chrome}
+            speed={autoVertical ? `${prefs.autoScroll.toFixed(1)}×` : tr('{n} s per page', { n: prefs.autoPage })}
+            onToggle={autoToggle} onBack={() => autoSkip(-1)} onForward={() => autoSkip(1)}
+            onSlower={() => autoFaster(-1)} onFaster={() => autoFaster(1)} onStop={autoStop} />
+        )}
         {showSettings && (
           <ReaderSettings
             prefs={prefs}

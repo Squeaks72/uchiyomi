@@ -21,6 +21,7 @@ import { scheduleFingerprintBackfill } from './lib/fingerprintJob';
 import { schedulePageHashBackfill } from './lib/pageHashJob';
 import { solverHealth } from './lib/health';
 import { refreshHealthSummary } from './lib/healthSummary';
+import { recountUnreadable } from './lib/healthFiles';
 import { scheduleMatchCheck } from './lib/matchCheck';
 import { startTitleWorks } from './lib/discoverIdentity';
 import { scheduleMergeLeftovers } from './lib/mergeLeftovers';
@@ -33,13 +34,15 @@ import { runSourceCheck } from './lib/sourceWatchdog';
 import { runSweep } from './lib/updater';
 import { behindCount, finishDownloadsOn, nextCooldownEnd as finishCooldownEnd, wantQuiet, FINISH_MINUTES, FINISH_PER_SERIES, FINISH_SWEEP_MAX } from './lib/finishDownloads';
 import { refreshMissingRadars } from './lib/releaseRadar';
-import { runRepair, setRepairNext, REPAIR_HOURS } from './lib/repair';
+import { purgeRecycled } from './lib/unmapped';
+import { runSync } from './lib/bookorbitSync';
+import { runRepair, setRepairNext, REPAIR_HOURS, repairHourOf } from './lib/repair';
 import { AFTER_NIGHTLY_AUTOFIX, autofixSettled, closeInterruptedAutofix, startAutofix } from './lib/autofix';
 import { startArchive } from './lib/archive';
 import { startHeroWarmup } from './lib/autoHero';
 import { closeInterruptedFindRuns, findSettledWithin } from './lib/findSources';
 import { loadUnstatedLang } from './lib/seriesLang';
-import { refreshNoticesActive } from './lib/noticeSettings';
+import { applyNoticeDefault, refreshNoticesActive } from './lib/noticeSettings';
 import { loadAdultSources } from './lib/visibility';
 import { loadMangadexLangs } from './lib/sources/mangadexLangs';
 import { runChapterCleanup, unpruneRestored } from './lib/chapterCleanup';
@@ -49,7 +52,7 @@ import { startSweeper } from './lib/imageCache';
 import { pruneAudit } from './lib/audit';
 import { pruneRing } from './lib/deviceRing';
 import { startActivityLog, flushActivityLog } from './lib/activityLog';
-import { runBackup, backupDelay, backupSettings, stampDelay } from './lib/backup';
+import { runBackup, backupDelay, backupSettings, stampDelay, msUntilHour } from './lib/backup';
 import { firstRunFloor, DESKTOP_FLOORS } from './lib/desktop';
 import { scoutTick, storeLook, SCOUT_TICK_MS } from './lib/sourceScout';
 import { backupUpkeep, BACKUP_UPKEEP_MS } from './lib/backupExtensions';
@@ -77,6 +80,7 @@ import translateRoutes from './routes/translate';
 import { stopEngine } from './lib/translate/engine';
 import commentRoutes from './routes/comments';
 import { isDesktop } from './lib/desktop';
+import { healFolderCase } from './lib/libraryFolders';
 import { installDesktopGuards } from './lib/desktopGuard';
 import { ensureDesktopUser } from './lib/desktopUser';
 import { initialiseBulkChapterDeleteRuns } from './lib/bulkChapterDelete';
@@ -118,11 +122,13 @@ async function main() {
     process.exit(1);
   }
   for (const w of await authModeWarnings()) console.warn(`[auth] ${w}`);
+  await healFolderCase().catch((e) => console.warn(`[library] could not respell renamed folders: ${(e as Error)?.message || e}`));
   // The language of sources and series that do not say (lib/lang.ts), before anything compares languages. A
   // database that cannot be read here leaves English, the default, and never stops the boot.
   await loadUnstatedLang().catch((e) => console.warn(`[lang] could not read the unstated language: ${(e as Error)?.message || e}`));
   // Whether any notice-chapter switch is on (lib/noticeChapters.ts), before the first query is built: while none is,
   // every query is the one the previous release ran. Unreadable leaves them off, as they were before the feature.
+  await applyNoticeDefault();
   await refreshNoticesActive().catch((e) => console.warn(`[notices] could not read the switches: ${(e as Error)?.message || e}`));
   // The sources the admin rated Adult only (lib/visibility.ts sourceRatedAdult), before anything asks which sources an
   // account may reach. Unreadable, the first read of the 18+ lists loads them.
@@ -297,6 +303,13 @@ async function main() {
     pruneRing().catch((e) => app.log.warn({ err: e }, 'device ring prune failed'));
   };
   setTimeout(pruneRefusals, 10 * 60_000).unref();
+  // Chapter files flagged "no page can be read" by a failed read, not a broken file (lib/pageCount.ts countPagesOrNull): counted
+  // again once, a few minutes after boot, slowly. Real zeros stay; the rest leave Health's card.
+  setTimeout(() => {
+    recountUnreadable({ max: 50_000, conc: 3 })
+      .then((r) => { if (r.fixed) app.log.info(`health: ${r.fixed} of ${r.checked} flagged chapter files can be read after all`); })
+      .catch((e) => app.log.warn({ err: e }, 'recount of flagged chapter files failed'));
+  }, 4 * 60_000).unref();
   setInterval(pruneRefusals, 24 * 60 * 60_000).unref();
 
   // Periodic new-chapter check (owned mode), self-rescheduling so the admin can change the interval live.
@@ -628,7 +641,39 @@ async function main() {
    * does not have. `OWNED`, for the reason given at the sweep above.
    */
   if (OWNED) {
-    const tick = async () => {
+    // ONE timer, always cleared before it is set, so a re-arm from the settings route (repair_hour) replaces the pending
+    // run instead of adding a second. `hourDelay` is the wall-clock rhythm: with a repair hour set, the next such hour
+    // whatever the last run's end was, never sooner than the boot floor. Null with no hour: the interval rhythm.
+    const repairFloor = () => firstRunFloor(30 * 60 * 1000, 'repair');
+    let timer: NodeJS.Timeout | null = null;
+    const armRepair = (delay: number) => {
+      if (timer) clearTimeout(timer);
+      setRepairNext(Date.now() + delay);
+      timer = setTimeout(tick, delay);
+      timer.unref();
+    };
+    const hourDelay = async (): Promise<number | null> => {
+      const h = repairHourOf((await pool.query('SELECT repair_hour FROM server_settings WHERE id = 1').catch(() => null))?.rows[0]?.repair_hour);
+      return h === null ? null : Math.max(repairFloor(), msUntilHour(h));
+    };
+    runtime.rearmRepair = () => { void (async () => {
+      const d = await hourDelay();
+      if (d !== null) armRepair(d);
+      else armRepair(Math.max(repairFloor(), (await lastRepairEnd()) + REPAIR_HOURS * 60 * 60 * 1000 - Date.now()));
+    })(); };
+    /** The nightly's last end, whichever it ran: the full repair writes repair_last_run, and a nightly Fix everything
+     *  (v0.55.0) is a repair_runs row of its own -- without it a deploy after a nightly Fix everything ran the next one
+     *  thirty minutes after boot. */
+    const lastRepairEnd = async (): Promise<number> => {
+      try {
+        const s = await pool.query(
+          `SELECT GREATEST(st.repair_last_run,
+                           (SELECT max(r.finished_at) FROM repair_runs r WHERE r.kind = 'autofix' AND r.origin = 'nightly' AND r.status <> 'interrupted')) AS last
+             FROM server_settings st WHERE st.id = 1`);
+        return s.rows[0]?.last ? new Date(s.rows[0].last).getTime() : 0;
+      } catch { return 0; /* settings row not readable yet -- run on the floor */ }
+    };
+    async function tick() {
       let next = REPAIR_HOURS * 60 * 60 * 1000;
       try {
         const s = await pool.query('SELECT repair_enabled, nightly_mode FROM server_settings WHERE id = 1');
@@ -673,27 +718,17 @@ async function main() {
         // Outside the re-arm below, so a run that threw does not end the schedule.
         app.log.error(e as any);
       }
-      // Told to the Health page and the Tasks row ("next run in 21 h") every time the timer is armed.
-      setRepairNext(Date.now() + next);
-      setTimeout(tick, next).unref();
-    };
+      // With a repair hour set the next run is that hour, read now so a change needs no restart. Told to the Health page
+      // and the Tasks row ("next run in 21 h") every time the timer is armed.
+      const atHour = await hourDelay().catch(() => null);
+      armRepair(atHour ?? next);
+    }
     void (async () => {
-      let last = 0;
-      try {
-        // The nightly's last end, whichever it ran: the full repair writes repair_last_run, and a nightly Fix everything
-        // (v0.55.0) is a repair_runs row of its own -- without it a deploy after a nightly Fix everything ran the next
-        // one thirty minutes after boot.
-        const s = await pool.query(
-          `SELECT GREATEST(st.repair_last_run,
-                           (SELECT max(r.finished_at) FROM repair_runs r WHERE r.kind = 'autofix' AND r.origin = 'nightly' AND r.status <> 'interrupted')) AS last
-             FROM server_settings st WHERE st.id = 1`);
-        last = s.rows[0]?.last ? new Date(s.rows[0].last).getTime() : 0;
-      } catch { /* settings row not readable yet -- run on the floor */ }
-      const delay = Math.max(firstRunFloor(30 * 60 * 1000, 'repair'), last + REPAIR_HOURS * 60 * 60 * 1000 - Date.now());
+      const last = await lastRepairEnd();
+      const delay = (await hourDelay()) ?? Math.max(repairFloor(), last + REPAIR_HOURS * 60 * 60 * 1000 - Date.now());
       app.log.info(`repair: first run in ${Math.round(delay / 60000)} min`
         + (last ? ` (last completed ${new Date(last).toISOString()})` : ' (no completed run on record)'));
-      setRepairNext(Date.now() + delay);
-      setTimeout(tick, delay).unref();
+      armRepair(delay);
     })();
   }
 
@@ -712,6 +747,39 @@ async function main() {
    * only: it reads lib_books.
    */
   if (OWNED) startHeroWarmup(app.log);
+
+  // BookOrbit reading-state sync (lib/bookorbitSync.ts): a pass every BOOKORBIT_SYNC_SECONDS (30), looking only at what
+  // moved since the last one; a full look on enabling and every six hours. Nothing happens until an admin sets it up.
+  if (OWNED) {
+    const every = Math.max(10, Number(process.env.BOOKORBIT_SYNC_SECONDS) || 30) * 1000;
+    const tick = async () => {
+      try {
+        const r = await runSync();
+        if (r?.error) app.log.warn(`bookorbit sync: ${r.error}`);
+        else if (r && (r.pushed || r.pulled)) app.log.info(`bookorbit sync: pushed ${r.pushed}, pulled ${r.pulled}${r.full ? ' (full)' : ''}`);
+      } catch (e) {
+        app.log.error(e as any);
+      }
+      setTimeout(tick, every).unref();
+    };
+    setTimeout(tick, firstRunFloor(2 * 60 * 1000, 'bookorbitSync')).unref();
+  }
+
+  // The unmapped-files bin (lib/unmapped.ts): files an admin deleted from Admin -> Library wait here for
+  // `unmapped_recycle_days`, then go for good. Daily, first look twenty minutes after boot; the limit is read each time.
+  if (OWNED) {
+    const DAY = 24 * 60 * 60 * 1000;
+    const tick = async () => {
+      try {
+        const n = await purgeRecycled();
+        if (n) app.log.info(`unmapped bin: removed ${n} expired file${n === 1 ? '' : 's'}`);
+      } catch (e) {
+        app.log.error(e as any);
+      }
+      setTimeout(tick, DAY).unref();
+    };
+    setTimeout(tick, firstRunFloor(20 * 60 * 1000, 'unmappedBin')).unref();
+  }
 
   // Drop import batches nobody will come back to (`sweepImportBatches` in routes/admin.ts owns the rule:
   // finished ones after a week, unfinished ones after a month). Daily, first run fifteen minutes after

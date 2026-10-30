@@ -10,12 +10,15 @@
 // More is a menu from lg up (components/ContextMenu.tsx) and a sheet below (components/SeriesKeys.tsx): both draw these
 // groups, in this order.
 import { t as tr } from './i18n';
+import { archiveWhy } from './archive';
 
 export type SeriesActionId =
   | 'notes' | 'markAllRead' | 'markAllUnread'
   | 'findMissing' | 'hidden' | 'archive' | 'checkNew'
   | 'copyLink' | 'openTab'
-  | 'edit' | 'cover' | 'move' | 'newBanner' | 'rename' | 'remove';
+  | 'edit' | 'cover' | 'move' | 'newBanner' | 'rename' | 'remove'
+  // The fork's: the other sources' cull.
+  | 'cull';
 
 export type SeriesActionGroupId = 'reading' | 'chapters' | 'share' | 'admin';
 
@@ -30,6 +33,8 @@ export interface SeriesAction {
    * keys had under the cover.
    */
   hook?: string;
+  /** A line saying what the item is for (Archive slowly: never hits a source with a burst), under it in the sheet, a tooltip in the menu. */
+  why?: string;
   /** Shown, not hidden, while the server cannot be reached: greyed, as a series card's menu does it. */
   disabled?: boolean;
 }
@@ -52,6 +57,8 @@ export interface SeriesActionsInput {
   /** `series.folder`, sent to admins only: Rename folder. */
   hasFolder: boolean;
   offline?: boolean;
+  /** Fork: chapters from sources other than the primary one exist (Remove chapters from other sources). */
+  hasForeign?: boolean;
   /** `series.hiddenChapters`, sent to admins only (#240): how many chapter numbers are hidden, for Show hidden chapters. */
   hiddenChapters?: number;
   /**
@@ -111,6 +118,7 @@ export function seriesActionGroups(x: SeriesActionsInput): SeriesActionGroup[] {
     // Only while the hero is an automatic one: a real banner is changed in Edit details, and Shuffle answers 409 for it.
     ...(x.autoHero ? [{ id: 'newBanner' as const, label: tr('New banner'), hook: 'new-banner', disabled: offline }] : []),
     ...(x.hasFolder ? [{ id: 'rename' as const, label: tr('Rename folder'), disabled: offline }] : []),
+    ...(x.hasForeign ? [{ id: 'cull' as const, label: tr('Remove chapters from other sources…'), hook: 'cull-sources-open', danger: true, disabled: offline }] : []),
     { id: 'remove', label: tr('Remove from library'), danger: true, hook: 'remove-series', disabled: offline },
   ] : [];
   const groups: SeriesActionGroup[] = [

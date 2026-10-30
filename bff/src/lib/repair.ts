@@ -42,6 +42,7 @@
  * server_settings.repair_last_run / repair_last_result: those are the Tasks line and the nightly's schedule,
  * and a one-row Fix pressed at 23:00 used to replace the first and move the second (v0.49.0).
  */
+import { removeEmptyFolders } from './emptyFolders';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
 import { q, one } from './db';
@@ -49,14 +50,15 @@ import { runtime } from './runtime';
 import { logAudit } from './audit';
 import { containedPath, statOrGone } from './fsGuard';
 import { catalogRootUnavailable } from './catalogRootGuard';
-import { countPages } from './pageCount';
+import { countPagesOrNull } from './pageCount';
 import { haveNumbers } from './libraryNumbers';
 import { atHiddenNumber } from './noticeChapters';
 import { numberHiddenNow } from './hiddenChapters';
 import { archiveHoles, type ArchiveHoles } from './archiveBoundaries';
 import { DL_ROOT, persistScan, setBookDates, setBookMeta } from './library';
 import { restampBook } from './partial';
-import { chapterFileRel, downloadChapter, DownloadPreflightError, type DownloadInput, type DownloadPreflight } from './downloader';
+import { isOwnFile } from './chapterFile';
+import { downloadChapter, DownloadPreflightError, type DownloadInput, type DownloadPreflight } from './downloader';
 import { getSource, withTimeout, type SourceChapter } from './sources';
 import { budgetFor } from './sources/budget';
 import { resetSolverSessions, solverPing } from './sources/flaresolverr';
@@ -64,6 +66,9 @@ import { blockedNow, clearBlock, isDisabled } from './sourceHealth';
 import { automaticChapterAllowedFor, automaticCopiesFor, copyToChapter, seriesFollowsSource, type ListingCopy } from './seriesListing';
 import { groupsOf, normGroup, type ReleasePrefs } from './releases';
 import { effectivePrefsFor, readSeriesPrefs } from './scanlatorPrefs';
+import { notifiableCount } from './releases';
+import { notifyNewChapter } from './push';
+import { sendDigest } from './notify';
 import { borrowNamesFor, NAMES_RETRY_MS } from './borrowNames';
 import { fillDetailsFromAniList, fillDetailsFromSources, fillDetailsOn, seriesLackingDetails } from './autoDetails';
 import { busyFolders } from './bulkNewest';
@@ -110,6 +115,9 @@ function envInt(name: string, def: number, lo: number, hi: number): number {
 
 /** How often the nightly runs, counted from the END of the last completed run. server.ts owns the timer. */
 export const REPAIR_HOURS = envInt('REPAIR_HOURS', 24, 1, 168);
+
+/** `server_settings.repair_hour` as an hour of the day, or null (no hour chosen: the REPAIR_HOURS rhythm). */
+export const repairHourOf = (v: unknown): number | null => (Number.isInteger(v) && (v as number) >= 0 && (v as number) <= 23 ? (v as number) : null);
 /**
  * Chapter files whose pages one run counts. 2000 is about a minute of local disk on this install and drains
  * its 30,625 uncounted rows in a fortnight of nights; the point of a cap at all is that the count step runs
@@ -682,7 +690,9 @@ async function stepCount(r: RepairResult, opts: RepairOpts, log?: Log): Promise<
     // error: statOrGone) says nothing about its pages, and is left for a night it can be read. Reintroduce by counting
     // it: "the nightly page count does not stamp a chapter in a folder it may not read" in libraryRootGone.int.test.ts.
     if (typeof (await statOrGone(abs)) === 'string') { cur.done!++; return; }
-    const pages = await countPages(abs);
+    const pages = await countPagesOrNull(abs);
+    // The read itself failed (not the file): leave it unstamped, so it is counted again rather than reported for good.
+    if (pages === null) { cur.done!++; return; }
     const done = await q(
       'UPDATE lib_books SET pages = $1, pages_checked_at = now() WHERE id = $2 AND pages = 0 RETURNING id',
       [pages, b.id],
@@ -953,7 +963,7 @@ async function whyNotShort(bookId: string): Promise<string> {
 async function stepShort(r: RepairResult, opts: RepairOpts, budget: { left: number }, notes: Notes, log?: Log): Promise<RepairResult['stopped']> {
   // An unmonitored series (auto_update off) is left out of the unattended pass; a Fix pressed on one of its chapters
   // (`opts.bookId`) is a person asking, and still runs.
-  // ⚠️ `b.file = <folder>/Chapter <n>.cbz` is chapterFileRel (lib/downloader.ts) written in SQL, which is
+  // ⚠️ `b.file = <folder>/[<series> - ]Chapter <n>.cbz` is chapterFileRel (lib/downloader.ts) written in SQL, which is
   // safe only because `b.number = floor(b.number)` is in the same WHERE: the cast to int is exact for a
   // whole number and nothing else. A file under any other name is somebody's own copy, not ours.
   const cap = opts.bookId ? REPAIR_SHORT_MAX : opts.autofix ? UNCAPPED : REPAIR_SHORT_MAX;
@@ -963,7 +973,9 @@ async function stepShort(r: RepairResult, opts: RepairOpts, budget: { left: numb
        FROM lib_books b JOIN lib_series s ON s.id = b.series_id AND ${visibleToAll('s')}
       WHERE b.pages BETWEEN 1 AND 2 AND b.number = floor(b.number)
         AND b.pruned_at IS NULL AND b.short_confirmed_at IS NULL AND b.missing_pages IS NULL
-        AND b.root = $1 AND b.file = s.folder || '/Chapter ' || (b.number::int)::text || '.cbz'
+        AND b.root = $1 AND starts_with(b.file, s.folder || '/')
+        AND (b.file = s.folder || '/Chapter ' || (b.number::int)::text || '.cbz'
+             OR right(b.file, length(' - Chapter ' || (b.number::int)::text || '.cbz')) = ' - Chapter ' || (b.number::int)::text || '.cbz')
         AND NOT ${atHiddenNumber('b')}
         ${opts.bookId ? 'AND b.id = $3' : 'AND s.auto_update'}
       ORDER BY b.mtime DESC LIMIT $2`,
@@ -974,7 +986,7 @@ async function stepShort(r: RepairResult, opts: RepairOpts, budget: { left: numb
   // the LIMIT mean "twenty candidates"); this is the answer. If the two ever disagree -- a rename of the
   // downloader's layout, a locale that formats a number differently -- this one wins, and it fails in the
   // safe direction: a chapter skipped, never somebody's read-library file replaced.
-  const named = rows0.filter((b) => b.file === chapterFileRel(b.folder, Number(b.number)));
+  const named = rows0.filter((b) => isOwnFile(b.file, b.folder, Number(b.number)));
   // ...and a chapter stitched into one or two long strips is left alone (v0.60.1, found in Squeaks72's fork): that is
   // what the series IS, not a failed download -- the rule Health has reported by since v0.55.10 (lib/longStrip.ts), which
   // this step never asked. So the nightly hunted other sources for intact webtoon chapters Health no longer showed, and
@@ -1352,7 +1364,7 @@ async function stepGroups(r: RepairResult, opts: RepairOpts, notes: Notes, log?:
   const candidates: GroupBook[] = [];
   for (const b of rows0) {
     if (candidates.length >= REPAIR_GROUPS_MAX) break;
-    if (b.file !== chapterFileRel(b.folder, Number(b.number))) continue;
+    if (!isOwnFile(b.file, b.folder, Number(b.number))) continue;
     const open = await automaticCopiesFor(b.series_id, b.copies ?? []);
     if (betterCopy(b, open, await prefsFor(b), null)) candidates.push(b);
   }
@@ -1364,6 +1376,8 @@ async function stepGroups(r: RepairResult, opts: RepairOpts, notes: Notes, log?:
     bySeries.get(b.series_id)!.push(b);
   }
 
+  /** What this run upgraded, by series: announced at the end (announceUpgrades). */
+  const upgraded = new Map<string, { title: string; items: Array<{ number: number; scanlator: string | null; groups: string[]; source: string }> }>();
   let stopped: RepairResult['stopped'];
   series: for (const [seriesId, rows] of bySeries) {
     { const h = halted(); if (h) { stopped = h; break; } }
@@ -1415,14 +1429,46 @@ async function stepGroups(r: RepairResult, opts: RepairOpts, notes: Notes, log?:
         const done = await replaceWithGroup(book, chapter, copy, opts, notes, log);
         if (done === 'paused') continue series;
         if (done === 'disk') { stopped = 'disk'; break series; }
-        if (done) r.groups.replaced++;
-        else r.groups.left++;
+        if (done) {
+          r.groups.replaced++;
+          const u = upgraded.get(seriesId) ?? { title: book.title, items: [] };
+          u.items.push({ number: Number(book.number), scanlator: copy.scanlator ?? null, groups: copy.groups ?? [], source: copy.source });
+          upgraded.set(seriesId, u);
+        } else r.groups.left++;
       }
     } finally {
       busyFolders.delete(folder);
     }
   }
+  await announceUpgrades(upgraded).catch((e) => log?.warn(`repair: announcing the upgrades failed: ${(e as Error)?.message || e}`));
   return stopped;
+}
+
+/**
+ * Tell the people who follow a series that a chapter they already have is now available from a PREFERRED group (fork). The sweep
+ * announces what is new; an upgrade replaces a file that was already here, so it announced nothing -- which left "notify me when a
+ * preferred group's version appears" silent for exactly the chapter you most wanted it for. Judged by the series' own notification
+ * settings like a new chapter is (notifiableCount): only for a series with "notify only for a preferred group" on (an upgrade is to a
+ * preferred group by definition, so that switch passes it, and a source filter still has its say). One push per series, and one digest for the run. Never throws.
+ */
+async function announceUpgrades(upgraded: Map<string, { title: string; items: Array<{ number: number; scanlator: string | null; groups: string[]; source: string }> }>): Promise<void> {
+  const digest: Array<{ id: string; title: string; added: number }> = [];
+  for (const [id, u] of upgraded) {
+    const sp = await readSeriesPrefs(id).catch(() => null);
+    // Only a series set to "notify only for a preferred group": that is the person who asked to hear about preferred groups' copies. Every
+    // other series keeps its old behaviour, where an upgrade is a quiet swap (nobody asked to be told).
+    if (sp?.notifyOnlyPreferred !== true) continue;
+    const eff = await effectivePrefsFor(sp);
+    const keep = u.items.filter((i) => notifiableCount([i], eff.priority, sp?.notifyOnlyPreferred === true, sp?.notifySources ?? []) > 0);
+    if (!keep.length) continue;
+    const names = [...new Set(keep.flatMap((i) => groupsOf({ groups: i.groups, scanlator: i.scanlator ?? undefined })))];
+    const from = names.length ? ` from ${names.slice(0, 2).join(' & ')}` : '';
+    const nums = [...new Set(keep.map((i) => i.number))].sort((a, b) => a - b);
+    const body = nums.length === 1 ? `Chapter ${nums[0]} is now available${from}` : `${nums.length} chapters are now available${from}`;
+    void notifyNewChapter(id, u.title, nums.length, undefined, body).catch(() => {});
+    digest.push({ id, title: u.title, added: nums.length });
+  }
+  if (digest.length) void sendDigest(digest).catch(() => {});
 }
 
 /**
@@ -2025,6 +2071,13 @@ export async function repairLibrary(log?: Log, opts: RepairOpts = {}): Promise<R
     }
   }
 
+  // The whole nightly pass ends by clearing empty folders left behind by series that moved or were removed
+  // (lib/emptyFolders.ts). Not for a partial run, a single-series run or Fix everything's passes.
+  let emptied = 0;
+  if (!stopped && !opts.autofix && !opts.only?.length && !opts.seriesId && !opts.bookId && !opts.sourceId) {
+    emptied = (await removeEmptyFolders(log).catch((e) => { log?.warn(`repair: empty-folder sweep failed: ${(e as Error)?.message || e}`); return { removed: [] as string[] }; })).removed.length;
+  }
+
   here(null);
   const out: RepairResult = { ...r, ms: Date.now() - t0, ...(stopped ? { stopped } : {}) };
   if (live) live.notes = notes;
@@ -2039,6 +2092,7 @@ export async function repairLibrary(log?: Log, opts: RepairOpts = {}): Promise<R
       ...(opts.sourceId ? { sourceId: opts.sourceId } : {}),
       ...(opts.now ? { now: true } : {}),
       summary: summaryOf(out),
+      ...(emptied ? { emptyFoldersRemoved: emptied } : {}),
       ...(stopped ? { stopped } : {}),
       // Capped lists, not counts: enough to answer "which chapters did it touch last night" from the audit
       // page alone, bounded so one run cannot write a megabyte of JSON into the log.

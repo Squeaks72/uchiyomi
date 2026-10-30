@@ -1,12 +1,13 @@
 'use client';
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, img } from '@/lib/api';
 import { ART } from '@/lib/art';
 import { relativeTime } from '@/lib/format';
 import { useAuth, canDownload } from '@/lib/auth';
+import { useBanners } from '@/lib/bannerPref';
 import { keys, t as tr } from '@/lib/i18n';
 import { reasonText } from '@/lib/said';
 import { isDesktop } from '@/lib/desktop';
@@ -14,7 +15,9 @@ import { EmptyState } from '@/components/EmptyState';
 import { ProgressBar, Reveal } from '@/components/ui';
 import { SourceCard, SourceItem, StillLoadingCard } from '@/components/cards';
 import { ScrollRail } from '@/components/ScrollRail';
-import { DiscoverHero, heroPoll, TrendingCard, Trending } from '@/components/DiscoverHero';
+import { useIsHiddenTitle } from '@/lib/ignoredTitles';
+import { TagFinder } from '@/components/TagFinder';
+import { DiscoverHero, heroPoll, MenuTrendingCard, Trending } from '@/components/DiscoverHero';
 import { ForYouBand } from '@/components/ForYouBand';
 import { pollAfter, type Recommendations } from '@/lib/recommendations';
 import { mergePicks, type Pick, type ReadPick } from '@/lib/forYou';
@@ -22,14 +25,15 @@ import { placeRows, useGridCols, weave } from '@/lib/shelves';
 import { SourcePicker, SourceLatest, Src, SrcState } from '@/components/SourcePicker';
 import { aloneEmpty, answeredPage, budgetForMode, creatorSearchBudget, supportsCreatorSearch, discoverSources, WALL_IN_FLIGHT, type ListMode, type SrcExtension, type StackSource } from '@/lib/sourceGroups';
 import { normTitle } from '@/lib/normTitle';
-import { applyWorks, foldByWork, followWorks, mergeGroups, unknownWorks, workKey, type WallProvider } from '@/lib/wall';
+import { applyWorks, foldByWork, followWorks, mergeGroups, sortWall, unknownWorks, WALL_SORTS, workKey, type WallProvider, type WallSort } from '@/lib/wall';
 import { useLiveWorks } from '@/lib/useLiveWorks';
 import { AddSeriesDialog, AddSeed } from '@/components/AddSeriesDialog';
-import { AdultToggle, useAdultShown } from '@/components/AdultToggle';
-import { IcChevronLeft, IcSearch, IcSparkle, IcX } from '@/components/icons';
-import { forStrip } from '@/lib/jobs';
+import { useAdultShown } from '@/components/AdultToggle';
+import { IcSearch, IcSparkle, IcX } from '@/components/icons';
 import { downloadsHref, stripHref } from '@/lib/libraryView';
 import { useServerDownloads } from '@/lib/useServerDownloads';
+import { forStrip } from '@/lib/jobs';
+import type { Page, Series } from '@/lib/types';
 import { canSearchMore, freshCards, noMore, soloSource, sourcePageCards, sourceSearchPage, type SearchMore, type SourcePageItem } from '@/lib/searchMore';
 /**
  * One search card. Since v0.52.0 (#72) `inLibrary` means held in every provider's language, `libraryLangs` the
@@ -40,7 +44,7 @@ import { canSearchMore, freshCards, noMore, soloSource, sourcePageCards, sourceS
  * language; both absent from an older server.
  */
 interface SearchGroup {
-  title: string; coverUrl?: string; inLibrary?: boolean; librarySeriesId?: string; libraryLangs?: string[]; updatedAt?: string;
+  title: string; coverUrl?: string; inLibrary?: boolean; librarySeriesId?: string; libraryLangs?: string[]; updatedAt?: string; summary?: string;
   rating?: 'adult' | 'safe';
   work?: string; owned?: boolean;
   providers: { source: string; name: string; sourceId: string; title: string; coverUrl?: string; lang?: string | null; inLibrary?: boolean; rating?: 'adult' | 'safe' }[];
@@ -145,6 +149,7 @@ function AniListRail({ kind, title, children, className = 'pb-3 pt-9' }: {
  */
 function DiscoverInner() {
   const qc = useQueryClient();
+  const router = useRouter();
   const { user, isAdmin } = useAuth();
 
   // Not fired at all for an account that may not add series: every route behind this page answers 403 for
@@ -157,6 +162,7 @@ function DiscoverInner() {
   const params = useSearchParams();
   const [arrivedQ] = useState(() => (params.get('q') ?? '').trim().slice(0, 200));
   const [searchKind, setSearchKind] = useState<'title' | 'author' | 'artist'>(() => { const kind = params.get('creator'); return kind === 'author' || kind === 'artist' ? kind : 'title'; });
+  const lastQ = useRef(arrivedQ);
 
   const { data: sourcesData } = useQuery({
     queryKey: ['sources'],
@@ -175,7 +181,7 @@ function DiscoverInner() {
    *
    * ⚠️ The `adultOn ||` is load-bearing, not defensive. With the reveal ON the server hides nothing, so
    * `hiddenAdult` is 0 — and a chip that vanishes the moment it is pressed strands the session with no way
-   * back. `AdultToggle` still renders on its own wherever an 18+ library exists.
+   * back.
    */
   const adultOn = useAdultShown();
   const showAdultChip = adultOn || (sourcesData?.hiddenAdult ?? 0) > 0;
@@ -241,6 +247,11 @@ function DiscoverInner() {
    */
   const [listMode, setListMode] = useState<ListMode>('newest');
   const [selected, setSelected] = useState<string | null>(null);
+  // No source is asked until the person asks for something: a listing, a source, a sort, a filter or a search.
+  // Opening Discover costs the sources nothing; this flips on the first of those and stays on. An arrival's `?q=` is one.
+  const [browsing, setBrowsing] = useState(!!arrivedQ);
+  const idle = mode === 'newest' && !browsing;
+  const [wallSort, setWallSort] = useState<WallSort>('arrival');
   const [q, setQ] = useState(arrivedQ);
   // What was SUBMITTED, as opposed to `q`, which is whatever is in the field. The search is keyed on this, so
   // typing never fires a request and a term is searched exactly once per five minutes however it is reached.
@@ -254,6 +265,7 @@ function DiscoverInner() {
   // go by the page being fetched, so page 2 asks four at a time as page 1 does.
   const [upTo, setUpTo] = useState<Record<string, number>>({});
   const [seed, setSeed] = useState<AddSeed | null>(null);
+  const [tagsOpen, setTagsOpen] = useState(false);
   /**
    * What this visit added, by work (v0.56.0; by title before): off the wall at once, and "In library" in a search, with
    * no refetch. `fromKey` is the work of the card the open dialog came from -- null from the hero, which has none.
@@ -409,11 +421,15 @@ function DiscoverInner() {
     if (!pick) return [];
     return [{
       source: pick.source ?? '', sourceId: pick.sourceId ?? g.title,
-      title: g.title, coverUrl: g.coverUrl, updatedAt: g.updatedAt,
-      inLibrary: g.inLibrary, librarySeriesId: g.librarySeriesId,
+      title: g.title, coverUrl: g.coverUrl, updatedAt: g.updatedAt, ...(g.summary ? { summary: g.summary } : {}),
+      // Held when the library has the title in ANY provider's language, so a click opens that entry (a Spanish source
+      // in the same search no longer makes it an add); `moreEditions` keeps "add another edition" in the card's menu.
+      inLibrary: !!g.inLibrary || g.providers.some((p) => p.inLibrary), librarySeriesId: g.librarySeriesId,
       ...(g.work ? { work: g.work } : {}),
+      ...(!g.inLibrary && g.providers.some((p) => p.inLibrary) ? { moreEditions: true } : {}),
       ...(g.libraryLangs ? { libraryLangs: g.libraryLangs } : {}), ...(pick.lang !== undefined ? { lang: pick.lang } : {}),
       ...(g.rating === 'adult' ? { rating: 'adult' as const } : {}),
+      providerNames: [...new Set(g.providers.map((p) => p.name || p.source))],
     }];
   }), [searchGroups, selected]);
   // Each hit's providers, keyed by work the way the wall's fold keys its own (by title until v0.56.0): what a card's
@@ -465,7 +481,7 @@ function DiscoverInner() {
     return budget.filter((s) => (!selected || s.id === selected) && (upTo[kOf(s.id)] ?? 0) < page).map((s) => s.name);
   }, [mode, searchQ.data, budget, selected, upTo, kOf, page]);
 
-  const wall = useMemo(() => {
+  const arrived = useMemo(() => {
     // Search arrives already folded: the server grouped it, and searchGroups merges what it has placed since.
     if (mode === 'search') return { items: moreCards.length ? [...searchHits, ...moreCards] : searchHits, groups: searchProviders };
     const seen = new Set<string>();
@@ -502,11 +518,18 @@ function DiscoverInner() {
     (wall.groups[workKey(it)] ?? [{ source: it.source, name: nameOf(it.source) ?? it.source }])
       .map((p) => ({ source: p.source, name: p.name, extension: extOf.get(p.source) ?? null }));
 
+  // Titles marked 18+ from a card's menu leave the wall the moment they are marked; the server keeps them out after.
+  const isHidden = useIsHiddenTitle();
+  const wall = useMemo(
+    () => ({ items: sortWall(arrived.items, wallSort, arrived.groups).filter((it) => !isHidden(it.title)), groups: arrived.groups }),
+    [arrived, wallSort, isHidden],
+  );
+
   // Skeleton tiles: only until the FIRST cards land -- in search mode until the first answer (or a failure).
   // After that the wall shows what has landed and its last card (and in a search the progress line) says what has
   // not, so a skeleton would sit beside real tiles and read as a stuck load. Since v0.58.0 browsing too: with every
   // source asked, eighteen skeletons sat under the covers for as long as the slowest source took.
-  const pending = mode === 'newest' ? Math.max(0, budget.length - settled) : (!searchQ.data && !searchQ.isError ? 3 : 0);
+  const pending = idle ? 0 : mode === 'newest' ? Math.max(0, budget.length - settled) : (!searchQ.data && !searchQ.isError ? 3 : 0);
 
   // The empty card for ONE source browsed alone says that source's own reason and wait, the way its sheet
   // row does -- "Rate-limited … · back in ~12 min", not the wall's "nothing new". `selected` names a
@@ -522,6 +545,7 @@ function DiscoverInner() {
    * pushed, so Back leaves Discover instead of stepping through its searches.
    */
   const writeQ = (value: string, kind = searchKind) => {
+    lastQ.current = value;
     try {
       const u = new URL(window.location.href);
       if (value) u.searchParams.set('q', value); else u.searchParams.delete('q');
@@ -546,6 +570,17 @@ function DiscoverInner() {
   };
   // `term` is kept: the query is disabled by the mode, and keeping its observer keeps the answer cached, so
   // searching the same title again after browsing is instant.
+  // Also when already here: the palette's "Search your sources" pushes a new `?q=` onto this same page. What the page
+  // writes itself (writeQ) is remembered in lastQ, so only an address someone else set is searched.
+  const urlQ = params.get('q')?.trim() || '';
+  useEffect(() => {
+    if (!mayAdd || !urlQ || lastQ.current === urlQ) return;
+    lastQ.current = urlQ;
+    setQ(urlQ); setBrowsing(true); setMode('search'); setTerm(urlQ);
+  }, [mayAdd, urlQ]);
+  const startBrowsing = () => { if (mode === 'newest') setBrowsing(true); };
+  // A card's menu: search every source for its title, as if it had been typed and submitted.
+  const searchFor = (title: string) => { setQ(title); setMode('search'); setTerm(title.trim()); writeQ(title.trim()); };
   const backToNewest = () => { setQ(''); setMode('newest'); writeQ(''); };
   // A chosen source that has left the list -- Show 18+ turned off hides every adult one -- is let go. It stayed
   // chosen: the chip read its raw id, the wall stayed empty, and a search asked only it and said "No results across
@@ -555,11 +590,11 @@ function DiscoverInner() {
     setSelected(null);
   }, [sourcesData, budget, selected]);
 
-  const open = (it: SourceItem) => {
+  const open = (it: SourceItem, edition = false) => {
     const key = workKey(it);
     // Only a card held in every provider's language is done with (v0.52.0): one held in another language opens the
     // dialog, which offers the new language as an edition and says which the library has.
-    if (it.inLibrary || shownAdded.has(key)) return;
+    if ((it.inLibrary && !(edition && it.moreEditions)) || shownAdded.has(key)) return;
     // What the library holds of this title, for the dialog's "In your library in English" and its edition block.
     const library = it.librarySeriesId && it.libraryLangs?.length ? { seriesId: it.librarySeriesId, langs: it.libraryLangs } : undefined;
     // Every provider behind the card: the wall's fold, or the search's groups -- both keyed by work.
@@ -592,8 +627,8 @@ function DiscoverInner() {
   const sentinel = useRef<HTMLDivElement>(null);
   // The next page once every source has answered this one (v0.58.0: once each had answered at all, so a page could
   // start while the last one was still being asked -- and with the gate counting by page, the sources it had not
-  // reached yet would have been skipped).
-  const canPage = mode === 'newest' && answered >= budget.length && budget.length > 0 && page < 5;
+  // reached yet would have been skipped). Nothing pages on a page that has asked nothing yet.
+  const canPage = mode === 'newest' && browsing && answered >= budget.length && budget.length > 0 && page < 5;
   useEffect(() => {
     const el = sentinel.current;
     if (!el || !canPage) return;
@@ -650,12 +685,16 @@ function DiscoverInner() {
    * Topping up costs nothing, because the hero already handles a missing banner: it falls back to the 2:3
    * cover and letterboxes it on wide viewports.
    */
+  // The hero is a setting (Profile → Settings, off by default). Off, there are no slides, so `rail` below is the
+  // whole trending list rather than what the hero skipped.
+  const [banners] = useBanners();
   const heroSlides = useMemo(() => {
-    const all = trending?.content ?? [];
+    if (!banners) return [];
+    const all = (trending?.content ?? []).filter((t) => !isHidden(t.title));
     const withArt = all.filter((t) => t.banner);
     const rest = all.filter((t) => !t.banner);
     return [...withArt, ...rest].slice(0, HERO_SLIDES);
-  }, [trending]);
+  }, [trending, banners, isHidden]);
   /**
    * The hero's stand-in (v0.98.0): while Korea's answer is on its way, or the server is still pulling a copy it has never
    * had, the hero's own box holds its place -- the page used to render without it and shove everything down when it came.
@@ -667,12 +706,12 @@ function DiscoverInner() {
   const jpTrending = moreTrending[0]?.data;
   const cnTrending = moreTrending[1]?.data;
   const trendRails = useMemo(() => [trending?.content ?? [], jpTrending?.content ?? [], cnTrending?.content ?? []]
-    .map((list) => list.map((t, k) => ({ t, rank: k + 1 })).filter(({ t }) => !railAdded.has(railKey(t)))),
-  [trending, jpTrending, cnTrending, railAdded]);
+    .map((list) => list.map((t, k) => ({ t, rank: k + 1 })).filter(({ t }) => !railAdded.has(railKey(t)) && !isHidden(t.title))),
+  [trending, jpTrending, cnTrending, railAdded, isHidden]);
   // The one picks row (v0.98.0, lib/forYou.ts): the trackers' suggestions and the reads' picks in turn, one card a title,
   // less what this visit added from it.
   const picks = useMemo(() => mergePicks(recsQ.data?.content ?? [], because?.content ?? [], because?.seed ?? null)
-    .filter((pk) => !railAdded.has(railKey(pk))), [recsQ.data, because, railAdded]);
+    .filter((pk) => !railAdded.has(railKey(pk)) && !isHidden(pk.title)), [recsQ.data, because, railAdded, isHidden]);
   /**
    * Which rows the wall carries (v0.98.0): each with something on it, and only once every row's first answer is in -- the
    * rows take their places in order, and a row arriving late would take one another already stood in.
@@ -708,7 +747,6 @@ function DiscoverInner() {
           <>
             <EmptyState art={ART.emptyLibrary} title={tr('Nothing to browse with 18+ hidden')}
               sub={tr('Every provider set up for your account is marked 18+. Turn on Show 18+ to browse them.')} />
-            <div className="-mt-10 flex justify-center pb-10"><AdultToggle alsoWhen /></div>
           </>
         ) : isAdmin ? (
           <EmptyState art={ART.emptyLibrary} title={tr('No sources installed')}
@@ -733,7 +771,8 @@ function DiscoverInner() {
   const cardsOf = (from: number, to: number) => wall.items.slice(from, to).map((it, k) => (
     <SourceCard key={`${it.source}:${it.sourceId}`} item={{ ...it, inLibrary: it.inLibrary || shownAdded.has(workKey(it)) }}
       providers={stackOf(it)}
-      onAdd={() => open(it)} eager={from + k < 12} />
+      onAdd={() => open(it, true)}
+      onSearch={searchFor} eager={from + k < 12} />
   ));
   // One of the rows: the picks in their own band (v0.99.0, components/ForYouBand.tsx), each saying why it is there, or a
   // trending row, its first ten ranked. The read a pick came from is isolated in its sentence, as Home's "Because you read"
@@ -750,7 +789,7 @@ function DiscoverInner() {
     <AniListRail key={key} kind={key} title={tr(TREND_LABELS[TREND_RAILS.indexOf(key)])}>
       {trendRails[TREND_RAILS.indexOf(key)].map(({ t, rank }, i) => (
         <Reveal key={railKey(t)} delay={Math.min(i, 12) * 28}>
-          <TrendingCard t={t} onPick={pickRail} rank={rank <= RANKED ? rank : undefined} />
+          <MenuTrendingCard t={t} onPick={pickRail} onSearch={searchFor} rank={rank <= RANKED ? rank : undefined} />
         </Reveal>
       ))}
     </AniListRail>
@@ -767,12 +806,15 @@ function DiscoverInner() {
         <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-3">
           <div className="min-w-0">
             {/* The listing's name is the wall's own heading, a few lines down (v0.98.0: it was said here as well). */}
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-              <h1 className="font-display text-2xl font-bold tracking-tight lg:text-3xl">{tr('Discover')}</h1>
-              {/* In the HEADER and not on the chip row below, deliberately: a chip anchored there would sit among the
-                  wall's own controls -- and search is one of the surfaces the reveal changes. */}
-              <AdultToggle alsoWhen={showAdultChip} className="shrink-0 text-xs" />
-            </div>
+            <h1 className="font-display text-2xl font-bold tracking-tight lg:text-3xl">{tr('Discover')}</h1>
+            {/* Fork: say it when sources are out of the search because Show 18+ is off, so a missing source is never a mystery. */}
+            {!adultOn && (sourcesData?.hiddenAdult ?? 0) > 0 && (
+              <p data-hidden-sources className="mt-1 max-w-prose text-[11px] text-fog-400">
+                {(sourcesData?.hiddenAdult ?? 0) === 1
+                  ? tr('1 source is hidden while Show 18+ is off.')
+                  : tr('{n} sources are hidden while Show 18+ is off.', { n: sourcesData?.hiddenAdult ?? 0 })}
+              </p>
+            )}
             <p className="mt-1 max-w-prose text-[11px] text-fog-500">
               {tr('Manual AniList actions can contact AniList even when automatic lookups are off.')}
             </p>
@@ -787,17 +829,19 @@ function DiscoverInner() {
             </select>
             <div className="field flex min-w-0 flex-1 items-center gap-2 py-0 sm:w-72 lg:w-80">
               <IcSearch width={17} height={17} className="shrink-0 text-fog-500" />
-              <input value={q} onChange={(e) => setQ(e.target.value)}
+              <input value={q} onChange={(e) => setQ(e.target.value)} enterKeyHint="search" autoComplete="off"
                 onKeyDown={(e) => { if (e.key === 'Escape') backToNewest(); }}
                 placeholder={tr('Search all sources…')} aria-label={tr('Search all sources…')}
-                className="w-full bg-transparent py-2.5 text-sm text-fog-50 outline-hidden placeholder:text-fog-500" />
+                className="w-full bg-transparent py-2.5 text-sm text-fog-50 outline-hidden focus-visible:outline-accent focus-visible:outline-offset-0 placeholder:text-fog-500" />
               {q && (
-                <button type="button" onClick={backToNewest} aria-label={tr('Close')} className="shrink-0 text-fog-500 hover:text-fog-200">
+                <button type="button" onClick={backToNewest} aria-label={tr('Clear search')} className="relative shrink-0 text-fog-500 before:absolute before:-inset-2 hover:text-fog-200">
                   <IcX width={15} height={15} />
                 </button>
               )}
             </div>
-            <button className="btn-accent shrink-0 px-5 py-2.5 text-sm">{tr('Search')}</button>
+            <button type="submit" className="btn-accent shrink-0 px-5 py-2.5 text-sm">{tr('Search')}</button>
+            <button type="button" onClick={() => setTagsOpen((o) => !o)} aria-expanded={tagsOpen} data-tags-toggle
+              className={`chip shrink-0 py-2.5 text-sm ${tagsOpen ? 'border-accent/60 text-fog-50' : ''}`}>{tr('Tags')}</button>
           </form>
         </div>
         {searchKind !== 'title' && (
@@ -805,6 +849,8 @@ function DiscoverInner() {
             {tr('Creator searches only ask sources that support author and artist filters.')}
           </p>
         )}
+        {tagsOpen && <TagFinder onPick={pickRail} onSearch={searchFor} onClose={() => setTagsOpen(false)}
+          filterSources={sources.filter((s) => s.filterable)} onOpenItem={(it) => open(it)} />}
       </header>
 
       {/*
@@ -814,27 +860,48 @@ function DiscoverInner() {
         a browse action, so from a search it returns to browsing that list.
       */}
       <SourcePicker
-        sources={budget} states={states} settled={settled} total={budget.length}
+        sources={budget} states={states} settled={idle ? 0 : settled} total={idle ? 0 : budget.length}
         // The chip's number is the whole pool: every source that can answer this listing. Since v0.58.0 that is
         // also every source asked; it was a budget of six widening to ten, and a ranked list capped at twelve,
         // and "12 sources" on a 14-source install was simply false.
         count={pool.length}
-        selected={selected} onSelect={setSelected}
-        mode={listMode}
-        // The source shown alone stays chosen when the other listing has it: flipping dropped it, so one source's Newest
-        // flipped to every source's Popular.
+        selected={selected}
+        onSelect={(id) => { if (id) startBrowsing(); setSelected(id); }}
+        mode={idle ? null : listMode}
         onMode={(m) => {
-          setListMode(m); setSelected(selected && budgetForMode(sources, m, Infinity).some((s) => s.id === selected) ? selected : null);
+          setListMode(m); setBrowsing(true);
+          // The source shown alone stays chosen when the other listing has it.
+          setSelected(selected && budgetForMode(sources, m, Infinity).some((s) => s.id === selected) ? selected : null);
           setPage(1); if (mode === 'search') backToNewest();
         }}
-      />
+      >
+        {/* The page's one control region: listing and sources above, how the wall is ordered and filtered here. Choosing
+            a sort or filter is a request to browse, so on a page that has not asked any source yet it starts that. */}
+        <div role="group" aria-label={tr('Sort by')} className="flex basis-full flex-wrap items-center gap-1.5" data-wall-sorts>
+          <span className="me-1 text-xs text-fog-500">{tr('Sort by')}</span>
+          {WALL_SORTS.map((s) => (
+            <button key={s.key} type="button" onClick={() => { setWallSort(s.key); startBrowsing(); }} aria-pressed={wallSort === s.key}
+              className={`chip text-xs ${wallSort === s.key ? 'chip-active' : ''}`}>{tr(s.label)}</button>
+          ))}
+        </div>
+        {/* The 18+ filter (v0.55.4, #158). Search mode only, and only while it can change something (`offerRating`). */}
+        {mode === 'search' && offerRating && (
+          <div role="group" aria-label={tr('Results')} className="flex basis-full flex-wrap items-center gap-1.5" data-rating-chips>
+            <span className="me-1 text-xs text-fog-500">{tr('Results')}</span>
+            {([['all', tr('All')], ['safe', tr('No 18+')], ['adult', tr('18+ only')]] as const).map(([key, label]) => (
+              <button key={key} type="button" onClick={() => setRating(key)} aria-pressed={rating === key}
+                className={`chip text-xs ${rating === key ? 'chip-active' : ''}`}>{label}</button>
+            ))}
+          </div>
+        )}
+      </SourcePicker>
 
       {/* One mounted child per source asked -- every one in the pool -- and `enabled` only while the gate lets it
-          (four at a time). Renders nothing; owns one request.
+          (four at a time), and only once the person has asked to browse. Renders nothing; owns one request.
           The key carries the listing mode, so switching Newest/Popular REMOUNTS these and they fetch the
           other listing. That pairing is not optional: a child that keeps its key keeps its cached query,
           never re-reports, and the wall waits forever on a source it thinks it has not heard from. */}
-      {mode === 'newest' && budget.map((s, i) => (
+      {mode === 'newest' && browsing && budget.map((s, i) => (
         <SourceLatest key={`${listMode}:${s.id}:${page}`} source={s} listMode={listMode}
           page={page} enabled={i < gate} onSettled={onSettled} />
       ))}
@@ -885,29 +952,21 @@ function DiscoverInner() {
         </p>
       )}
 
+
+      {idle ? (
+        <p className="card mt-6 p-6 text-center text-sm text-fog-400" data-discover-idle>
+          {tr('Search above, or choose Newest or Popular, to browse your sources.')}
+        </p>
+      ) : (
       <div className="mb-3 mt-6 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
         <h2 className="font-display text-lg font-semibold tracking-tight text-fog-50 lg:text-xl">
           {mode === 'search' ? tr('Results across your sources') : listMode === 'popular' ? tr('Popular on your sources') : tr('Newest from your sources')}
         </h2>
-        {mode === 'search' ? (
-          <button onClick={backToNewest} className="chip shrink-0 text-xs">
-            <IcChevronLeft width={13} height={13} />{tr('Newest')}
-          </button>
-        ) : budget.length > 0 && settled < budget.length ? (
+        {mode === 'newest' && budget.length > 0 && settled < budget.length ? (
           <span className="shrink-0 text-xs tabular-nums text-fog-500">
             {tr('{done} of {total} sources', { done: settled, total: budget.length })}
           </span>
         ) : null}
-        {/* The 18+ filter (v0.55.4, #158), on its own row under the heading: three chips do not fit beside it at 390 px.
-            Search mode only, and only while it can change something (`offerRating`). */}
-        {mode === 'search' && offerRating && (
-          <div role="group" aria-label={tr('18+ filter')} className="flex basis-full flex-wrap items-center gap-1.5" data-rating-chips>
-            {([['all', tr('All')], ['safe', tr('Hide 18+')], ['adult', tr('18+ only')]] as const).map(([key, label]) => (
-              <button key={key} type="button" onClick={() => setRating(key)} aria-pressed={rating === key}
-                className={`chip text-xs ${rating === key ? 'chip-active' : ''}`}>{label}</button>
-            ))}
-          </div>
-        )}
         {/* Search's own progress, on its own row: with three source names it does not fit beside the
             heading at 390 px, and it is gone the moment the last source answers. Announced, since the wall
             it describes changes under a screen reader without a focus change. */}
@@ -917,6 +976,7 @@ function DiscoverInner() {
           </p>
         )}
       </div>
+      )}
 
       {/* Discover's rows inside the wall while browsing (v0.98.0, lib/shelves.ts): the picks after its first two rows of
           covers, each trending row four rows further on. Each run of covers between two rows is a grid of its own with the
@@ -931,6 +991,7 @@ function DiscoverInner() {
         {mode === 'search' && moreBusy && Array.from({ length: 3 }).map((_, i) => (
           <div key={`mk${i}`} className="skeleton aspect-[2/3] rounded-2xl" data-search-more />
         ))}
+        {pending > 0 && <span role="status" className="sr-only">{tr('Loading…')}</span>}
         {!wall.items.length && Array.from({ length: Math.min(18, pending * 6) }).map((_, i) => (
           <div key={`sk${i}`} className="skeleton aspect-[2/3] rounded-2xl" />
         ))}
@@ -941,9 +1002,9 @@ function DiscoverInner() {
 
       {/* No "no results" while sources are still being asked: the first answer often has nothing yet and the
           sentence would be a verdict on a search that is still running. The progress line covers that gap. */}
-      {!wall.items.length && !pending && !stillAsking && (
+      {!idle && !wall.items.length && !pending && !stillAsking && (
         <div className="card col-span-full mt-2 p-8 text-center">
-          <p className={`text-sm ${alone?.warn ? 'text-amber-300' : 'text-fog-400'}`}>
+          <p role="status" className={`text-sm ${alone?.warn ? 'text-amber-300' : 'text-fog-400'}`}>
             {mode === 'search' ? (searchQ.isError ? tr('Search failed') : tr('No results across your sources — try another title.'))
               // Only an admin can act on the first sentence; a member told to open Admin has nowhere to go.
               : budget.length === 0 ? (isAdmin ? tr('No sources are set up yet. Add one in Admin \u2192 Sources.') : tr('No sources are set up yet. Ask whoever runs this server.'))
@@ -957,7 +1018,7 @@ function DiscoverInner() {
           </p>
           {/* A failed search gets the same button: with `retry: false` nothing else re-asks it. */}
           {(mode === 'newest' || searchQ.isError) && (
-            <button onClick={() => (mode === 'search' ? searchQ.refetch() : qc.invalidateQueries({ queryKey: ['src-latest'] }))} className="btn-ghost mt-4 px-5 py-2 text-sm">
+            <button type="button" onClick={() => (mode === 'search' ? searchQ.refetch() : qc.invalidateQueries({ queryKey: ['src-latest'] }))} className="btn-ghost mt-4 px-5 py-2 text-sm">
               {tr('Try again')}
             </button>
           )}

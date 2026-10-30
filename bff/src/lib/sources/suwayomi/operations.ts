@@ -28,6 +28,15 @@ const op = (name: string, doc: string, optional = false): EngineOp =>
 
 // `sourceId`: which extension source the manga belongs to. Engine manga ids are global, so an adapter checks it (v0.69.1).
 const MANGA_FIELDS = 'id title thumbnailUrl realUrl url description author artist genre status sourceId';
+/** What a control declares, by type; the defaults are aliased because `default` has a different type on each. */
+const FILTER_SHAPES = `__typename
+    ... on CheckBoxFilter { name cbDefault: default }
+    ... on TriStateFilter { name triDefault: default }
+    ... on TextFilter { name textDefault: default }
+    ... on SelectFilter { name values selDefault: default }
+    ... on SortFilter { name sortValues: values sortDefault: default { index ascending } }
+    ... on HeaderFilter { name }
+    ... on SeparatorFilter { name }`;
 /**
  * `sourceOrder url` (#116): non-null on ChapterType. sourceOrder is index + 1 over the extension's list reversed, so 1
  * is the OLDEST post, and the engine answers in sourceOrder ascending. `uploadDate` is epoch milliseconds as a string --
@@ -78,6 +87,12 @@ export const OPS = {
   fetchSourceManga: op('fetchSourceManga', `mutation($source:LongString!,$type:FetchSourceMangaType!,$query:String,$page:Int!,$filters:[FilterChangeInput!]){
   fetchSourceManga(input:{source:$source,type:$type,query:$query,page:$page,filters:$filters}){ mangas { ${MANGA_FIELDS} } }
 }`),
+  /**
+   * A source's own search filters (Mihon's FilterList). Every field that differs by type is aliased: the same name with two
+   * types in one selection is a conflict. A group holds one level of controls, which is all an extension declares.
+   */
+  sourceFilters: op('sourceFilters', `query($id:LongString!){ source(id:$id){ id filters { ${FILTER_SHAPES}
+    ... on GroupFilter { name filters { ${FILTER_SHAPES} } } } } }`),
   /**
    * The series, through `fetchMangaAndChapters`, which replaced `fetchManga` and runs the same engine code. ⚠️ It
    * catches a failure of the update and answers the STORED series with the error attached (`data` and `errors` both;

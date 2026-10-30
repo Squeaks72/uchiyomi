@@ -17,8 +17,8 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { setActiveDict } from '../lib/i18n';
 import {
   altKey, altOriginLabel, altRefusal, amberNote, bulkOutcome, decideRefusal, earlierRuns, findEndedRunIds, findEta, findGate, findReviewFirst,
-  findRunState, findSlotState, findSummary, findWhyLine, greenToFollow, groupResults, lineUpText, notTriedIds, progressLine, promoteRefusal,
-  seriesOutcome, setFindReviewFirst, startRefusal, FIND_SERIES_MAX_MS,
+  findRunState, findScopeOf, findSlotState, findSummary, findWhyLine, greenToFollow, groupResults, lineUpText, notTriedIds, progressLine, promoteRefusal,
+  seriesOutcome, setFindReviewFirst, startRefusal, stepDone, stepSeriesIds, FIND_SERIES_MAX_MS,
   type FindProposal, type FindResult, type FindRun, type FindRunSummary, type FindStatus,
 } from '../lib/findSources';
 import { ACTION_COPY, runStatusWord } from '../lib/healthCopy';
@@ -326,7 +326,8 @@ test('a Health row: Find other sources posts the source, and its run has a key g
   assert.match(row, /const findNow = findSlotState\(findSlot, fr\?\.runOf\(slotKey\), \(\) => \{ void fr\?\.stop\(slotKey\); \}\);/, 'the row does not follow its run');
   const arm = slice(row, "case 'find_sources':", "case 'renumber':");
   assert.match(arm, /\.\.\.findGate\(fr\?\.status, findNow\.kind === 'working' \|\| findNow\.kind === 'starting'\),/, 'the key starts while another run goes');
-  assert.match(arm, /state: findNow, what: copy\.what\(\{ \.\.\.ctx, n: item\.findSeries \}\)/, 'the key does not carry its run, or its count');
+  assert.match(arm, /state: findNow,\s*(?:\/\/[^\n]*\n\s*)?\.\.\.\(item\.findScope === 'series'/, 'the key does not carry its run');
+  assert.match(arm, /: \{ what: copy\.what\(\{ \.\.\.ctx, n: item\.findSeries \}\)/, 'the key does not carry its count');
   assert.match(row, /const specs = all\.filter\(\(s\) => s\.id !== 'find_sources'\);\s*const finds = all\.filter\(\(s\) => s\.id === 'find_sources'\);/,
     'the find key shares the row\'s group');
   assert.match(row, /\{specs\.length > 0 && <ActionKeys actions=\{specs\} \/>\}\s*\{finds\.length > 0 && <ActionKeys actions=\{finds\} \/>\}/);
@@ -460,7 +461,7 @@ test("Server tasks: a series title is cut at its own end, whatever the page's di
   for (const [file, src] of [['ServerDownloadsView.tsx', view], ['ArchiveQueue.tsx', code(read('components/ArchiveQueue.tsx'))]] as const) {
     const lines = src.split('\n').filter((l) => /<p [^>]*\btruncate\b[^>]*>\{\w+\.title\}<\/p>/.test(l));
     assert.ok(lines.length > 0, `${file}: no series title in a truncating line -- this scan is broken`);
-    for (const l of lines) assert.match(l, /<p dir="auto" /, `${file}: a series title takes the page's direction: ${l.trim()}`);
+    for (const l of lines) assert.match(l, /<p (?:id=\{.*?\} )?dir="auto" /, `${file}: a series title takes the page's direction: ${l.trim()}`);
   }
 });
 
@@ -821,9 +822,69 @@ test('the start dialog remembers the last choice on this device; storage that th
   assert.match(dialog, /const \[review, setReview\] = useState\(findReviewFirst\);/, 'the dialog forgets the last choice');
   assert.match(dialog, /onClick=\{\(\) => \{ setFindReviewFirst\(review\); onStart\(review\); \}\}/, 'Start does not remember the choice');
   const health = code(read('components/HealthActions.tsx'));
-  assert.match(health, /\{asking === 'find' && \(\s*<FindStartDialog onClose=\{\(\) => setAsking\(null\)\}\s*onStart=\{\(review\) => \{ setAsking\(null\); if \(item\.sourceId\) void fr\?\.start\(slotKey, \{ sourceId: item\.sourceId, \.\.\.\(review \? \{ review \} : \{\}\) \}\); \}\} \/>/,
+  assert.match(health, /\{asking === 'find' && \(\s*<FindStartDialog onClose=\{\(\) => setAsking\(null\)\} single=\{item\.findScope === 'series'\}\s*onHand=\{item\.findScope === 'series' && item\.seriesId \? \(\) => setAsking\('hand'\) : item\.sourceId \? \(\) => setAsking\('pick'\) : undefined\}\s*onStart=\{\(review\) => \{ setAsking\(null\); const scope = findScopeOf\(item\); if \(scope\) void fr\?\.start\(slotKey, \{ \.\.\.scope, \.\.\.\(review \? \{ review \} : \{\}\) \}\); \}\} \/>/,
     "Health's dialog does not start the run it chose");
   const sheet = slice(code(read('components/SourcesSheet.tsx')), 'function FindMore(', 'function OtherNames(');
   assert.match(sheet, /<FindModeChoice review=\{review\} onChange=\{setReview\} \/>/, 'the Sources sheet does not offer the choice');
   assert.match(sheet, /\{mineRow && run && <SeriesReview runId=\{run\.id\} r=\{mineRow\} onFollowed=\{onFound\} onAddEdition=\{onAddEdition\} \/>\}/, "the sheet does not show its series' matches");
+});
+
+test('a frozen series\' key searches that series alone; a source row\'s still searches its source', () => {
+  // Make findScopeOf return `{ sourceId }` for a series row: pressing "Find other source" on one series searches the whole source.
+  assert.deepEqual(findScopeOf({ seriesId: 's1', sourceId: 'src', findScope: 'series' }), { seriesIds: ['s1'] });
+  assert.deepEqual(findScopeOf({ seriesId: 's1', findScope: 'series' }), { seriesIds: ['s1'] }, 'a series with no source at all has no key');
+  assert.equal(findScopeOf({ findScope: 'series', sourceId: 'src' }), null, 'a series row without a series starts a source-wide run');
+  assert.deepEqual(findScopeOf({ seriesId: 's1', sourceId: 'src' }), { sourceId: 'src' });
+  assert.equal(findScopeOf({ seriesId: 's1' }), null);
+});
+
+test('the one-by-one review goes through the series with matches, then those with none, and knows when one is done', () => {
+  const prop = (state?: 'followed' | 'dismissed' | 'promoted'): FindProposal => ({
+    sourceId: 'a', sourceName: 'A', sourceSeriesId: 'x', chapters: 3, ours: { lined: 3, of: 3 }, theirs: { lined: 3, of: 3 },
+    coverage: 1, verdict: 'green', ...(state ? { state } : {}),
+  } as FindProposal);
+  const res = (seriesId: string, extra: Partial<FindResult> = {}): FindResult => ({ seriesId, title: seriesId, ...extra } as FindResult);
+  const results = [res('none'), res('skip', { why: 'not_tried' }), res('has', { proposals: [prop()] }), res('moved', { promoted: { from: 'a', fromName: 'A', to: 'b', toName: 'B', via: 'search', old: 'dropped' } })];
+  assert.deepEqual(stepSeriesIds(results), ['has', 'none'], 'matches first, then nothing found; skipped and moved are not stepped');
+  assert.deepEqual(stepSeriesIds(null), []);
+  assert.equal(stepDone(undefined, true), false);
+  assert.equal(stepDone(res('a', { proposals: [prop()] }), false), false);
+  assert.equal(stepDone(res('a', { proposals: [prop()] }), true), true, 'a source attached by hand is done');
+  assert.equal(stepDone(res('a', { proposals: [prop('followed'), prop()] }), false), true);
+  assert.equal(stepDone(res('a', { proposals: [prop('dismissed'), prop('dismissed')] }), false), true);
+  assert.equal(stepDone(res('a', { proposals: [prop('dismissed'), prop()] }), false), false);
+  assert.equal(stepDone(res('a'), false), false, 'nothing found and not handled is not done');
+});
+
+test('the review sheet offers a one-by-one pass, with a search by hand and a skip', () => {
+  const comp = code(read('components/FindSources.tsx'));
+  assert.match(comp, /stepSeriesIds\(run\.results\)\.length > 0/, 'the stepper is offered with nothing to step through');
+  assert.match(comp, /tr\('Review one series at a time'\)/);
+  assert.match(comp, /tr\('Skip this series'\)/, 'a series cannot be skipped');
+  assert.match(comp, /tr\('Search by hand'\)/, 'there is no way to adjust the search');
+  assert.match(comp, /tr\('Series \{n\} of \{total\}'/);
+});
+
+test('a frozen series\' Find key can be searched by hand, and its row can remove the series', () => {
+  // Drop `onHand` from the dialog or the 'hand' sheet: pressing the key can only start a run that waits behind a source check.
+  const health = code(read('components/HealthActions.tsx'));
+  assert.match(health, /\{asking === 'hand' && item\.seriesId && \(\s*<ManualMatch seriesId=\{item\.seriesId\} title=\{itemTitle\(item\)\}/, 'there is no hand search for a frozen series');
+  assert.match(health, /api\(`\/api\/admin\/series\/\$\{encodeURIComponent\(item\.seriesId \|\| ''\)\}`, \{ method: 'DELETE' \}\)/, 'the row does not remove the series');
+  const dialog = slice(code(read('components/FindSources.tsx')), 'export function FindStartDialog(', 'export function BackupStartDialog(');
+  assert.match(dialog, /\{onHand && \(/, 'the start dialog has no hand search');
+});
+
+test('"Search by hand" is inside the Find other source dialog for every row: its series, or a pick among its source\'s series', () => {
+  const row = readFileSync(join(__dirname, '..', 'components/HealthActions.tsx'), 'utf8');
+  assert.match(row, /onHand=\{item\.findScope === 'series' && item\.seriesId \? \(\) => setAsking\('hand'\) : item\.sourceId \? \(\) => setAsking\('pick'\) : undefined\}/, 'a source row has no manual search in the dialog');
+  assert.match(row, /<PickSeriesSheet sourceId=\{item\.sourceId\}/, 'the source row does not let the admin pick the series');
+  const find = readFileSync(join(__dirname, '..', 'components/FindSources.tsx'), 'utf8');
+  assert.match(find, /export function PickSeriesSheet/, 'the series picker is gone');
+});
+
+test('the By series view\'s rows are about the series: Find other source is series-scoped and the whole-source keys are left out', () => {
+  const row = readFileSync(join(__dirname, '..', 'components/HealthActions.tsx'), 'utf8');
+  assert.match(row, /bySeries && itemIn\.seriesId\s*\? \{ \.\.\.itemIn, findScope: 'series', actions: \(itemIn\.actions \|\| \[\]\)\.filter\(\(a\) => !SOURCE_WIDE_ACTIONS\.includes\(a\)\) \}/, 'a By series row still searches a whole source');
+  assert.match(row, /SOURCE_WIDE_ACTIONS: readonly HealthAction\[\] = \['replace_source', 'free_slot', 'test', 'unblock', 'disable', 'enable'\]/);
+  assert.match(readFileSync(join(__dirname, '..', 'components/HealthBySeries.tsx'), 'utf8'), /item=\{f\.item\} bySeries/, 'the By series view does not say so to its rows');
 });

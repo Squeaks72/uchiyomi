@@ -12,6 +12,7 @@ import { setAdultShown } from './adult';
 import { isDesktop, serverReachableHint, untilReachable } from './desktop';
 import { t as tr } from './i18n';
 import type { AvatarFrame } from './badges';
+import { readableAccent } from './theme';
 
 /** `frame` since v0.89.0 (#267): the frame one of the account's badges unlocked (lib/badges.ts). */
 export interface Avatar { emoji?: string; color?: string; frame?: AvatarFrame }
@@ -57,6 +58,7 @@ interface AuthCtx {
   register: (username: string, password: string) => Promise<{ ok: boolean; closed?: boolean; error?: string }>;
   logout: () => Promise<void>;
   setSettings: (partial: Record<string, any>) => void;
+  setDisplayName: (name: string) => void;
   setAvatar: (avatar: Avatar) => void;
   /** Written the moment 2FA is enabled or disabled, see the note beside its definition. */
   setTotpEnabled: (v: boolean) => void;
@@ -97,14 +99,8 @@ export function canDownload(user: { role?: string; perms?: Record<string, boolea
 }
 
 function applyAccent(settings?: Record<string, any>) {
-  const hex: string | undefined = settings?.accent;
-  if (hex && /^#?[0-9a-fA-F]{6}$/.test(hex)) {
-    const h = hex.replace('#', '');
-    const r = parseInt(h.slice(0, 2), 16);
-    const g = parseInt(h.slice(2, 4), 16);
-    const b = parseInt(h.slice(4, 6), 16);
-    document.documentElement.style.setProperty('--accent', `${r} ${g} ${b}`);
-  }
+  const t = readableAccent(settings?.accent);
+  if (t) document.documentElement.style.setProperty('--accent', t);
 }
 
 /**
@@ -474,6 +470,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if ('tone' in partial) applyTone(partial.tone);
   };
 
+  const setDisplayName = (displayName: string) => setUser((u) => (u ? { ...u, displayName } : u));
+
   const setAvatar = (avatar: Avatar) => setUser((u) => (u ? { ...u, avatar } : u));
 
   // ⚠️ `user` is otherwise re-read only by `revalidate` -- every 12 minutes and on visibilitychange -- and the
@@ -491,7 +489,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <Ctx.Provider value={{ status, user, isAdmin: user?.role === 'admin', login, firstRunSetup, register, logout, setSettings, setAvatar, setTotpEnabled, switchProfile, resumeProfile, pickProfile, leave, backToOwner, signedOutWhy, desktop: isDesktop(), reconnect }}>
+    <Ctx.Provider value={{ status, user, isAdmin: user?.role === 'admin', login, firstRunSetup, register, logout, setSettings, setDisplayName, setAvatar, setTotpEnabled, switchProfile, resumeProfile, pickProfile, leave, backToOwner, signedOutWhy, desktop: isDesktop(), reconnect }}>
       {children}
     </Ctx.Provider>
   );

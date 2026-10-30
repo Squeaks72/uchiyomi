@@ -244,6 +244,7 @@ const EN = {
   // while rows are listed for reference (never "all working" over a source nobody could test to the end), else
   // `sources.working`. The five after `sources.unused` are the summary before v0.53.0, no longer sent: a summary an
   // older server stored still carries them (the header reads the last stored report), so they keep their words.
+  'sources.only': ({ source }: { source: string }) => `Its only source, ${source}, is having trouble. Add another source to keep it updating.`,
   'sources.affected': ({ n }: { n: number }) => `${n} source${s(n, '', 's')} your series use ${s(n, 'needs', 'need')} a look`,
   'sources.failingUnused': ({ n }: { n: number }) => `${n} source${s(n, ' nothing uses is', 's nothing uses are')} failing`,
   'sources.working': () => 'All sources are working',
@@ -368,6 +369,12 @@ const EN = {
   'version.current': ({ version }: { version: string }) => `Running v${version} — up to date`,
   'version.running': ({ version }: { version: string }) => `Running v${version}`,
   'version.unasked': () => 'GitHub could not be reached just now, so this is not a clean bill of health.',
+  // How to take the newer release, by where this runs (lib/platform.ts InstallPlatform). Back up first: a release may migrate the database.
+  'version.how': ({ platform }: { platform: string }) =>
+    platform === 'desktop' ? 'The desktop app updates itself when it restarts, or install the new release from its page'
+      : platform === 'unraid' ? 'On Unraid: Docker tab, Check for updates, then Update on this container (back up its appdata first)'
+      : platform === 'compose' ? 'With Compose: docker compose pull && docker compose up -d (back up the data folder first)'
+      : 'Pull the new image and recreate the container on your host, keeping the same volumes (back up /data first)',
   'version.newer': () => 'a newer release is published; see the changelog before upgrading',
 
   // ---- Extension source limit
@@ -381,6 +388,7 @@ const EN = {
       'to get under it.',
   ),
   'cap.title': () => forDesktop('SUWAYOMI_MAX_SOURCES', 'Source limit'),
+  'cap.used': ({ n }: { n: number }) => `Used by ${n} series`,
   'cap.detail': ({ n, cap }: { n: number; cap: number }) => forDesktop(
     `${n} enabled sources not registered; the limit is ${cap}. Hide languages you do not read, or raise the limit.`,
     `${n} enabled sources not registered; the limit is ${cap}. Hide the languages you don't read.`,
@@ -659,6 +667,9 @@ const EN = {
   'autofix.now.searching': ({ name }: { name: string }) => `Searching ${name}`,
   'autofix.now.removing': ({ name }: { name: string }) => `Removing ${name}`,
   'autofix.now.files': () => 'Deleting chapters saved twice or numbered impossibly',
+  'autofix.now.groups': () => 'Swapping chapters for a preferred group’s copy',
+  'autofix.now.names': () => 'Borrowing chapter names from other sources',
+  'autofix.now.directions': () => 'Working out reading directions',
   'autofix.now.rechecking': () => 'Checking Health again',
   'autofix.now.waitSweep': () => 'Waiting for the chapter sweep to finish',
 
@@ -690,6 +701,9 @@ const EN = {
   'autofix.done.triedNone': ({ n }: { n: number }) => `Tried ${n} extension${s(n, '', 's')}: none of the series were there`,
   'autofix.done.deletedTwice': ({ n }: { n: number }) => `Deleted ${n} chapter${s(n, '', 's')} saved twice`,
   'autofix.done.deletedOdd': ({ n }: { n: number }) => `Deleted ${n} chapter${s(n, '', 's')} numbered impossibly`,
+  'autofix.done.groupsUpgraded': ({ n }: { n: number }) => `Swapped ${n} chapter${s(n, '', 's')} for a preferred group’s copy`,
+  'autofix.done.named': ({ n }: { n: number }) => `Named ${n} chapter${s(n, '', 's')} from another source`,
+  'autofix.done.directions': ({ n }: { n: number }) => `Worked out the reading direction of ${n} series`,
 
   // One thing it did or met, for Details (the done lines' `items`, and the run's log).
   'autofix.item.tested': ({ name, ok }: { name: string; ok: boolean }) => (ok ? `${name} passed its test` : `${name} failed its test again`),
@@ -746,6 +760,7 @@ const EN = {
   'autofix.needs.gaps': ({ n }: { n: number }) => `${n} series ${s(n, 'has', 'have')} chapters no source lists`,
   'autofix.needs.scan': ({ n }: { n: number }) => `The library scan could not read ${n} folder${s(n, '', 's')}`,
   'autofix.needs.downloadsMissing': ({ n }: { n: number }) => `${n} downloaded chapter${s(n, '', 's')} ${s(n, 'is', 'are')} where the library scan never looks`,
+  'autofix.needs.other': ({ title }: { title: string }) => `${title} needs a look`,
   'autofix.needs.noRoom': ({ name }: { name: string }) => `${name} may carry your series, but the source limit is full: free a slot`,
   // v0.72.0: the cards no run changes -- a disk to free or a share to mount, a member's tracker sign-in, a chapter file
   // to fetch again by hand (lib/healthDisk.ts, lib/healthTrackers.ts, lib/healthFiles.ts).
@@ -797,6 +812,19 @@ const EN = {
   'trackers.note': () =>
     'Only the person can sign in again, under Profile → Connections; a sign-in the tracker refused stays off until they ' +
     'do. A sign-in ending within 14 days is a finding, and within 30 days is listed for reference.',
+
+  // ---- Folder permissions (lib/healthPermissions.ts). `owner` and `me` are uid:gid; `mode` octal; `n` the series under it.
+  'perm.detail': ({ owner, mode, me, n, command }: { owner: string; mode: string; me: string; n: number; command: string }) =>
+    `Owned by ${owner}, mode ${mode}; the server runs as ${me}. Series under it: ${n}.` +
+    (command ? ` On the host, as root: ${command}` : ''),
+  'perm.live': ({ n }: { n: number }) => `${n} folder${s(n, '', 's')} the server cannot write to`,
+  'perm.none': () => 'The server can write to every series folder',
+  'perm.root': () => 'The server cannot write to the downloads folder itself',
+  'perm.note': ({ me }: { me: string }) =>
+    `Moving a series to another library, renaming a folder, merging and downloading all need the server (running as ${me}) ` +
+    'to write to the folder and the one above it. A folder made by a root shell or by another container is the usual cause. ' +
+    'Uchiyomi cannot change ownership it has no right to, so run the command on the host (replace <host path> with where ' +
+    'the downloads folder is on the host), then press Recheck.',
 
   // ---- Chapter files (v0.72.0, lib/healthFiles.ts, rebuilt from @Squeaks72's #252). `numbers` the first five, `more`
   // how many besides.

@@ -25,19 +25,22 @@ import { useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { ConfirmDialog, msgOf } from '@/components/ConfirmDialog';
 import { useToast } from '@/components/Toast';
+import { seriesHref } from '@/lib/healthLinks';
 import { ActionKeys, ActionList, ActionStatus, type ActionSpec } from '@/components/ActionList';
 import { useContextMenu, type MenuItem } from '@/components/ContextMenu';
 import { Disclosure } from '@/components/settings';
 import { StatusMark } from '@/components/StatusMark';
 import { OnBody } from '@/components/ui';
 import { NumberingSheet } from '@/components/NumberingSheet';
-import { FindStartDialog } from '@/components/FindSources';
+import { FindStartDialog, ManualMatch, PickSeriesSheet, RunReviewSheet } from '@/components/FindSources';
 import { ReplaceDialog } from '@/components/ReplaceDialog';
 import { t as tr } from '@/lib/i18n';
 import { deletedText, skippedBookmarkedText, skippedNotOursText } from '@/lib/counted';
 import { isDesktop } from '@/lib/desktop';
 import { bookCountText, languageName } from '@/lib/format';
 import { standingMark } from '@/lib/status';
+import { itemKey } from '@/lib/healthKeys';
+import type { HealthCheck as HealthCheckT } from '@/lib/types';
 import { IDLE, actionButton, isBusy, type ActionState } from '@/lib/actionState';
 import { triggerRefresh, type RefreshAnswer, type ScanProgress } from '@/lib/refresh';
 import {
@@ -54,7 +57,7 @@ import { fetchingToast } from '@/lib/jobs';
 import { testStep } from '@/lib/sourceEvidence';
 import { diagnosisReason, itemDetail, itemTitle, type Said } from '@/lib/said';
 import { useFindRun } from '@/lib/useFindRun';
-import { findGate, findSlotState } from '@/lib/findSources';
+import { findGate, findScopeOf, findSlotState, reviewIdsFor } from '@/lib/findSources';
 import { numberingOutcome, refusalText, type NumberingAnswer, type PlanMode, type RenumberMode } from '@/lib/numbering';
 import { freeSlotHref } from '@/lib/sourcesPanel';
 import type { HealthAction, HealthCheck, HealthItem } from '@/lib/types';
@@ -215,6 +218,45 @@ export interface CompactRow {
   hooks?: Record<`data-${string}`, string>;
 }
 
+type RecheckNote = { kind: 'there' | 'failed'; text: string } | null;
+
+/**
+ * A row's Recheck: ONE check run again on the server (POST /api/admin/health/recheck), put into the page's cached
+ * report in place, so nothing else on the page reloads or moves. The row is looked for by the same identity its
+ * React key is made of (lib/healthKeys.ts); gone from the answer, it is resolved -- said in a notice, because the row
+ * goes with it.
+ */
+function useRowRecheck(check: HealthCheck, item: HealthItem) {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<RecheckNote>(null);
+  const run = async () => {
+    if (busy) return;
+    setBusy(true);
+    setNote(null);
+    try {
+      const r = await api<{ generatedAt: string; check: HealthCheckT | null }>('/api/admin/health/recheck', { json: { check: check.id } });
+      const want = itemKey(check.id, item);
+      const still = !!r.check?.items.some((it) => itemKey(check.id, it) === want);
+      qc.setQueryData<{ generatedAt: string; checks: HealthCheckT[] } | undefined>(['admin-health'], (old) => {
+        if (!old) return old;
+        const checks = r.check
+          ? old.checks.map((c) => (c.id === check.id ? r.check! : c))
+          : old.checks.filter((c) => c.id !== check.id);
+        return { ...old, checks };
+      });
+      if (still) setNote({ kind: 'there', text: tr('Still there') });
+      else toast(tr('No longer a problem'), 'success');
+    } catch (e) {
+      setNote({ kind: 'failed', text: msgOf(e, tr('Could not recheck')) });
+    } finally {
+      setBusy(false);
+    }
+  };
+  return { busy, note, run };
+}
+
 /**
  * One finding's row: its words (the caller's children -- title, detail, and #115's evidence), what the last
  * attempt found, what an action will not be able to do, the keys, and the status line.
@@ -223,15 +265,27 @@ export interface CompactRow {
  * lib/healthKeys.ts: its state -- a Fix working, a Test's verdict -- must follow the finding when a re-check
  * removes the row above it.
  */
-export function HealthRow({ check, item, rowKey, links, children, compact }: {
+/** Keys that act on a whole source, not on one series: left out of the By series view (HealthRow `bySeries`). */
+const SOURCE_WIDE_ACTIONS: readonly HealthAction[] = ['replace_source', 'free_slot', 'test', 'unblock', 'disable', 'enable'];
+
+export function HealthRow({ check, item: itemIn, rowKey, links, children, compact, bySeries }: {
   check: HealthCheck;
   item: HealthItem;
+  /**
+   * The By series view (fork): the row is one SERIES' finding, so its keys are about fixing that series -- Find other source searches for
+   * this series alone, and the keys that act on a whole source (Replace, Test, Unblock, Turn off, Free a slot) are left to the By check
+   * view. A row with no series (a source, a folder) is unchanged.
+   */
+  bySeries?: boolean;
   rowKey: string;
   links?: ReactNode;
   children: ReactNode;
   /** v0.53.0: Source health's compact row. The actions, their states and their confirmations are this row's own either way. */
   compact?: CompactRow;
 }) {
+  const item: HealthItem = bySeries && itemIn.seriesId
+    ? { ...itemIn, findScope: 'series', actions: (itemIn.actions || []).filter((a) => !SOURCE_WIDE_ACTIONS.includes(a)) }
+    : itemIn;
   const toast = useToast();
   const qc = useQueryClient();
   const rr = useRepairRun();
@@ -241,7 +295,9 @@ export function HealthRow({ check, item, rowKey, links, children, compact }: {
   const slot = slots[slotKey];
   // Answers-at-once actions keep their own state: pressed, asked, re-checked, then what they said.
   const [sync, setSync] = useState<{ action: HealthAction; state: ActionState; at: number } | null>(null);
-  const [asking, setAsking] = useState<'delete' | 'disable' | 'merge' | 'link' | 'find' | 'replace' | 'keep_one' | null>(null);
+  const [asking, setAsking] = useState<'delete' | 'disconnect' | 'disable' | 'merge' | 'link' | 'find' | 'hand' | 'pick' | 'hand-picked' | 'replace' | 'remove' | 'keep_one' | null>(null);
+  // The series an admin picked from a source row to search by hand for ('pick' -> 'hand-picked').
+  const [handSeries, setHandSeries] = useState<{ id: string; title: string } | null>(null);
   // #116: the renumbering plan a numbering key opened, and which key opened it (its row state is that key's).
   const [plan, setPlan] = useState<{ action: HealthAction; mode: PlanMode } | null>(null);
   const [keepFirst, setKeepFirst] = useState(() => keptIndex(item) === 0);
@@ -254,6 +310,7 @@ export function HealthRow({ check, item, rowKey, links, children, compact }: {
   // carries it -- item.diagnosis and the stage lines, drawn by SourceEvidence among the row's children -- so there
   // is ONE verdict on screen, and it survives a reload. The Test's own fix sentence used to sit here as well.
 
+  const rc = useRowRecheck(check, item);
   const actions: HealthAction[] = (item.actions || []).filter((a) => a !== 'solver_reset');
   const bookIds = item.bookIds?.length ? item.bookIds : item.bookId ? [item.bookId] : [];
   // A chapter already said to be fine is listed as `info` with a `fixed` stamp; its key is the way back out.
@@ -278,6 +335,20 @@ export function HealthRow({ check, item, rowKey, links, children, compact }: {
   // started, never the row's Find other sources -- with its own status line under the row.
   const replaceKey = `${slotKey}:replace`;
   const replaceNow = findSlotState(fr?.slots[replaceKey], fr?.runOf(replaceKey), () => { void fr?.stop(replaceKey); });
+  // A review-first search that has ended, with matches of this row's waiting: the row says so with a key of its own that
+  // opens them, where the status line alone ("1 series to review") led nowhere. Read from the newest run too, so the key
+  // is still there after the page is reloaded.
+  const [reviewing, setReviewing] = useState(false);
+  const reviewRun = fr?.runOf(slotKey) ?? fr?.status?.run ?? null;
+  const reviewIds = reviewIdsFor(reviewRun, item);
+  const reviewKey = reviewRun && reviewIds.length > 0 && (
+    <div data-health-review className="mt-1.5">
+      <button type="button" className="btn-key btn-key-primary" data-health-action="review_matches"
+        aria-label={`${tr('Review matches')}: ${itemTitle(item)}`} onClick={() => setReviewing(true)}>
+        {tr('Review matches')}
+      </button>
+    </div>
+  );
   // The newest of the two is the row's line.
   const useSync = !!sync && sync.state.kind !== 'idle' && (repairState.kind === 'idle' || sync.at >= (slot?.startedAt ?? live?.startedAt ?? record?.finishedAt ?? 0));
   const rowNow: ActionState = useSync ? sync!.state : repairState;
@@ -393,6 +464,16 @@ export function HealthRow({ check, item, rowKey, links, children, compact }: {
     return { text };
   };
 
+  // A frozen series hidden from the library (the series page's Remove from library): files and progress stay.
+  const doRemove = async (): Promise<{ text: string }> => {
+    setAsking(null);
+    await api(`/api/admin/series/${encodeURIComponent(item.seriesId || '')}`, { method: 'DELETE' });
+    for (const k of [['library'], ['home'], ['series', item.seriesId]]) void qc.invalidateQueries({ queryKey: k });
+    const text = tr('Removed from the library');
+    toast(text, 'success');
+    return { text };
+  };
+
   const doDisable = async (): Promise<{ text: string }> => {
     setAsking(null);
     await disableSource(item.sourceId || '');
@@ -467,8 +548,39 @@ export function HealthRow({ check, item, rowKey, links, children, compact }: {
         return { ...base, danger: true, label: tr('Turn off'), onRun: () => setAsking('disable') };
       case 'merge':
         return { ...base, label: tr('Merge'), onRun: () => setAsking('merge') };
+      case 'remove_series':
+        return { ...base, danger: true, label: tr('Remove from library'), onRun: () => setAsking('remove') };
       case 'link_editions':
         return { ...base, primary: true, label: tr('Link as editions'), onRun: () => setAsking('link') };
+      // Gaps: the missing numbers accepted as how the series is. The series' own hide route, so it is audited and reversible from
+      // the series page (More → Show hidden chapters); the row leaves the card when Health answers again.
+      case 'accept_gap':
+        return {
+          ...base, label: tr('Accept this gap'),
+          onRun: () => act(a, async () => {
+            await api(`/api/admin/series/${encodeURIComponent(item.seriesId || '')}/chapters/hide`, { method: 'POST', json: { numbers: item.numbers ?? [] } });
+            return { text: tr('Accepted: those chapters will not be fetched or counted') };
+          }),
+        };
+      case 'enable':
+        return {
+          ...base, label: tr('Turn on'),
+          onRun: () => act(a, async () => {
+            await api(`/api/admin/sources/${encodeURIComponent(item.sourceId || '')}/enable`, { method: 'POST' });
+            return { text: tr('That source is switched on') };
+          }),
+        };
+      case 'remind':
+        return {
+          ...base, label: tr('Remind them'),
+          onRun: () => act(a, async () => {
+            const [provider, userId] = (item.key || '').split(':');
+            const r = await api<{ sent: boolean; username: string }>('/api/admin/trackers/remind', { method: 'POST', json: { provider, userId } });
+            return r.sent ? { text: tr('Reminded {name}', { name: r.username }) } : { text: tr('{name} has no device that can be notified; ask them directly', { name: r.username }), ok: false };
+          }),
+        };
+      case 'disconnect':
+        return { ...base, danger: true, label: tr('Disconnect'), onRun: () => setAsking('disconnect') };
       case 'ignore':
         return { ...base, label: tr('Ignore'), onRun: () => act(a, async () => ({ text: await postIgnore(check.id, item, true) })) };
       case 'unignore':
@@ -497,7 +609,11 @@ export function HealthRow({ check, item, rowKey, links, children, compact }: {
       case 'find_sources':
         return {
           ...base, ...findGate(fr?.status, findNow.kind === 'working' || findNow.kind === 'starting'),
-          state: findNow, what: copy.what({ ...ctx, n: item.findSeries }), label: copy.label({ ...ctx, n: item.findSeries }),
+          state: findNow,
+          // v0.56.0: a frozen series' key searches for THIS series alone, whatever its source.
+          ...(item.findScope === 'series'
+            ? { what: tr('Searches the other sources for this series only, and follows the one whose title and chapter numbers match.'), label: tr('Find other source') }
+            : { what: copy.what({ ...ctx, n: item.findSeries }), label: copy.label({ ...ctx, n: item.findSeries }) }),
           onRun: () => setAsking('find'),
         };
       // v0.54.0: every series whose main source is this row's source -- off or failing -- moved to a working source in ONE
@@ -536,7 +652,13 @@ export function HealthRow({ check, item, rowKey, links, children, compact }: {
         return null;
     }
   };
-  const all = actions.map(spec).filter((s): s is ActionSpec => !!s);
+  // Every row carries the same few keys, so each is named for its finding too: "Test: Mangadex", not "Test" nine times
+  // down the page. The visible words stay at the start of the name (WCAG 2.5.3), and Stop names itself the same way.
+  const rowName = itemTitle(item);
+  const all = actions.map(spec).filter((s): s is ActionSpec => !!s).map((sp) => {
+    const shown = actionButton(sp.state ?? IDLE, sp.runLabel ?? sp.label);
+    return { ...sp, buttonProps: { ...sp.buttonProps, 'aria-label': `${shown.stop ? shown.label : (sp.runLabel ?? sp.label)}: ${rowName}` } as ActionSpec['buttonProps'] };
+  });
   const specs = all.filter((s) => s.id !== 'find_sources');
   const finds = all.filter((s) => s.id === 'find_sources');
   // The stored outcome, unless the status line under the keys already says the same thing ("Every source has
@@ -595,8 +717,45 @@ export function HealthRow({ check, item, rowKey, links, children, compact }: {
       )}
 
       {asking === 'find' && (
-        <FindStartDialog onClose={() => setAsking(null)}
-          onStart={(review) => { setAsking(null); if (item.sourceId) void fr?.start(slotKey, { sourceId: item.sourceId, ...(review ? { review } : {}) }); }} />
+        <FindStartDialog onClose={() => setAsking(null)} single={item.findScope === 'series'}
+          onHand={item.findScope === 'series' && item.seriesId ? () => setAsking('hand') : item.sourceId ? () => setAsking('pick') : undefined}
+          onStart={(review) => { setAsking(null); const scope = findScopeOf(item); if (scope) void fr?.start(slotKey, { ...scope, ...(review ? { review } : {}) }); }} />
+      )}
+
+      {reviewing && reviewRun && reviewIds.length > 0 && (
+        <RunReviewSheet runId={reviewRun.id} ids={reviewIds} onClose={() => setReviewing(false)} />
+      )}
+
+      {asking === 'hand' && item.seriesId && (
+        <ManualMatch seriesId={item.seriesId} title={itemTitle(item)} onClose={() => setAsking(null)}
+          onDone={() => { setAsking(null); void rr.recheck().catch(() => {}); }} />
+      )}
+      {/* A source row covers many series: pick the one to search for by hand, then the same search-and-attach sheet. */}
+      {asking === 'pick' && item.sourceId && (
+        <PickSeriesSheet sourceId={item.sourceId} sourceName={itemTitle(item)} onClose={() => setAsking(null)}
+          onPick={(s) => { setHandSeries(s); setAsking('hand-picked'); }} />
+      )}
+      {asking === 'hand-picked' && handSeries && (
+        <ManualMatch seriesId={handSeries.id} title={handSeries.title} onClose={() => setAsking(null)}
+          onDone={() => { setAsking(null); void rr.recheck().catch(() => {}); }} />
+      )}
+
+      {asking === 'remove' && (
+        <OnBody>
+          <ConfirmDialog
+            title={tr('Remove from library?')}
+            confirmLabel={tr('Remove')}
+            danger
+            body={
+              <>
+                <p><strong className="text-fog-100">{tr('No files are deleted.')}</strong></p>
+                <p className="mt-2">{tr('Everyone’s reading progress, history, favourites and ratings are kept, so Admin → Library can put it back at any time.')}</p>
+              </>
+            }
+            onConfirm={() => act('remove_series', doRemove)}
+            onClose={() => setAsking(null)}
+          />
+        </OnBody>
       )}
 
       {/* On <body>: a Health card is a `.card`, whose backdrop blur would make it the sheet's containing block. A source
@@ -605,6 +764,24 @@ export function HealthRow({ check, item, rowKey, links, children, compact }: {
         <OnBody>
           <ReplaceDialog sourceId={item.sourceId} name={check.id === 'sources' ? itemTitle(item) : undefined} fr={fr} slot={replaceKey}
             onClose={() => setAsking(null)} />
+        </OnBody>
+      )}
+
+      {asking === 'disconnect' && (
+        <OnBody>
+          <ConfirmDialog
+            title={tr('Disconnect this tracker?')}
+            confirmLabel={tr('Disconnect')}
+            danger
+            body={<p>{tr('Their reading progress here is untouched. They will need to connect again under Profile → Connections.')}</p>}
+            onConfirm={() => act('disconnect', async () => {
+              setAsking(null);
+              const [provider, userId] = (item.key || '').split(':');
+              await api('/api/admin/trackers/disconnect', { method: 'POST', json: { provider, userId } });
+              return { text: tr('Disconnected') };
+            })}
+            onClose={() => setAsking(null)}
+          />
         </OnBody>
       )}
 
@@ -657,10 +834,10 @@ export function HealthRow({ check, item, rowKey, links, children, compact }: {
                 <p className="mt-2">{tr('A chapter both have is kept once: the other copy is removed and its file deleted, or set aside if Uchiyomi may not delete it. Reading progress moves to the copy that stays, and a copy somebody bookmarked is kept.')}</p>
                 {/* v0.57.0: each copy's chapters and main source under its title, Recommended on the server's choice. The
                     choice stays the admin's: the radio starts on it and can be moved. */}
-                <div className="mt-3 space-y-2">
+                <div role="radiogroup" aria-label={tr('Merge these two?')} className="mt-3 space-y-2">
                   {(item.titles || []).map((t, i) => (
                     <label key={i} className="flex cursor-pointer items-start gap-2 rounded-lg border border-ink-700 px-3 py-2 text-sm">
-                      <input type="radio" className="mt-1 shrink-0" checked={keepFirst === (i === 0)} onChange={() => setKeepFirst(i === 0)} />
+                      <input type="radio" name="merge-keep" className="mt-1 shrink-0" checked={keepFirst === (i === 0)} onChange={() => setKeepFirst(i === 0)} />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate">{keepBefore}<strong className="text-fog-100">{t}</strong>{keepAfter}</span>
                         <CopyFacts item={item} index={i} />
@@ -700,7 +877,10 @@ export function HealthRow({ check, item, rowKey, links, children, compact }: {
         disabled: !!sp.disabled || (st.kind === 'working' && !!st.stopping) || (groupBusy && !btn.stop),
         onSelect: () => { if (btn.stop && st.kind === 'working') st.onStop?.(); else sp.onRun?.(); },
       };
-    }), { label: compact?.name ?? '' });
+    }).concat([{
+      label: rc.busy ? tr('Checking…') : tr('Recheck'), hook: 'recheck', divider: true, disabled: rc.busy,
+      onSelect: () => { void rc.run(); },
+    } as MenuItem]), { label: compact?.name ?? '' });
 
   if (compact) {
     // The name, the key and the ⋯ share the first line, and the row's line runs under them: on a phone across the
@@ -727,16 +907,18 @@ export function HealthRow({ check, item, rowKey, links, children, compact }: {
         )}
         <button type="button" data-health-more onClick={(e) => menu.openFrom(e.currentTarget)}
           aria-haspopup="menu" aria-expanded={menu.open} aria-label={`${tr('More')}: ${compact.name}`}
-          className="btn-key col-start-4 row-start-1 w-8 px-0 text-fog-400 sm:row-end-3">
+          className="btn-key col-start-4 row-start-1 w-8 pointer-coarse:w-10 px-0 text-fog-400 sm:row-end-3">
           <svg aria-hidden width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8" /><circle cx="12" cy="12" r="1.8" /><circle cx="19" cy="12" r="1.8" /></svg>
         </button>
         <div className="col-start-2 col-end-5 row-start-3 min-w-0">
-          {outcome && <p data-health-outcome className="mt-1 text-[11px] leading-relaxed text-fog-400">{outcome}</p>}
+          {outcome && <p data-health-outcome className="mt-1 text-[11px] leading-relaxed text-fog-300">{outcome}</p>}
           {caveats.map((c) => (
-            <p key={c.text} data-health-caveat={c.tone} className={`mt-1 text-[11px] leading-relaxed ${c.tone === 'calm' ? 'text-fog-400' : 'text-amber-300/90'}`}>{c.text}</p>
+            <p key={c.text} data-health-caveat={c.tone} className={`mt-1 text-[11px] leading-relaxed ${c.tone === 'calm' ? 'text-fog-300' : 'text-amber-300'}`}>{c.text}</p>
           ))}
+          {rc.note && <p data-health-recheck-note={rc.note.kind} role="status" className={`mt-1 text-[11px] leading-relaxed ${rc.note.kind === 'failed' ? 'text-amber-300' : 'text-fog-300'}`}>{rc.note.text}</p>}
           <ActionStatus state={rowNow} />
           {finds.length > 0 && <ActionStatus state={findNow} />}
+          {reviewKey}
           {actions.includes('replace_source') && <ActionStatus state={replaceNow} />}
           {compact.details && (
             <div data-health-details>
@@ -756,22 +938,90 @@ export function HealthRow({ check, item, rowKey, links, children, compact }: {
         <div className="min-w-0 flex-1">{children}</div>
         {links && <div className="flex shrink-0 flex-col items-end gap-1 pt-0.5">{links}</div>}
       </div>
-      {outcome && <p data-health-outcome className="mt-1 text-[11px] leading-relaxed text-fog-400">{outcome}</p>}
+      {outcome && <p data-health-outcome className="mt-1 text-[11px] leading-relaxed text-fog-300">{outcome}</p>}
       {caveats.map((c) => (
-        <p key={c.text} data-health-caveat={c.tone} className={`mt-1 text-[11px] leading-relaxed ${c.tone === 'calm' ? 'text-fog-400' : 'text-amber-300/90'}`}>{c.text}</p>
+        <p key={c.text} data-health-caveat={c.tone} className={`mt-1 text-[11px] leading-relaxed ${c.tone === 'calm' ? 'text-fog-300' : 'text-amber-300'}`}>{c.text}</p>
       ))}
-      {(specs.length > 0 || finds.length > 0) && (
-        <div className="mt-2 flex flex-wrap items-center gap-1.5">
-          {specs.length > 0 && <ActionKeys actions={specs} />}
-          {finds.length > 0 && <ActionKeys actions={finds} />}
-        </div>
-      )}
+      <FailedChapters item={item} onChanged={() => { void rr.recheck().catch(() => {}); }} />
+      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+        {specs.length > 0 && <ActionKeys actions={specs} />}
+        {finds.length > 0 && <ActionKeys actions={finds} />}
+        <button type="button" data-health-recheck onClick={() => { void rc.run(); }} disabled={rc.busy} aria-busy={rc.busy}
+          aria-label={`${tr('Recheck')}: ${item.title}`} className="btn-key text-fog-300">
+          {rc.busy ? tr('Checking…') : tr('Recheck')}
+        </button>
+      </div>
+      {rc.note && <p data-health-recheck-note={rc.note.kind} role="status" className={`mt-1 text-[11px] leading-relaxed ${rc.note.kind === 'failed' ? 'text-amber-300' : 'text-fog-300'}`}>{rc.note.text}</p>}
       <ActionStatus state={rowNow} />
       {finds.length > 0 && <ActionStatus state={findNow} />}
+          {reviewKey}
       {actions.includes('replace_source') && <ActionStatus state={replaceNow} />}
 
       {dialogs}
     </div>
+  );
+}
+
+/**
+ * Chapters that would not download, one line each under their source's row (bff lib/health.ts FailedChapter). A chapter only
+ * WAITING for its first try at the series' current source says so in words, so it is not read as a failure; one that has been
+ * tried says why it failed and how often. Skip hides the number for everyone -- never fetched again, nothing deleted, and the
+ * series page's More → Show hidden chapters brings it back -- which also takes it off this list and out of the gap check.
+ */
+function FailedChapters({ item, onChanged }: { item: HealthItem; onChanged: () => void }) {
+  const toast = useToast();
+  const qc = useQueryClient();
+  const [busy, setBusy] = useState<string | null>(null);
+  const rows = item.failed ?? [];
+  if (!rows.length) return null;
+  const skip = async (seriesId: string, number: number) => {
+    const key = `${seriesId}:${number}`;
+    setBusy(key);
+    try {
+      await api(`/api/admin/series/${encodeURIComponent(seriesId)}/chapters/hide`, { method: 'POST', json: { numbers: [number] } });
+      toast(tr('Chapter {n} will not be fetched again', { n: number }), 'success');
+      onChanged();
+    } catch (e: any) {
+      toast(e?.message || tr('Could not skip that chapter'), 'error');
+    }
+    setBusy(null);
+  };
+  // Every source the series follows is asked, in turn, and the best copy is kept even when it has pages missing.
+  const fetchNow = async (seriesId: string, number: number) => {
+    const key = `${seriesId}:${number}`;
+    setBusy(key);
+    try {
+      await api(`/api/admin/series/${encodeURIComponent(seriesId)}/chapters/fetch-missing`, { method: 'POST', json: { numbers: [number] } });
+      void kickDownloads(qc);
+      toast(tr('Fetching chapter {n}: the download shows under Library → Downloads', { n: number }), 'info');
+      onChanged();
+    } catch (e: any) {
+      let msg = e?.message || tr('Could not start that fetch');
+      try { const b = JSON.parse(e?.body || '{}'); if (b.message) msg = b.message; } catch {}
+      toast(msg, 'error');
+    }
+    setBusy(null);
+  };
+  return (
+    <ul data-health-failed className="mt-2 space-y-1.5">
+      {rows.map((c) => (
+        <li key={`${c.seriesId}:${c.number}`} className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] leading-relaxed text-fog-300">
+          <a href={seriesHref(c.seriesId, c.number)} dir="auto" className="min-w-0 truncate text-fog-100 hover:underline">{c.title}</a>
+          <span className="shrink-0 tabular-nums">{tr('Ch. {n}', { n: c.number })}</span>
+          <span className={c.waiting ? 'text-fog-400' : 'text-amber-300'}>
+            {c.waiting
+              ? tr('waiting for its first try here, it will be tried by itself')
+              : `${c.reason ?? c.status}${c.attempts > 0 ? ` · ${tr('Tries: {n}', { n: c.attempts })}` : ''}`}
+          </span>
+          <button type="button" data-health-fetch disabled={busy === `${c.seriesId}:${c.number}`} onClick={() => void fetchNow(c.seriesId, c.number)}
+            title={tr('Try again now from every source this series follows, and keep the best copy if none has it whole.')}
+            aria-label={`${tr('Fetch now')}: ${c.title} ${tr('Ch. {n}', { n: c.number })}`} className="btn-key ms-auto text-[11px]">{tr('Fetch now')}</button>
+          <button type="button" data-health-skip disabled={busy === `${c.seriesId}:${c.number}`} onClick={() => void skip(c.seriesId, c.number)}
+            title={tr('Never fetch this chapter. Nothing is deleted, and the series page can show it again.')}
+            aria-label={`${tr('Skip')}: ${c.title} ${tr('Ch. {n}', { n: c.number })}`} className="btn-key ms-auto text-[11px]">{tr('Skip')}</button>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -1011,9 +1261,9 @@ export function HealthCardActions({ check, className = 'border-b border-ink-800/
                       {(p.titles || []).map((t, j) => (
                         <p key={j} className="flex min-w-0 flex-wrap items-center gap-x-2 text-sm sm:flex-nowrap">
                           <span className="flex min-w-0 max-w-full items-center gap-2">
-                            <span dir="auto" className={`truncate ${j === keptIndex(p) ? 'text-fog-100' : 'text-fog-500'}`}>{t}</span>
+                            <span dir="auto" className={`truncate ${j === keptIndex(p) ? 'text-fog-100' : 'text-fog-400'}`}>{t}</span>
                             {j === keptIndex(p) && (
-                              <span className="shrink-0 rounded bg-ink-700 px-1.5 py-0.5 text-[10px] text-fog-300">{tr('kept')}</span>
+                              <span className="shrink-0 rounded bg-ink-700 px-1.5 py-0.5 text-[11px] text-fog-300">{tr('kept')}</span>
                             )}
                           </span>
                           <CopyFacts item={p} index={j} compact />

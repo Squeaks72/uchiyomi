@@ -453,30 +453,17 @@ export async function runExtensionCheck(
     for (const e of before) if (pkgs.has(e.pkgName)) quiet.add(e.name);
   }
   const loud = <T>(items: readonly T[] | undefined, nameOf: (x: T) => string): T[] => (items ?? []).filter((x) => !quiet.has(nameOf(x)));
-  const updated = loud(result.updated, (u) => u.name);
   const failed = loud(result.failed, (f) => f.name);
-  const waiting = loud(result.updatesAvailable, (n) => n);
   const obsolete = loud(result.obsolete, (n) => n);
 
-  if (updated.length) {
-    await deps.notifyAdmins(
-      updated.length === 1 ? `${updated[0].name} updated` : `${updated.length} extensions updated`,
-      updated.map((u) => `${u.name} ${u.from ?? '?'} → ${u.to ?? '?'}`).join(' · ').slice(0, 300),
-      '/admin/', 'extensions',
-    ).catch(() => {});
-  }
+  // Updates themselves, and updates waiting while automatic ones are off, are no notification (Tim, v0.99.x): the panel
+  // and the audit log keep every name. A failure, a repository that cannot be read and a lost repository still push.
+  // Reintroduce by notifying `updated` / `waiting`: "extension updates are no notification" in extensionMonitor.test.ts.
   if (failed.length) {
     const lead = failed[0];
     await deps.notifyAdmins(
       failed.length === 1 ? `${lead.name} could not be updated` : `${failed.length} extensions could not be updated`,
       failed.map((f) => `${f.name}: ${f.reason}`).join(' · ').slice(0, 300),
-      '/admin/', 'extensions',
-    ).catch(() => {});
-  }
-  if (!mayUpdate && changed(waiting, loud(settings.last?.updatesAvailable, (n) => n))) {
-    await deps.notifyAdmins(
-      `${waiting.length} extension update${waiting.length === 1 ? '' : 's'} waiting`,
-      `${waiting.join(', ')}. Automatic updates are switched off; update them from Admin.`.slice(0, 300),
       '/admin/', 'extensions',
     ).catch(() => {});
   }

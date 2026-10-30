@@ -164,6 +164,10 @@ export interface StoredPrefs {
   priority: string[];
   blocked: string[];
   patienceDays: number | null;
+  /** Per series: notify (push, the targets' digest) only about new chapters from a preferred group. Absent: all of them. */
+  notifyOnlyPreferred?: boolean;
+  /** Per series: notify only about chapters a source on this list delivered (source ids). Absent/empty: any source. */
+  notifySources?: string[];
 }
 
 /** One language edition of a work, as GET /api/series/:id lists them (v0.52.0, #72). */
@@ -302,6 +306,8 @@ export interface Series {
    * or fewer; false, every chapter numbered like 12.5. Settings' "Only hide short ones".
    */
   hideNoticeShortOnly?: boolean;
+  /** Fork: show a title nothing can judge from a Mixed source while Show 18+ is off. Off unless set. */
+  mixedShowUnknown?: boolean;
 }
 
 /** What kind of comic a series is (bff lib/seriesTypeSignals.ts), as the notice-chapter switches go by it. */
@@ -611,6 +617,8 @@ export type HealthAction =
   | 'find_sources'
   // v0.52.0 (#72): a duplicate pair in two languages, linked as editions of one work (POST /api/admin/series/:id/editions).
   | 'link_editions'
+  // v0.56.0: a frozen series removed from the library from Health (DELETE /api/admin/series/:id): hidden, files kept.
+  | 'remove_series'
   // v0.54.0: move every series whose main source is `sourceId` -- off or failing -- to a working source, in one Replace
   // run (POST /api/admin/sources/find in its replace mode); the source and the frozen-series rows offer it.
   | 'replace_source'
@@ -622,7 +630,10 @@ export type HealthAction =
   | 'refetch'
   // The same chapter saved twice, two files of one chapter in one series: Keep one of each for the row's series
   // (POST /api/admin/series/:id/chapters/keep-once), confirmed first.
-  | 'keep_one';
+  | 'keep_one'
+  // The second round of tools: accept a gap as how the series is (hide the missing numbers), switch a source back on, and for a
+  // member's tracker sign-in remind them to renew it, or disconnect it.
+  | 'accept_gap' | 'enable' | 'remind' | 'disconnect';
 
 /** One step of the nightly repair (`bff/src/lib/repair.ts`), as `POST /api/admin/tasks/repair/run` takes it. */
 export type RepairStep = 'solver' | 'count' | 'failures' | 'short' | 'gaps' | 'groups' | 'names' | 'directions' | 'details';
@@ -667,6 +678,8 @@ export interface HealthItem {
   /** v0.52.0, on a duplicates row: the language of each of `seriesIds`, for Link as editions' confirmation. */
   langs?: string[];
   /** Which chips this item offers. Absent or empty means the item is a statement, not a task. */
+  /** Chapters that would not download (that check's rows): the newest few, each with a Skip key (bff lib/health.ts). */
+  failed?: Array<{ seriesId: string; title: string; number: number; status: string; reason: string | null; attempts: number; waiting: boolean }>;
   actions?: HealthAction[];
   /** Already dealt with, and when -- a confirmed-short chapter, a gap nobody lists. */
   fixed?: { at: string; what: string };
@@ -697,6 +710,8 @@ export interface HealthItem {
    * source is `sourceId`. The key's words say the number when it is here.
    */
   findSeries?: number;
+  /** v0.56.0, beside 'find_sources' on a "Series that can no longer update" row: the run is over this row's series alone. */
+  findScope?: 'series';
 
   // ---- v0.53.0, Source health rows only (bff lib/health.ts): the card's group, and what the row's one line and its
   // one key are chosen by. components/SourceHealthBody.tsx reads them; lib/sourceHealth.ts words them.
@@ -828,3 +843,6 @@ export interface DownloadManifest {
 export function isWebtoon(dir?: string): boolean {
   return dir === 'WEBTOON' || dir === 'VERTICAL';
 }
+
+/** One of the reader's lists, as `/api/collections` returns it. */
+export interface CollectionRow { id: string; name: string; accent: string | null; item_count: number; sort_order?: number }

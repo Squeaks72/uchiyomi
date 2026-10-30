@@ -115,7 +115,7 @@ export function HealthBySeries({ rows, checks }: { rows: SeriesFindings[]; check
                 // Keyed as on its card (lib/healthKeys.ts), so a key's state stays with its finding through a re-check.
                 const key = `${f.check}:${itemKey(f.check, f.item)}`;
                 return (
-                  <HealthRow key={key} rowKey={itemKey(f.check, f.item)} check={check} item={f.item}
+                  <HealthRow key={key} rowKey={itemKey(f.check, f.item)} check={check} item={f.item} bySeries
                     links={healthLinks(f.check, f.item).map((l) => (
                       <Link key={l.href} href={l.href} className="line-clamp-2 max-w-[11rem] break-words text-end text-xs text-accent hover:underline"
                         title={l.label} aria-label={l.label ? `${tr('Open')}: ${l.label}` : undefined}
