@@ -9,7 +9,9 @@ import { AGE_CHOICES, ageChoice, ageRequest, ageWhy } from '../lib/sourceAge';
 
 test('two choices, and the lit one follows the admin rating alone', () => {
   // Reintroduce the contributor's Mixed (a 0 that cancelled an extension's adult flag): the first match fails.
-  assert.deepEqual([...AGE_CHOICES], ['default', 'adult']);
+  assert.deepEqual([...AGE_CHOICES], ['default', 'mixed', 'adult']);
+  assert.equal(ageChoice({ ageRating: null, mixed: true }), 'mixed', 'Mixed (fork): a surfacing choice, lit by its own flag');
+  assert.equal(ageChoice({ ageRating: 18, mixed: true }), 'adult', 'Adult only wins');
   assert.equal(ageChoice({ ageRating: null, defaultAgeRating: 18 }), 'default', "the extension's flag is not the admin's choice");
   assert.equal(ageChoice({ ageRating: 18, defaultAgeRating: null }), 'adult');
   assert.equal(ageChoice({}), 'default', 'an older server, which sends neither field');
@@ -24,6 +26,7 @@ test('the sentence says why the source is what it is', () => {
 test('a choice becomes the body of the PUT: 18 or null, never 0', () => {
   assert.deepEqual(ageRequest('adult'), { ageRating: 18 });
   assert.deepEqual(ageRequest('default'), { ageRating: null });
+  assert.deepEqual(ageRequest('mixed'), { ageRating: null, mixed: true });
 });
 
 test('the sheet offers it on every source and sends it to the age-rating route, as squared keys', () => {
@@ -33,4 +36,14 @@ test('the sheet offers it on every source and sends it to the age-rating route, 
   assert.match(src, /\{s && \(\n\s+<section aria-label=\{tr\('Age rating'\)\}/, 'the age rating is not offered on every source');
   assert.match(src, /<Segmented<AgeChoice> square label=\{tr\('Age rating'\)\}/);
   assert.match(src, /\/age-rating`, \{ method: 'PUT', json: ageRequest\(c\) \}\)/);
+});
+
+test('Mixed (fork): offered where the extension flags the source, sent with its own flag, explained on the sheet', () => {
+  const { ageChoicesFor } = require('../lib/sourceAge');
+  assert.deepEqual(ageChoicesFor({ defaultAgeRating: 18 }), ['default', 'mixed', 'adult'], 'a flagged source can be Mixed');
+  assert.deepEqual(ageChoicesFor({ defaultAgeRating: null }), ['default', 'adult'], 'nothing to relax on an unflagged one');
+  assert.deepEqual(ageChoicesFor({ defaultAgeRating: null, mixed: true }), ['default', 'mixed', 'adult'], 'an existing Mixed rating stays visible');
+  assert.equal(ageWhy({ ageRating: null, defaultAgeRating: 18, mixed: true }), 'mixed');
+  const sheet = readFileSync(join(__dirname, '..', 'components', 'SourceSheet.tsx'), 'utf8');
+  assert.match(sheet, /options=\{ageChoicesFor\(s\)\.map/, 'the sheet does not offer Mixed');
 });

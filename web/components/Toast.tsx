@@ -199,7 +199,7 @@ function NoticeCard({ n, place, reduced, still, onDismiss }: {
           )}
         </div>
         <button type="button" onClick={() => onDismiss(n.id)} aria-label={tr('Dismiss')}
-          className="-my-1.5 grid h-8 w-8 place-items-center rounded-md text-fog-500 transition hover:bg-ink-800 hover:text-fog-100">
+          className="-my-2.5 grid h-10 w-10 place-items-center rounded-md text-fog-500 transition hover:bg-ink-800 hover:text-fog-100">
           <IcX width={14} height={14} />
         </button>
       </div>

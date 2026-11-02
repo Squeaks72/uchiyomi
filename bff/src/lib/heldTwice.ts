@@ -24,6 +24,7 @@
 //    Keep one of each, for one series or for the card. Not the nightly repair, not Fix everything.
 import type { FastifyRequest } from 'fastify';
 import { posix } from 'path';
+import { isOwnFile } from './chapterFile';
 import { q } from './db';
 import { DL_ROOT } from './library';
 import { visibleToAll } from './visibility';
@@ -60,7 +61,7 @@ const toHeld = (r: HeldRow): Held => ({
 });
 
 /** The downloader's own file for its number, in the download folder (lib/downloader.ts chapterFileRel). */
-const ownFile = (c: Held): boolean => c.root === DL_ROOT && posix.basename(c.file) === `Chapter ${numKey(c.number)}.cbz`;
+const ownFile = (c: Held): boolean => c.root === DL_ROOT && isOwnFile(c.file, posix.dirname(c.file), numKey(c.number));
 
 /** The copy that stays first: the downloader's own file, else the first one saved, else by name (a stable choice). */
 const stays = (a: Held, b: Held): number => Number(ownFile(b)) - Number(ownFile(a)) || a.mtime - b.mtime || a.file.localeCompare(b.file);

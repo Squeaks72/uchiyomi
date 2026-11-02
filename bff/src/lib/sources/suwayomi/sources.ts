@@ -6,12 +6,14 @@
 // Suwayomi's own integer ids, and fetchMangaAndChapters/fetchChapterPages take those integer ids rather than any
 // source-native identifier. So a series' sourceId here is Suwayomi's manga id. That is stable for as long as
 // Suwayomi's database lives; wiping it orphans the routing, same as uninstalling an extension would.
-import { UNNUMBERED, type SourceAdapter, type SourceSeries, type SourceChapter } from '../types';
+import { UNNUMBERED, type SourceAdapter, type SourceSeries, type SourceChapter, type SourceFilter, type FilterChange } from '../types';
 import { gql as defaultGql, suwayomiUrl, suwayomiImageHeaders, onEngineOrigin, type Gql } from './client';
+import { decodeEntities } from '../../htmlText';
 import { OPS } from './operations';
 import { needsBrowserCheck, passSiteCheck, siteWasOpened } from './siteSessions';
 import { env } from '../../../env';
-import { creatorFilterPaths, creatorFilterChange, type FilterChange } from './creatorFilters';
+import { creatorFilterPaths, creatorFilterChange, type FilterChange as CreatorFilterChange } from './creatorFilters';
+import { filtersOf, toFilterChange } from './filters';
 
 export const SW_PREFIX = 'sw:';
 
@@ -156,7 +158,9 @@ function toSeries(m: RemoteManga, adapterId: string): SourceSeries | null {
   return {
     sourceId: String(m.id),
     source: adapterId,
-    title: m.title.trim(),
+    // The engine hands titles over as the site wrote them, entities and all: "Nana &amp; Kaoru" would be saved as that, and
+    // ComicInfo's own escaping turned it into &amp;amp; on the way back.
+    title: decodeEntities(m.title).trim(),
     summary: m.description?.trim() || undefined,
     author: m.author?.trim() || m.artist?.trim() || undefined,
     genres: Array.isArray(m.genre) ? m.genre.filter((g) => typeof g === 'string' && g.trim()) : undefined,
@@ -183,7 +187,7 @@ function toChapter(c: RemoteChapter, position: number, assigned?: number): Sourc
     // The extension's number, raw, even when many posts share it (#116): what to do about that is decided per
     // series in the listing layer (lib/postingOrder.ts), which can see the series and this adapter cannot.
     number: num,
-    title: c.name?.trim() || `Chapter ${num}`,
+    title: (c.name ? decodeEntities(c.name).trim() : '') || `Chapter ${num}`,
     pages: typeof c.pageCount === 'number' && c.pageCount > 0 ? c.pageCount : undefined,
     publishedAt: uploadedAt(c.uploadDate),
     // Mihon's free-text scanlator column, verbatim. Blank means the extension does not know, and the
@@ -244,13 +248,13 @@ export function makeSuwayomiAdapter(remote: RemoteSource, gqlRun: Gql = defaultG
     }
   };
 
-  const fetchList = async (type: 'SEARCH' | 'LATEST' | 'POPULAR', query: string | null, page: number, filters?: FilterChange[]): Promise<SourceSeries[]> => {
+  const fetchList = async (type: 'SEARCH' | 'LATEST' | 'POPULAR', query: string | null, page: number, filters?: unknown[]): Promise<SourceSeries[]> => {
     const d = await run<{ fetchSourceManga: { mangas: RemoteManga[] } }>(OPS.fetchSourceManga.doc, {
       source: remote.id,
       type,
       query,
       page: Math.max(1, page),
-      ...(filters ? { filters } : {}),
+      ...(filters?.length ? { filters } : {}),
     });
     const list = d?.fetchSourceManga?.mangas;
     if (!Array.isArray(list)) return [];
@@ -300,6 +304,16 @@ export function makeSuwayomiAdapter(remote: RemoteSource, gqlRun: Gql = defaultG
       return fetchList('SEARCH', query, page);
     },
 
+    // The source's own search filters, and a search with some of them set (lib/sources/suwayomi/filters.ts).
+    async filters() {
+      const d = await run<{ source: { filters?: unknown[] } | null }>(OPS.sourceFilters.doc, { id: remote.id });
+      return filtersOf(d?.source?.filters);
+    },
+
+    async filteredSearch(query, changes, page) {
+      return fetchList('SEARCH', query.trim() || null, page, changes.map(toFilterChange).filter((c): c is Record<string, unknown> => !!c));
+    },
+
     async getSeries(id) {
       const d = await run<{ fetchMangaAndChapters: { manga: RemoteManga | null } }>(OPS.fetchManga.doc, { id: Number(id) });
       const m = d?.fetchMangaAndChapters?.manga;
@@ -332,7 +346,7 @@ export function makeSuwayomiAdapter(remote: RemoteSource, gqlRun: Gql = defaultG
       if (!out.length && rows.length && (rows.length === 1 || remote.isNsfw)) out = galleryChapters(rows);
       // How many rows toChapter dropped for having no usable number (#115): on the FINAL array, after the sort,
       // so the smoke test can tell "no numbers" from "no chapters". Non-enumerable (types.ts UNNUMBERED).
-      const dropped = list.filter((c) => c?.id != null).length - out.length;
+      let dropped = list.filter((c) => c?.id != null).length - out.length;
       if (dropped > 0) Object.defineProperty(out, UNNUMBERED, { value: dropped });
       return out;
     },

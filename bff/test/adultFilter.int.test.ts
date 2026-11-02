@@ -1,12 +1,10 @@
-// What the 18+ switch hides besides 18+ libraries: admin-named genres and sources.
+// What the 18+ switch hides besides 18+ libraries: admin-named sources (and, in Discover, genres).
 //
 // adultLibrary.int.test.ts is the sweep that proves the switch reaches every listing; this file proves the
-// two lists behind Admin → Settings → 18+ filter feed that same switch, and nothing more:
-//   - a genre on `server_settings.adult_genres` takes a series off a listing while the switch is off, the
-//     same request with `?adult=1` brings it back, and an admin genre override wins over what the scan
-//     read -- the same precedence the age rating has;
-//   - `series_overrides.adult_exempt` lets one series through, and the meta route does not clear it when a
-//     client (the edit modal of an older build, a script) leaves the field out;
+// lists behind Admin → Settings → 18+ filter feed that same switch, and nothing more:
+//   - a series already IN the library is judged by its library's rating alone: a genre on
+//     `server_settings.adult_genres`, or a rating on the series itself, takes nothing off a library listing.
+//     Genres only judge Discover results, which have no library to be judged by;
 //   - a source on `adult_sources` leaves the source list and the cross-source fan-out exactly as a
 //     self-declared NSFW source does, and is not asked at all;
 //   - the genre list is read in SQL from its column (browsable() cannot bind), so a hostile value stored
@@ -27,6 +25,7 @@ if (DSN) {
 const skip = DSN ? false : 'set TEST_DATABASE_URL to run';
 
 const LIB = 'lib_af_clean';
+const LIB18 = 'lib_af_adult';
 const TAGGED = 's_af_tagged';
 const EXEMPT = 's_af_exempt';
 const RETAGGED = 's_af_retagged';
@@ -78,7 +77,7 @@ test('the 18+ filter hides named genres and sources, and nothing else', { skip }
   const cleanup = async () => {
     await q('DELETE FROM series_overrides WHERE series_id = ANY($1)', [SERIES]).catch(() => {});
     await q('DELETE FROM lib_series WHERE id = ANY($1)', [SERIES]).catch(() => {});
-    await q('DELETE FROM libraries WHERE id = $1', [LIB]).catch(() => {});
+    await q('DELETE FROM libraries WHERE id = ANY($1)', [[LIB, LIB18]]).catch(() => {});
     await q('DELETE FROM users WHERE username = ANY($1)', [[ADMIN, MEMBER, CAPPED]]).catch(() => {});
     // Shared database: leaving a list behind would quietly change what every later suite's listings return.
     await q(`UPDATE server_settings SET adult_genres = '[]'::jsonb, adult_sources = '[]'::jsonb WHERE id = 1`).catch(() => {});
@@ -87,8 +86,9 @@ test('the 18+ filter hides named genres and sources, and nothing else', { skip }
   await cleanup();
 
   await q(`INSERT INTO libraries (id, name, path, age_rating) VALUES ($1,'AF Clean Shelf','/af-clean',NULL)`, [LIB]);
-  // Every series sits on an UNRATED library, so nothing here can be hidden by the library rule; the only
-  // thing that can take one off a listing is the genre list under test. Mixed case and a stray space on
+  await q(`INSERT INTO libraries (id, name, path, age_rating) VALUES ($1,'AF Adult Shelf','/af-adult',18)`, [LIB18]);
+  // Every series starts on an UNRATED library, so nothing here can be hidden by the library rule; the genre
+  // list under test must therefore leave every one of them listed. Mixed case and a stray space on
   // purpose: the filter folds case and trims in SQL, on both sides, and must still match what the scanner wrote.
   const genresOf: Record<string, string[]> = {
     [TAGGED]: ['Action', 'ZzzAF Ecchi '],
@@ -167,23 +167,41 @@ test('the 18+ filter hides named genres and sources, and nothing else', { skip }
       assert.equal(await offered(member), false, 'emptying the lists did not withdraw it');
     });
 
-    await t.test('a named genre leaves the listing, and ?adult=1 brings it back', async () => {
+    await t.test('a named genre does NOT take a library series off the listing', async () => {
       const row = await patch({ adultGenres: ['  ZZZAF Ecchi', "zzzaf boys' love"] });
       assert.deepEqual(row.adult_genres, ['ZZZAF Ecchi', "zzzaf boys' love"], 'stored as typed, trimmed; case is folded where it is matched');
-      // RETAGGED stays: its override says Action only. The apostrophe genre is hidden, so quoting kept it
-      // a match rather than a syntax error or a silent miss.
-      assert.deepEqual(await listed(), [PLAIN, RETAGGED].sort(),
-        'the named genres did not hide exactly the series carrying them');
-      assert.deepEqual(await listed(true), [...SERIES].sort(), 'the reveal did not bring them back');
+      // A series in the library is judged by its library alone. Reintroduce the genre clause in browsable():
+      // TAGGED, EXEMPT and QUOTED vanish from the library while Show 18+ is off (Dandadan, 2026-10-22).
+      assert.deepEqual(await listed(), [...SERIES].sort(), 'a genre hid a series that is filed in an unrated library');
+      assert.deepEqual(await listed(true), [...SERIES].sort());
     });
 
-    await t.test("the digest's context carries no lists and still hides the named genres", async () => {
-      // notify/index.ts builds { ...viewer, hideAdultLibraries: !includeAdult } without loading the lists, so a
-      // target that excluded 18+ still named genre-tagged series. Reintroduce by interpolating ctx.adultGenres
-      // into browsable() again: TAGGED, EXEMPT and QUOTED come back.
+    await t.test("a series' own 18+ rating does NOT take it off a library listing either", async () => {
+      await q(`INSERT INTO series_overrides (series_id, age_rating) VALUES ($1, 18)
+               ON CONFLICT (series_id) DO UPDATE SET age_rating = 18`, [PLAIN]);
+      await q('UPDATE lib_series SET age_rating = 18 WHERE id = $1', [TAGGED]);
+      try {
+        assert.deepEqual(await listed(), [...SERIES].sort(), 'a per-series rating hid a series filed in an unrated library');
+      } finally {
+        await q('UPDATE series_overrides SET age_rating = NULL WHERE series_id = $1', [PLAIN]);
+        await q('UPDATE lib_series SET age_rating = NULL WHERE id = $1', [TAGGED]);
+      }
+    });
+
+    await t.test('a series in an 18+ library is hidden by the library, whatever its genres', async () => {
+      await q('UPDATE lib_series SET library_id = $2 WHERE id = $1', [PLAIN, LIB18]);
+      try {
+        assert.ok(!(await listed()).includes(PLAIN), 'an 18+ library was listed with Show 18+ off');
+        assert.ok((await listed(true)).includes(PLAIN), 'the reveal did not bring the library back');
+      } finally {
+        await q('UPDATE lib_series SET library_id = $2 WHERE id = $1', [PLAIN, LIB]);
+      }
+    });
+
+    await t.test("the digest's context carries no lists and judges a library series by its library alone", async () => {
       const { browsableIds, SYSTEM_CTX } = await import('../src/lib/visibility');
       const allowed = await browsableIds(SERIES, { ...SYSTEM_CTX, hideAdultLibraries: true });
-      assert.deepEqual([...allowed].sort(), [PLAIN, RETAGGED].sort());
+      assert.deepEqual([...allowed].sort(), [...SERIES].sort());
     });
 
     await t.test('a series the switch hides is still fillable by id', async () => {
@@ -194,36 +212,6 @@ test('the 18+ filter hides named genres and sources, and nothing else', { skip }
       assert.notEqual(r.statusCode, 404, `fill/scan refused a series its viewer opened: ${r.body}`);
     });
 
-    await t.test('adult_exempt lets one series through, and a save that omits it keeps it', async () => {
-      const put = (payload: Record<string, unknown>) =>
-        app.inject({ method: 'PUT', url: `/api/admin/series/${EXEMPT}/meta`, headers, payload });
-      assert.equal((await put({ title: TITLE(EXEMPT), adultExempt: true })).statusCode, 200);
-      assert.ok((await listed()).includes(EXEMPT), 'the exemption did not let the series through');
-      // Reintroduce by writing `adult_exempt = $8` without the COALESCE: an ordinary retitle clears it.
-      assert.equal((await put({ title: TITLE(EXEMPT) })).statusCode, 200);
-      assert.ok((await listed()).includes(EXEMPT), 'a metadata save without adultExempt cleared the exemption');
-      const s = await app.inject({ method: 'GET', url: `/api/series/${EXEMPT}`, headers });
-      assert.equal(s.json().overrides?.adultExempt, true, 'the edit modal cannot seed its checkbox');
-      assert.equal((await put({ title: TITLE(EXEMPT), adultExempt: false })).statusCode, 200);
-      assert.ok(!(await listed()).includes(EXEMPT), 'the exemption could not be turned off');
-    });
-
-    await t.test('a capped account still cannot open an exempt 18+ series', async () => {
-      // "Always show" is a shelf switch, not a permission. PR #130 also let it lift an account's age limit in
-      // visible(), and v0.50.0 left that part out: the admin lets a capped account read one title by rating it
-      // lower. Reintroduce by OR-ing `adult_exempt` into visible()'s cap clause: the capped account sees it.
-      const { seriesVisible, viewCtxFor } = await import('../src/lib/visibility');
-      await q(`INSERT INTO series_overrides (series_id, age_rating, adult_exempt) VALUES ($1, 18, true)
-               ON CONFLICT (series_id) DO UPDATE SET age_rating = 18, adult_exempt = true`, [EXEMPT]);
-      try {
-        assert.equal(await seriesVisible(EXEMPT, await viewCtxFor(member, 'user')), true, 'PREMISE: an uncapped member sees it');
-        assert.equal(await seriesVisible(EXEMPT, await viewCtxFor(capped, 'user')), false,
-          'an account capped at 16 sees a series rated 18 because it is on "Always show"');
-      } finally {
-        await q(`UPDATE series_overrides SET age_rating = NULL, adult_exempt = false WHERE series_id = $1`, [EXEMPT]);
-      }
-    });
-
     await t.test('the PATCH route keeps any label and drops only what is not one', async () => {
       // Nothing configured here ever reaches a query string, so no character needs refusing for safety: a
       // curly apostrophe or a non-Latin script is a real genre, and the old whitelist was dropping both.
@@ -232,7 +220,7 @@ test('the 18+ filter hides named genres and sources, and nothing else', { skip }
       assert.deepEqual(row.adult_genres, ['ok genre', 'Boys’ Love', "x' OR 'a'='a", 'อีโรติก']);
     });
 
-    await t.test('a hostile value stored past the route neither breaks a listing nor widens it', async () => {
+    await t.test('a hostile value stored past the route neither breaks a listing nor changes it', async () => {
       // Straight into the column, as a restored backup or a hand edit would put it. browsable() cannot
       // bind, so this is the value that would reach SQL if the sanitiser were skipped anywhere.
       const hostile = [
@@ -241,11 +229,9 @@ test('the 18+ filter hides named genres and sources, and nothing else', { skip }
       ];
       await q('UPDATE server_settings SET adult_genres = $1::jsonb WHERE id = 1', [JSON.stringify(hostile)]);
       invalidateAdultFilter();
-      // Every value is data the query COMPARES and never parses, so none can do anything but fail to match a
-      // genre. Exactly the plain 'zzzaf ecchi' series are hidden (EXEMPT's exemption was switched off above):
-      // no error (the listing answers 200 inside `listed`), nothing hidden that should not be, nothing shown
-      // that should not.
-      assert.deepEqual(await listed(), [PLAIN, QUOTED, RETAGGED].sort());
+      // Library listings no longer read the genre list at all, so a hostile value cannot reach them: the
+      // listing answers 200 inside `listed` and shows every series.
+      assert.deepEqual(await listed(), [...SERIES].sort());
       const n = await q<{ n: string }>('SELECT count(*)::text AS n FROM lib_series WHERE id = ANY($1)', [SERIES]);
       assert.equal(Number(n[0].n), SERIES.length);
     });

@@ -135,7 +135,11 @@ test('a folder scanned twice links to the install guide\'s Volumes section, whic
 test('v0.72.0: a disk row opens where its floor is set, a folder row Verify chapter files, a chapter file its series', () => {
   // Reintroduce by dropping the cases: the free-space row and the folder row both fall back to nothing to open.
   assert.deepEqual(healthLinks('disk', { title: 'Downloads disk', detail: '', key: 'space:downloads' }),
-    [{ href: '/admin/?tab=Settings&section=archive-free-space', label: 'Downloads' }]);
+    [{ href: '/admin/?tab=Settings&section=archive-free-space', label: 'Downloads' },
+     { href: '/admin/?tab=Library&section=unmapped-files', label: 'Unmapped files and bin' }]);
+  assert.deepEqual(healthLinks('downloads-missing', { title: 'Walk', detail: '', key: 'folder:Walk' }),
+    [{ href: '/admin/?tab=Library&section=unmapped-files', label: 'Unmapped files' }],
+    'files the library does not hold: map them or delete them where that is done');
   assert.deepEqual(healthLinks('disk', { title: 'Library / (the folder itself)', detail: '', key: 'folder:library' }),
     [{ href: '/admin/?tab=Tasks&section=task-verify', label: 'Verify chapter files' }]);
   assert.deepEqual(healthLinks('trackers', { title: 'AniList · ana', detail: '', key: 'anilist:u1' }), [],

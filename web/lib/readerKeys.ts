@@ -16,13 +16,17 @@
 //    they are bound to here.
 
 /** What a key, a controller button or a tap can do in the reader. */
-export type ReaderAction = 'next' | 'prev' | 'pageLeft' | 'pageRight' | 'nextChapter' | 'prevChapter' | 'fullscreen' | 'menu' | 'focus' | 'exit';
+export type ReaderAction = 'next' | 'prev' | 'pageLeft' | 'pageRight' | 'nextChapter' | 'prevChapter' | 'fullscreen' | 'menu' | 'focus' | 'bookmark' | 'exit';
 /**
  * `focus` (#261, v0.77.0): bring one page of the pair on screen into frame, and give the pair back -- Double spread, or a
  * spread joined from two files (#229). Z by default, in paged mode only: the webtoon column has no pairs.
  */
-export const READER_ACTIONS: readonly ReaderAction[] = ['next', 'prev', 'pageLeft', 'pageRight', 'nextChapter', 'prevChapter', 'fullscreen', 'menu', 'focus', 'exit'];
+export const READER_ACTIONS: readonly ReaderAction[] = ['next', 'prev', 'pageLeft', 'pageRight', 'nextChapter', 'prevChapter', 'fullscreen', 'menu', 'focus', 'bookmark', 'exit'];
 
+/**
+ * `bookmark`: bookmark the page on screen, or take the bookmark off it (the star in the top bar and the right-click menu's
+ * item, from the keyboard). B by default, in both modes; the reader says it happened (a mark that pops on the page).
+ */
 /** The actions that turn or scroll a page: these repeat while a key or a button is held. The rest happen once a press. */
 export const PAGE_ACTIONS: ReadonlySet<ReaderAction> = new Set(['next', 'prev', 'pageLeft', 'pageRight']);
 
@@ -46,6 +50,7 @@ export const DEFAULT_KEYS_PAGED: KeyMap = {
   fullscreen: ['f'],
   menu: [],
   focus: ['z'],
+  bookmark: ['b'],
   exit: [],
 };
 
@@ -63,6 +68,7 @@ export const DEFAULT_KEYS_VERTICAL: KeyMap = {
   fullscreen: ['f'],
   menu: [],
   focus: [],
+  bookmark: ['b'],
   exit: [],
 };
 

@@ -92,7 +92,7 @@ test('the options step paints before the detail lands', () => {
   // The chapter <select> and the groups are inside the detail gate; the switches and Add are outside it.
   const gated = options.slice(options.indexOf('{detail && (<>'), options.indexOf('</>)}'));
   assert.ok(gated.length > 0, 'the detail gate around the count/groups/select is gone');
-  assert.match(gated, /<select value=\{pick\}/, 'the chapter select is rendered before the detail');
+  assert.match(gated, /<select (?:id="add-chapter-pick" )?value=\{pick\}/, 'the chapter select is rendered before the detail');
   assert.match(gated, /tr\('Translated by'\)/, 'the groups are rendered before the detail');
   const after = options.slice(options.indexOf('</>)}'));
   assert.match(after, /<Switch on=\{autoUpdate\}/, 'the auto-update switch waits for the detail');
@@ -106,7 +106,7 @@ test('a source that does not answer says so, with Change right beside it', () =>
   // The old effect swallowed the failure and showed "Loading…" for ever. Reintroduce by dropping the
   // `detailQ.isError` branch: "a failed detail looks like a loading one" fails.
   const src = code(read(DIALOG));
-  assert.match(src, /\) : detailQ\.isError \? \(\s*<p className="text-xs text-amber-300" data-detail="failed">\{tr\('Could not be reached right now\.'\)\}<\/p>/, 'a failed detail looks like a loading one');
+  assert.match(src, /\) : detailQ\.isError \? \(\s*<p role="alert" className="text-xs text-amber-300" data-detail="failed">\{tr\('Could not be reached right now\.'\)\}<\/p>/, 'a failed detail looks like a loading one');
   assert.match(src, /onClick=\{\(\) => \{ setPicked\(null\); setPickChoice\(null\); \}\}/, 'Change does not clear the pick and the chapter choice');
 });
 

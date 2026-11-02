@@ -81,8 +81,8 @@ test('the shell keeps the switch for the reader, and says it is on above every p
 test("Home draws Pick back up and Hidden gems only when they hold something, in the owner's order", () => {
   const home = code(read('app/page.tsx'));
   // Reintroduce an unconditional section: an older server sends neither, and Home shows an empty rail.
-  assert.match(home, /case 'pickUp':[^\n]*\n(?:\s*\/\/[^\n]*\n)*\s*return \(data\?\.pickUp\?\.length \?\? 0\) > 0 && \(\s*<section className="pt-8" data-home-pickup>/);
-  assert.match(home, /case 'gems':[^\n]*\n(?:\s*\/\/[^\n]*\n)*\s*return \(data\?\.gems\?\.length \?\? 0\) > 0 && \(\s*<section className="pt-8" data-home-gems>/);
+  assert.match(home, /case 'pickUp':[^\n]*\n(?:\s*\/\/[^\n]*\n)*\s*return \(data\?\.pickUp\?\.length \?\? 0\) > 0 && \(\s*<section className="rail-section pt-8" data-home-pickup>/);
+  assert.match(home, /case 'gems':[^\n]*\n(?:\s*\/\/[^\n]*\n)*\s*return \(data\?\.gems\?\.length \?\? 0\) > 0 && \(\s*<section className="rail-section pt-8" data-home-gems>/);
   // The owner's order (UI refresh, phase 3): Home draws its rails in the reader's own order now, and the default -- the
   // order everybody gets who never opens Customize -- is lib/homeRails.ts HOME_RAILS, where this pin moved. Reorder the
   // registry and this fails; homeRails.test.ts pins the whole of it.

@@ -38,7 +38,7 @@ import { StatusMark } from '@/components/StatusMark';
 import { SourceEvidence } from '@/components/SourceEvidence';
 import { SourceTile } from '@/components/SourceTile';
 import { Disclosure, Segmented } from '@/components/settings';
-import { AGE_CHOICES, ageChoice, ageRequest, ageWhy, type AgeChoice } from '@/lib/sourceAge';
+import { ageChoice, ageChoicesFor, ageRequest, ageWhy, type AgeChoice } from '@/lib/sourceAge';
 import { Busy, ExtIcon, ExtTags, Facts, busyKey } from '@/components/ExtensionBits';
 import { ExtensionRemove, ExtensionSection, ExtensionUpdateKey } from '@/components/ExtensionSheet';
 import { MangadexLanguages, SiteLanguage } from '@/components/MangadexCard';
@@ -67,12 +67,13 @@ export function resolveTarget(target: SheetTarget, sources: readonly OverviewSou
 function ageNote(s: OverviewSource): string {
   switch (ageWhy(s)) {
     case 'rated': return tr('Adult only: accounts limited below 18 can’t use it, and while Show 18+ is off it stays out of Discover and search.');
+    case 'mixed': return tr('Mixed: while Show 18+ is off it is still searched, and each title is judged on its own (adult genres and ratings stay out). Accounts limited below 18 still can’t use it. If its extension has its own adult switch, turning that off in Settings makes it safe on its own.');
     case 'flagged': return tr('Its extension marks it 18+, so accounts limited below 18 can’t use it either way.');
     default: return tr('Open to every account. Adult only keeps it from accounts limited below 18, and out of Discover and search while Show 18+ is off.');
   }
 }
 
-export function SourceSheet({ target, overview, evidence, testMs, status, actions, installed, hiddenLangs, onClose, onReplace, onLanguages, onChanged }: {
+export function SourceSheet({ target, overview, evidence, testMs, status, actions, installed, hiddenLangs, onClose, onReplace, onBackup, onLanguages, onChanged }: {
   target: SheetTarget;
   overview: SourcesOverview | undefined;
   /** GET /api/admin/sources, by source id: the stored evidence behind Details. */
@@ -87,6 +88,8 @@ export function SourceSheet({ target, overview, evidence, testMs, status, action
   onClose: () => void;
   /** Replace this source: the panel closes this sheet and opens the Replace dialog. */
   onReplace: (s: OverviewSource) => void;
+  /** Add backup sources to its series, keeping it: the panel closes this sheet and opens that dialog. */
+  onBackup: (s: OverviewSource) => void;
   /** The languages hidden in every extension: the panel closes this sheet and opens that one. */
   onLanguages: () => void;
   /** After anything here changed: the lists and Health are asked again. */
@@ -215,7 +218,7 @@ export function SourceSheet({ target, overview, evidence, testMs, status, action
             <button type="button" onClick={remove} disabled={!!busy} className="btn-key border-red-500/50 bg-red-500/20 text-red-100 hover:border-red-400 hover:text-red-50" data-source-remove-yes>
               {busy === 'remove' ? <Busy tone="red">{tr('Removing…')}</Busy> : tr('Remove')}
             </button>
-            <button type="button" onClick={() => setAsking(null)} disabled={!!busy} className="btn-key">{tr('Cancel')}</button>
+            <button type="button" autoFocus onClick={() => setAsking(null)} disabled={!!busy} className="btn-key">{tr('Cancel')}</button>
           </div>
         </div>
       )}
@@ -248,6 +251,7 @@ export function SourceSheet({ target, overview, evidence, testMs, status, action
             )}
             <div className="mt-3 flex flex-wrap items-center gap-2" data-source-keys>
               {keys.includes('replace') && key('replace', tr('Replace'), () => onReplace(s), 'btn-key btn-key-primary')}
+              {keys.includes('backup') && key('backup', tr('Add backups'), () => onBackup(s), 'btn-key', { 'data-source-backup': s.id })}
               {keys.includes('test') && key('test', busy === 'test' ? testClock(now - testFrom, testMs) : tr('Test'), test, 'btn-key', { 'data-source-test': s.id })}
               {keys.includes('keep') && key('keep', busy === 'keep' ? <Busy tone="muted">{tr('Keeping…')}</Busy> : tr('Keep'), () => void keep(), 'btn-key btn-key-accent')}
               {keys.includes('unblock') && key('unblock', tr('Clear block'), () => void unblock())}
@@ -295,14 +299,14 @@ export function SourceSheet({ target, overview, evidence, testMs, status, action
             <p className="text-[11px] font-semibold uppercase tracking-wider text-fog-500 rtl:tracking-normal">{tr('Age rating')}</p>
             <div className="mt-1.5">
               <Segmented<AgeChoice> square label={tr('Age rating')} value={ageChoice(s)} disabled={!!busy}
-                options={AGE_CHOICES.map((c) => ({ value: c, label: c === 'adult' ? tr('Adult only') : tr('Automatic') }))}
+                options={ageChoicesFor(s).map((c) => ({ value: c, label: c === 'adult' ? tr('Adult only') : c === 'mixed' ? tr('Mixed') : tr('Automatic') }))}
                 onChange={(c) => void run('age', async () => {
                   await api(`/api/admin/sources/${encodeURIComponent(s.id)}/age-rating`, { method: 'PUT', json: ageRequest(c) });
                   // Discover's source list hides an Adult only source while Show 18+ is off: asked again, not kept for minutes.
                   void qc.invalidateQueries({ queryKey: ['sources'] });
                   // …and Library and Home offer the reveal when a source is rated (/api/adult-filter `configured`).
                   void qc.invalidateQueries({ queryKey: ['adult-filter'] });
-                  return c === 'adult' ? tr('Rated Adult only') : tr('Age rating reset to automatic');
+                  return c === 'adult' ? tr('Rated Adult only') : c === 'mixed' ? tr('Rated Mixed') : tr('Age rating reset to automatic');
                 })} />
             </div>
             <p className="mt-2 text-[12px] leading-relaxed text-fog-400" data-source-age-note={ageWhy(s)}>{ageNote(s)}</p>
@@ -322,7 +326,7 @@ export function SourceSheet({ target, overview, evidence, testMs, status, action
               </div>
             ) : (
               <form className="mt-1.5 flex flex-wrap gap-2" onSubmit={(e) => { e.preventDefault(); moveTo(address.trim()); }}>
-                <input value={address} onChange={(e) => setAddress(e.target.value)} dir="ltr" autoCapitalize="none" autoCorrect="off" spellCheck={false}
+                <input value={address} onChange={(e) => setAddress(e.target.value)} dir="ltr" type="url" inputMode="url" autoComplete="off" autoCapitalize="none" autoCorrect="off" spellCheck={false}
                   placeholder="https://site.com" aria-label={tr('Address')} className="field min-w-0 flex-1 basis-48" />
                 <button type="submit" disabled={!!busy || !address.trim()} className="btn-key">{busy === 'address' ? <Busy tone="muted">{tr('Saving…')}</Busy> : tr('Save')}</button>
                 <button type="button" onClick={() => { setAsking(null); setRefusal(null); }} className="btn-key">{tr('Cancel')}</button>

@@ -362,6 +362,11 @@ export function archiveStateText(item: ArchiveItem, view: Pick<ArchiveView, 'pau
 /** The add dialog's chapter pick, as far as the archive cares: nothing now, the first N, or the latest N. */
 export type AddPick = 'none' | 'first' | 'latest';
 
+/** What "Archive slowly" is for, in one sentence: shown beside the key everywhere it is offered. */
+export function archiveWhy(): string {
+  return tr('Fetches the rest a few chapters an hour, in the background, so the source is never hit with a burst and is far less likely to block you. Chapters appear as they arrive.');
+}
+
 /**
  * The add dialog's line under "Archive the rest slowly": how many come in, in which order, and about how
  * long that takes at the server's pace. `rest` is what the pick leaves: every listed chapter for "Nothing yet",

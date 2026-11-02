@@ -169,10 +169,13 @@ test('Discover reads ?q= once, inside a Suspense boundary, opens on that search,
   assert.match(inner, /useState<'newest' \| 'search'>\(arrivedQ \? 'search' : 'newest'\)/, 'an arrival does not open on its search');
   assert.match(inner, /const \[q, setQ\] = useState\(arrivedQ\);/, 'the field does not show what is searched');
   assert.match(inner, /const \[term, setTerm\] = useState\(arrivedQ\);/, 'the arrival is not submitted');
-  assert.doesNotMatch(inner, /params\.get\('q'\)[\s\S]*params\.get\('q'\)/, 'the address is read more than once');
+  // (A later change in the address -- the palette's "Search your sources" -- is followed by an effect on `urlQ`; the
+  // arrival itself is read once, in the initialiser.)
+  assert.equal((inner.match(/params\.get\('q'\)/g) ?? []).length, 2, 'the address is read more than the arrival and the later-change effect');
   // Replaced, never pushed: Back leaves Discover. A submitted search writes its term; back to Newest takes it away.
   assert.match(inner, /window\.history\.replaceState\(window\.history\.state, '', `\$\{u\.pathname\}\$\{u\.search\}\$\{u\.hash\}`\);/);
-  assert.doesNotMatch(inner, /pushState|router\.push/);
+  // (The one router.push is the fork's "open the added series", a different page: it never pushes the search's address.)
+  assert.doesNotMatch(inner, /pushState|router\.push\(`?\/discover/);
   assert.match(inner, /setMode\('search'\);\s*writeQ\(next\);/, 'a search does not write its term');
   assert.match(inner, /const backToNewest = \(\) => \{ setQ\(''\); setMode\('newest'\); writeQ\(''\); \};/, 'back to Newest leaves ?q= behind');
   // An account the server refuses is not asked, even when the address says to search.
@@ -219,7 +222,7 @@ test('Discover\'s rows sit inside the wall: the picks\' band, then manhwa, manga
   assert.equal((src.match(/\browOf\b/g) ?? []).length, 3, 'a row is drawn somewhere other than inside the wall or after it');
   // The picks name their read, isolated in the sentence; the trending rows rank their first ten.
   assert.match(src, /tr\('Because you read \{title\}', \{ title: `\\u2068\$\{pk\.from\.because\}\\u2069` \}\)/, 'the title is not isolated');
-  assert.match(src, /<TrendingCard t=\{t\} onPick=\{pickRail\} rank=\{rank <= RANKED \? rank : undefined\} \/>/);
+  assert.match(src, /<MenuTrendingCard t=\{t\} onPick=\{pickRail\} onSearch=\{searchFor\} rank=\{rank <= RANKED \? rank : undefined\} \/>/);
   // Every trending row is the one AniListRail, and its one ScrollRail (rails.test.ts holds the count); the picks are their
   // own band since v0.99.0 (components/ForYouBand.tsx, forYouBand.test.ts). Reintroduce the picks through AniListRail: the
   // owner's "hiding inside, barely noticeable" row of covers is back.
@@ -231,8 +234,8 @@ test('Discover\'s rows sit inside the wall: the picks\' band, then manhwa, manga
   assert.match(src, /const pickRail = \(t: \{ id\?: number \| null; title: string \}\) => \{ fromKey\.current = null; fromRail\.current = railKey\(t\); setSeed\(\{ kind: 'trending', title: t\.title \}\); \};/);
   assert.match(src, /useEffect\(\(\) => \{ if \(!seed\) fromRail\.current = null; \}, \[seed\]\);/);
   assert.match(src, /const railCard = fromRail\.current;\s*if \(railCard\) setRailAdded\(\(prev\) => new Set\(prev\)\.add\(railCard\)\);/);
-  assert.match(src, /\.filter\(\(pk\) => !railAdded\.has\(railKey\(pk\)\)\)/, 'an added pick stays on its row');
-  assert.match(src, /\.filter\(\(\{ t \}\) => !railAdded\.has\(railKey\(t\)\)\)/, 'an added trending card stays on its row');
+  assert.match(src, /\.filter\(\(pk\) => !railAdded\.has\(railKey\(pk\)\) && !isHidden\(pk\.title\)\)/, 'an added pick stays on its row');
+  assert.match(src, /\.filter\(\(\{ t \}\) => !railAdded\.has\(railKey\(t\)\) && !isHidden\(t\.title\)\)/, 'an added trending card stays on its row');
 });
 
 test('the new words are in all eight languages, and none is an English copy', () => {

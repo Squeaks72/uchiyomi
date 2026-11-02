@@ -484,7 +484,9 @@ async function backdropRecipe(id: string, style: 'hero' | 'banner' | null, ar: H
     };
   }
   if (!art.banner) queueHero(id);
-  const url = art.banner || art.cover;
+  // With no banner of its own, the wash is made from the cover -- the admin's, when they set one, else the online one.
+  const ownCover = !art.banner && ovr?.cover && ovr.cover !== FIRST_PAGE ? ovr.cover : null;
+  const url = art.banner || ownCover || art.cover;
   // The look the art in hand would get: the hero shows a banner OR a cover sharp (only the no-art first page stays
   // ambient), the series page only a real banner -- a cover blown up to a banner's frame stays the blurred wash.
   const planned = backdropLook(style, { hasUrl: !!url, fromBanner: !!art.banner });
@@ -502,7 +504,7 @@ async function backdropRecipe(id: string, style: 'hero' | 'banner' | null, ar: H
       let fetched = false;
       try {
         if (!url) throw new Error('no remote art');
-        input = await fetchCoverImage(url, srcRow?.source_id || undefined);
+        input = ownCover === 'upload' ? await readFile(artFile(id, 'cover')) : await fetchCoverImage(url, srcRow?.source_id || undefined);
         fetched = true;
       } catch {
         input = await firstPageInput(id, ctx);

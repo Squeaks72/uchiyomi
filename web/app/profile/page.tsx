@@ -494,7 +494,7 @@ function GoalModal({ current, onClose, onSave }: { current: number; onClose: () 
     <Modal title={tr('Weekly goal')} onClose={onClose}>
       <div className="flex flex-wrap gap-1.5">
         {[5, 10, 20].map((q) => (
-          <button key={q} onClick={() => setValue(String(q))}
+          <button key={q} type="button" onClick={() => setValue(String(q))} aria-pressed={n === q} aria-label={tr('{n} chapters', { n: q })}
             className={`chip text-xs ${n === q ? 'chip-active' : ''}`}>{q}</button>
         ))}
       </div>
@@ -502,8 +502,8 @@ function GoalModal({ current, onClose, onSave }: { current: number; onClose: () 
       <input id="weekly-goal-input" type="number" inputMode="numeric" min={1} value={value}
         onChange={(e) => setValue(e.target.value)} className="field mt-1" />
       <div className="mt-4 flex gap-2">
-        <button onClick={onClose} className="btn-ghost flex-1 py-2 text-sm">{tr('Cancel')}</button>
-        <button onClick={() => onSave(n)} disabled={!n || n < 1} className="btn-accent flex-1 py-2 text-sm disabled:opacity-50">{tr('Save')}</button>
+        <button type="button" onClick={onClose} className="btn-ghost flex-1 py-2 text-sm">{tr('Cancel')}</button>
+        <button type="button" onClick={() => onSave(n)} disabled={!n || n < 1} className="btn-accent flex-1 py-2 text-sm disabled:opacity-50">{tr('Save')}</button>
       </div>
     </Modal>
   );

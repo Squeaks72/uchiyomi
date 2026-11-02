@@ -57,12 +57,15 @@ export interface OverviewSource {
   icon?: boolean;
   /** A site added by address: where it lives. */
   address?: string | null;
+  /** The admin's own age rating for the whole source (0 = all ages), null when none is set. Fork change. */
   /**
    * v0.73.0 (#256): 18 when the admin rated the whole source Adult only, else null; `defaultAgeRating` is what it is held
    * to without that, 18 for an extension that declares itself adult (lib/sourceAge.ts). Absent from an older server.
    */
   ageRating?: number | null;
   defaultAgeRating?: number | null;
+  /** Fork: rated Mixed -- its extension flags the whole site 18+, but with Show 18+ off it is still asked and each title is judged alone. */
+  mixed?: boolean;
   /**
    * v0.55.1: not loaded because the engine's source limit is full, with the limit it is over -- not broken, and Replace is
    * not its fix (the sheet says so instead: limitLine). Absent from every other source, and from an older server.
@@ -337,13 +340,14 @@ export const updatesTitle = (n: number): string =>
 /** A source that is cooling down after refusals, or blocked: the ones with a Clear block key (and Settings → Downloads' list). */
 export const isBlocked = (s: Pick<OverviewSource, 'standing' | 'state'>): boolean => s.standing === 'cooling' || s.state === 'blocked';
 
-export type SheetKey = 'replace' | 'test' | 'keep' | 'unblock' | 'turn-off' | 'turn-on' | 'remove';
+export type SheetKey = 'replace' | 'backup' | 'test' | 'keep' | 'unblock' | 'turn-off' | 'turn-on' | 'remove';
 
 /**
  * What a source's sheet offers, in the order its keys sit:
  * - Replace, the one filled key, while it cannot serve the series it is main to: failing, switched off or not loaded --
  *   but not loaded because the engine's source limit is full (v0.55.1, `overLimit`): that source works, Health's Free a
  *   slot lands on its sheet, and room under the limit is the fix, which its line says (limitLine);
+ * - Add backups, beside Replace: follow other sources for the same series without replacing or removing anything;
  * - Test, for a source Uchiyomi has loaded (a source its extension switched off is not, and its Test would only say so);
  * - Keep, for a backup extension's source (v0.82.0): it becomes the admin's own;
  * - Clear block, while a cooldown holds it;
@@ -354,7 +358,7 @@ export type SheetKey = 'replace' | 'test' | 'keep' | 'unblock' | 'turn-off' | 't
 export function sheetKeys(s: OverviewSource, a?: Pick<SourcesAttention, 'replace'> | null): SheetKey[] {
   const out: SheetKey[] = [];
   const dead = s.standing === 'failing' || s.standing === 'off' || s.standing === 'not_loaded' || !!a?.replace.includes(s.id);
-  if (dead && s.main > 0 && !s.overLimit) out.push('replace');
+  if (dead && s.main > 0 && !s.overLimit) out.push('replace', 'backup');
   const loaded = s.standing !== 'not_loaded' && !(s.standing === 'off' && (s.offBy === 'extension' || s.offBy === 'language'));
   if (loaded) out.push('test');
   // v0.82.0: a backup extension's source can be made the admin's own -- in Discover, and never removed for being unused.

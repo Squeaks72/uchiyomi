@@ -10,7 +10,7 @@ import { otherTitlesFor } from '../lib/otherTitles';
 import { content as komga, NATIVE_PROGRESS, OWNED } from '../lib/backend';
 import { UnsupportedFilter, owned } from '../lib/ownedCatalog';
 import { cleanDescription } from '../lib/htmlText';
-import { viewCtxFor, SYSTEM_CTX, type ViewCtx, hideAdult, browsableIds, browsable, Params, adultFilterConfigured, seriesVisible } from '../lib/visibility';
+import { viewCtxFor, SYSTEM_CTX, type ViewCtx, hideAdult, seriesVisible, browsableIds, browsable, Params, adultFilterConfigured } from '../lib/visibility';
 
 /** The viewer attached by the preHandler above. */
 const vc = (req: FastifyRequest): ViewCtx => (req as any).viewCtx as ViewCtx;
@@ -41,7 +41,7 @@ import { cleanSourceOrder } from '../lib/sourcePrefs';
 import { editionInfo } from '../lib/editions';
 import { effectiveLang, seriesLanguage } from '../lib/seriesLang';
 import { copyLang, languageRulesFor, type LanguageRules } from '../lib/copyLanguage';
-import { chapterFileRel } from '../lib/downloader';
+import { isOwnFile } from '../lib/chapterFile';
 import { DL_ROOT, LIBRARY_ROOT, lastScanFailure, lastScanReport, scanProgress, scanRunning } from '../lib/library';
 import { noticeBook, noticeListed, noticesShortOnly } from '../lib/noticeChapters';
 import { noticeTypes, hiddenCount } from '../lib/noticeSettings';
@@ -984,7 +984,7 @@ export default async function catalogRoutes(app: FastifyInstance) {
       const bookIds: string[] = [];
       for (const b of books) {
         const number = Number(b.number);
-        if (b.number_end != null || b.root !== DL_ROOT || b.file !== chapterFileRel(series.folder, number) || !replaceable.has(number)) continue;
+        if (b.number_end != null || b.root !== DL_ROOT || !isOwnFile(b.file, series.folder, number) || !replaceable.has(number)) continue;
         const lang = otherLanguageOf({ lang: b.lang, source: b.source_id });
         if (!lang) continue;
         bookIds.push(b.id);
@@ -1091,6 +1091,8 @@ export default async function catalogRoutes(app: FastifyInstance) {
 
   // Mark or un-mark one page by hand. A person's call outranks the heuristic in both directions.
   app.put('/api/books/:id/pages/:n/junk', async (req, reply) => {
+    // The flag is shared by every account, so only an admin may set it.
+    if (roleOf(req) !== 'admin') return reply.code(403).send({ error: 'forbidden' });
     const { id, n } = req.params as { id: string; n: string };
     const page = Number(n);
     const body = (req.body ?? {}) as { junk?: boolean | null };

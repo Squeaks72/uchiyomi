@@ -8,12 +8,17 @@ import numberingRoutes from './numbering';
 import { lastNumber } from '../lib/chapterRanges';
 import findSourcesRoutes from './findSources';
 import autoHeroRoutes from './autoHero';
+import { isProvider } from '../lib/trackerProviders';
+import { disconnect as disconnectTracker } from '../lib/trackers';
+import { notifyUser } from '../lib/push';
+import unmappedRoutes from './unmapped';
+import bookorbitSyncRoutes from './bookorbitSync';
 import rescanRoutes from './rescan';
 import { content as komga } from '../lib/backend';
 import { cacheBytes } from '../lib/imageCache';
 import { runtime } from '../lib/runtime';
 import { persistScan, libraryIdFor, libraryRows, LIBRARY_ROOT, DL_ROOT, setBookDates, setBookMeta } from '../lib/library';
-import { applyMoves, heldElsewhere, lockLibrarySaves, previewMoves, setFolders, storedFolders, underSql, LIBRARY_MAX_FOLDERS } from '../lib/libraryFolders';
+import { applyMoves, heldElsewhere, lockLibrarySaves, previewMoves, setFolders, storedFolders, healFolderCase, underSql, LIBRARY_MAX_FOLDERS } from '../lib/libraryFolders';
 import { containedPath, allWritable, realContainedPath } from '../lib/fsGuard';
 import { deleteSeries, restoreSeries, mergeSeries, mergeRefusal, MergeConflictError, getSeriesRow, deleteSeriesFiles, renameSeriesFolder, forgetSeries, diskSpelling, deleteChapterFiles } from '../lib/libraryAdmin';
 import { keepOneOfEach } from '../lib/heldTwice';
@@ -76,7 +81,7 @@ import { titleExtractionCapabilities } from '../lib/titleExtraction';
 import { titleExtractionBatchTick } from '../lib/titleExtractionBatch';
 import { writePreflight } from '../lib/fsGuard';
 // Admin stats report on the whole library by definition; this route is already behind requireAdmin.
-import { NO_LIBRARIES, SYSTEM_CTX, visibleToAll, sanitiseAdultList, sanitiseSourceIds, invalidateAdultFilter, applyAdultSources, rateSourceAdult, MAX_ADULT_SOURCES, browsableIds, nameableIds, viewCtxFor, visible, Params, hideAdult, ADULT_RATING } from '../lib/visibility';
+import { NO_LIBRARIES, SYSTEM_CTX, visibleToAll, sanitiseAdultList, sanitiseSourceIds, invalidateAdultFilter, applyAdultSources, rateSourceMixed, sourceRatedMixed, rateSourceAdult, MAX_ADULT_SOURCES, browsableIds, nameableIds, viewCtxFor, visible, Params, hideAdult, ADULT_RATING } from '../lib/visibility';
 import { cleanSourceOrder, invalidateSourcePrefs } from '../lib/sourcePrefs';
 import { keepRestricted, memberDefaults, memberDefaultsShape, permsShape, saveMemberDefaults } from '../lib/memberDefaults';
 import { FOLLOW_LIMIT_MAX, followerLimit, forgetFollowerLimit } from '../lib/followLimit';
@@ -92,7 +97,8 @@ import {
   startDownloadJob, clearLatestCache, FILL_MAX_CHAPTERS, REFRESH_BUDGET_MS,
 } from './sources';
 import { confirmsTitle } from '../lib/confirmTitle';
-import { chapterFileRel } from '../lib/downloader';
+import { sanitize } from '../lib/downloader';
+import { isOwnFile } from '../lib/chapterFile';
 import { REFETCH_BAK } from '../lib/fsAtomic';
 import type { SourceChapter } from '../lib/sources/types';
 import { getPlan, followable } from '../lib/fill';
@@ -119,7 +125,7 @@ import { titlesFromBackup, entriesFromBackup, type BackupEntry } from '../lib/ta
 import { linkSeries, seedTrackerFloor, TOKEN_EXPIRED, TOKEN_REJECTED, TOKEN_UNREADABLE } from '../lib/trackers';
 import { ADAPTERS, PROVIDERS, LIST_STATUSES, TRACKER_LIST_MAX, type Provider, type LibraryEntry } from '../lib/trackerProviders';
 import { open as unseal } from '../lib/secretbox';
-import { findingOf, runHealthChecks } from '../lib/health';
+import { findingOf, recheckCheck, RECHECKABLE_CHECKS, runHealthChecks } from '../lib/health';
 import { autofixRun, autofixSeriesIds, autofixState, scrubAutofixRecord, scrubAutofixRun, startAutofix, stopAutofix } from '../lib/autofix';
 import { IGNORABLE_CHECKS, ignoreFinding, unignoreFinding } from '../lib/healthIgnore';
 import { readHealthSummary, scheduleHealthSummaryRefresh, storeHealthSummary } from '../lib/healthSummary';
@@ -585,6 +591,9 @@ export default async function adminRoutes(app: FastifyInstance) {
   await app.register(rescanRoutes);
   await app.register(pageCleanupRoutes);
   await app.register(titleExtractionRoutes);
+  // Admin -> Library -> Unmapped files (routes/unmapped.ts).
+  await app.register(unmappedRoutes);
+  await app.register(bookorbitSyncRoutes);
 
   /** Synchronous two-sided hand-off between updateSeries and destructive route writers. */
   const claimSeriesWriter = (seriesIds: readonly string[], folders: readonly string[]) =>
@@ -645,7 +654,7 @@ export default async function adminRoutes(app: FastifyInstance) {
   // ---- server settings ----
   const SETTINGS_COLS = 'server_name, allow_registration, local_pick, automatic_title_logos, automatic_cover_titles, automatic_cover_title_generation, automatic_cover_title_apply, updater_hours, extension_hours, extension_auto_update, '
     + 'update_check, install_ping, install_ping_last, scanlator_prefs, cleanup_read, cleanup_read_days, backup_hour, backup_enabled, auto_follow_on_failure, '
-    + 'repair_enabled, komga_ghost_chapters, adult_genres, adult_sources, source_prefs, group_upgrade, borrow_names, fill_details, discover_lookups, '
+    + 'repair_enabled, repair_hour, unmapped_recycle_days, komga_ghost_chapters, adult_genres, adult_sources, source_prefs, group_upgrade, borrow_names, fill_details, discover_lookups, '
     + 'mangadex_langs, unstated_lang, hide_notice_types, deleted_as_ghosts, update_smart, finish_downloads, '
     + ARCHIVE_SETTINGS_COLS;
   // `extensions_configured` is not a column: extension_hours has a NOT NULL default, so its presence says
@@ -656,6 +665,8 @@ export default async function adminRoutes(app: FastifyInstance) {
     // v0.55.0: what the nightly runs, `repair` (the safe repair) or `autofix` (Fix everything). Read apart from the
     // columns above and said as the contract names it; an unknown value reads as the default.
     const mode = await one<{ m: string | null }>('SELECT nightly_mode AS m FROM server_settings WHERE id = 1').catch(() => null);
+    // Fork: whether a title nothing can judge is shown from a Mixed source while Show 18+ is off (Admin -> Settings -> 18+ filter).
+    const mixedUnknown = await one<{ s: boolean | null }>('SELECT mixed_show_unknown AS s FROM server_settings WHERE id = 1').catch(() => null);
     // v0.55.3 (#147): "Only hide short ones" -- the notice switches' rule (lib/noticeChapters.ts). Read apart and said
     // as the contract names it, as nightlyMode is; on unless the column says off.
     const shortOnly = await one<{ s: boolean | null }>('SELECT hide_notice_short_only AS s FROM server_settings WHERE id = 1').catch(() => null);
@@ -667,6 +678,7 @@ export default async function adminRoutes(app: FastifyInstance) {
       backup_keep: backups.keep,
       nightlyMode: mode?.m === 'autofix' ? 'autofix' : 'repair',
       hideNoticeShortOnly: shortOnly?.s !== false,
+      mixedShowUnknown: mixedUnknown?.s === true,
       extensions_configured: suwayomiConfigured(),
       // How many chapters the read-chapter cleanup would delete if it ran now, at the CURRENT day setting.
       // Computed here rather than only in the tasks list because the tasks list does not show the job until
@@ -760,6 +772,9 @@ export default async function adminRoutes(app: FastifyInstance) {
       cleanupReadDays: z.number().int().min(0).max(3650).optional(),
       // The local hour of the nightly backup. Until v0.39.0 it was shown under Tasks and editable nowhere.
       backupHour: z.number().int().min(0).max(23).optional(),
+      // null = every REPAIR_HOURS from the last run's end (the old rhythm); a number = daily at that local hour.
+      unmappedRecycleDays: z.number().int().min(1).max(365).optional(),
+      repairHour: z.number().int().min(0).max(23).nullable().optional(),
       // v0.61.1 (#199): the nightly backup's switch -- off skips the night, Run now still backs up -- and how many runs
       // to keep. The oldest beyond that go after the NEXT backup, never on save: a number typed in passing deletes nothing.
       backupEnabled: z.boolean().optional(),
@@ -792,7 +807,9 @@ export default async function adminRoutes(app: FastifyInstance) {
        * sheet rates one source at a time (PUT /api/admin/sources/:id/age-rating); this replaces the whole list.
        */
       adultGenres: z.array(z.string().min(1).max(60)).max(60).optional(),
+      // Deprecated (fork): folded into source_ratings at boot and no longer written by the settings page; still honoured if set.
       adultSources: z.array(z.string().min(1).max(120)).max(200).optional(),
+      mixedShowUnknown: z.boolean().optional(),
       /**
        * Source ids, most preferred first (lib/sourcePrefs.ts): which copy of a chapter the server does not
        * have yet is taken, when a series follows more than one source. Checked by shape, not against the
@@ -955,6 +972,8 @@ export default async function adminRoutes(app: FastifyInstance) {
     if (b.cleanupRead !== undefined) await q('UPDATE server_settings SET cleanup_read = $1, updated_at = now() WHERE id = 1', [b.cleanupRead]);
     if (b.cleanupReadDays !== undefined) await q('UPDATE server_settings SET cleanup_read_days = $1, updated_at = now() WHERE id = 1', [b.cleanupReadDays]);
     if (b.repairEnabled !== undefined) await q('UPDATE server_settings SET repair_enabled = $1, updated_at = now() WHERE id = 1', [b.repairEnabled]);
+    if (b.repairHour !== undefined) { await q('UPDATE server_settings SET repair_hour = $1, updated_at = now() WHERE id = 1', [b.repairHour]); runtime.rearmRepair?.(); }
+    if (b.unmappedRecycleDays !== undefined) await q('UPDATE server_settings SET unmapped_recycle_days = $1, updated_at = now() WHERE id = 1', [b.unmappedRecycleDays]);
     if (b.nightlyMode !== undefined) await q('UPDATE server_settings SET nightly_mode = $1, updated_at = now() WHERE id = 1', [b.nightlyMode]);
     // The scheduler is re-armed at once, so the change applies to the NEXT run rather than the one after: the
     // timer used to re-read the hour only when it fired (server.ts, the backup block says why).
@@ -979,7 +998,8 @@ export default async function adminRoutes(app: FastifyInstance) {
     }
     // The view context caches these for a few seconds; a save must take effect on the next request,
     // not whenever that window happens to lapse.
-    if (b.adultGenres !== undefined || b.adultSources !== undefined) invalidateAdultFilter();
+    if (b.mixedShowUnknown !== undefined) await q('UPDATE server_settings SET mixed_show_unknown = $1, updated_at = now() WHERE id = 1', [b.mixedShowUnknown]);
+    if (b.adultGenres !== undefined || b.adultSources !== undefined || b.mixedShowUnknown !== undefined) invalidateAdultFilter();
     if (b.groupUpgrade !== undefined) await q('UPDATE server_settings SET group_upgrade = $1, updated_at = now() WHERE id = 1', [b.groupUpgrade]);
     if (b.discoverLookups !== undefined) {
       await q('UPDATE server_settings SET discover_lookups = $1, updated_at = now() WHERE id = 1', [b.discoverLookups]);
@@ -1046,12 +1066,12 @@ export default async function adminRoutes(app: FastifyInstance) {
     scheduleVars: vars,
   });
   app.get('/api/admin/tasks', async (req) => {
-    const s = await one<{ updater_hours: number; backup_hour: number; backup_enabled: boolean; backup_last_run: string | null; backup_last_result: any; extension_hours: number; extension_auto_update: boolean; extension_last_run: string | null; extension_last_result: any; cleanup_read: boolean; cleanup_read_days: number; cleanup_read_last_run: string | null; cleanup_read_last_result: any; verify_last_run: string | null; verify_last_result: any; repair_enabled: boolean; repair_last_run: string | null; repair_last_result: any; rescan_last_run: string | null; rescan_last_result: any; match_check_last_run: string | null; match_check_last_result: any }>(
+    const s = await one<{ updater_hours: number; backup_hour: number; backup_enabled: boolean; backup_last_run: string | null; backup_last_result: any; extension_hours: number; extension_auto_update: boolean; extension_last_run: string | null; extension_last_result: any; cleanup_read: boolean; cleanup_read_days: number; cleanup_read_last_run: string | null; cleanup_read_last_result: any; verify_last_run: string | null; verify_last_result: any; repair_enabled: boolean; repair_hour: number | null; repair_last_run: string | null; repair_last_result: any; rescan_last_run: string | null; rescan_last_result: any; match_check_last_run: string | null; match_check_last_result: any }>(
       `SELECT updater_hours, backup_hour, backup_enabled, backup_last_run, backup_last_result,
               extension_hours, extension_auto_update, extension_last_run, extension_last_result,
               cleanup_read, cleanup_read_days, cleanup_read_last_run, cleanup_read_last_result,
               verify_last_run, verify_last_result,
-              repair_enabled, repair_last_run, repair_last_result,
+              repair_enabled, repair_hour, repair_last_run, repair_last_result,
               rescan_last_run, rescan_last_result,
               match_check_last_run, match_check_last_result
          FROM server_settings WHERE id = 1`,
@@ -1157,7 +1177,9 @@ export default async function adminRoutes(app: FastifyInstance) {
         name: 'Repair library',
         ...(s?.repair_enabled === false
           ? sched('switched off · on demand')
-          : sched('every {h}h · never during a chapter sweep', { h: REPAIR_HOURS })),
+          : s?.repair_hour != null
+            ? sched('daily at {hh}:00 · never during a chapter sweep', { hh: String(s.repair_hour).padStart(2, '0') })
+            : sched('every {h}h · never during a chapter sweep', { h: REPAIR_HOURS })),
         // Memory wins once this process has run it, including a run that threw (finishedAt set, lastResult
         // null): the verify's precedent above says why falling through to the stored row there would put an
         // older healthy result back on the panel over a run that died.
@@ -1991,6 +2013,19 @@ export default async function adminRoutes(app: FastifyInstance) {
     return { ok: true, from: out.from, to: out.to, old: out.old, ...(out.langPinned ? { langPinned: out.langPinned } : {}), sources: list };
   });
 
+  /** The web page of this series on one source it follows, as the source itself reports it. `{url}`, or 404 when it has none. */
+  app.get('/api/admin/series/:id/sources/:sourceId/url', async (req, reply) => {
+    const { id, sourceId } = req.params as { id: string; sourceId: string };
+    const follow = (await seriesSourcesFor(id)).find((x) => x.sourceId === sourceId);
+    const src = follow ? getSource(follow.sourceId) : null;
+    if (!follow || !src) return reply.code(404).send({ error: 'not_found', message: 'That source does not follow this series.' });
+    try {
+      const sr = await withTimeout(src.getSeries(follow.sourceSeriesId), 20_000);
+      if (!sr?.url || !/^https?:\/\//i.test(sr.url)) return reply.code(404).send({ error: 'no_url', message: 'That source gave no web address for this series.' });
+      return { url: sr.url };
+    } catch { return reply.code(502).send({ error: 'unavailable', message: 'The source did not answer.' }); }
+  });
+
   /** A hand attach or detach refused (lib/manualAttach.ts): 404 when the series is not there, else 409 with its said code. */
   const refusedAttach = (reply: FastifyReply, out: AttachRefused) => {
     if (out.refused === 'not_found' || !out.said) return reply.code(404).send({ error: 'not_found' });
@@ -2504,6 +2539,9 @@ export default async function adminRoutes(app: FastifyInstance) {
     // save from the edit modal 500'd -- not just rating changes: retitling, the summary, the author and the
     // genres all failed the same way, under a message that only said "Could not save". `?? null` because
     // the field is nullish: absent and null both mean "inherit whatever ComicInfo said".
+    const prior = await one<{ shown: string; folder: string }>(
+      `SELECT COALESCE(NULLIF(btrim(o.title), ''), s.title) AS shown, s.folder FROM lib_series s
+         LEFT JOIN series_overrides o ON o.series_id = s.id WHERE s.id = $1`, [id]);
     const sentDirection = b.data.readingDirection !== undefined;
     const sentType = b.data.seriesType !== undefined;
     // "unknown" is the absence of a type, not one: stored as NULL, so "Automatic" and "Unknown" cannot disagree.
@@ -2542,7 +2580,31 @@ export default async function adminRoutes(app: FastifyInstance) {
     // marked Completed went on promising "Next chapter ~Friday". Reintroduce by dropping this: "marking a series
     // Completed ends its estimate at once" in releaseRadar.int.test.ts still finds a next chapter.
     await refreshRadar(id).catch((e) => console.warn(`[radar] refresh after an edit failed for ${id}: ${(e as Error)?.message || e}`));
-    return { ok: true };
+
+    // A title the admin chooses is the folder's name too. The title it replaces is kept as an alternative title (so
+    // swapping back is one press, and searches still know the old name). The folder rename is reported, not assumed:
+    // a refusal (another series there, a download running) leaves the title saved and says why.
+    const chosen = norm(b.data.title);
+    let folder: { status: 'renamed' | 'unchanged' | 'refused'; to?: string; reason?: string; fix?: string } | undefined;
+    if (prior && chosen && chosen.toLowerCase() !== prior.shown.trim().toLowerCase()) {
+      await recordAltTitles(id, [prior.shown], 'admin', { userId: userIdOf(req) }).catch(() => []);
+      const cut = prior.folder.lastIndexOf('/');
+      const dest = `${cut >= 0 ? prior.folder.slice(0, cut + 1) : ''}${sanitize(chosen)}`;
+      if (dest === prior.folder) folder = { status: 'unchanged', to: dest };
+      else {
+        const claim = claimSeriesWriter([id], [prior.folder, dest]);
+        if (!claim) folder = { status: 'refused', reason: 'Another task is using this series right now.', fix: 'Save the title again when it has finished.' };
+        else {
+          try {
+            const r = await renameSeriesFolder(id, dest);
+            folder = r.ok ? { status: 'renamed', to: dest } : { status: 'refused', reason: r.reason, fix: r.fix };
+            if (r.ok) await logAudit('series.rename_folder', { userId: userIdOf(req), detail: { id, folder: dest, via: 'title' }, req });
+          } catch (e) { folder = { status: 'refused', reason: (e as Error).message }; }
+          finally { claim.release(); }
+        }
+      }
+    }
+    return { ok: true, ...(folder ? { folder } : {}) };
   });
 
   /**
@@ -2903,7 +2965,7 @@ export default async function adminRoutes(app: FastifyInstance) {
       // The root itself can never be the chapter file (the path check below already forbids it: a chapter
       // file ends in `Chapter <n>.cbz`), but the rename below is a destructive move and the comparison is
       // free -- the same guard the delete route and the cleanup carry.
-      if (!abs || realSafe !== abs || abs === root || r.file !== chapterFileRel(s.folder, number)) { skipped.push({ id: bid, reason: 'not_ours' }); continue; }
+      if (!abs || realSafe !== abs || abs === root || !isOwnFile(r.file, s.folder, number)) { skipped.push({ id: bid, reason: 'not_ours' }); continue; }
       eligible.push({ id: bid, number, file: r.file, abs, pruned: !!r.pruned_at });
     }
     // The listing is refreshed FIRST, so the copy fetched is the one the release rules choose NOW -- which
@@ -3056,6 +3118,144 @@ export default async function adminRoutes(app: FastifyInstance) {
   });
 
   /**
+   * Fetch chapters the library is MISSING, from whichever source can serve them (Health → Chapters that would not download,
+   * "Fetch now"). The chapter is taken from the series' listing as the sweep takes it -- its chosen copy -- and goes through
+   * the same download job as every fetch, which falls to the other sources the series follows when the first refuses or
+   * serves it short, and writes the best copy it was served with placeholders for the missing pages when none has it
+   * whole. So this is "try again, from everywhere", not a second download path: the listing is refreshed first, a source
+   * the series does not follow is never asked, and a source in a cooldown or switched off is reported, not hammered.
+   */
+  app.post('/api/admin/series/:id/chapters/fetch-missing', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const b = z.object({ numbers: z.array(z.number().finite().min(-1000).max(100000)).min(1).max(20) }).safeParse(req.body);
+    if (!b.success) return reply.code(400).send({ error: 'bad_request' });
+    const s = await one<any>(
+      `SELECT id, title, folder, summary, author, genres, web, status, source_id FROM lib_series WHERE id = $1 AND ${visibleToAll('lib_series')}`, [id]);
+    if (!s) return reply.code(404).send({ error: 'not_found' });
+    if (jobBusy(s.folder)) return reply.code(409).send({ error: 'busy', message: 'A download for that series is already running.' });
+    await withTimeout(updateSeries(id, 0), REFRESH_BUDGET_MS).catch(() => {});
+    const listed = new Map((await q<{ number: number; source_id: string; status: string; chosen: SourceChapter }>(
+      'SELECT number, source_id, status, chosen FROM series_listing WHERE series_id = $1 AND number = ANY($2::real[])',
+      [id, b.data.numbers],
+    )).map((r) => [Number(r.number), r]));
+    const followed = new Set([
+      ...(s.source_id ? [s.source_id as string] : []),
+      ...(await q<{ source_id: string }>('SELECT source_id FROM series_sources WHERE series_id = $1', [id]).catch(() => [])).map((r) => r.source_id),
+    ]);
+    const skipped: Array<{ number: number; reason: string }> = [];
+    const chapters: Array<SourceChapter> = [];
+    for (const n of [...new Set(b.data.numbers)]) {
+      const l = listed.get(n);
+      if (!l) { skipped.push({ number: n, reason: 'not_listed' }); continue; }
+      if (l.status === 'blocked') { skipped.push({ number: n, reason: 'blocked_group' }); continue; }
+      if (!followed.has(l.source_id) || !getSource(l.source_id) || await isDisabled(l.source_id).catch(() => false)) { skipped.push({ number: n, reason: 'source_unavailable' }); continue; }
+      if (await blockedNow(l.source_id).catch(() => null)) { skipped.push({ number: n, reason: 'cooldown' }); continue; }
+      chapters.push({ ...l.chosen, source: l.source_id });
+    }
+    if (!chapters.length) return reply.code(409).send({ error: 'nothing_to_fetch', message: 'None of those chapters can be fetched right now.', skipped });
+    const w = await allWritable([DL_ROOT]);
+    if (!w.ok) return reply.code(409).send({ error: 'refused', message: w.reason, fix: w.fix });
+    const claim = claimDownloadJob(s.folder, id);
+    if (!claim) return reply.code(409).send({ error: 'busy', message: 'Another task is changing that series.' });
+    try {
+      await logAudit('series.chapters_fetch_missing', { userId: userIdOf(req), detail: { id, title: s.title, numbers: chapters.map((c) => c.number), skipped }, req });
+      const { total } = startDownloadJob({
+        origin: 'fetch', folder: s.folder, title: s.title, seriesId: id,
+        chapters: chapters.sort((a, c) => a.number - c.number),
+        meta: { series: s.title, summary: s.summary, author: s.author, genres: s.genres, url: s.web, status: s.status },
+        by: userIdOf(req),
+      }, claim);
+      return { ok: true, started: true, folder: s.folder, total, skipped };
+    } finally {
+      releaseDownloadJobClaim(claim);
+    }
+  });
+
+  // Health → Tracker sync. Only the member can sign in again, so the admin can ask them to (a push to their own devices, naming
+  // nothing but the tracker) or drop a connection nobody will renew. Both are audited, and neither touches reading progress.
+  const trackerTarget = z.object({ userId: z.string().min(1).max(64), provider: z.string().min(1).max(40) });
+  app.post('/api/admin/trackers/remind', async (req, reply) => {
+    const b = trackerTarget.safeParse(req.body);
+    if (!b.success || !isProvider(b.data.provider)) return reply.code(400).send({ error: 'bad_request' });
+    const row = await one<{ username: string }>(
+      'SELECT u.username FROM user_trackers t JOIN users u ON u.id = t.user_id WHERE t.user_id = $1 AND t.provider = $2', [b.data.userId, b.data.provider]);
+    if (!row) return reply.code(404).send({ error: 'not_found' });
+    const sent = await notifyUser(b.data.userId, 'Sign in to your tracker again', `Your ${b.data.provider} connection needs signing in again. Open Profile → Connections.`, '/profile/', 'tracker');
+    await logAudit('tracker.remind', { userId: userIdOf(req), detail: { member: row.username, provider: b.data.provider, sent }, req });
+    return { ok: true, sent, username: row.username };
+  });
+  app.post('/api/admin/trackers/disconnect', async (req, reply) => {
+    const b = trackerTarget.safeParse(req.body);
+    if (!b.success || !isProvider(b.data.provider)) return reply.code(400).send({ error: 'bad_request' });
+    const row = await one<{ username: string }>(
+      'SELECT u.username FROM user_trackers t JOIN users u ON u.id = t.user_id WHERE t.user_id = $1 AND t.provider = $2', [b.data.userId, b.data.provider]);
+    if (!row) return reply.code(404).send({ error: 'not_found' });
+    await disconnectTracker(b.data.userId, b.data.provider);
+    await logAudit('tracker.disconnect', { userId: userIdOf(req), detail: { member: row.username, provider: b.data.provider, by: 'admin' }, req });
+    return { ok: true, username: row.username };
+  });
+
+  type FolderMove = { id: string; title: string; from: string; to: string; status: 'planned' | 'conflict' | 'moved' | 'refused'; reason?: string; fix?: string };
+
+  /** `<target>/<leaf>` for each series, with collisions (two in this move, or a folder already taken) flagged. */
+  async function planFolderMoves(rows: { id: string; title: string; folder: string }[], target: string): Promise<FolderMove[]> {
+    const takenRows = await q<{ folder: string; id: string; title: string }>(`SELECT s.folder, s.id, s.title FROM lib_series s WHERE ${visibleToAll('s')}`);
+    const taken = new Map(takenRows.map((r) => [r.folder, r]));
+    const claimed = new Map<string, string>();
+    return rows.map((r) => {
+      const leaf = r.folder.slice(r.folder.lastIndexOf('/') + 1);
+      const to = target ? `${target}/${leaf}` : leaf;
+      const m: FolderMove = { id: r.id, title: r.title, from: r.folder, to, status: 'planned' };
+      if (to === r.folder) return m;
+      if (claimed.has(to.toLowerCase())) {
+        m.status = 'conflict';
+        m.reason = `Another series in this move ("${claimed.get(to.toLowerCase())}") also has the folder name "${leaf}", so both would land in "${to}".`;
+        m.fix = 'Rename one of the two folders, then try again.';
+      } else if (taken.has(to) && taken.get(to)!.id !== r.id) {
+        m.status = 'conflict';
+        m.reason = `"${to}" is already the folder of "${taken.get(to)!.title}".`;
+        m.fix = 'Rename one of the two folders, or merge the series, then try again.';
+      } else claimed.set(to.toLowerCase(), r.title);
+      return m;
+    });
+  }
+
+  /** Renames each planned folder on disk and in the database. A series already at its destination counts as moved. */
+  async function runFolderMoves(moves: FolderMove[]): Promise<void> {
+    for (const m of moves) {
+      if (m.status !== 'planned') continue;
+      if (m.to === m.from) { m.status = 'moved'; continue; }
+      const claim = claimSeriesWriter([m.id], [m.from, m.to]);
+      if (!claim) { m.status = 'refused'; m.reason = 'Another task (a download, scan or rename) is using that series right now.'; m.fix = 'Try again when it has finished.'; continue; }
+      try {
+        const r = await renameSeriesFolder(m.id, m.to);
+        if (r.ok) m.status = 'moved'; else { m.status = 'refused'; m.reason = r.reason; m.fix = (r as { fix?: string }).fix; }
+      } catch (e) { m.status = 'refused'; m.reason = (e as Error).message; }
+      finally { claim.release(); }
+    }
+  }
+
+  /** Where a library keeps its series: its first folder, or the root for one with no folder list (the default). */
+  async function libraryRootFolder(libraryId: string): Promise<string | null> {
+    const l = await one<{ path: string }>('SELECT path FROM libraries WHERE id = $1', [libraryId]);
+    if (!l) return null;
+    const first = await one<{ path: string }>(
+      'SELECT path FROM library_paths WHERE library_id = $1 ORDER BY path <> $2, path LIMIT 1', [libraryId, l.path]);
+    return first?.path ?? '';
+  }
+
+  /** Puts series in a library: moves their folders into its root unless `moveFiles` is off, then pins them there. */
+  async function putInLibrary(rows: { id: string; title: string; folder: string }[], libraryId: string, moveFiles: boolean) {
+    const root = moveFiles ? await libraryRootFolder(libraryId) : null;
+    const moves = root === null ? [] : await planFolderMoves(rows, root);
+    await runFolderMoves(moves);
+    const failed = new Set(moves.filter((m) => m.status !== 'moved').map((m) => m.id));
+    const ok = rows.filter((r) => !failed.has(r.id)).map((r) => r.id);
+    if (ok.length) await q('UPDATE lib_series SET library_id = $2, library_pinned = true WHERE id = ANY($1)', [ok, libraryId]);
+    return { applied: ok.length, problems: moves.filter((m) => failed.has(m.id)) };
+  }
+
+  /**
    * Move one series into a library by hand, regardless of where its folder lives.
    *
    * This is what makes a library more than a folder: "everything under Manga/Seinen, plus these twelve
@@ -3066,10 +3266,10 @@ export default async function adminRoutes(app: FastifyInstance) {
    */
   app.post('/api/admin/series/:id/library', async (req, reply) => {
     const { id } = req.params as { id: string };
-    const b = z.object({ libraryId: z.string().min(1).max(64).nullable() }).safeParse(req.body);
+    const b = z.object({ libraryId: z.string().min(1).max(64).nullable(), moveFiles: z.boolean().optional() }).safeParse(req.body);
     if (!b.success) return reply.code(400).send({ error: 'bad_request' });
 
-    const series = await one<{ folder: string }>('SELECT folder FROM lib_series WHERE id = $1', [id]);
+    const series = await one<{ folder: string; title: string }>('SELECT folder, title FROM lib_series WHERE id = $1', [id]);
     if (!series) return reply.code(404).send({ error: 'not_found' });
 
     if (b.data.libraryId === null) {
@@ -3082,8 +3282,12 @@ export default async function adminRoutes(app: FastifyInstance) {
 
     const lib = await one<{ id: string }>('SELECT id FROM libraries WHERE id = $1', [b.data.libraryId]);
     if (!lib) return reply.code(404).send({ error: 'no_such_library' });
-    await q('UPDATE lib_series SET library_id = $2, library_pinned = true WHERE id = $1', [id, b.data.libraryId]);
-    await logAudit('series.library', { userId: userIdOf(req), detail: { id, libraryId: b.data.libraryId }, req });
+    const done = await putInLibrary([{ id, title: series.title, folder: series.folder }], b.data.libraryId, b.data.moveFiles !== false);
+    if (!done.applied) {
+      const why = done.problems[0];
+      return reply.code(409).send({ error: 'move_failed', message: why?.reason ?? 'The files could not be moved.', fix: why?.fix, problems: done.problems });
+    }
+    await logAudit('series.library', { userId: userIdOf(req), detail: { id, libraryId: b.data.libraryId, moveFiles: b.data.moveFiles !== false }, req });
     return { ok: true, pinned: true };
   });
 
@@ -3099,13 +3303,16 @@ export default async function adminRoutes(app: FastifyInstance) {
     const b = z.object({
       seriesIds: z.array(z.string().min(1).max(64)).min(1).max(500),
       libraryId: z.string().min(1).max(64).nullable(),
+      moveFiles: z.boolean().optional(),
     }).safeParse(req.body);
     if (!b.success) return reply.code(400).send({ error: 'bad_request' });
 
-    const found = await q<{ id: string; folder: string }>(
-      'SELECT id, folder FROM lib_series WHERE id = ANY($1)', [b.data.seriesIds]);
+    const found = await q<{ id: string; title: string; folder: string }>(
+      'SELECT id, title, folder FROM lib_series WHERE id = ANY($1)', [b.data.seriesIds]);
     const skipped = b.data.seriesIds.filter((id) => !found.some((f) => f.id === id)).map((id) => ({ id }));
 
+    let applied = found.length;
+    let problems: FolderMove[] = [];
     if (b.data.libraryId === null) {
       const libs = await libraryRows();
       for (const s of found) {
@@ -3115,12 +3322,40 @@ export default async function adminRoutes(app: FastifyInstance) {
     } else {
       const lib = await one<{ id: string }>('SELECT id FROM libraries WHERE id = $1', [b.data.libraryId]);
       if (!lib) return reply.code(404).send({ error: 'no_such_library' });
-      await q('UPDATE lib_series SET library_id = $2, library_pinned = true WHERE id = ANY($1)',
-        [found.map((s) => s.id), b.data.libraryId]);
+      const done = await putInLibrary(found, b.data.libraryId, b.data.moveFiles !== false);
+      applied = done.applied;
+      problems = done.problems;
     }
     await logAudit('series.library', {
-      userId: userIdOf(req), detail: { n: found.length, libraryId: b.data.libraryId }, req });
-    return { applied: found.length, skipped };
+      userId: userIdOf(req), detail: { n: applied, libraryId: b.data.libraryId, moveFiles: b.data.moveFiles !== false }, req });
+    return { applied, skipped, ...(problems.length ? { problems } : {}) };
+  });
+
+  // Add and/or remove genres on a whole selection. Written to series_overrides, the layer a scan never overwrites.
+  app.post('/api/admin/series/bulk/genres', async (req, reply) => {
+    const g = z.string().trim().min(1).max(60);
+    const b = z.object({
+      seriesIds: z.array(z.string().min(1).max(64)).min(1).max(500),
+      add: z.array(g).max(30).default([]),
+      remove: z.array(g).max(30).default([]),
+    }).safeParse(req.body);
+    if (!b.success || (!b.data.add.length && !b.data.remove.length)) return reply.code(400).send({ error: 'bad_request' });
+    const rows = await q<{ id: string; genres: string[] }>(
+      `SELECT s.id, COALESCE(NULLIF(o.genres, '{}'::text[]), s.genres, '{}') AS genres
+         FROM lib_series s LEFT JOIN series_overrides o ON o.series_id = s.id
+        WHERE s.id = ANY($1) AND ${visibleToAll('s')}`, [b.data.seriesIds]);
+    const drop = new Set(b.data.remove.map((x) => x.toLowerCase()));
+    let applied = 0;
+    for (const r of rows) {
+      const have = new Set(r.genres.map((x) => x.toLowerCase()));
+      const next = [...r.genres.filter((x) => !drop.has(x.toLowerCase())), ...b.data.add.filter((x) => !have.has(x.toLowerCase()) && !drop.has(x.toLowerCase()))];
+      if (next.length === r.genres.length && next.every((x, i) => x === r.genres[i])) continue;
+      await q(`INSERT INTO series_overrides (series_id, genres) VALUES ($1, $2::text[])
+               ON CONFLICT (series_id) DO UPDATE SET genres = $2::text[], updated_at = now()`, [r.id, next]);
+      applied++;
+    }
+    await logAudit('series.genres_bulk', { userId: userIdOf(req), detail: { n: rows.length, add: b.data.add, remove: b.data.remove }, req });
+    return { applied, skipped: b.data.seriesIds.length - rows.length };
   });
 
   app.post('/api/admin/series/:id/rename-folder', async (req, reply) => {
@@ -3159,9 +3394,10 @@ export default async function adminRoutes(app: FastifyInstance) {
   });
 
   app.get('/api/admin/libraries', async () => {
-    const rows = await q<{ id: string; name: string; path: string; paths: string[]; age_rating: number | null; anilist_lookup: boolean; reader_prefs: unknown; n: number; pinned: number; members: string[] }>(
+    await healFolderCase().catch(() => 0);
+    const rows = await q<{ id: string; name: string; path: string; paths: string[]; age_rating: number | null; anilist_lookup: boolean; default_visible: boolean; reader_prefs: unknown; n: number; pinned: number; members: string[] }>(
       // `paths`: every folder it holds (v0.55.1, #148), the first -- `path`, all a v0.55.0 reads -- first, then by name.
-      `SELECT l.id, l.name, l.path, l.age_rating, l.anilist_lookup, l.reader_prefs,
+      `SELECT l.id, l.name, l.path, l.age_rating, l.anilist_lookup, l.default_visible, l.reader_prefs,
               (SELECT coalesce(array_agg(lp.path ORDER BY lp.path <> l.path, lp.path), '{}') FROM library_paths lp
                 WHERE lp.library_id = l.id) AS paths,
               (SELECT count(*)::int FROM lib_series s WHERE s.library_id = l.id AND ${visibleToAll('s')}) AS n,
@@ -3175,7 +3411,7 @@ export default async function adminRoutes(app: FastifyInstance) {
                   AND (NOT EXISTS (SELECT 1 FROM user_libraries ul WHERE ul.user_id = u.id)
                        OR EXISTS (SELECT 1 FROM user_libraries ul WHERE ul.user_id = u.id AND ul.library_id = l.id))
               ) AS members
-         FROM libraries l ORDER BY l.sort_order, l.name`,
+         FROM libraries l ORDER BY (COALESCE(l.age_rating, 0) >= 18), lower(l.name)`,
     );
     // Candidate subdirectories: folders that hold series but are not yet a library. Annotated where the name
     // matches a known source, because that is the case an admin should NOT usually promote.
@@ -3304,6 +3540,8 @@ export default async function adminRoutes(app: FastifyInstance) {
       ageRating: z.number().int().min(0).max(18).nullable().optional(),
       // Automatic title/id enrichment only. Manual Admin Art, relink and tracker actions remain available.
       anilistLookup: z.boolean().optional(),
+      // Whether the library view starts with it selected.
+      defaultVisible: z.boolean().optional(),
       // Reading defaults for its series (lib/libraryReader.ts). null clears them.
       readerPrefs: LIBRARY_READER.nullable().optional(),
     }).safeParse(req.body);
@@ -3321,8 +3559,8 @@ export default async function adminRoutes(app: FastifyInstance) {
       // Checked under the lock, so two saves cannot both take one folder.
       const held = await heldElsewhere(qq, id, paths);
       if (held) return { held };
-      await qq(`INSERT INTO libraries (id, name, path, age_rating, anilist_lookup, reader_prefs) VALUES ($1,$2,$3,$4,$5,$6)`,
-        [id, b.data.name.trim(), paths[0], b.data.ageRating ?? null, b.data.anilistLookup ?? true, cleanLibraryReader(b.data.readerPrefs)]);
+      await qq(`INSERT INTO libraries (id, name, path, age_rating, anilist_lookup, default_visible, reader_prefs) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+        [id, b.data.name.trim(), paths[0], b.data.ageRating ?? null, b.data.anilistLookup ?? true, b.data.defaultVisible ?? true, cleanLibraryReader(b.data.readerPrefs)]);
       // Reassignment is deliberate and happens here, not in a scan: the scanner keeps an existing folder in
       // the library it is already in, precisely so it can never re-mint an id by recomputing. The longest folder
       // wins, so a new `Manga/Seinen` takes from `Manga` and never the other way, and a pinned series stays put:
@@ -3350,6 +3588,8 @@ export default async function adminRoutes(app: FastifyInstance) {
       ageRating: z.number().int().min(0).max(18).nullable().optional(),
       // false stops future implicit AniList calls for series currently in this library; it does not erase metadata.
       anilistLookup: z.boolean().optional(),
+      // Whether the library view starts with it selected.
+      defaultVisible: z.boolean().optional(),
       // Reading defaults for its series (lib/libraryReader.ts). null clears them.
       readerPrefs: LIBRARY_READER.nullable().optional(),
       // Who may see it. See the note below: this is not simply "insert a row".
@@ -3388,6 +3628,9 @@ export default async function adminRoutes(app: FastifyInstance) {
     }
     if (b.data.anilistLookup !== undefined) {
       await q('UPDATE libraries SET anilist_lookup = $2 WHERE id = $1', [id, b.data.anilistLookup]);
+    }
+    if (b.data.defaultVisible !== undefined) {
+      await q('UPDATE libraries SET default_visible = $2 WHERE id = $1', [id, b.data.defaultVisible]);
     }
     if (b.data.readerPrefs !== undefined) {
       await q('UPDATE libraries SET reader_prefs = $2 WHERE id = $1', [id, cleanLibraryReader(b.data.readerPrefs)]);
@@ -3436,6 +3679,129 @@ export default async function adminRoutes(app: FastifyInstance) {
 
     await logAudit('library.update', { userId: userIdOf(req), detail: { id, ...b.data, moved }, req });
     return { ok: true, moved };
+  });
+
+  // Gather every series of a library under one folder: <target>/<last segment of its current folder>. The source
+  // folder (`MangaDex/`) falls away, the title folder stays. dryRun answers what would happen and touches nothing.
+  app.post('/api/admin/libraries/:id/consolidate', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const b = z.object({ target: z.string().max(300), dryRun: z.boolean().optional() }).safeParse(req.body);
+    if (!b.success) return reply.code(400).send({ error: 'bad_request' });
+    if (!(await one('SELECT 1 FROM libraries WHERE id = $1', [id]))) return reply.code(404).send({ error: 'not_found' });
+    const typed = b.data.target.trim();
+    const stored = typed ? await storedFolders([typed]) : [];
+    if (!stored) return reply.code(400).send({ error: 'bad_path', message: 'Use a folder path relative to your library root.' });
+    const target = stored[0] ?? '';
+    const mine = (await q<{ path: string }>(
+      `SELECT path FROM library_paths WHERE library_id = $1 UNION SELECT path FROM libraries WHERE id = $1 AND path <> ''`, [id])).map((r) => r.path);
+    const others = (await q<{ path: string }>(
+      `SELECT path FROM library_paths WHERE library_id <> $1 UNION SELECT path FROM libraries WHERE id <> $1 AND path <> ''`, [id])).map((r) => r.path);
+    const under = (f: string, p: string) => f === p || f.startsWith(`${p}/`);
+    // A series keeps its library only if its new folder is still one of that library's: otherwise the next scan
+    // would hand it to a different library.
+    const stays = (dest: string) => id === 'lib' ? !others.some((p) => under(dest, p)) : mine.some((p) => under(dest, p));
+    if (!stays(target || 'x') && target) {
+      return reply.code(400).send({ error: 'outside_library', message: id === 'lib'
+        ? 'That folder belongs to another library.' : 'Pick a folder inside this library (one of its folders, or below one).' });
+    }
+
+    const rows = await q<{ id: string; title: string; folder: string }>(
+      `SELECT s.id, s.title, s.folder FROM lib_series s WHERE s.library_id = $1 AND ${visibleToAll('s')} ORDER BY s.folder`, [id]);
+    const takenRows = await q<{ folder: string; id: string; title: string }>(`SELECT s.folder, s.id, s.title FROM lib_series s WHERE ${visibleToAll('s')}`);
+    const taken = new Map(takenRows.map((r) => [r.folder, r.id]));
+    const titleOf = new Map(takenRows.map((r) => [r.folder, r.title]));
+    const claimedBy = new Map<string, string>();
+    const claimedDest = new Set<string>();
+    type Move = { id: string; title: string; from: string; to: string; status: 'planned' | 'same' | 'conflict' | 'outside' | 'moved' | 'refused'; reason?: string; fix?: string };
+    const moves: Move[] = rows.map((r) => {
+      const leaf = r.folder.slice(r.folder.lastIndexOf('/') + 1);
+      const to = target ? `${target}/${leaf}` : leaf;
+      const m: Move = { id: r.id, title: r.title, from: r.folder, to, status: 'planned' };
+      if (to === r.folder) m.status = 'same';
+      else if (!stays(to)) {
+        m.status = 'outside';
+        m.reason = `"${to}" is not inside one of this library's folders, so a later scan would hand the series to another library.`;
+        m.fix = 'Pick a gather folder that is inside this library.';
+      } else if (claimedDest.has(to.toLowerCase())) {
+        m.status = 'conflict';
+        m.reason = `Another series in this move ("${claimedBy.get(to.toLowerCase())}") also has the folder name "${leaf}", so both would land in "${to}".`;
+        m.fix = 'Rename one of the two folders, then run the gather again.';
+      } else if (taken.has(to) && taken.get(to) !== r.id) {
+        m.status = 'conflict';
+        m.reason = `"${to}" is already the folder of "${titleOf.get(to)}".`;
+        m.fix = 'Rename one of the two folders, or merge the series, then run the gather again.';
+      }
+      if (m.status === 'planned') { claimedDest.add(to.toLowerCase()); claimedBy.set(to.toLowerCase(), r.title); }
+      return m;
+    });
+
+    if (!b.data.dryRun) {
+      for (const m of moves) {
+        if (m.status !== 'planned') continue;
+        const claim = claimSeriesWriter([m.id], [m.from, m.to]);
+        if (!claim) { m.status = 'refused'; m.reason = 'Another task (a download, scan or rename) is using that series right now.'; m.fix = 'Try again when it has finished.'; continue; }
+        try {
+          const r = await renameSeriesFolder(m.id, m.to);
+          if (r.ok) m.status = 'moved'; else { m.status = 'refused'; m.reason = r.reason; m.fix = (r as { fix?: string }).fix; }
+        } catch (e) { m.status = 'refused'; m.reason = (e as Error).message; }
+        finally { claim.release(); }
+      }
+      // The folder the series were gathered into is one of the library's folders from now on, so the list shows
+      // where they went. Not for the default library (it has no list) and not when it already is one, or is
+      // another library's own folder.
+      const gathered = moves.some((m) => m.status === 'moved');
+      if (gathered && id !== 'lib' && target && !mine.includes(target) && !others.includes(target)) {
+        await q('INSERT INTO library_paths (library_id, path) VALUES ($1, $2) ON CONFLICT (path) DO NOTHING', [id, target]);
+      }
+      await logAudit('library.consolidate', {
+        userId: userIdOf(req), detail: { id, target, moved: moves.filter((m) => m.status === 'moved').length }, req });
+    }
+    const count = (st: Move['status']) => moves.filter((m) => m.status === st).length;
+    return {
+      dryRun: !!b.data.dryRun, target,
+      planned: count('planned'), moved: count('moved'), same: count('same'),
+      problems: moves.filter((m) => ['conflict', 'outside', 'refused'].includes(m.status)),
+      sample: moves.filter((m) => m.status === 'planned' || m.status === 'moved').slice(0, 5).map((m) => ({ from: m.from, to: m.to })),
+    };
+  });
+
+  // Before folders are taken out of a library: move the series that live in them to <target>/<series folder name>,
+  // so they are not handed to whichever library holds the old place. `folders` are the ones being removed, `keep`
+  // the ones the library will still hold. dryRun answers what would happen and touches nothing.
+  app.post('/api/admin/libraries/:id/relocate', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const b = z.object({
+      folders: z.array(z.string().max(300)).min(1).max(LIBRARY_MAX_FOLDERS),
+      keep: z.array(z.string().max(300)).max(LIBRARY_MAX_FOLDERS).optional(),
+      target: z.string().min(1).max(300),
+      dryRun: z.boolean().optional(),
+    }).safeParse(req.body);
+    if (!b.success) return reply.code(400).send({ error: 'bad_request' });
+    if (id === 'lib') return reply.code(400).send({ error: 'bad_request', message: 'The default library has no folder list.' });
+    if (!(await one('SELECT 1 FROM libraries WHERE id = $1', [id]))) return reply.code(404).send({ error: 'not_found' });
+    const target = (await storedFolders([b.data.target]))?.[0];
+    const leaving = await storedFolders(b.data.folders);
+    const keep = b.data.keep?.length ? (await storedFolders(b.data.keep)) : [];
+    if (!target || !leaving || !keep) return reply.code(400).send({ error: 'bad_path', message: 'Use a folder path relative to your library root.' });
+    const under = (f: string, p: string) => f === p || f.startsWith(`${p}/`);
+    // Not into a folder that is being removed, nor one the library keeps: that would not take them out.
+    if (leaving.some((p) => under(target, p))) return reply.code(400).send({ error: 'bad_path', message: 'Pick a folder outside the ones you are removing.' });
+    const all = await q<{ id: string; title: string; folder: string }>(
+      `SELECT s.id, s.title, s.folder FROM lib_series s WHERE s.library_id = $1 AND ${visibleToAll('s')} ORDER BY s.folder`, [id]);
+    const rows = all.filter((r) => leaving.some((p) => under(r.folder, p)) && !keep.some((p) => under(r.folder, p)));
+    const moves = await planFolderMoves(rows, target);
+    if (!b.data.dryRun) {
+      await runFolderMoves(moves);
+      await logAudit('library.relocate', {
+        userId: userIdOf(req), detail: { id, target, moved: moves.filter((m) => m.status === 'moved').length }, req });
+    }
+    const count = (st: FolderMove['status']) => moves.filter((m) => m.status === st).length;
+    return {
+      dryRun: !!b.data.dryRun, target, total: moves.length,
+      planned: count('planned'), moved: count('moved'),
+      problems: moves.filter((m) => m.status === 'conflict' || m.status === 'refused'),
+      sample: moves.filter((m) => m.status === 'planned' || m.status === 'moved').slice(0, 5).map((m) => ({ from: m.from, to: m.to })),
+    };
   });
 
   app.delete('/api/admin/libraries/:id', async (req, reply) => {
@@ -3548,6 +3914,26 @@ export default async function adminRoutes(app: FastifyInstance) {
     });
     await logAudit('series.art_override', { userId: userIdOf(req), detail: { id, kind, mode }, req });
     return { ok: true };
+  });
+
+  // Refresh the banner (Edit details > Banner > ...): look the series up online again and make the picture again from
+  // whatever it has now -- a new cover included. An uploaded banner is the admin's file, so there is nothing to refresh.
+  app.post('/api/admin/series/:id/banner/refresh', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const row = await getSeriesRow(id);
+    if (!row) return reply.code(404).send({ error: 'not_found' });
+    const ovr = await one<{ banner: string | null; cover: string | null }>('SELECT banner, cover FROM series_overrides WHERE series_id = $1', [id]);
+    if (ovr?.banner === 'upload') return reply.code(409).send({ error: 'not_refreshable', message: 'That banner is an uploaded file.' });
+    let found: 'banner' | 'cover' | null = null;
+    // A chosen banner (a link) is fetched again below; the lookup is for a banner nobody chose, and never for a series
+    // whose cover is its first page by choice, which keeps online art away (lib/seriesArt.ts FIRST_PAGE).
+    if (!ovr?.banner && ovr?.cover !== FIRST_PAGE) found = await huntArt({ id, title: row.title }).catch(() => null);
+    await q(
+      `INSERT INTO series_overrides (series_id, updated_at) VALUES ($1, now())
+       ON CONFLICT (series_id) DO UPDATE SET updated_at = now()`, [id],
+    );
+    await logAudit('series.banner_refresh', { userId: userIdOf(req), detail: { id, found }, req });
+    return { ok: true, found };
   });
 
   // The covers the sources this series uses have for it (#242), for the series page's Change cover. Each is answered by
@@ -4029,6 +4415,47 @@ export default async function adminRoutes(app: FastifyInstance) {
     return { ok: true, enabled: r.enabled, wiring: r.wiring };
   });
 
+  // The extensions in this server's repositories that would supply the sources a list import could not use (the list
+  // carries the exporter's package name, or only a source name for older files). Only reads the catalogue: installing
+  // is the catalogue's own install route, pressed per extension by the admin.
+  app.post('/api/admin/extensions/match', async (req, reply) => {
+    if (needExt(reply)) return;
+    const b = z.object({ sources: z.array(z.object({
+      source: z.string().min(1).max(200), name: z.string().max(200).nullish(), pkgName: z.string().max(200).nullish(),
+    })).max(200) }).safeParse(req.body);
+    if (!b.success) return reply.code(400).send({ error: 'bad_request' });
+    let all;
+    try { all = await listExtensions(); } catch (e) {
+      return reply.code(502).send({ error: 'unreachable', message: (e as Error)?.message || 'Could not reach the extension server.' });
+    }
+    const norm = (n: string) => n.replace(/^tachiyomi:\s*/i, '').replace(/\s\((?:[A-Z]{2,3}(?:-[A-Z]{2,4})?|ALL)\)$/, '').trim().toLowerCase();
+    const found = new Map<string, { pkgName: string; name: string; lang: string | null; nsfw: boolean; installed: boolean }>();
+    const unmatched: string[] = [];
+    for (const s of b.data.sources) {
+      const hit = (s.pkgName && all.find((e) => e.pkgName === s.pkgName))
+        || (s.name ? all.find((e) => !e.obsolete && norm(e.name) === norm(s.name!)) : undefined);
+      if (hit) found.set(hit.pkgName, { pkgName: hit.pkgName, name: hit.name, lang: hit.lang, nsfw: hit.nsfw, installed: hit.installed });
+      else unmatched.push(s.name || s.source);
+    }
+    return { content: [...found.values()], unmatched };
+  });
+
+  /**
+   * Keep every backup extension (fork): each becomes the admin's -- in Discover, never removed for being unused -- in one call, and
+   * the sources are reloaded once. The Extensions panel's "Keep all". A package that is not a backup is theirs already.
+   */
+  app.post('/api/admin/extensions/backups/keep-all', async (req, reply) => {
+    if (needExt(reply)) return;
+    const rows = await backupRows();
+    let kept = 0;
+    for (const [pkg, r] of rows) {
+      if (r.state !== 'active' && r.state !== 'trial') continue;
+      if (await adoptBackup(pkg, { userId: userIdOf(req), reload: false })) kept++;
+    }
+    if (kept) await reloadAll().catch(() => null);
+    return { ok: true, kept };
+  });
+
   app.post('/api/admin/extensions/catalog/:pkgName', async (req, reply) => {
     if (needExt(reply)) return;
     const { pkgName } = req.params as { pkgName: string };
@@ -4315,6 +4742,15 @@ export default async function adminRoutes(app: FastifyInstance) {
     await storeHealthSummary(report).catch(() => {});
     return report;
   });
+  /**
+   * Run ONE check again (the Recheck beside a finding): read-only, never stored, so the header summary keeps saying
+   * what the last full run said. `check` is null when the check has nothing to report any more.
+   */
+  app.post('/api/admin/health/recheck', async (req, reply) => {
+    const b = z.object({ check: z.enum(RECHECKABLE_CHECKS) }).safeParse(req.body ?? {});
+    if (!b.success) return reply.code(400).send({ error: 'bad_request', message: b.error.issues[0]?.message ?? 'Bad body' });
+    return { generatedAt: new Date().toISOString(), check: await recheckCheck(b.data.check) };
+  });
   // The header's question, answered from what is stored: never runs the checks (lib/healthSummary.ts).
   app.get('/api/admin/health/summary', async () => ({ summary: await readHealthSummary() }));
 
@@ -4559,7 +4995,7 @@ export default async function adminRoutes(app: FastifyInstance) {
       let capped = false;
       try {
         if (b.data.origin === 'tracker' || b.data.tracker) {
-          if (!b.data.tracker) return reply.code(400).send({ error: 'bad_request', message: 'Say which tracker to read: anilist, myanimelist or kitsu.' });
+          if (!b.data.tracker) return reply.code(400).send({ error: 'bad_request', message: 'Say which tracker to read: anilist, myanimelist, kitsu or mangaupdates.' });
           tracker = b.data.tracker;
           const read = await readTrackerList(userId, tracker, b.data.statuses ?? ['reading', 'plan_to_read']);
           if ('error' in read) return reply.code(read.status).send({ error: read.error, message: read.message });
@@ -5117,18 +5553,28 @@ export default async function adminRoutes(app: FastifyInstance) {
    */
   app.put('/api/admin/sources/:id/age-rating', async (req, reply) => {
     const { id } = req.params as { id: string };
-    const b = z.object({ ageRating: z.union([z.literal(ADULT_RATING), z.null()]) }).strict().safeParse(req.body ?? {});
+    // `mixed: true` (fork): rate the source Mixed -- still asked with Show 18+ off, each title judged on its own. Only a
+    // SURFACING choice; the age cap still refuses the whole source (sourceAllowedFor), and it excludes Adult only.
+    const b = z.object({ ageRating: z.union([z.literal(ADULT_RATING), z.null()]), mixed: z.boolean().optional() }).strict().safeParse(req.body ?? {});
     if (!b.success || !sanitiseSourceIds([id]).length) {
-      return reply.code(400).send({ error: 'bad_request', message: 'Send {ageRating: 18} or {ageRating: null}.' });
+      return reply.code(400).send({ error: 'bad_request', message: 'Send {ageRating: 18}, {ageRating: null} or {ageRating: null, mixed: true}.' });
     }
     const adult = b.data.ageRating === ADULT_RATING;
+    if (adult || !b.data.mixed) await rateSourceMixed(id, false);
+    if (b.data.mixed && !adult) {
+      const m = await rateSourceMixed(id, true);
+      if (!m) {
+        const said = say('rating.tooMany', { limit: MAX_ADULT_SOURCES });
+        return reply.code(409).send({ error: 'too_many', message: said.text, messageSaid: saidOf(said) });
+      }
+    }
     const list = await rateSourceAdult(id, adult);
     if (adult && !list) {
       const said = say('rating.tooMany', { limit: MAX_ADULT_SOURCES });
       return reply.code(409).send({ error: 'too_many', message: said.text, messageSaid: saidOf(said) });
     }
-    await logAudit('source.age_rating', { userId: userIdOf(req), detail: { source: id, ageRating: b.data.ageRating }, req });
-    return reply.send({ ok: true, ageRating: b.data.ageRating });
+    await logAudit('source.age_rating', { userId: userIdOf(req), detail: { source: id, ageRating: b.data.ageRating, mixed: !!b.data.mixed && !adult }, req });
+    return reply.send({ ok: true, ageRating: b.data.ageRating, mixed: !!b.data.mixed && !adult });
   });
 
   app.post('/api/admin/sources/:id/:action', async (req, reply) => {
