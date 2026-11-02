@@ -1634,6 +1634,17 @@ function ReaderInner() {
    * Do `action` (lib/readerKeys.ts). The keyboard, a controller and the tap zones all come here, so a page turn is the
    * same turn whatever asked for it. `tap` marks one that a double-click may still take back (onTrackDoubleClick).
    */
+  /**
+   * Back from the very first page: on to the last page of the previous chapter. Once a second at most, so a held key
+   * or a quick double tap while the new chapter loads (still "page 1") cannot run back through several chapters.
+   */
+  const lastHop = useRef(0);
+  const hopBack = () => {
+    if (!prevId || Date.now() - lastHop.current < 1000) return false;
+    lastHop.current = Date.now();
+    goChapter(prevId, true);
+    return true;
+  };
   const perform = (action: ReaderAction, o: { tap?: boolean } = {}) => {
     const el = scrollRef.current;
     if (PAGE_ACTIONS.has(action)) {
@@ -1658,11 +1669,14 @@ function ReaderInner() {
         // page's FIRST half, so from its second half the next press went back to the half already on screen.
         const last = Math.max(0, el.children.length - 1); // page slides, then Up Next / the failure card
         const from = slideNow();
+        // Back from the first page: the last page of the chapter before, as turning a book's page does.
+        if (d < 0 && from === 0 && hopBack()) return;
         const to = Math.max(0, Math.min(last, from + d));
         if (o.tap) acted.current = { kind: 'turn', slide: from, at: Date.now() };
         lastMoved.current = Date.now(); // before the first scroll event arrives
         el.scrollTo({ left: trackSign * to * (el.clientWidth || window.innerWidth), behavior });
       } else {
+        if (d < 0 && el.scrollTop <= 1 && hopBack()) return;
         // The column scrolls most of a screen, so a line of the page before stays in view.
         if (o.tap) acted.current = { kind: 'scroll', top: el.scrollTop, at: Date.now() };
         el.scrollBy({ top: d * el.clientHeight * 0.88, behavior });
