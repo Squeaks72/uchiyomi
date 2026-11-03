@@ -84,6 +84,7 @@ import commentRoutes from './routes/comments';
 import { isDesktop } from './lib/desktop';
 import { healFolderCase } from './lib/libraryFolders';
 import { installDesktopGuards } from './lib/desktopGuard';
+import { acceptChunkedNoBody } from './lib/chunkedNoBody';
 import { ensureDesktopUser } from './lib/desktopUser';
 import { initialiseBulkChapterDeleteRuns } from './lib/bulkChapterDelete';
 import { authFacts, authModeProblems, authModeWarnings } from './lib/authMode';
@@ -210,6 +211,8 @@ async function main() {
   // Desktop only: the Host allowlist (DNS rebinding) and the hidden routes, as one root onRequest hook that runs
   // ahead of every route, /livez included, and of every plugin's own auth (lib/desktopGuard.ts).
   if (isDesktop()) installDesktopGuards(app);
+  // A body-less POST from a proxy that frames it as chunked is not a body of an unknown type (lib/chunkedNoBody.ts).
+  acceptChunkedNoBody(app);
 
   /**
    * Liveness, deliberately separate from readiness.
