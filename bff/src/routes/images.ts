@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import sharp from 'sharp';
 import { IMG_COOKIE, API_TOKEN_PREFIX, resolveApiToken, resolveOpdsBasic, accountActive } from '../lib/auth';
@@ -684,6 +685,8 @@ const thumbWidth = (req: FastifyRequest): number => {
   const w = Number((req.query as any)?.w);
   return w === 800 || w === 1600 ? w : 400;
 };
+/** Eight hex digits of the cover URL's hash: the part of a thumbnail's cache key that follows the art it was made from. */
+const coverTag = (url: string): string => createHash('sha1').update(url).digest('hex').slice(0, 8);
 // Series cover: an admin's (an upload, a link, or the first page by choice), else the real cover art (the source's, or
 // AniList's when its entry is named as the series is, cached in series_art.cover); fall back to the first page of
 // chapter 1. Distinct cache variants so it upgrades to the real cover once one is known.
@@ -713,7 +716,9 @@ export const serveLibSeriesThumb = async (req: FastifyRequest, reply: FastifyRep
     'SELECT a.cover, s.source_id, a.rev FROM series_art a LEFT JOIN lib_series s ON s.id = a.series_id WHERE a.series_id = $1', [id]);
   if (art?.cover) {
     // `rev`: a cover replaced under the same series (backdropRecipe says why) is a new key; 0 keeps the one it was.
-    return serveImage(req, reply, `lib-sthumb:${id}:c${art.rev ? `:r${art.rev}` : ''}${wk}`, async () => {
+    // The cover's own address is in the key too: a series re-matched to another work changed `cover` without a `rev` bump, and the
+    // 400 px card kept the first work's art (cached 2026-09-21) while the 800/1600 px poster, cached later, showed the new one.
+    return serveImage(req, reply, `lib-sthumb:${id}:c${art.rev ? `:r${art.rev}` : ''}:u${coverTag(art.cover)}${wk}`, async () => {
       // remote cover first; on ANY failure (hotlink CDN, dead link, timeout) fall back to the first page
       const input = await seriesCoverInput(id, vc(req));
       storeColor(id, input);

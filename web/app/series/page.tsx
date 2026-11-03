@@ -1207,7 +1207,9 @@ function SeriesInner() {
   // already on screen. `ch-N` is the row's id; a chapter folded into a run has none and nothing happens.
   const arrivedAt = useRef<string | null>(null);
   useEffect(() => {
-    if (chapterPage === null || !resumeBook || wantCh !== null || arrivedAt.current === id) return;
+    // Nothing read yet: Continue is chapter 1, the last row of a newest-first list, and scrolling to it opened the page
+    // partway down with the title and Continue button already behind it.
+    if (chapterPage === null || !resumeBook || reading.kind === 'start' || wantCh !== null || arrivedAt.current === id) return;
     arrivedAt.current = id;
     requestAnimationFrame(() => requestAnimationFrame(() => {
       if (window.scrollY > 300) return;
@@ -1217,7 +1219,7 @@ function SeriesInner() {
       if (r.top >= 0 && r.bottom <= window.innerHeight - 96) return;
       el.scrollIntoView({ block: 'center', behavior: 'auto' });
     }));
-  }, [chapterPage, resumeBook, wantCh, id]);
+  }, [chapterPage, resumeBook, reading.kind, wantCh, id]);
   useEffect(() => {
     if (litCh === null) return;
     const t = setTimeout(() => setLitCh(null), 2600);
