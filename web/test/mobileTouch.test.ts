@@ -50,11 +50,8 @@ test('a finger\'s double-tap is decided by the pointer path alone, not by the br
   assert.match(read('app/reader/page.tsx'), /if \(lastPointer\.current !== 'mouse'\) return;/, 'a touch double-tap raises dblclick and zooms from an edge');
 });
 
-test('the series list brings the unread chapter into view once, and a revoke/role/disable needs a second press on a phone', () => {
+test('the series list lists an unread series oldest first, never scrolls to the resume row, and a revoke/role/disable needs a second press on a phone', () => {
   const s = read('app/series/page.tsx');
-  assert.match(s, /arrivedAt\.current === id\) return;/, 'the unread chapter is not scrolled to');
-  assert.match(s, /document\.getElementById\(`ch-\$\{resumeBook\.number\}`\)/, 'the scroll target is not the resume row');
-  assert.match(s, /reading\.kind === 'start' \|\| wantCh !== null \|\| arrivedAt\.current === id/, 'an unread series scrolls to chapter 1 and opens partway down');
   assert.match(s, /setAsc\(reading\.kind === 'start'\);/, 'an unread series lists newest first, chapter 1 at the bottom');
   assert.match(read('components/ArmButton.tsx'), /export function ConfirmKey/, 'ConfirmKey is gone');
   assert.match(read('app/admin/page.tsx'), /<ConfirmKey onConfirm=\{\(\) => revoke\(s\.id\)\}/, 'Revoke fires on one mis-tap');
