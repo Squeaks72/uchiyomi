@@ -55,6 +55,7 @@ test('the series list brings the unread chapter into view once, and a revoke/rol
   assert.match(s, /arrivedAt\.current === id\) return;/, 'the unread chapter is not scrolled to');
   assert.match(s, /document\.getElementById\(`ch-\$\{resumeBook\.number\}`\)/, 'the scroll target is not the resume row');
   assert.match(s, /reading\.kind === 'start' \|\| wantCh !== null \|\| arrivedAt\.current === id/, 'an unread series scrolls to chapter 1 and opens partway down');
+  assert.match(s, /setAsc\(reading\.kind === 'start'\);/, 'an unread series lists newest first, chapter 1 at the bottom');
   assert.match(read('components/ArmButton.tsx'), /export function ConfirmKey/, 'ConfirmKey is gone');
   assert.match(read('app/admin/page.tsx'), /<ConfirmKey onConfirm=\{\(\) => revoke\(s\.id\)\}/, 'Revoke fires on one mis-tap');
 });

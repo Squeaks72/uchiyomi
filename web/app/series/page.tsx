@@ -1220,6 +1220,14 @@ function SeriesInner() {
       el.scrollIntoView({ block: 'center', behavior: 'auto' });
     }));
   }, [chapterPage, resumeBook, reading.kind, wantCh, id]);
+  // A series nothing has been read in lists oldest first, so chapter 1 is the top row under Continue. Once per series and only
+  // when the books have loaded: the sort button is the reader's from then on.
+  const orderedFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!books || orderedFor.current === id) return;
+    orderedFor.current = id;
+    setAsc(reading.kind === 'start');
+  }, [books, reading.kind, id]);
   useEffect(() => {
     if (litCh === null) return;
     const t = setTimeout(() => setLitCh(null), 2600);
