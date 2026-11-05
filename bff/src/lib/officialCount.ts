@@ -2,11 +2,14 @@
 // for chapter 140 should never have been an error").
 //
 // Some sites list chapters the work does not have: a placeholder, a locked extra, a finale numbered past the end. The
-// updater tried those, the source refused them, and the refusal sat on Health as a failure nobody could fix. AniList knows
-// how many chapters a FINISHED work has, so that count is kept per series (series_official) and used two ways:
+// updater tried those, the source refused them, and the refusal sat on Health as a failure nobody could fix. MangaDex and AniList know
+// how many chapters a finished work has, so that count is kept per series (series_official) and used two ways:
 //   * a chapter numbered above it is never a failure while the series holds every official chapter already
 //     (beyondOfficial, and the cleanup below for rows already there);
 //   * Health's "Official chapter count" lists a finished series that holds fewer (lib/health.ts officialCount).
+//
+// The total is MangaDex's last chapter for a completed work when it has one (Attack on Titan: 139, the numbered chapters
+// alone), else AniList's chapter count for a FINISHED one (141: it also counts two extras).
 //
 // Only WHOLE chapters count, on both sides: AniList's count is of numbered chapters, so a held 139.5 (an extra) is not
 // one of them, and a series is never "complete" because it holds extras.
@@ -19,6 +22,7 @@ import { q } from './db';
 import { runtime } from './runtime';
 import { visibleToAll } from './visibility';
 import { searchAniListOfficial } from './anilist';
+import { searchMangaDexOfficial } from './sources/mangadex';
 import { namesOfMany } from './altTitles';
 import { namesMatch } from './onlineMatch';
 
@@ -72,7 +76,7 @@ export async function refreshOfficialCounts(o: { max?: number; maxAgeMs?: number
        JOIN libraries l ON l.id = s.library_id AND l.anilist_lookup
        LEFT JOIN series_official o ON o.series_id = s.id
       WHERE ${visibleToAll('s')}
-        AND (o.series_id IS NULL OR o.checked_at < now() - ($1::bigint * interval '1 millisecond'))
+        AND (o.series_id IS NULL OR o.source IS NULL OR o.checked_at < now() - ($1::bigint * interval '1 millisecond'))
       ORDER BY o.checked_at NULLS FIRST, s.title
       LIMIT $2`,
     [o.maxAgeMs ?? OFFICIAL_MAX_AGE_MS, o.max ?? MAX_PER_ROUND],
@@ -82,14 +86,19 @@ export async function refreshOfficialCounts(o: { max?: number; maxAgeMs?: number
   for (const r of rows) {
     if (runtime.stopping) break;
     const mine = [r.title, ...(names.get(r.id) ?? [])];
+    // MangaDex first: its last chapter is the numbered chapters alone (Attack on Titan: 139), where AniList's count also
+    // takes in extras (141). Best effort -- MangaDex failing leaves AniList's, which throws if it fails too.
+    const md = (await searchMangaDexOfficial(r.title).catch(() => [])).find((e) => namesMatch(mine, e.names));
+    const mdTotal = md && md.status === 'completed' ? md.lastChapter : null;
     const hit = (await searchAniListOfficial(r.title)).find((e) => namesMatch(mine, e.titles));
-    const total = hit && hit.status === 'FINISHED' ? hit.chapters : null;
+    const alTotal = hit && hit.status === 'FINISHED' ? hit.chapters : null;
+    const total = mdTotal ?? alTotal;
     if (total) counted++;
     await q(
-      `INSERT INTO series_official (series_id, anilist_id, total, status, checked_at) VALUES ($1, $2, $3, $4, now())
+      `INSERT INTO series_official (series_id, anilist_id, total, status, source, checked_at) VALUES ($1, $2, $3, $4, $5, now())
        ON CONFLICT (series_id) DO UPDATE SET anilist_id = EXCLUDED.anilist_id, total = EXCLUDED.total,
-         status = EXCLUDED.status, checked_at = now()`,
-      [r.id, hit ? String(hit.id) : null, total, hit?.status ?? null],
+         status = EXCLUDED.status, source = EXCLUDED.source, checked_at = now()`,
+      [r.id, hit ? String(hit.id) : null, total, hit?.status ?? md?.status ?? null, mdTotal ? 'mangadex' : 'anilist'],
     );
   }
   return { asked: rows.length, counted, cleared: await clearBeyondOfficial() };

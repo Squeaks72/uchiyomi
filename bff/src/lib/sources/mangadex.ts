@@ -215,6 +215,30 @@ export async function searchMangaDexWorks(title: string): Promise<MangaDexWork[]
   return out;
 }
 
+/** A MangaDex entry's publication state and its last chapter (lib/officialCount.ts). */
+export interface MangaDexOfficial { id: string; names: string[]; status: string | null; lastChapter: number | null }
+
+/**
+ * The entries a name may be, with MangaDex's `status` and `lastChapter` -- the number the work ends on, filled in by the
+ * community once it is completed (a whole number, or null for none or a fraction). Same search, limiter and failure rule
+ * as searchMangaDexWorks.
+ */
+export async function searchMangaDexOfficial(title: string): Promise<MangaDexOfficial[]> {
+  const s = title.trim();
+  if (!s) return [];
+  const j = await mdGet(`${API}/manga?title=${encodeURIComponent(s)}&limit=5&${RATINGS}&contentRating[]=pornographic`);
+  const out: MangaDexOfficial[] = [];
+  for (const m of j?.data || []) {
+    if (typeof m?.id !== 'string') continue;
+    const a = m.attributes || {};
+    const names = [...Object.values(a.title || {}), ...((a.altTitles || []) as any[]).flatMap((t) => Object.values(t || {}))]
+      .filter((n): n is string => typeof n === 'string' && !!n.trim());
+    const last = /^\d+$/.test(String(a.lastChapter ?? '')) ? Number(a.lastChapter) : null;
+    out.push({ id: m.id.toLowerCase(), names, status: typeof a.status === 'string' ? a.status : null, lastChapter: last && last > 0 ? last : null });
+  }
+  return out;
+}
+
 /**
  * Every name of many titles at once -- each language's title and every alternative title -- for the recheck of a
  * cover the art backfill took from a MangaDex search before the title check existed (v0.55.7, lib/matchCheck.ts).

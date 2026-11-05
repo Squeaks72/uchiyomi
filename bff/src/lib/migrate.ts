@@ -2328,6 +2328,9 @@ CREATE TABLE IF NOT EXISTS series_official (
   status     text,
   checked_at timestamptz NOT NULL DEFAULT now()
 );
+-- source: whose count it is ('mangadex' or 'anilist'). A row without one is from the first version, which took AniList's
+-- count alone -- 141 for Attack on Titan, whose 139 chapters AniList pads with two extras -- and is asked again.
+ALTER TABLE series_official ADD COLUMN IF NOT EXISTS source text;
 `;
 
 // Serialises migrate() across processes. CREATE TABLE IF NOT EXISTS is not safe to run concurrently:

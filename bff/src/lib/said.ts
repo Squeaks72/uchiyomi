@@ -300,7 +300,7 @@ const EN = {
   'official.none': () => 'Every finished series with a known total holds all of it',
   'official.detail': ({ have, total }: { have: number; total: number }) => `Holds up to chapter ${have}; ${total} chapters were officially published`,
   'official.note': () =>
-    "The total is AniList's chapter count for a finished series, taken only from an entry with the series' exact name. " +
+    "The total is the last chapter MangaDex gives a completed series (else AniList's chapter count), taken only from an entry with the series' exact name. " +
     'Half chapters and extras do not count toward it, and a chapter a site lists beyond it is never reported as a failure.',
   'dupes.note': () =>
     'Detected by two series matching the same AniList entry, so it catches copies added from different ' +
