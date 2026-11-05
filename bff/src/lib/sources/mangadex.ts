@@ -226,7 +226,8 @@ export interface MangaDexOfficial { id: string; names: string[]; status: string 
 export async function searchMangaDexOfficial(title: string): Promise<MangaDexOfficial[]> {
   const s = title.trim();
   if (!s) return [];
-  const j = await mdGet(`${API}/manga?title=${encodeURIComponent(s)}&limit=5&${RATINGS}&contentRating[]=pornographic`);
+  // Most followed first: by relevance alone the top five for "Attack on Titan" are doujinshi, and the work itself is not among them.
+  const j = await mdGet(`${API}/manga?title=${encodeURIComponent(s)}&limit=10&order[followedCount]=desc&${RATINGS}&contentRating[]=pornographic`);
   const out: MangaDexOfficial[] = [];
   for (const m of j?.data || []) {
     if (typeof m?.id !== 'string') continue;
