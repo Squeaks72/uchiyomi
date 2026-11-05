@@ -2,7 +2,7 @@
   "_meta": {
     "language": "pt-BR",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 5460
+    "strings": 5466
   },
   "1 check found something": "1 verificação encontrou algo",
   "1 member": "1 membro",
@@ -5463,5 +5463,11 @@
   "Pull the new image and recreate the container on your host, keeping the same volumes (back up /data first)": "Baixe a nova imagem e recrie o contêiner no seu host, mantendo os mesmos volumes (faça backup de /data antes)",
   "Could not change the bookmark": "Não foi possível alterar o marcador",
   "Bookmarked · page {n}": "Marcador adicionado · página {n}",
-  "Bookmark removed · page {n}": "Marcador removido · página {n}"
+  "Bookmark removed · page {n}": "Marcador removido · página {n}",
+  "Official chapter count": "Contagem oficial de capítulos",
+  "1 finished series holds fewer chapters than were officially published": "1 série finalizada tem menos capítulos do que os publicados oficialmente",
+  "{n} finished series hold fewer chapters than were officially published": "{n} séries finalizadas têm menos capítulos do que os publicados oficialmente",
+  "Every finished series with a known total holds all of it": "Toda série finalizada com total conhecido está completa",
+  "Holds up to chapter {have}; {total} chapters were officially published": "Tem até o capítulo {have}; {total} capítulos foram publicados oficialmente",
+  "The total is AniList's chapter count for a finished series, taken only from an entry with the series' exact name. Half chapters and extras do not count toward it, and a chapter a site lists beyond it is never reported as a failure.": "O total é a contagem de capítulos do AniList para uma série finalizada, tomada apenas de uma entrada com o nome exato da série. Meios capítulos e extras não contam, e um capítulo que um site liste além dele nunca é relatado como falha."
 }

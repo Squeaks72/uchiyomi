@@ -58,6 +58,7 @@ import { diskAndFolders } from './healthDisk';
 import { trackerSync } from './healthTrackers';
 import { chapterFiles, recountUnreadable } from './healthFiles';
 import { folderPermissions } from './healthPermissions';
+import { officialShortfalls } from './officialCount';
 
 /**
  * SEVERITY. `problem` is red, in the header's marker, the banner and the Admin entry: CRITICAL, meaning library
@@ -1624,6 +1625,34 @@ export async function duplicateSeries(ctx: IgnoreCtx = noIgnores()): Promise<Hea
   };
 }
 
+/**
+ * A finished series that holds fewer chapters than were officially published (lib/officialCount.ts): its highest whole
+ * chapter is below AniList's total. Only the END is judged here -- a hole inside the held range is Chapter gaps' --
+ * and only whole chapters count, so a held extra (139.5) never makes up for a missing 139. A warning, not critical: the
+ * total is another service's count, and a site that numbers by season or volume can disagree with it.
+ */
+async function officialCountCheck(): Promise<HealthCheck> {
+  const rows = await officialShortfalls();
+  const items: HealthItem[] = rows.map((r) => ({
+    seriesId: r.id,
+    title: r.title,
+    key: `series:${r.id}`,
+    members: [],
+    actions: ['find_sources'] as HealthAction[],
+    findScope: 'series' as const,
+    ...detailOf([say('official.detail', { have: r.top, total: r.total })]),
+  }));
+  const { items: shown, hidden } = truncate(items);
+  return {
+    id: 'official-count',
+    title: 'Official chapter count',
+    status: verdict(items),
+    ...summaryOf([items.length ? say('official.live', { n: items.length }) : say('official.none')]),
+    ...noteOf([say('official.note'), hiddenPart(hidden)]),
+    items: shown,
+  };
+}
+
 // median, impossibleLimit and plausibleNumbers live beside the held numbers they judge (lib/libraryNumbers.ts, #240):
 // a number hidden by hand closes a hole only between plausible numbers. Exported from here too, as they always were.
 export { impossibleLimit, plausibleNumbers } from './libraryNumbers';
@@ -2310,6 +2339,7 @@ export async function runHealthChecks(opts: { bySeries?: boolean } = {}): Promis
     outlierChapters(held, ctx),
     savedTwice(ctx),
     duplicateSeries(ctx),
+    officialCountCheck().catch(() => null),
     sourceTrouble(ctx),
     chapterFailures(ctx),
     frozenSeries(ctx),
@@ -2400,13 +2430,18 @@ async function seriesOfSourceRows(checks: readonly HealthCheck[]): Promise<Array
     const rows = await q<{
       series_id: string; source_id: string; title: string; chapters: number; since: string; last_at: string; attempts: number; capped: number;
       latest_number: number; latest_status: string; latest_reason: string | null;
+      failed: Array<{ number: number; status: string; reason: string | null; attempts: number }>;
     }>(
       `SELECT f.series_id, f.source_id, ls.title, count(*)::int AS chapters,
               min(COALESCE(f.first_at, f.at)) AS since, max(f.at) AS last_at, max(f.attempts)::int AS attempts,
               count(*) FILTER (WHERE f.attempts >= CASE WHEN $2 AND f.status IN ('rate_limited', 'blocked') THEN $3::int ELSE $4::int END)::int AS capped,
               (array_agg(f.number ORDER BY f.at DESC))[1] AS latest_number,
               (array_agg(f.status ORDER BY f.at DESC))[1] AS latest_status,
-              (array_agg(f.reason ORDER BY f.at DESC))[1] AS latest_reason
+              (array_agg(f.reason ORDER BY f.at DESC))[1] AS latest_reason,
+              -- This series' own chapters at this source, the newest few: the keys under the row (Skip, Fetch now), as on the source's card.
+              (SELECT COALESCE(json_agg(x), '[]'::json) FROM (
+                 SELECT f2.number, f2.status, f2.reason, f2.attempts FROM chapter_failures f2
+                  WHERE f2.series_id = f.series_id AND f2.source_id = f.source_id ORDER BY f2.at DESC, f2.number LIMIT 8) x) AS failed
          FROM chapter_failures f JOIN lib_series ls ON ls.id = f.series_id AND ${visibleToAll('ls')}
         WHERE f.source_id = ANY($1::text[])
         GROUP BY f.series_id, f.source_id, ls.title
@@ -2425,6 +2460,11 @@ async function seriesOfSourceRows(checks: readonly HealthCheck[]): Promise<Array
           // Find other source: a source that will not give this series its chapters is one to add another to, for this series alone.
           actions: ['retry', 'find_sources'] as HealthAction[],
           findScope: 'series' as const,
+          // The same lines, with the same Skip and Fetch now, as under the source's row on the By check view.
+          failed: (r.failed ?? []).map((c): FailedChapter => ({
+            seriesId: r.series_id, title: r.title, number: Number(c.number), status: c.status, reason: c.reason ? String(c.reason).slice(0, 200) : null,
+            attempts: c.attempts, waiting: c.status === 'rate_limited' || (c.status === 'moved' && c.attempts === 0),
+          })),
           outcome: { kind: 'failures' as const, firstAt: new Date(r.since).toISOString(), lastAt: new Date(r.last_at).toISOString(), attempts: r.attempts, resetPending: r.attempts === 0 },
           ...detailOf([say('failures.detail', {
             n: r.chapters, series: 1, since: new Date(r.since).toISOString(), tries: r.attempts, capped: r.capped, cap: CHAPTER_RETRY_CAP,

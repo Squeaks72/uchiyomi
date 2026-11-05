@@ -2,7 +2,7 @@
   "_meta": {
     "language": "es",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 5460
+    "strings": 5466
   },
   "1 check found something": "1 comprobación encontró algo",
   "1 member": "1 miembro",
@@ -5463,5 +5463,11 @@
   "Pull the new image and recreate the container on your host, keeping the same volumes (back up /data first)": "Descarga la nueva imagen y recrea el contenedor en tu host con los mismos volúmenes (haz antes una copia de /data)",
   "Could not change the bookmark": "No se pudo cambiar el marcador",
   "Bookmarked · page {n}": "Marcador añadido · página {n}",
-  "Bookmark removed · page {n}": "Marcador quitado · página {n}"
+  "Bookmark removed · page {n}": "Marcador quitado · página {n}",
+  "Official chapter count": "Número oficial de capítulos",
+  "1 finished series holds fewer chapters than were officially published": "1 serie terminada tiene menos capítulos de los publicados oficialmente",
+  "{n} finished series hold fewer chapters than were officially published": "{n} series terminadas tienen menos capítulos de los publicados oficialmente",
+  "Every finished series with a known total holds all of it": "Toda serie terminada con total conocido está completa",
+  "Holds up to chapter {have}; {total} chapters were officially published": "Tiene hasta el capítulo {have}; se publicaron oficialmente {total} capítulos",
+  "The total is AniList's chapter count for a finished series, taken only from an entry with the series' exact name. Half chapters and extras do not count toward it, and a chapter a site lists beyond it is never reported as a failure.": "El total es el número de capítulos de AniList para una serie terminada, tomado solo de una entrada con el nombre exacto de la serie. Los medios capítulos y los extras no cuentan, y un capítulo que un sitio liste más allá nunca se notifica como fallo."
 }

@@ -35,6 +35,13 @@ test('the checks an admin must act on are critical on the server (bff lib/health
   assert.match(src, /id: 'frozen-series',[\s\S]{0,200}status: stuck \? 'problem'/, 'a series that cannot update is critical');
 });
 
+test('the official count is of whole chapters from 1: neither a .5 extra nor a Chapter 0 counts toward it (bff lib/officialCount.ts)', () => {
+  const src = readFileSync(join(__dirname, '../../bff/src/lib/officialCount.ts'), 'utf8');
+  const held = src.match(/b\.number >= 1 AND b\.number = floor\(b\.number\)/g) ?? [];
+  assert.equal(held.length, 2, 'both the held count and the shortfall list take whole chapters from 1 only');
+  assert.doesNotMatch(src, /floor\(b\.number\)\)\s*\)?\s*(>=|<)/, 'a half chapter must not be rounded up to its whole number');
+});
+
 test('a dismissal remembers the checks: one going quiet brings nothing back, a new or worse one does (v0.48.3)', async () => {
   const { seenValue, prunedSeen } = await import('../lib/healthAlert');
   const two = summary({ key: 'ab', checks: [

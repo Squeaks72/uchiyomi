@@ -2318,6 +2318,16 @@ ALTER TABLE series_art ADD COLUMN IF NOT EXISTS rev integer NOT NULL DEFAULT 0;
 -- 1 is v0.55.7's, under which every link stored before was checked; below the current rule, the next background pass
 -- holds every automatic link to it once, checked or not.
 ALTER TABLE server_settings ADD COLUMN IF NOT EXISTS match_check_rule smallint NOT NULL DEFAULT 1;
+
+-- How many chapters a series officially has, once it is finished (lib/officialCount.ts): AniList's count, taken only from an
+-- entry whose name IS one of the series' names. total is null while the work is ongoing or AniList gives no count. Additive.
+CREATE TABLE IF NOT EXISTS series_official (
+  series_id  text PRIMARY KEY,
+  anilist_id text,
+  total      integer,
+  status     text,
+  checked_at timestamptz NOT NULL DEFAULT now()
+);
 `;
 
 // Serialises migrate() across processes. CREATE TABLE IF NOT EXISTS is not safe to run concurrently:

@@ -33,7 +33,7 @@ const CHECK_TITLE_KEYS = keys(
   'Source health', 'Duplicate series', 'Impossible chapter numbers', 'Cloudflare solver', 'Version',
   'Extension source limit', 'Library scan', 'Downloads missing from the library', 'Extension engine', 'Chapter numbering',
   'The same chapter saved twice', 'Folders scanned twice', 'Disk space and folders', 'Tracker sync', 'Chapter files',
-  'Folder permissions',
+  'Folder permissions', 'Official chapter count',
 );
 export const CHECK_TITLES: Readonly<Record<string, (typeof CHECK_TITLE_KEYS)[number]>> = {
   'chapter-gaps': CHECK_TITLE_KEYS[0],
@@ -63,6 +63,8 @@ export const CHECK_TITLES: Readonly<Record<string, (typeof CHECK_TITLE_KEYS)[num
   files: CHECK_TITLE_KEYS[18],
   // Series folders the server cannot write to (bff lib/healthPermissions.ts).
   permissions: CHECK_TITLE_KEYS[19],
+  // Finished series holding fewer chapters than AniList says were published (bff lib/officialCount.ts).
+  'official-count': CHECK_TITLE_KEYS[20],
 };
 
 export function checkTitle(c: Pick<HealthCheck, 'id' | 'title'>): string {

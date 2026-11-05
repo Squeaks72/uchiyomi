@@ -2,7 +2,7 @@
   "_meta": {
     "language": "ja",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 5460
+    "strings": 5466
   },
   "1 check found something": "1 件のチェックで問題を検出",
   "1 member": "メンバー 1 人",
@@ -5463,5 +5463,11 @@
   "Pull the new image and recreate the container on your host, keeping the same volumes (back up /data first)": "新しいイメージを取得し、同じボリュームでホスト上のコンテナを再作成してください（先に /data をバックアップ）",
   "Could not change the bookmark": "ブックマークを変更できませんでした",
   "Bookmarked · page {n}": "ブックマークしました · {n} ページ",
-  "Bookmark removed · page {n}": "ブックマークを外しました · {n} ページ"
+  "Bookmark removed · page {n}": "ブックマークを外しました · {n} ページ",
+  "Official chapter count": "公式の話数",
+  "1 finished series holds fewer chapters than were officially published": "完結済みの1作品で、公式に公開された話数より少なくなっています",
+  "{n} finished series hold fewer chapters than were officially published": "完結済みの{n}作品で、公式に公開された話数より少なくなっています",
+  "Every finished series with a known total holds all of it": "総数が分かっている完結済み作品はすべて揃っています",
+  "Holds up to chapter {have}; {total} chapters were officially published": "第{have}話まで所持。公式には{total}話が公開されています",
+  "The total is AniList's chapter count for a finished series, taken only from an entry with the series' exact name. Half chapters and extras do not count toward it, and a chapter a site lists beyond it is never reported as a failure.": "総数は完結済み作品についてAniListが示す話数で、作品名が完全に一致する項目からのみ採用します。半話や特別編は数えず、それを超えてサイトが掲載する話が失敗として報告されることはありません。"
 }
