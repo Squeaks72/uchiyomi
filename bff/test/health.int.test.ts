@@ -194,7 +194,7 @@ test('a series with no working source is listed, one with a working source is no
     const check = report.checks.find((c: any) => c.id === 'frozen-series');
     assert.ok(check, 'the check exists');
     assert.ok(await assertSaid(report.checks) > 0);
-    assert.equal(check.status, 'warn');
+    assert.equal(check.status, 'problem');
     const titles = check.items.map((i: any) => i.title);
     assert.ok(titles.includes('Frozen Fixture'), `the frozen series is named: ${titles.join(', ')}`);
     assert.ok(!titles.includes('Routed Fixture'), 'a series whose adapter is loaded is not');
@@ -255,7 +255,7 @@ test('a dead primary with a live follower is reference, not a warning; with a de
     assert.notEqual(orphaned.info, true, 'and it is a real finding');
     const up = await frozenSeries(noIgnores(), 'up');
     assert.match(up.items.find((i) => i.title === 'Orphaned Fixture')!.detail, /sw:777777777 is no longer installed/);
-    assert.equal(check.status, 'warn');
+    assert.equal(check.status, 'problem');
   } finally {
     for (const id of [S_COVERED, S_ORPHANED]) await q('DELETE FROM lib_series WHERE id = $1', [id]);
   }

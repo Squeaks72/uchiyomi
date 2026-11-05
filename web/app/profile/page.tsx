@@ -11,6 +11,7 @@ import { useSectionArrival } from '@/lib/useSectionArrival';
 import { useReduceEffects } from '@/lib/effects';
 import { Avatar } from '@/components/Avatar';
 import { ConsoleFootRow, ConsoleLayout, type PageView } from '@/components/ConsoleLayout';
+import { CriticalDot, useCriticalHealth } from '@/components/HealthAlert';
 import { HouseBoard } from '@/components/HouseBoard';
 import { SpineWall } from '@/components/SpineWall';
 import { TraceStrip } from '@/components/TraceStrip';
@@ -470,9 +471,10 @@ function YouBoard({ history }: { history?: HistoryRow[] }) {
  */
 function FootRows({ isAdmin }: { isAdmin: boolean }) {
   const { logout } = useAuth();
+  const critical = useCriticalHealth();
   return (
     <div className="card grad-border overflow-hidden rounded-2xl p-1.5" data-console-foot>
-      {isAdmin && <ConsoleFootRow href="/admin/" icon={<IcSettings width={18} height={18} />} label={tr('Admin')} />}
+      {isAdmin && <ConsoleFootRow href="/admin/" icon={<span className="relative"><IcSettings width={18} height={18} />{critical && <CriticalDot className="-end-1 -top-1" />}</span>} label={tr('Admin')} />}
       <ConsoleFootRow href="https://ko-fi.com/angeloshaheen" external
         icon={<span className="text-base leading-none">☕</span>} label={tr('Support Uchiyomi')} />
       {/* Not on desktop: the app signs itself back in at once, so "Sign out" there would do nothing visible. */}

@@ -59,6 +59,15 @@ import { trackerSync } from './healthTrackers';
 import { chapterFiles, recountUnreadable } from './healthFiles';
 import { folderPermissions } from './healthPermissions';
 
+/**
+ * SEVERITY. `problem` is red, in the header's marker, the banner and the Admin entry: CRITICAL, meaning library
+ * content is missing or cannot arrive and only an admin can put it right -- a gap in a series, chapters that keep
+ * failing, a series that can no longer update, files gone from disk, a library the scan cannot read, a full disk,
+ * an impossible or truncated chapter. `warn` is amber: DEGRADED or untidy but nothing is missing and most of it
+ * mends itself or can wait -- a blocked or rate-limited source (another one serves), duplicates, numbering hints,
+ * covers and details, tracker sync, the engine or solver being down (the series it strands are reported as
+ * frozen, critically). Before making a check `problem`, ask whether the admin would want to be interrupted for it.
+ */
 export type HealthStatus = 'ok' | 'warn' | 'problem';
 
 /**
@@ -684,7 +693,8 @@ async function chapterGaps(held: HeldSeries[], ctx: IgnoreCtx = noIgnores()): Pr
   return withAll({
     id: 'chapter-gaps',
     title: 'Chapter gaps',
-    status: verdict(items),
+    // Critical: a hole in a series is missing content nobody will notice until they read past it (see SEVERITY).
+    status: verdict(items, 'problem'),
     ...summaryOf([
       live ? say('gaps.live', { n: live }) : say('gaps.none'),
       quiet > 0 && say('gaps.quiet', { n: quiet }),
@@ -1034,7 +1044,8 @@ async function chapterFailures(ctx: IgnoreCtx = noIgnores()): Promise<HealthChec
   return {
     id: 'chapter-failures',
     title: 'Chapters that would not download',
-    status: verdict(all),
+    // Critical: chapters that exhausted their retries are missing content until somebody acts (see SEVERITY).
+    status: verdict(all, 'problem'),
     ...summaryOf([
       live.length ? say('failures.live', { n: total, m: live.length })
         : waiting ? say('failures.waiting', { n: waiting }) : say('failures.none'),
@@ -1210,7 +1221,8 @@ export async function frozenSeries(
   return withAll({
     id: 'frozen-series',
     title: 'Series that can no longer update',
-    status: stuck ? 'warn' : 'ok',
+    // Critical: a series that cannot update silently stops getting chapters (see SEVERITY).
+    status: stuck ? 'problem' : 'ok',
     ...summaryOf([
       stuck ? say('frozen.live', { n: stuck }) : say('frozen.none'),
       covered.length > 0 && say('frozen.covered', { n: covered.length }),

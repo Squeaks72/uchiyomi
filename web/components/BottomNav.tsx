@@ -11,6 +11,7 @@ import { useLayer } from '@/lib/layers';
 import { useDownloadsRing } from '@/lib/useServerDownloads';
 import { LibraryTabIcon } from './DownloadsRing';
 import { MoreSheet } from './MoreSheet';
+import { CriticalDot, useCriticalHealth } from './HealthAlert';
 import { moreMatch } from '@/lib/moreMenu';
 
 // `keys()` is the identity function; it exists so these reach the translation extractor, which
@@ -34,6 +35,7 @@ export function BottomNav() {
   const path = usePathname();
   const { user, status } = useAuth();
   const [more, setMore] = useState(false);
+  const critical = useCriticalHealth(); // admins only: the query is disabled for everyone else
   // Any navigation closes the sheet (its links also close it on tap; this covers back/forward and the palette).
   useEffect(() => { setMore(false); }, [path]);
   // On the notices' layer stack (lib/layers.ts): with the nav up, a notice sits above it rather than under it,
@@ -71,6 +73,7 @@ export function BottomNav() {
                 )}
                 <span className={`relative z-10 transition ${active ? 'text-accent' : 'text-fog-400 group-active:text-fog-200'}`}>
                   {ringed ? <LibraryTabIcon ring={ring}><Icon width={22} height={22} /></LibraryTabIcon> : <Icon width={22} height={22} />}
+                  {isMore && critical && <CriticalDot className="-end-0.5 -top-0.5" />}
                 </span>
                 <span className={`relative z-10 whitespace-nowrap text-xs font-medium ${active ? 'text-accent' : 'text-fog-300'}`}>{tr(label)}</span>
               </>

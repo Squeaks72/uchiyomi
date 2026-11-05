@@ -9,6 +9,7 @@ import { moreEntries, type MoreKey } from '@/lib/moreMenu';
 import { openPalette } from '@/lib/palette';
 import { Avatar } from './Avatar';
 import { QuickSettingsSheet } from './ProfileMenu';
+import { CriticalDot, useCriticalHealth } from './HealthAlert';
 
 const ICONS: Record<MoreKey, (p: { width: number; height: number }) => React.ReactElement> = {
   lists: IcBookmark, favorites: IcHeart, updates: IcBell, moments: IcMoments, history: IcClock, wrapped: IcSparkle,
@@ -26,6 +27,7 @@ const ICONS: Record<MoreKey, (p: { width: number; height: number }) => React.Rea
 export function MoreSheet({ onClose }: { onClose: () => void }) {
   const { user, isAdmin, status } = useAuth();
   const [quick, setQuick] = useState(false);
+  const critical = useCriticalHealth();
   const entries = moreEntries({ admin: isAdmin, mayDownload: status === 'authed' && canDownload(user) });
   const row = 'flex w-full items-center gap-3 rounded-xl px-2 py-3 text-start text-sm text-fog-100 hover:bg-ink-800/70 active:bg-ink-800';
   const chip = 'grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-ink-700 text-fog-300';
@@ -45,7 +47,10 @@ export function MoreSheet({ onClose }: { onClose: () => void }) {
           return (
             <li key={e.key}>
               <Link href={e.href} onClick={onClose} data-more={e.key} className={row}>
-                <span className={chip}><Icon width={18} height={18} /></span>
+                <span className={`${chip} relative`}>
+                  <Icon width={18} height={18} />
+                  {e.key === 'admin' && critical && <CriticalDot className="-end-1 -top-1" />}
+                </span>
                 <span className="min-w-0 flex-1 truncate">{e.label}</span>
                 <IcChevronRight width={16} height={16} aria-hidden className="shrink-0 text-fog-400 rtl:-scale-x-100" />
               </Link>
