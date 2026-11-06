@@ -2533,6 +2533,8 @@ export const RECHECKABLE_CHECKS = [
   // The row's Recheck on these three used to answer "Invalid option": they are in the full run and have rows with a Recheck, but were
   // never in this list.
   'disk', 'trackers', 'files', 'permissions',
+  // Added with its check, which a Recheck answered "Invalid option" until it was listed here (healthAlert.test.ts keeps the two in step).
+  'official-count',
 ] as const;
 export type RecheckableCheck = typeof RECHECKABLE_CHECKS[number];
 
@@ -2563,6 +2565,7 @@ export async function recheckCheck(id: RecheckableCheck): Promise<HealthCheck | 
     case 'disk': return diskAndFolders(ctx).catch(() => null);
     case 'trackers': return trackerSync(ctx).catch(() => null);
     case 'permissions': return folderPermissions(ctx).catch(() => null);
+    case 'official-count': return officialCountCheck().catch(() => null);
     // Recheck here means looking again: the flagged files are counted again first (a few hundred), so a file that was stamped
     // unreadable by a failed read, not by being broken, leaves the card.
     case 'files': await recountUnreadable({ max: 1000 }).catch(() => null); return chapterFiles(ctx).catch(() => null);

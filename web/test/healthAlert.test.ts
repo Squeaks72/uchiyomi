@@ -42,6 +42,17 @@ test('the official count is of whole chapters from 1: neither a .5 extra nor a C
   assert.doesNotMatch(src, /floor\(b\.number\)\)\s*\)?\s*(>=|<)/, 'a half chapter must not be rounded up to its whole number');
 });
 
+test('every card on the Health page can be rechecked: its id is in the server\'s RECHECKABLE_CHECKS', async () => {
+  const src = readFileSync(join(__dirname, '../../bff/src/lib/health.ts'), 'utf8');
+  const list = src.match(/export const RECHECKABLE_CHECKS = \[([\s\S]*?)\] as const/)![1];
+  const listed = new Set([...list.matchAll(/'([a-z-]+)'/g)].map((m) => m[1]));
+  const { CHECK_TITLES } = await import('../lib/healthCopy');
+  for (const id of Object.keys(CHECK_TITLES)) {
+    assert.ok(listed.has(id), `"${id}" has a card with a Recheck, but the route answers it "Invalid option"`);
+    assert.match(src, new RegExp(`case '${id}':`), `"${id}" is listed but recheckCheck has no case for it`);
+  }
+});
+
 test('a dismissal remembers the checks: one going quiet brings nothing back, a new or worse one does (v0.48.3)', async () => {
   const { seenValue, prunedSeen } = await import('../lib/healthAlert');
   const two = summary({ key: 'ab', checks: [
