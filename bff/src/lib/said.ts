@@ -296,12 +296,6 @@ const EN = {
   // ---- Duplicate series
   'dupes.live': ({ n }: { n: number }) => `${n} title${s(n, ' appears', 's appear')} to be in the library twice`,
   'dupes.none': () => 'No duplicates found',
-  'official.live': ({ n }: { n: number }) => `${n} finished series ${s(n, 'holds', 'hold')} fewer chapters than were officially published`,
-  'official.none': () => 'Every finished series with a known total holds all of it',
-  'official.detail': ({ have, total }: { have: number; total: number }) => `Holds up to chapter ${have}; ${total} chapters were officially published`,
-  'official.note': () =>
-    "The total is the last chapter MangaDex gives a completed series (else AniList's chapter count), taken only from an entry with the series' exact name. " +
-    'Half chapters and extras do not count toward it, and a chapter a site lists beyond it is never reported as a failure.',
   'dupes.note': () =>
     'Detected by two series matching the same AniList entry, so it catches copies added from different ' +
     'sources under different names. Progress tracking works best with one copy of each. Merging is one-way and ' +

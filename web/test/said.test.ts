@@ -29,7 +29,7 @@ const ISO = '2026-09-23T14:20:00.000Z';
  * every counted pair are said. A new parameter name fails until it has one here.
  */
 const SAMPLE: Record<string, (c: number) => unknown> = {
-  n: (c) => c, m: (c) => c, w: (c) => c, total: (c) => c, have: (c) => c, pages: (c) => c, tries: (c) => c, capped: (c) => c, series: (c) => c,
+  n: (c) => c, m: (c) => c, w: (c) => c, total: (c) => c, pages: (c) => c, tries: (c) => c, capped: (c) => c, series: (c) => c,
   books: (c) => c, checked: (c) => c, more: (c) => (c === 1 ? 0 : 2),
   extras: () => 4, posts: () => 13, most: () => 5, number: () => 12, done: () => 2, cap: () => 5, max: () => 6, top: () => 9001,
   median: () => 40, seconds: () => 30, days: () => 9,

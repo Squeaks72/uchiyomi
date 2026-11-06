@@ -38,7 +38,7 @@ test('the checks an admin must act on are critical on the server (bff lib/health
 test('the official count is of whole chapters from 1: neither a .5 extra nor a Chapter 0 counts toward it (bff lib/officialCount.ts)', () => {
   const src = readFileSync(join(__dirname, '../../bff/src/lib/officialCount.ts'), 'utf8');
   const held = src.match(/b\.number >= 1 AND b\.number = floor\(b\.number\)/g) ?? [];
-  assert.equal(held.length, 2, 'both the held count and the shortfall list take whole chapters from 1 only');
+  assert.equal(held.length, 1, 'the held count takes whole chapters from 1 only');
   assert.doesNotMatch(src, /floor\(b\.number\)\)\s*\)?\s*(>=|<)/, 'a half chapter must not be rounded up to its whole number');
 });
 

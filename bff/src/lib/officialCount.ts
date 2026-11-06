@@ -3,10 +3,11 @@
 //
 // Some sites list chapters the work does not have: a placeholder, a locked extra, a finale numbered past the end. The
 // updater tried those, the source refused them, and the refusal sat on Health as a failure nobody could fix. MangaDex and AniList know
-// how many chapters a finished work has, so that count is kept per series (series_official) and used two ways:
+// how many chapters a finished work has, so that count is kept per series (series_official) and used for one thing:
 //   * a chapter numbered above it is never a failure while the series holds every official chapter already
-//     (beyondOfficial, and the cleanup below for rows already there);
-//   * Health's "Official chapter count" lists a finished series that holds fewer (lib/health.ts officialCount).
+//     (beyondOfficial, and the cleanup below for rows already there).
+// It is deliberately NOT used to warn that a series holds FEWER: both numbers are of the original publication, not of an
+// English release, and a library of English chapters would be told about every series whose translation lags it.
 //
 // The total is MangaDex's last chapter for a completed work when it has one (Attack on Titan: 139, the numbered chapters
 // alone), else AniList's chapter count for a FINISHED one (141: it also counts two extras).
@@ -102,18 +103,4 @@ export async function refreshOfficialCounts(o: { max?: number; maxAgeMs?: number
     );
   }
   return { asked: rows.length, counted, cleared: await clearBeyondOfficial() };
-}
-
-export interface Shortfall { id: string; title: string; total: number; top: number }
-
-/** Finished series whose highest WHOLE chapter is below the official total, worst (furthest short) first. */
-export async function officialShortfalls(): Promise<Shortfall[]> {
-  return q<Shortfall>(
-    `SELECT s.id, s.title, o.total, COALESCE(t.top, 0)::int AS top
-       FROM series_official o JOIN lib_series s ON s.id = o.series_id AND ${visibleToAll('s')}
-       LEFT JOIN LATERAL (SELECT max(b.number) AS top FROM lib_books b
-                           WHERE b.series_id = s.id AND b.pruned_at IS NULL AND b.number >= 1 AND b.number = floor(b.number)) t ON true
-      WHERE o.total IS NOT NULL AND COALESCE(t.top, 0) < o.total
-      ORDER BY o.total - COALESCE(t.top, 0) DESC, s.title`,
-  );
 }

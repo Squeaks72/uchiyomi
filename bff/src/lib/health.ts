@@ -58,7 +58,6 @@ import { diskAndFolders } from './healthDisk';
 import { trackerSync } from './healthTrackers';
 import { chapterFiles, recountUnreadable } from './healthFiles';
 import { folderPermissions } from './healthPermissions';
-import { officialShortfalls } from './officialCount';
 
 /**
  * SEVERITY. `problem` is red, in the header's marker, the banner and the Admin entry: CRITICAL, meaning library
@@ -1625,34 +1624,6 @@ export async function duplicateSeries(ctx: IgnoreCtx = noIgnores()): Promise<Hea
   };
 }
 
-/**
- * A finished series that holds fewer chapters than were officially published (lib/officialCount.ts): its highest whole
- * chapter is below AniList's total. Only the END is judged here -- a hole inside the held range is Chapter gaps' --
- * and only whole chapters count, so a held extra (139.5) never makes up for a missing 139. A warning, not critical: the
- * total is another service's count, and a site that numbers by season or volume can disagree with it.
- */
-async function officialCountCheck(): Promise<HealthCheck> {
-  const rows = await officialShortfalls();
-  const items: HealthItem[] = rows.map((r) => ({
-    seriesId: r.id,
-    title: r.title,
-    key: `series:${r.id}`,
-    members: [],
-    actions: ['find_sources'] as HealthAction[],
-    findScope: 'series' as const,
-    ...detailOf([say('official.detail', { have: r.top, total: r.total })]),
-  }));
-  const { items: shown, hidden } = truncate(items);
-  return {
-    id: 'official-count',
-    title: 'Official chapter count',
-    status: verdict(items),
-    ...summaryOf([items.length ? say('official.live', { n: items.length }) : say('official.none')]),
-    ...noteOf([say('official.note'), hiddenPart(hidden)]),
-    items: shown,
-  };
-}
-
 // median, impossibleLimit and plausibleNumbers live beside the held numbers they judge (lib/libraryNumbers.ts, #240):
 // a number hidden by hand closes a hole only between plausible numbers. Exported from here too, as they always were.
 export { impossibleLimit, plausibleNumbers } from './libraryNumbers';
@@ -2339,7 +2310,6 @@ export async function runHealthChecks(opts: { bySeries?: boolean } = {}): Promis
     outlierChapters(held, ctx),
     savedTwice(ctx),
     duplicateSeries(ctx),
-    officialCountCheck().catch(() => null),
     sourceTrouble(ctx),
     chapterFailures(ctx),
     frozenSeries(ctx),
@@ -2533,8 +2503,6 @@ export const RECHECKABLE_CHECKS = [
   // The row's Recheck on these three used to answer "Invalid option": they are in the full run and have rows with a Recheck, but were
   // never in this list.
   'disk', 'trackers', 'files', 'permissions',
-  // Added with its check, which a Recheck answered "Invalid option" until it was listed here (healthAlert.test.ts keeps the two in step).
-  'official-count',
 ] as const;
 export type RecheckableCheck = typeof RECHECKABLE_CHECKS[number];
 
@@ -2565,7 +2533,6 @@ export async function recheckCheck(id: RecheckableCheck): Promise<HealthCheck | 
     case 'disk': return diskAndFolders(ctx).catch(() => null);
     case 'trackers': return trackerSync(ctx).catch(() => null);
     case 'permissions': return folderPermissions(ctx).catch(() => null);
-    case 'official-count': return officialCountCheck().catch(() => null);
     // Recheck here means looking again: the flagged files are counted again first (a few hundred), so a file that was stamped
     // unreadable by a failed read, not by being broken, leaves the card.
     case 'files': await recountUnreadable({ max: 1000 }).catch(() => null); return chapterFiles(ctx).catch(() => null);

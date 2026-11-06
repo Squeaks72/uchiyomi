@@ -460,10 +460,6 @@ const WORDS: Record<string, (p: P) => string | null> = {
   // ---- Duplicate series
   'dupes.live': (p) => (num(p, 'n') === 1 ? tr('1 title appears to be in the library twice') : tr('{n} titles appear to be in the library twice', { n: num(p, 'n') })),
   'dupes.none': () => tr('No duplicates found'),
-  'official.live': (p) => (num(p, 'n') === 1 ? tr('1 finished series holds fewer chapters than were officially published') : tr('{n} finished series hold fewer chapters than were officially published', { n: num(p, 'n') })),
-  'official.none': () => tr('Every finished series with a known total holds all of it'),
-  'official.detail': (p) => tr('Holds up to chapter {have}; {total} chapters were officially published', { have: num(p, 'have'), total: num(p, 'total') }),
-  'official.note': () => tr("The total is the last chapter MangaDex gives a completed series (else AniList's chapter count), taken only from an entry with the series' exact name. Half chapters and extras do not count toward it, and a chapter a site lists beyond it is never reported as a failure."),
   'dupes.note': () => tr('Detected by two series matching the same AniList entry, so it catches copies added from different sources under different names. Progress tracking works best with one copy of each. Merging is one-way and never automatic: the nightly repair leaves these alone and you confirm each one.'),
   'dupes.same': () => tr('Same AniList entry'),
   'dupes.copies': (p) => tr('{n} copies — merge them one pair at a time', { n: num(p, 'n') }),
