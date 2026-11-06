@@ -827,7 +827,8 @@ function DiscoverInner() {
               <option value="author">{tr('Author')}</option>
               <option value="artist">{tr('Artist')}</option>
             </select>
-            <div className="field flex min-w-0 flex-1 items-center gap-2 py-0 sm:w-72 lg:w-80">
+            {/* Fork: a phone gives the box its own row. flex-1's basis of 0 never made this row wrap, so the keys beside it squeezed the box to nothing. */}
+            <div className="field flex min-w-0 flex-1 items-center gap-2 py-0 max-sm:order-first max-sm:max-w-none max-sm:basis-full sm:w-72 lg:w-80">
               <IcSearch width={17} height={17} className="shrink-0 text-fog-500" />
               <input value={q} onChange={(e) => setQ(e.target.value)} enterKeyHint="search" autoComplete="off"
                 onKeyDown={(e) => { if (e.key === 'Escape') backToNewest(); }}
@@ -839,7 +840,7 @@ function DiscoverInner() {
                 </button>
               )}
             </div>
-            <button type="submit" className="btn-accent shrink-0 px-5 py-2.5 text-sm">{tr('Search')}</button>
+            <button type="submit" className="btn-accent shrink-0 px-5 py-2.5 text-sm max-sm:flex-1">{tr('Search')}</button>
             <button type="button" onClick={() => setTagsOpen((o) => !o)} aria-expanded={tagsOpen} data-tags-toggle
               className={`chip shrink-0 py-2.5 text-sm ${tagsOpen ? 'border-accent/60 text-fog-50' : ''}`}>{tr('Tags')}</button>
           </form>
