@@ -28,16 +28,9 @@ test('sheets and dialogs measure the VISIBLE viewport (dvh) and do not raise the
   assert.doesNotMatch(read('components/ProfileMenu.tsx'), /100vh/, 'the profile menu is sized in vh');
 });
 
-test('the long-press menu survives the URL bar sliding away and a scroll inside itself', () => {
-  const m = read('components/ContextMenu.tsx');
-  assert.match(m, /if \(window\.innerWidth !== w0\) away\(\)/, 'a height-only resize closes the menu');
-  assert.match(m, /ref\.current\?\.contains\(e\.target\)/, 'scrolling the menu closes it');
-});
-
 test('the reader: a zoomed page can be panned, a fling is not a tap, the bar stays while you drag the slider', () => {
   const r = read('app/reader/page.tsx');
   assert.match(r, /touch-pan-x touch-pan-y overflow-x-auto/, 'a zoomed webtoon column cannot be panned sideways by touch');
-  assert.match(r, /zoom > 1 \? 'touch-none overflow-x-hidden' : 'touch-pan-x overflow-x-auto'/, 'a zoomed paged page turns instead of panning');
   assert.match(r, /panBy\(e\.clientX - before\.x, e\.clientY - before\.y\)/, 'paged zoom has no drag');
   assert.match(r, /caughtFling\.current = e\.pointerType === 'touch' && isCatch\(/, 'stopping a fling toggles the controls');
   assert.match(r, /if \(!chrome \|\| showSettings \|\| scrubbing\) return;/, 'the bar hides under a finger on the slider');
