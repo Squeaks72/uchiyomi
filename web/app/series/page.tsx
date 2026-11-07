@@ -41,6 +41,8 @@ import { GHOST_CAP, mergeRows, whyLabel, runLabel, chunkNumbers, countsAsBehind,
 import { chParam, landingNumber } from '@/lib/healthLinks';
 import { effectsReduced } from '@/lib/effects';
 import { clampPage, numberingSpan, pageCount, pageLabel, pageOf, pageSizeFor, pageSlice } from '@/lib/chapterPages';
+import { setVolumeView, volumeViewOn } from '@/lib/volumes';
+import { VolumeList, volumesQuery } from '@/components/VolumeList';
 import { openRuns, showAllChaptersOn } from '@/lib/showAllChapters';
 import { hideReadOn, setHideReadOn } from '@/lib/hideRead';
 import { buttonsClass, compactChaptersOn, dotHide, rowClass, thumbHide } from '@/lib/compactChapters';
@@ -815,6 +817,8 @@ function SeriesInner() {
   const wantPlan = useSearchParams().get('numbering') === 'review';
   // A new comment's push (v0.87.0, bff lib/comments.ts conversationPush): that chapter's talk, open on arrival.
   const wantTalk = useSearchParams().get('comments');
+  // Fork: a volume-complete push opens the Volumes view (components/VolumeList.tsx).
+  const wantVolumes = useSearchParams().get('view') === 'volumes';
   const router = useRouter();
   const qc = useQueryClient();
   const toast = useToast();
@@ -929,6 +933,13 @@ function SeriesInner() {
   useTitleArtPolling(id, series ? [series] : [], refetchTitleArt, authStatus !== 'offline' && wide);
   const { data: libraries } = useLibraries();
   const { data: books } = useQuery({ ...seriesBooksQuery(id), enabled: !!id });
+  // Fork: the series' volumes and arcs, and whether this account waits for whole volumes of it (lib/volumes.ts). The
+  // list shows by volume when this device chose so for this series, when a link asked, or -- never chosen -- while the
+  // account waits for volumes.
+  const { data: volumes } = useQuery({ ...volumesQuery(id), enabled: !!id });
+  const [byVolume, setByVolume] = useState(false);
+  useEffect(() => { setByVolume(wantVolumes || (volumeViewOn(id) ?? !!volumes?.waiting)); }, [id, wantVolumes, volumes?.waiting]);
+  const volumesOffered = byVolume || isAdmin || !!(volumes && (volumes.volumes.length || volumes.arcs.length));
   // v0.87.0: which chapters have talk, and how much (GET /api/series/:id/comments); nothing while `on` is false, and never
   // asked on Uchiyomi Desktop, where the route does not exist. v0.90.0: nor by an account that switched Comments and
   // reactions off (lib/comments.ts talkWantedOf).
@@ -2105,6 +2116,12 @@ function SeriesInner() {
         <div data-chapter-toolbar className="flex flex-wrap items-center gap-1.5">
           <button onClick={markAllRead} className="btn-key">{tr('Mark all read')}</button>
           <button onClick={() => setAsc((a) => !a)} className="btn-key">{asc ? tr('Oldest') : tr('Newest')}</button>
+          {volumesOffered && (
+            <button onClick={() => { const next = !byVolume; setByVolume(next); setVolumeView(id, next); }} aria-pressed={byVolume} data-by-volume
+              className={`btn-key whitespace-nowrap ${byVolume ? 'btn-key-accent' : ''}`}>
+              {tr('Volumes')}
+            </button>
+          )}
           {/* Hide what is finished: this device's choice, kept (lib/hideRead.ts). Only offered once something is read. */}
           {(hideRead || readCount.read > 0) && (
             <button onClick={() => { const next = !hideRead; setHideRead(next); setHideReadOn(next); }} aria-pressed={hideRead} data-hide-read
@@ -2148,6 +2165,16 @@ function SeriesInner() {
           {rows.length === 0 ? tr('Every chapter is read. Choose Show read to see them again.') : tr('{n} read chapters hidden', { n: readCount.read })}
         </p>
       )}
+      {byVolume ? (
+        <VolumeList seriesId={id} books={books?.content ?? []} isAdmin={isAdmin}
+          onRead={(b) => router.push(`/reader/?book=${b.id}`)}
+          onMarkRead={async (list) => {
+            if (!list.length) return;
+            toast(markingText(list.length), 'info', { busy: true, key: 'mark-read' });
+            await setRead(list, true);
+            toast(tr('Marked {n} read', { n: list.length }), 'success', { key: 'mark-read' });
+          }} />
+      ) : (<>
       {pages > 1 && <ChapterPager page={shownPage} pages={pages} rows={rows} asc={asc} onPage={(p) => goPage(p, false)} />}
       <div className={chapterRowsClass(view)} data-chapter-rows={view} style={colW && colW > CHAPTER_COL_MIN ? ({ '--chap-col': `${colW}px`, ...(colW > CHAPTER_COL_STRETCH ? { '--chap-max': `${Math.round(colW * 1.15)}px` } : {}) } as React.CSSProperties) : undefined}>
         {pageRows.map((r) => {
@@ -2235,6 +2262,7 @@ function SeriesInner() {
         {!books && Array.from({ length: 8 }).map((_, i) => <div key={i} className="skeleton my-3 h-6 rounded" />)}
       </div>
       {pages > 1 && <ChapterPager page={shownPage} pages={pages} rows={rows} asc={asc} onPage={(p) => goPage(p, true)} />}
+      </>)}
     </div>
   );
 

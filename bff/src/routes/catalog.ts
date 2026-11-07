@@ -49,6 +49,9 @@ import { heldRecs, relatedFor } from '../lib/anilistRelated';
 import { seriesGaps } from '../lib/seriesGaps';
 import { favoriteOrder } from '../lib/favorites';
 import { join } from 'node:path';
+import { refreshVolumes, setManual, volumesFor } from '../lib/volumes';
+import { setWaitsForVolumes, waitsForVolumes } from '../lib/volumes/watch';
+import { parseManual } from '../lib/volumes/units';
 
 
 
@@ -778,6 +781,49 @@ export default async function catalogRoutes(app: FastifyInstance) {
     await komga.series(vc(req), id);
     if (!OWNED) return { titles: null };
     return { titles: await otherTitlesFor(id) };
+  });
+
+  // Fork: a series' volumes and arcs (lib/volumes) -- the series page's Volumes view, and the account's "wait for whole
+  // volumes" switch. Behind the same gate as the series: `komga.series` answers 404 for one this viewer cannot open.
+  // The admin's own text (`manual`) goes to admins only, as everything an admin edits here does.
+  app.get('/api/series/:id/volumes', async (req) => {
+    const { id } = req.params as { id: string };
+    await komga.series(vc(req), id);
+    if (!OWNED) return { source: 'none', page: null, volumes: [], arcs: [], manual: null, checkedAt: null, waiting: false };
+    const v = await volumesFor(id);
+    return { ...v, manual: actsAsAdmin(req) ? v.manual : null, waiting: await waitsForVolumes(userIdOf(req), id) };
+  });
+
+  app.put('/api/series/:id/volumes/wait', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const p = z.object({ on: z.boolean() }).safeParse(req.body);
+    if (!p.success) return reply.code(400).send({ error: 'bad_request', message: 'Send { on: true } or { on: false }' });
+    await komga.series(vc(req), id);
+    if (!OWNED) return reply.code(404).send({ error: 'not_found' });
+    await setWaitsForVolumes(userIdOf(req), id, p.data.on);
+    return { waiting: p.data.on };
+  });
+
+  app.post('/api/series/:id/volumes/refresh', async (req, reply) => {
+    if (!actsAsAdmin(req)) return reply.code(403).send({ error: 'forbidden' });
+    const { id } = req.params as { id: string };
+    await komga.series(vc(req), id);
+    if (!OWNED) return reply.code(404).send({ error: 'not_found' });
+    const v = await refreshVolumes(id);
+    return { ...v, waiting: await waitsForVolumes(userIdOf(req), id) };
+  });
+
+  app.put('/api/series/:id/volumes/manual', async (req, reply) => {
+    if (!actsAsAdmin(req)) return reply.code(403).send({ error: 'forbidden' });
+    const { id } = req.params as { id: string };
+    const p = z.object({ text: z.string().max(50_000).nullable() }).safeParse(req.body);
+    if (!p.success) return reply.code(400).send({ error: 'bad_request', message: 'Send { text } or { text: null }' });
+    await komga.series(vc(req), id);
+    if (!OWNED) return reply.code(404).send({ error: 'not_found' });
+    const errors = parseManual(p.data.text).errors;
+    if (errors.length) return reply.code(400).send({ error: 'bad_lines', message: `Line ${errors.slice(0, 5).join(', ')} could not be read`, lines: errors });
+    const v = await setManual(id, p.data.text);
+    return { ...v, waiting: await waitsForVolumes(userIdOf(req), id) };
   });
 
   app.get('/api/series/:id/books', async (req) => {

@@ -11,6 +11,7 @@ import { noteChapterFailure } from './chapterFailures';
 import { budgetFor } from './sources/budget';
 import { notifyNewChapter } from './push';
 import { sendDigest, type Landed as DigestSeries } from './notify';
+import { checkCompletions } from './volumes';
 import { visibleToAll } from './visibility';
 import { runtime } from './runtime';
 import { chooseReleases, copiesOf, notifiableOf, releaseOrder } from './releases';
@@ -1428,6 +1429,8 @@ export function runSweep(
       // ten seconds and a retry to answer must not hold `runtime.updating` for the next tick -- and it never
       // throws. A per-series "check now" does not come through here, so it sends nothing.
       void sendDigest(r.newChapters ?? []).catch(() => {});
+      // Fork: a volume or arc the sweep's chapters completed (lib/volumes) -- after the scan, so they are held.
+      void checkCompletions((r.newChapters ?? []).map((x) => x.id));
       return r;
     } catch (e) {
       // The rule the backup path already follows: the panel must not keep showing the last good run as if it

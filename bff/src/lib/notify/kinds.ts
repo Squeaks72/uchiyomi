@@ -10,16 +10,20 @@
  * Declined, with the reasons given on the issue: Telegram (a chat id obtained by hand through getUpdates, and
  * the bot token sits in the URL path) and SMTP (a new dependency, server/port/TLS/auth configuration, and the
  * largest support burden in self-hosted software). The generic webhook reaches both through a bridge.
+ *
+ * Fork: SMTP after all, as `email` -- the owner's server already has a mail account it sends from. It is not an
+ * HTTP POST, so it has no `buildRequest`; `emailMessage` shapes it and lib/notify/email.ts sends it. The address is
+ * `smtps://host:465` (TLS from the first byte) or `smtp://host:587` (STARTTLS, required); the password is the token.
  */
 import { effectivePort, refusal, safeUrl } from './guard';
 
-export const KINDS = ['webhook', 'home_assistant', 'ntfy', 'discord'] as const;
+export const KINDS = ['webhook', 'home_assistant', 'ntfy', 'discord', 'email'] as const;
 export type Kind = (typeof KINDS)[number];
-export const EVENTS = ['new_chapters', 'health'] as const;
+export const EVENTS = ['new_chapters', 'health', 'volume_complete'] as const;
 export type NotifyEvent = (typeof EVENTS)[number];
 
 /** Sealed into notify_targets.secret: every address and every token. */
-export interface TargetSecret { url: string; token?: string; topic?: string }
+export interface TargetSecret { url: string; token?: string; topic?: string; /** email */ username?: string; from?: string; to?: string[] }
 /** notify_targets.config: nothing here lets anyone post to the target. */
 export interface TargetConfig { display: string; service?: string; hasToken?: boolean }
 
@@ -38,7 +42,7 @@ export type Invalid = { ok: false; error: string; message: string };
 export type Validated = { ok: true; secret: TargetSecret; config: TargetConfig } | Invalid;
 
 /** What an admin typed for one target. Every field is optional here; each kind says which it needs. */
-export interface TargetInput { url?: string; token?: string | null; topic?: string; service?: string }
+export interface TargetInput { url?: string; token?: string | null; topic?: string; service?: string; username?: string; from?: string; to?: string }
 
 const bad = (error: string, message: string): Invalid => ({ ok: false, error, message });
 const BAD_URL = bad('bad_url', 'That address is not a valid http(s) URL');
@@ -79,6 +83,28 @@ function token(raw: string | null | undefined, required: boolean): string | unde
   return t;
 }
 
+/** One mailbox, plainly: no display name, no comments, no second address hiding behind a comma or a newline. */
+export const MAILBOX = /^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]{1,64}@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+$/;
+/** The most recipients one email target may have. */
+export const MAX_RECIPIENTS = 5;
+
+/** An SMTP server address: `smtps://host[:port]` or `smtp://host[:port]`, nothing after the port. */
+export function smtpUrl(raw: string | undefined): URL | null {
+  if (typeof raw !== 'string' || !raw.trim() || raw.length > 300) return null;
+  let u: URL;
+  try { u = new URL(raw.trim()); } catch { return null; }
+  if (u.protocol !== 'smtp:' && u.protocol !== 'smtps:') return null;
+  if (u.username || u.password || u.search || u.hash || (u.pathname && u.pathname !== '/')) return null;
+  if (!u.hostname || !/^[A-Za-z0-9.-]{1,253}$|^\[[0-9a-fA-F:.]+\]$/.test(u.hostname)) return null;
+  return u;
+}
+export const smtpPort = (u: URL): number => Number(u.port) || (u.protocol === 'smtps:' ? 465 : 587);
+/** Where an email target sends from, for the "a credential never follows the address" rule: host and port. */
+export const smtpEndpoint = (raw: string | undefined): string | null => {
+  const u = smtpUrl(raw);
+  return u ? `${u.protocol}//${u.hostname.toLowerCase()}:${smtpPort(u)}` : null;
+};
+
 const isInvalid = (v: unknown): v is Invalid => !!v && typeof v === 'object' && (v as Invalid).ok === false;
 
 /**
@@ -117,6 +143,29 @@ export function validateTarget(kind: Kind, input: TargetInput): Validated {
       }
       return { ok: true, secret: { url: `${u.origin}${u.pathname}` }, config: { display: maskUrl(u) } };
     }
+    case 'email': {
+      const u = smtpUrl(input.url);
+      if (!u) return bad('bad_smtp', 'The mail server looks like smtps://smtp.gmail.com:465 or smtp://mail.example.com:587');
+      const host = u.hostname.toLowerCase().replace(/^\[|\]$/g, '');
+      // The metadata rule every other kind follows (guard.ts), on the host as typed.
+      const why = refusal(new URL(`https://${u.hostname}:${smtpPort(u)}`));
+      if (why === 'blocked') return bad('blocked_address', 'That address belongs to a cloud metadata service and is refused');
+      const username = (input.username ?? '').trim();
+      if (username.length > 254 || /[\r\n]/.test(username)) return bad('bad_username', 'That user name is not valid');
+      const t = token(input.token, false); if (isInvalid(t)) return t;
+      const to = [...new Set((input.to ?? '').split(/[\s,;]+/).map((x) => x.trim()).filter(Boolean))];
+      if (!to.length || to.length > MAX_RECIPIENTS || !to.every((x) => MAILBOX.test(x))) {
+        return bad('bad_recipient', `Send to one to ${MAX_RECIPIENTS} email addresses, separated by commas`);
+      }
+      const from = (input.from ?? '').trim() || (MAILBOX.test(username) ? username : '');
+      if (!MAILBOX.test(from)) return bad('bad_sender', 'The sender must be an email address (usually the account you sign in with)');
+      const url = `${u.protocol}//${u.hostname}:${smtpPort(u)}`;
+      return {
+        ok: true,
+        secret: { url, ...(username ? { username } : {}), ...(t ? { token: t } : {}), from, to },
+        config: { display: `${u.protocol}//${host}:${smtpPort(u)} → ${to.join(', ')}`, hasToken: !!t },
+      };
+    }
   }
 }
 
@@ -143,6 +192,7 @@ const json = (extra: Record<string, string> = {}) => ({ 'content-type': 'applica
  * which the caller treats like a secret it cannot read: no request.
  */
 export function buildRequest(kind: Kind, secret: TargetSecret, config: TargetConfig, msg: Message): OutboundRequest | null {
+  if (kind === 'email') return null; // not an HTTP POST: emailMessage + lib/notify/email.ts
   const u = safeUrl(secret.url);
   if (!u) return null;
   const bearer: Record<string, string> = secret.token && TOKEN.test(secret.token) ? { authorization: `Bearer ${secret.token}` } : {};
@@ -173,4 +223,22 @@ export function buildRequest(kind: Kind, secret: TargetSecret, config: TargetCon
       return { url: `${u.origin}${u.pathname}`, headers: json(), body: JSON.stringify({ content: content.length > 2000 ? `${content.slice(0, 1999)}…` : content, allowed_mentions: { parse: [] } }) };
     }
   }
+}
+
+export interface EmailMessage { subject: string; text: string }
+
+/**
+ * One notification as an email: the subject is the server's name and the message's first line, the body the message.
+ * Plain text only -- a scraped title in HTML is a link someone else wrote. Line breaks in the subject are spaces, so a
+ * title cannot add a header.
+ */
+export function emailMessage(msg: Message): EmailMessage {
+  const first = msg.message.split('\n')[0] ?? '';
+  const subject = `${msg.title}: ${first}`.replace(/[\r\n\u0000-\u001f\u007f]+/g, ' ').slice(0, 200);
+  const lines = [msg.message];
+  if (msg.series.length > 1 && msg.event === 'new_chapters') {
+    lines.push('', ...msg.series.slice(0, 50).map((s) => `• ${s.title}${s.added ? ` (+${s.added})` : ''}`));
+  }
+  lines.push('', `— ${msg.title}`);
+  return { subject, text: lines.join('\n') };
 }

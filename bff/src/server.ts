@@ -28,6 +28,7 @@ import { scheduleMatchCheck } from './lib/matchCheck';
 import { startTitleWorks } from './lib/discoverIdentity';
 import { scheduleMergeLeftovers } from './lib/mergeLeftovers';
 import { scheduleAniListScores } from './lib/anilistScores';
+import { scheduleVolumes } from './lib/volumes';
 import { initializeTitleLogoScan, startTitleLogoScan } from './lib/titleLogoScan';
 import { initializeTitleExtractions, startTitleExtractions } from './lib/titleExtraction';
 import { initializeTitleExtractionBatch, startTitleExtractionBatch } from './lib/titleExtractionBatch';
@@ -540,6 +541,8 @@ async function main() {
    * entry, a few minutes after boot and then every six hours -- each round only what is missing or three days old.
    */
   scheduleAniListScores(app.log);
+  // Fork: each series' volume list (lib/volumes), read a few minutes after boot and then every six hours.
+  scheduleVolumes(app.log);
 
   // Opt-in discovery continues across the whole library and after restart, without needing page views.
   const stopTitleLogoScan = startTitleLogoScan(app.log);

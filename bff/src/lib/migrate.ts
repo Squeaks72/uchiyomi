@@ -2331,6 +2331,35 @@ CREATE TABLE IF NOT EXISTS series_official (
 -- source: whose count it is ('mangadex' or 'anilist'). A row without one is from the first version, which took AniList's
 -- count alone -- 141 for Attack on Titan, whose 139 chapters AniList pads with two extras -- and is asked again.
 ALTER TABLE series_official ADD COLUMN IF NOT EXISTS source text;
+
+-- Volumes and arcs (fork, lib/volumes): each series' volume list -- from Wikipedia, from the volume tags in its chapter
+-- names, or none -- and the admin's own text, which replaces the volumes when it names any and is the only source of
+-- arcs. seeded: the units already complete when the list was first read are recorded as announced, so a library
+-- that gains volume lists does not announce every volume it has held for years.
+CREATE TABLE IF NOT EXISTS series_volumes (
+  series_id  text PRIMARY KEY,
+  source     text NOT NULL DEFAULT 'none',
+  page       text,
+  volumes    jsonb NOT NULL DEFAULT '[]'::jsonb,
+  manual     text,
+  seeded     boolean NOT NULL DEFAULT false,
+  checked_at timestamptz,
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+-- A volume or arc (unit key 'volume:14', 'arc:Water 7') already announced as complete, once per series.
+CREATE TABLE IF NOT EXISTS volume_announced (
+  series_id text NOT NULL,
+  unit      text NOT NULL,
+  at        timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (series_id, unit)
+);
+-- An account that waits for whole volumes of a series: it hears when one is complete, and not about each chapter.
+CREATE TABLE IF NOT EXISTS volume_watch (
+  user_id    uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  series_id  text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, series_id)
+);
 `;
 
 // Serialises migrate() across processes. CREATE TABLE IF NOT EXISTS is not safe to run concurrently:

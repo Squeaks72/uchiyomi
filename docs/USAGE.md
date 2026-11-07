@@ -1572,6 +1572,27 @@ line under the header says *{n} of {m} chapters match*. Select mode works on the
 "everything one group released that is not here" is that filter, *Select*, *Fetch*. The group filter is not
 remembered between visits; the switch is, per device.
 
+### Reading by the volume (fork)
+
+Some series are better read a whole volume at a time. **Volumes** in the chapter list's toolbar shows the chapters
+grouped into the volumes that collect them -- each says how many of its chapters are here, how many you have read, and
+opens on its next unread chapter. Chapters past the last volume are listed as *Not in a volume yet*. The choice is
+kept per series on each device.
+
+Where the volumes come from, first that answers: an admin's own list (**Edit volumes**), Wikipedia's volume list for
+the series' AniList entry, or the volume tags in the sources' chapter names ("Vol.3 Ch.25"). The list is read again
+every two weeks, so a new volume appears a few weeks after it is published; an admin can press **Look again**.
+
+**Edit volumes** takes one unit per line -- `Volume 3: 17-25`, or `Arc Water 7: 322-430` for an arc. Volumes written
+there replace the automatic ones; arcs can only be written there. When a series has arcs, the view switches between
+Volumes and Arcs.
+
+**Wait for whole volumes** (on the Volumes view) is your own switch for the series: while it is on you are told when a
+whole volume or arc is here -- by this browser's notifications, and by any notification target that sends *Whole
+volumes* (Admin → Settings → Notifications) -- and nothing about its single chapters. A volume counts as here when
+every whole chapter of it is; a half chapter or an extra never holds it back. Volumes that were already complete when
+the list was first read are not announced.
+
 ### Selecting chapters
 
 **Select all** in the selection toolbar picks every chapter matching the current filter, across chapter pages,
