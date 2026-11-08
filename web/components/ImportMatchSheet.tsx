@@ -5,6 +5,7 @@
 // `/api/sources/search-all` normally returns — Discover wants "who has this title", this wants "what does
 // THIS provider call it", so a `groupBy=source` mode was added to the same endpoint (same fan-out, different
 // shaping) instead of building a second search route.
+import { sourceWithLang } from '@/lib/sourceLabel';
 import { useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
@@ -142,13 +143,13 @@ export function ImportMatchSheet({ batchId, candidate, onClose }: {
   // so it is looked up the same way the add dialog looks it up: GET /api/sources/detail.
   const currentDetail = useQuery({
     queryKey: ['import-detail', candidate.match_source, candidate.match_source_id],
-    queryFn: () => api<Detail>(`/api/sources/detail?source=${encodeURIComponent(candidate.match_source!)}&sourceId=${encodeURIComponent(candidate.match_source_id!)}`),
+    queryFn: () => api<Detail>(revealed(`/api/sources/detail?source=${encodeURIComponent(candidate.match_source!)}&sourceId=${encodeURIComponent(candidate.match_source_id!)}`)),
     enabled: !!candidate.match_source && !!candidate.match_source_id,
     staleTime: 60_000,
   });
   const pendingDetail = useQuery({
     queryKey: ['import-detail', pending?.source, pending?.sourceId],
-    queryFn: () => api<Detail>(`/api/sources/detail?source=${encodeURIComponent(pending!.source)}&sourceId=${encodeURIComponent(pending!.sourceId)}`),
+    queryFn: () => api<Detail>(revealed(`/api/sources/detail?source=${encodeURIComponent(pending!.source)}&sourceId=${encodeURIComponent(pending!.sourceId)}`)),
     enabled: !!pending,
     staleTime: 60_000,
   });
@@ -223,20 +224,20 @@ export function ImportMatchSheet({ batchId, candidate, onClose }: {
       </div>
       {pending ? (
           <div className="flex gap-2">
-            <button onClick={() => setPending(null)} disabled={busy === '__confirm'} className="chip flex-1 py-1.5 text-xs disabled:opacity-50">
+            <button type="button" onClick={() => setPending(null)} disabled={busy === '__confirm'} className="chip flex-1 py-1.5 text-xs disabled:opacity-50">
               {tr('Cancel')}
             </button>
-            <button onClick={confirmPending} disabled={busy === '__confirm'} className="btn-accent flex-1 py-1.5 text-xs disabled:opacity-50">
+            <button type="button" onClick={confirmPending} disabled={busy === '__confirm'} className="btn-accent flex-1 py-1.5 text-xs disabled:opacity-50">
               {busy === '__confirm' ? tr('Working…') : tr('Use this pick')}
             </button>
           </div>
       ) : (
         <div className="flex gap-2">
-          <button onClick={skip} disabled={!!busy} className="chip flex-1 py-1.5 text-xs disabled:opacity-50">
+          <button type="button" onClick={skip} disabled={!!busy} className="chip flex-1 py-1.5 text-xs disabled:opacity-50">
             {busy === '__skip' ? tr('Working…') : tr('Skip this one')}
           </button>
           {candidate.auto_source_id && candidate.decision !== 'auto' && (
-            <button onClick={useAuto} disabled={!!busy} className="chip flex-1 py-1.5 text-xs disabled:opacity-50">
+            <button type="button" onClick={useAuto} disabled={!!busy} className="chip flex-1 py-1.5 text-xs disabled:opacity-50">
               {busy === '__auto' ? tr('Working…') : tr('Use the auto match')}
             </button>
           )}
@@ -257,12 +258,15 @@ export function ImportMatchSheet({ batchId, candidate, onClose }: {
             value={term}
             onChange={(e) => setTerm(e.target.value)}
             placeholder={tr('Search sources…')}
+            aria-label={tr('Search sources…')}
+            autoComplete="off"
+            enterKeyHint="search"
             autoCapitalize="none"
-            className="w-full bg-transparent text-sm text-fog-50 outline-hidden placeholder:text-fog-500"
+            className="w-full bg-transparent text-sm text-fog-50 outline-hidden focus-visible:outline-accent focus-visible:outline-offset-0 placeholder:text-fog-500"
           />
           {term && (
-            <button onClick={() => setTerm('')} className="text-fog-500" aria-label={tr('Clear')}>
-              <IcX width={15} height={15} />
+            <button type="button" onClick={() => setTerm('')} className="text-fog-500 pointer-coarse:-my-2 pointer-coarse:-me-2 pointer-coarse:grid pointer-coarse:h-9 pointer-coarse:w-9 pointer-coarse:place-items-center" aria-label={tr('Clear')}>
+              <IcX aria-hidden width={15} height={15} />
             </button>
           )}
         </div>
@@ -296,7 +300,7 @@ export function ImportMatchSheet({ batchId, candidate, onClose }: {
             <div key={g.source}>
               <p className="mb-1.5 flex items-center gap-1.5 px-0.5 text-xs font-semibold text-fog-300">
                 <SourceIcon id={g.source} name={g.name} size={16} />
-                <span className="truncate">{g.name}{g.lang ? ` (${g.lang.toUpperCase()})` : ''}</span>
+                <span className="truncate">{sourceWithLang(g.name, g.lang)}</span>
               </p>
               {/* `flex` is what makes this a rail: ScrollRail only adds `overflow-x-auto`, and without it the
                   cards sat as inline-blocks -- edge to edge (gap does nothing on a block), baseline-aligned
@@ -312,20 +316,22 @@ export function ImportMatchSheet({ batchId, candidate, onClose }: {
                     <button
                       key={r.sourceId}
                       type="button"
+                      aria-pressed={selected}
                       onClick={() => setPending({ source: g.source, sourceId: r.sourceId, title: r.title, coverUrl: r.coverUrl })}
                       disabled={busy === '__confirm'}
                       className="w-24 shrink-0 text-start disabled:opacity-50"
                     >
                       <span className="relative block">
-                        <Img src={sourceCover(g.source, r.coverUrl)} alt={r.title} fallbackSrc={r.coverUrl}
+                        <Img src={sourceCover(g.source, r.coverUrl)} alt="" fallbackSrc={r.coverUrl}
                           className={`aspect-[2/3] w-24 rounded-lg border ${selected ? 'border-accent ring-2 ring-accent' : 'border-ink-700'}`} />
                         {r.inLibrary && (
                           <span className="absolute end-1 top-1 grid size-5 place-items-center rounded-full bg-accent text-black">
-                            <IcCheck width={12} height={12} />
+                            <IcCheck aria-hidden width={12} height={12} />
+                            <span className="sr-only">{tr('In library')}</span>
                           </span>
                         )}
                         {selected && (
-                          <span className="absolute bottom-1 start-1 rounded-md bg-accent px-1.5 py-0.5 text-[9px] font-semibold text-black">
+                          <span className="absolute bottom-1 start-1 rounded-md bg-accent px-1.5 py-0.5 text-[11px] font-semibold text-black" aria-hidden>
                             {tr('Comparing')}
                           </span>
                         )}

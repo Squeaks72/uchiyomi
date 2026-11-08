@@ -138,7 +138,7 @@ export default function CollectionsPage() {
             {c.owner && <ListOwnerLine owner={c.owner} className="mt-1.5" />}
           </div>
         </Link>
-        <div className="flex items-center gap-1.5 px-4 pb-4 pt-3">
+        <div className="flex flex-wrap items-center gap-1.5 px-4 pb-4 pt-3 pointer-coarse:gap-2">
           <button type="button" onClick={() => toggleHome(c.id)} disabled={homeSaving}
             aria-pressed={on} className={`btn-key ${on ? 'btn-key-accent' : ''}`}>
             <IcHome width={13} height={13} aria-hidden />
@@ -147,11 +147,11 @@ export default function CollectionsPage() {
           {on && homeIds.length > 1 && (
             <>
               <button type="button" disabled={homeSaving || homeIds.indexOf(c.id) === 0}
-                onClick={() => moveHome(c.id, -1)} aria-label={tr('Move earlier')} className="btn-key w-8 px-0">
+                onClick={() => moveHome(c.id, -1)} aria-label={tr('Move earlier')} className="btn-key w-8 px-0 pointer-coarse:w-10">
                 {rtl ? <IcChevronRight width={14} height={14} /> : <IcChevronLeft width={14} height={14} />}
               </button>
               <button type="button" disabled={homeSaving || homeIds.indexOf(c.id) === homeIds.length - 1}
-                onClick={() => moveHome(c.id, 1)} aria-label={tr('Move later')} className="btn-key w-8 px-0">
+                onClick={() => moveHome(c.id, 1)} aria-label={tr('Move later')} className="btn-key w-8 px-0 pointer-coarse:w-10">
                 {rtl ? <IcChevronLeft width={14} height={14} /> : <IcChevronRight width={14} height={14} />}
               </button>
             </>
@@ -159,7 +159,7 @@ export default function CollectionsPage() {
           {/* Always there, not only on hover: a phone has no hover, and the key was out of reach there. */}
           {isMine(c) && (
             <button onClick={() => setDeleting(c)} aria-label={tr('Delete “{name}”', { name: iso(c.name) })}
-              className="btn-key btn-key-danger ms-auto w-8 px-0">
+              className="btn-key btn-key-danger ms-auto w-8 px-0 pointer-coarse:w-10">
               <IcTrash width={14} height={14} />
             </button>
           )}
@@ -214,7 +214,7 @@ export default function CollectionsPage() {
           <div className="mt-3 flex items-center gap-2">
             {ACCENTS.map((a, i) => (
               <button key={a} onClick={() => setAccent(a)} aria-label={tr('Colour {n}', { n: i + 1 })} aria-pressed={accent === a}
-                className={`h-7 w-7 rounded-full transition ${accent === a ? 'ring-2 ring-white/80 ring-offset-2 ring-offset-ink-900' : ''}`}
+                className={`h-7 w-7 pointer-coarse:h-9 pointer-coarse:w-9 rounded-full transition ${accent === a ? 'ring-2 ring-white/80 ring-offset-2 ring-offset-ink-900' : ''}`}
                 style={{ background: a }} />
             ))}
           </div>

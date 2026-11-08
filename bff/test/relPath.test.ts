@@ -51,8 +51,11 @@ test('chapterFileRel is exactly the SQL form repair.ts and health.ts compare it 
   // refetch route. On Linux this passes whether chapterFileRel uses join or posix.join; the static half (that
   // it is posix.join) is in desktopSwitchHygiene.test.ts.
   const { chapterFileRel } = await import('../src/lib/downloader');
+  const { isOwnFile } = await import('../src/lib/chapterFile');
   for (const [folder, n] of [['MangaDex/Solo Leveling', 1], ['Src/T', 12.5], ['Library/Some Title', 100]] as const) {
     assert.equal(chapterFileRel(folder, n), `${folder}/Chapter ${n}.cbz`);
+    // With SERIES_IN_NAMES the name carries the series; both spellings stay the downloader's own (lib/chapterFile.ts).
+    assert.ok(isOwnFile(`${folder}/${folder.split('/').pop()} - Chapter ${n}.cbz`, folder, n));
   }
   assert.equal(joinRel('Src/T', 'Chapter 1.cbz'), 'Src/T/Chapter 1.cbz');
   assert.equal(dirnameRel('Src/T/Chapter 1.cbz'), 'Src/T');

@@ -42,7 +42,11 @@ export function ScrollRail({ children, className = '', size = 'md', label }: {
     const max = el.scrollWidth - el.clientWidth;
     const x = Math.abs(el.scrollLeft); // negative in RTL
     // The 1px slack absorbs fractional layout: a rail sitting at 0.4px from its end is at its end.
-    setEnds({ start: x <= 1, end: max <= 1 || x >= max - 1 });
+    const start = x <= 1;
+    const end = max <= 1 || x >= max - 1;
+    // Same answer -> same object -> no re-render. `onScroll` lands here on every scroll event, and a fresh object
+    // each time re-rendered the whole rail (and its cards) per frame of a swipe for an answer that had not changed.
+    setEnds((p) => (p.start === start && p.end === end ? p : { start, end }));
   }, []);
 
   useEffect(() => {

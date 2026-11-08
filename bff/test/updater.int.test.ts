@@ -374,7 +374,7 @@ test('a chapter that will not download is written down, and erased when it lands
   const report: any = await runHealthChecks();
   const check = (report.checks ?? report).find((c: any) => c.id === 'chapter-failures');
   assert.ok(check, 'the health page has a check for this');
-  assert.equal(check.status, 'warn');
+  assert.equal(check.status, 'problem');
   assert.ok(check.items.some((i: any) => i.title === SRC_LEDGER), 'and it names the source');
 
   // Then it lands, and the ledger forgets it.

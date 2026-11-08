@@ -1056,8 +1056,8 @@ under its title (*EN · ES-419*).
   edition, or that edition's page at the chapter when the server does not have it yet.
 - **Admins** set a series' language in *Edit details* (**Language**), link two series already here as editions from
   Health (**Link as editions**, offered on a duplicate pair in two languages), and unlink one with the × in the
-  Languages section; it stays in the library as a series of its own. The age rating and *Always show* set in *Edit
-  details* apply to every edition, so an 18+ work is 18+ in each language.
+  Languages section; it stays in the library as a series of its own. Editions are filed by library like any
+  series, so an 18+ work stays 18+ in each language by sitting in an 18+ library.
 
 ### Mark caught up
 
@@ -1576,6 +1576,27 @@ yet** switch from the previous section. The chip shows a small number for how ma
 line under the header says *{n} of {m} chapters match*. Select mode works on the filtered rows, so
 "everything one group released that is not here" is that filter, *Select*, *Fetch*. The group filter is not
 remembered between visits; the switch is, per device.
+
+### Reading by the volume (fork)
+
+Some series are better read a whole volume at a time. **Volumes** in the chapter list's toolbar shows the chapters
+grouped into the volumes that collect them -- each says how many of its chapters are here, how many you have read, and
+opens on its next unread chapter. Chapters past the last volume are listed as *Not in a volume yet*. The choice is
+kept per series on each device.
+
+Where the volumes come from, first that answers: an admin's own list (**Edit volumes**), Wikipedia's volume list for
+the series' AniList entry, or the volume tags in the sources' chapter names ("Vol.3 Ch.25"). The list is read again
+every two weeks, so a new volume appears a few weeks after it is published; an admin can press **Look again**.
+
+**Edit volumes** takes one unit per line -- `Volume 3: 17-25`, or `Arc Water 7: 322-430` for an arc. Volumes written
+there replace the automatic ones; arcs can only be written there. When a series has arcs, the view switches between
+Volumes and Arcs.
+
+**Wait for whole volumes** (on the Volumes view) is your own switch for the series: while it is on you are told when a
+whole volume or arc is here -- by this browser's notifications, and by any notification target that sends *Whole
+volumes* (Admin → Settings → Notifications) -- and nothing about its single chapters. A volume counts as here when
+every whole chapter of it is; a half chapter or an extra never holds it back. Volumes that were already complete when
+the list was first read are not announced.
 
 ### Selecting chapters
 
@@ -3272,10 +3293,9 @@ limit below 18 is the other thing entirely: those sources are refused by name wh
 switch knew about, so keeping, say, *Ecchi* off the shelf meant moving those series into an 18+ library — a
 filing decision made to get a display outcome, and one the scanner argues with on the next rescan.
 **Admin → Settings → Series & chapters → 18+ filter** says it directly instead: tick the genres (the list is the genres your
-library actually has). With **Show 18+** off, a series carrying one of those genres leaves the same places an 18+
-library does. Nothing is refiled and nothing is refused: it is the same surfacing filter, with the same exceptions as
-above. One title that is tagged wrongly, or that you simply want to keep, can be let through on its own: **Edit
-details → Always show** on the series page. The **Show 18+** button appears on Library and Home whenever the list has
+library actually has). With **Show 18+** off, a title carrying one of those genres is kept out of **Discover**.
+A series already in your library is judged by its library's age rating alone, whatever its genres: to show or hide
+one, file it in a different library (**More → Move library** on the series page, or the right-click menu). The **Show 18+** button appears on Library and Home whenever the list has
 something in it or a source is rated Adult only, even with no 18+ library (never for an account whose age limit is
 below 18). The list is empty until you tick something, so an existing server behaves as before.
 

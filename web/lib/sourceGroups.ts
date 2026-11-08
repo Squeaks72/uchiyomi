@@ -29,6 +29,8 @@ export interface Src {
   creatorSearch?: boolean;
   /** Roles the source declares. Missing on an older server means both when creatorSearch is true. */
   creatorFields?: readonly ('author' | 'artist')[];
+  /** Whether the source declares search filters of its own (genres, tags, status, sort): Discover's Tags panel can drive them. */
+  filterable?: boolean;
   /**
    * `quiet` is the server saying "this answers without error and returns nothing". It used to be
    * unrepresentable: a source whose listing had drifted threw nothing, so it never earned a cooldown, kept

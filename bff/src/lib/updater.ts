@@ -11,9 +11,10 @@ import { noteChapterFailure } from './chapterFailures';
 import { budgetFor } from './sources/budget';
 import { notifyNewChapter } from './push';
 import { sendDigest, type Landed as DigestSeries } from './notify';
+import { checkCompletions } from './volumes';
 import { visibleToAll } from './visibility';
 import { runtime } from './runtime';
-import { chooseReleases, copiesOf, releaseOrder } from './releases';
+import { chooseReleases, copiesOf, notifiableOf, releaseOrder } from './releases';
 import { effectivePrefsFor, readSeriesPrefs } from './scanlatorPrefs';
 import { automaticChapterAllowedFor, automaticCopiesFor, copyToChapter, listingRows, replaceListing, seriesFollowsSource, type ListingCopy } from './seriesListing';
 import { heldBooks } from './chapterCleanup';
@@ -148,6 +149,10 @@ export interface UpdateResult {
   /** Of `added`, how many were saved with placeholder pages (`Landed.missing`; lib/partial.ts). */
   partial: number;
   landed: Landed[];
+  /** Of `added`, how many the series' notification setting lets be announced (all, unless it only wants preferred groups). */
+  notifiable?: number;
+  /** The chapter numbers behind `notifiable`, for the per-account next-up filter. */
+  notifiableNumbers?: number[];
   capped?: number;
   folder?: string;
   /** The chosen copy per number, ascending: what setBookDates is stamped from after the scan. */
@@ -905,13 +910,20 @@ async function visitSeries(seriesId: string, maxNew: number, opts: UpdateOpts): 
   if (!added && !posting && refusing.size && followed.every((f) => refusing.has(f.source))) {
     await requestScout(seriesId, 'stuck', { ifBehind: true });
   }
-  if (added) notifyNewChapter(seriesId, s.title, added, landed.map((c) => c.number)).catch(() => {});
+  // The news, which can be pickier than the fetch: a series set to "notify only for a preferred group" still downloads
+  // every chapter, but tells nobody about those from other groups (notifiableCount, lib/releases.ts).
+  const tell = notifiableOf(landed, prefs.priority, s.scanlator_prefs?.notifyOnlyPreferred === true,
+    Array.isArray(s.scanlator_prefs?.notifySources) ? s.scanlator_prefs.notifySources : []);
+  const notifiable = tell.length;
+  // `numbers`: so an account that asked to hear only about its next-up chapter can be told apart (lib/nextUp.ts, per account).
+  const notifiableNumbers = tell.map((c) => Number(c.number));
+  if (notifiable) notifyNewChapter(seriesId, s.title, notifiable, notifiableNumbers).catch(() => {});
   // backfill release dates onto already-scanned books; freshly downloaded ones are stamped after the sweep's scan
   await setBookDates(s.folder, releases).catch(() => {});
   // Provenance goes only onto what LANDED, never onto the whole listing: the chosen copy for a number can
   // change between runs, and the file on disk does not change with it.
   await setBookMeta(s.folder, landed).catch(() => {});
-  return { title: s.title, added, available: releases.length, outcome: paused ? 'paused' : 'ok', failed, waiting, switched, partial, landed, capped, folder: s.folder, chapters: releases, diskFull, asked: true, ...(newest ? { newest } : {}), ...(renumber ? { renumber } : {}) };
+  return { title: s.title, added, available: releases.length, outcome: paused ? 'paused' : 'ok', failed, waiting, switched, partial, landed, notifiable, notifiableNumbers, capped, folder: s.folder, chapters: releases, diskFull, asked: true, ...(newest ? { newest } : {}), ...(renumber ? { renumber } : {}) };
 }
 
 /**
@@ -1095,7 +1107,9 @@ export async function runUpdateAll(opts: {
     outcomes[r.outcome] = (outcomes[r.outcome] ?? 0) + 1;
     if (r.added && r.folder && r.chapters?.length) dated.push({ id, folder: r.folder, chapters: r.chapters, landed: r.landed });
     // The throw fallback above has `added: 0` and no title, so it can never reach the digest.
-    if (r.added && (r as { title?: string }).title) newChapters.push({ id, title: (r as { title: string }).title, added: r.added, numbers: r.landed.map((c) => c.number) });
+    // `notifiable`: what the series' notification setting lets through (all of `added` unless it is picky about groups).
+    const tellable = (r as { notifiable?: number }).notifiable ?? r.added;
+    if (r.added && tellable && (r as { title?: string }).title) newChapters.push({ id, title: (r as { title: string }).title, added: tellable, numbers: (r as { notifiableNumbers?: number[] }).notifiableNumbers });
     if (card) { card.done = visited; card.fetched = added; card.failed = chapterFailures; }
     if (r.diskFull) { stopped = 'disk'; return; }
     if (r.outcome === 'blocked') {
@@ -1439,6 +1453,8 @@ export function runSweep(
       // ten seconds and a retry to answer must not hold `runtime.updating` for the next tick -- and it never
       // throws. A per-series "check now" does not come through here, so it sends nothing.
       void sendDigest(r.newChapters ?? []).catch(() => {});
+      // Fork: a volume or arc the sweep's chapters completed (lib/volumes) -- after the scan, so they are held.
+      void checkCompletions((r.newChapters ?? []).map((x) => x.id));
       return r;
     } catch (e) {
       // The rule the backup path already follows: the panel must not keep showing the last good run as if it
