@@ -116,6 +116,11 @@ export function taskResult(r: any): string {
       const line = n === 1 ? tr('group upgrades: 1 replaced') : tr('group upgrades: {n} replaced', { n });
       bits.push(g.left ? `${line}, ${leftUnchanged(g.left)}` : line);
     }
+    // Revised chapters are on unless switched off, so like the group line this one is said only when the step replaced one.
+    if (ran('groups') && r.revisions && !r.revisions.off && (r.revisions.replaced ?? 0) > 0) {
+      const n = r.revisions.replaced;
+      bits.push(n === 1 ? tr('revised by source: 1 replaced') : tr('revised by source: {n} replaced', { n }));
+    }
     // Reading directions (#102) are learned quietly most nights once a library has been through it once, so the
     // clause appears when one was learned -- and always on a run that asked for nothing else, where an empty
     // line would read as a button that did nothing.

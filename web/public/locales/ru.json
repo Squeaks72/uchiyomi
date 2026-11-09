@@ -2,7 +2,7 @@
   "_meta": {
     "language": "ru",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 5510
+    "strings": 5514
   },
   "1 check found something": "1 проверка нашла проблему",
   "1 member": "1 участник",
@@ -5513,5 +5513,9 @@
   "Back to the automatic volumes": "Back to the automatic volumes",
   "One per line: “Volume 3: 17-25” or “Arc Water 7: 322-430”. Ranges can be listed with commas: “8-15, 15.5”. Volumes written here replace the automatic ones; arcs can only be written here.": "One per line: “Volume 3: 17-25” or “Arc Water 7: 322-430”. Ranges can be listed with commas: “8-15, 15.5”. Volumes written here replace the automatic ones; arcs can only be written here.",
   "Volume 1: 1-7": "Volume 1: 1-7",
-  "Use the automatic volumes": "Use the automatic volumes"
+  "Use the automatic volumes": "Use the automatic volumes",
+  "Re-download chapters a source has revised": "Перезагружать главы, исправленные источником",
+  "On by default. When a source re-posts a chapter you already have, or changes its upload date or page count, the nightly repair downloads the new version over your copy. Only files Uchiyomi downloaded itself are replaced. A copy that is much shorter never replaces yours, a chapter you picked a version for by hand is never touched, and at most ten are replaced a night. Reading progress is kept.": "Включено по умолчанию. Если источник заново публикует уже имеющуюся у вас главу или меняет дату загрузки либо число страниц, ночное восстановление скачивает новую версию поверх вашей копии. Заменяются только файлы, скачанные самим Uchiyomi. Заметно более короткая копия никогда не заменит вашу, глава, версию которой вы выбрали вручную, не затрагивается, а за ночь заменяется не более десяти. Прогресс чтения сохраняется.",
+  "revised by source: 1 replaced": "исправлено источником: заменено 1",
+  "revised by source: {n} replaced": "исправлено источником: заменено {n}"
 }

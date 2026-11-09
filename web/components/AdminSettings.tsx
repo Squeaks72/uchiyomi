@@ -1031,6 +1031,9 @@ function ScanlatorsSection({ data, save }: { data: any; save: Save }) {
         <SwitchRow id="group-upgrade" label={tr('Upgrade chapters to a preferred group')}
           help={tr('Off by default. Once a night, a chapter you already have from another group is replaced when a group you rank higher releases it on a source the series follows — only files Uchiyomi downloaded itself, never with a copy that has fewer pages, never a chapter someone picked a version for by hand, and at most ten a night unless the server is told otherwise. Reading progress is kept.')}
           on={data.group_upgrade === true} onChange={(next) => save({ groupUpgrade: next })} />
+        <SwitchRow id="revision-update" label={tr('Re-download chapters a source has revised')}
+          help={tr('On by default. When a source re-posts a chapter you already have, or changes its upload date or page count, the nightly repair downloads the new version over your copy. Only files Uchiyomi downloaded itself are replaced. A copy that is much shorter never replaces yours, a chapter you picked a version for by hand is never touched, and at most ten are replaced a night. Reading progress is kept.')}
+          on={data.revision_update !== false} onChange={(next) => save({ revisionUpdate: next })} />
       </EditorSheet>
     </>
   );

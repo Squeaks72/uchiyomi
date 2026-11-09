@@ -1270,6 +1270,15 @@ ALTER TABLE server_settings ADD COLUMN IF NOT EXISTS group_upgrade boolean NOT N
 ALTER TABLE lib_books ADD COLUMN IF NOT EXISTS picked_at timestamptz;
 ALTER TABLE lib_books ADD COLUMN IF NOT EXISTS upgrade_tried_at timestamptz;
 
+-- Revised chapters (lib/repair.ts stepRevisions): a scanlator re-uploads or edits a chapter after the first post. ON by
+-- default (revision_update); rev_published_at / rev_pages are what the source listed for the copy on disk, stamped the
+-- first time the step sees the book (a restamp clears them), so a later change in the listing is a revision.
+-- revised_tried_at spaces out a chapter whose replacement failed.
+ALTER TABLE server_settings ADD COLUMN IF NOT EXISTS revision_update boolean NOT NULL DEFAULT true;
+ALTER TABLE lib_books ADD COLUMN IF NOT EXISTS rev_published_at timestamptz;
+ALTER TABLE lib_books ADD COLUMN IF NOT EXISTS rev_pages int;
+ALTER TABLE lib_books ADD COLUMN IF NOT EXISTS revised_tried_at timestamptz;
+
 -- v0.47.0: chapter names borrowed from another source (lib/borrowNames.ts, #85), the repair's seventh step. Off
 -- by default for the server; a series' own switch is NULL to follow it. name_donor remembers the source whose
 -- numbering matched, or when a search found none. chapter_name_source names the donor of a borrowed name --

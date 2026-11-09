@@ -137,6 +137,16 @@ export const REPAIR_GAPS_MAX = envInt('REPAIR_GAPS_MAX', 5, 1, 100);
 export const REPAIR_GROUPS_MAX = envInt('REPAIR_GROUPS_MAX', 10, 1, 200);
 /** How long a chapter whose upgrade was tried, and failed, is left before it is tried again. */
 const GROUP_RETRY_DAYS = 7;
+/** Chapters one run may re-download because their source revised them (stepRevisions). */
+export const REPAIR_REVISIONS_MAX = envInt('REPAIR_REVISIONS_MAX', 10, 1, 200);
+/** How long a chapter whose revision was tried, and failed, is left before it is tried again. */
+const REVISION_RETRY_DAYS = 3;
+/**
+ * A listing date this close to now is not believed as an edit. Extensions whose site shows no date often answer
+ * with the time of the fetch, which moves on every listing and would re-download the chapter for ever; a real edit
+ * keeps its date, so it is simply acted on a night later.
+ */
+const REVISION_SETTLE_MS = 24 * 60 * 60 * 1000;
 /**
  * Series one run may look for a chapter-name donor for (stepNames). Each is up to HUNT_MAX_SOURCES searches
  * and two lookups per candidate judged, all for something cosmetic, so it is kept to a handful a night.
@@ -320,6 +330,11 @@ export interface RepairResult {
    * the default, and then nothing was looked at.
    */
   groups: { off?: true; looked: number; replaced: number; left: number };
+  /**
+   * Revised chapters (stepRevisions): chapters whose source re-posted or edited them, replaced with the new
+   * version, and left (shorter, unanswered or would not download). `off` when the switch is off.
+   */
+  revisions: { off?: true; looked: number; replaced: number; left: number };
   /**
    * Chapter names borrowed from another source (stepNames): series looked at, and chapters named. `off` when
    * neither the server nor any series has it switched on, which is the default.
@@ -563,7 +578,7 @@ type Log = { info: (m: string) => void; warn: (m: string) => void; error: (m: un
 type Dated = { folder: string; chapters: SourceChapter[]; landed: Landed[] };
 
 /** The lists that go into the audit row, so "what did it actually touch" is answerable without the logs. */
-type Notes = { replaced: string[]; confirmed: string[]; followed: string[]; upgraded: string[] };
+type Notes = { replaced: string[]; confirmed: string[]; followed: string[]; upgraded: string[]; revised: string[] };
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -1562,6 +1577,190 @@ async function replaceWithGroup(
   return true;
 }
 
+type RevBook = ShortBook & {
+  scanlator: string | null; copies: ListingCopy[]; source_chapter_id: string;
+  rev_published_at: Date | null; rev_pages: number | null;
+};
+
+/**
+ * What changed about a chapter's own source copy since the file was written, from the listing alone. Pure.
+ *   stamp   nothing recorded yet and the copy is still listed: record what the source says now, replace nothing
+ *   post    the listing still has the post the file was written from, and its date or page count moved
+ *   reposted the post is gone and the source lists exactly one other copy of the number by the same group
+ */
+export function revisionOf(
+  b: { source_id: string | null; source_chapter_id: string; scanlator: string | null; rev_published_at: Date | null; rev_pages: number | null },
+  copies: ListingCopy[], now: number = Date.now(),
+): { kind: 'stamp' | 'post' | 'reposted'; copy: ListingCopy; why: string } | null {
+  if (!b.source_id) return null;
+  const own = (copies ?? []).filter((c) => c.source === b.source_id && c.pages !== 0);
+  const same = own.find((c) => c.sourceId === b.source_chapter_id);
+  if (same) {
+    if (b.rev_published_at == null && b.rev_pages == null) return { kind: 'stamp', copy: same, why: 'baseline' };
+    const when = same.publishedAt ? Date.parse(same.publishedAt) : NaN;
+    const was = b.rev_published_at ? b.rev_published_at.getTime() : NaN;
+    const moved = Number.isFinite(when) && Number.isFinite(was) && when - was > 60_000 && now - when > REVISION_SETTLE_MS;
+    const pages = typeof same.pages === 'number' && same.pages > 0 && b.rev_pages != null && b.rev_pages > 0 && same.pages !== b.rev_pages;
+    if (moved || pages) return { kind: 'post', copy: same, why: pages ? `${b.rev_pages} -> ${same.pages} pages listed` : 'upload date moved' };
+    return null;
+  }
+  // The post the file came from is no longer listed. One copy of the same number by the same group is its
+  // replacement; anything less certain (several, or another group) is left to the group step and the sweep.
+  const key = (g: string | null | undefined) => groupsOf({ scanlator: g ?? undefined }).map(normGroup).sort().join('&');
+  const near = own.filter((c) => key(c.scanlator) === key(b.scanlator));
+  return near.length === 1 ? { kind: 'reposted', copy: near[0], why: 'post replaced' } : null;
+}
+
+/**
+ * (f2) Revised chapters: a scanlator re-posts or edits a chapter after the first upload, and the sweep, which
+ * never replaces what is on disk, would keep the old version for ever. This step looks at the listing for each
+ * owned chapter's OWN source copy (`source_chapter_id`) and downloads the new version over the file when the
+ * post was replaced, or its upload date or listed page count moved. Same rules as the group step -- owned files
+ * only, never a hand-picked chapter, never a partial -- except that it is ON unless `revision_update` is off.
+ *
+ * What the source said when the file was written is not recorded by the downloader: the first time this step
+ * sees a book it stamps `rev_published_at` / `rev_pages` from the listing and replaces nothing, so detection
+ * starts from then. A new file (restampBook) clears the stamp. A copy much shorter than ours (under half,
+ * and under three pages) is refused: a "chapter removed" notice is not a revision.
+ */
+async function stepRevisions(r: RepairResult, opts: RepairOpts, notes: Notes, log?: Log): Promise<RepairResult['stopped']> {
+  const on = await one<{ on: boolean }>('SELECT revision_update AS "on" FROM server_settings WHERE id = 1').catch(() => null);
+  if (on?.on === false) { r.revisions.off = true; return undefined; }
+
+  const rows0 = await q<RevBook>(
+    `SELECT b.id, b.series_id, b.number::float8 AS number, b.pages, b.root, b.file, b.source_id, b.scanlator, b.source_chapter_id,
+            b.rev_published_at, b.rev_pages, b.page_dims,
+            s.title, s.folder, s.summary, s.author, s.genres, s.web, s.status, l.copies
+       FROM lib_books b
+       JOIN lib_series s ON s.id = b.series_id AND s.auto_update AND ${visibleToAll('s')} AND COALESCE(s.numbering, '') <> 'posting_order'
+       JOIN series_listing l ON l.series_id = b.series_id AND l.number = b.number
+      WHERE b.root = $1 AND b.pruned_at IS NULL AND b.missing_pages IS NULL AND b.picked_at IS NULL
+        AND b.pages > 0 AND b.source_id IS NOT NULL AND b.source_chapter_id IS NOT NULL
+        AND NOT ${atHiddenNumber('b')}
+        AND (b.revised_tried_at IS NULL OR b.revised_tried_at < now() - make_interval(days => $2))
+      ORDER BY b.mtime DESC LIMIT 5000`,
+    [DL_ROOT, REVISION_RETRY_DAYS],
+  ).catch(() => [] as RevBook[]);
+
+  const candidates: Array<{ b: RevBook; kind: 'post' | 'reposted' }> = [];
+  for (const b of rows0) {
+    if (!isOwnFile(b.file, b.folder, Number(b.number))) continue;
+    const found = revisionOf(b, b.copies);
+    if (!found) continue;
+    if (found.kind === 'stamp') {
+      await q('UPDATE lib_books SET rev_published_at = $2::timestamptz, rev_pages = $3 WHERE id = $1 AND rev_published_at IS NULL AND rev_pages IS NULL',
+        [b.id, found.copy.publishedAt, found.copy.pages && found.copy.pages > 0 ? found.copy.pages : null]).catch(() => {});
+      continue;
+    }
+    if (candidates.length < REPAIR_REVISIONS_MAX) candidates.push({ b, kind: found.kind });
+  }
+  if (!candidates.length) return undefined;
+
+  const bySeries = new Map<string, typeof candidates>();
+  for (const c of candidates) {
+    if (!bySeries.has(c.b.series_id)) bySeries.set(c.b.series_id, []);
+    bySeries.get(c.b.series_id)!.push(c);
+  }
+
+  let stopped: RepairResult['stopped'];
+  series: for (const [seriesId, rows] of bySeries) {
+    { const h = halted(); if (h) { stopped = h; break; } }
+    if (!(await seriesIsMonitored(seriesId))) continue;
+    const folder = rows[0].b.folder;
+    if (folderBusy(folder)) continue;
+    const allowed = await sweepAllowedFor(await seriesIsAdult(seriesId).catch(() => false));
+    busyFolders.add(folder);
+    try {
+      // The stored listing is as old as the last sweep: refreshed first, and judged again below, so a copy the
+      // site has since taken down is never "the revision".
+      const refreshed = await withTimeout(updateSeries(seriesId, 0, { unattended: true, folderHeld: true }), LISTING_REFRESH_MS).catch(() => null);
+      if (!refreshed || refreshed.outcome !== 'ok') {
+        if (refreshed?.outcome !== 'paused') r.revisions.left += rows.length;
+        continue;
+      }
+      for (const { b: book } of rows) {
+        { const h = halted(); if (h) { stopped = h; break series; } }
+        if (!(await seriesIsMonitored(seriesId))) continue series;
+        r.revisions.looked++;
+        await q('UPDATE lib_books SET revised_tried_at = now() WHERE id = $1', [book.id]).catch(() => {});
+        const listing = await one<{ title: string | null; copies: ListingCopy[] }>(
+          'SELECT title, copies FROM series_listing WHERE series_id = $1 AND number = $2::real', [seriesId, book.number],
+        ).catch(() => null);
+        const open = listing ? await automaticCopiesFor(seriesId, listing.copies) : [];
+        const found = revisionOf(book, open);
+        if (!found || found.kind === 'stamp') { r.revisions.left++; continue; }
+        const copy = found.copy;
+        const chapter = copyToChapter(copy, { number: book.number, title: listing!.title });
+        const count = await pageCount(chapter, (s) => s === copy.source || allowed(s), seriesId, copy.source);
+        // ⚠️ Decided BEFORE the download, and silence is not a yes. A shorter revision is allowed (credits get cut),
+        // a notice in the chapter's place is not.
+        // Reintroduce by dropping the test: "a one-page notice never replaces a chapter" in revisions.int.test.ts.
+        if (count === null || count < Math.min(book.pages, Math.max(3, Math.ceil(book.pages / 2)))) {
+          r.revisions.left++;
+          if (count !== null) log?.info(`repair: "${book.title}" ch ${book.number}: the revision has ${count} page(s) to our ${book.pages}; kept`);
+          continue;
+        }
+        const done = await replaceRevised(book, chapter, copy, found.why, opts, notes, log);
+        if (done === 'paused') continue series;
+        if (done === 'disk') { stopped = 'disk'; break series; }
+        if (done) r.revisions.replaced++;
+        else r.revisions.left++;
+      }
+    } finally {
+      busyFolders.delete(folder);
+    }
+  }
+  return stopped;
+}
+
+/** Write the revised copy over the file, whole or not at all, and stamp and audit it. */
+async function replaceRevised(
+  book: RevBook, chapter: SourceChapter, copy: ListingCopy, why: string, opts: RepairOpts, notes: Notes, log?: Log,
+): Promise<boolean | 'disk' | 'paused'> {
+  const via = copy.source;
+  const meta: DownloadInput['meta'] = {
+    series: book.title, summary: book.summary ?? undefined, author: book.author ?? undefined,
+    genres: book.genres ?? undefined, url: book.web ?? undefined, status: book.status ?? undefined,
+  };
+  const preflight = repairCopyPreflight(book.series_id, chapter, true, false, via);
+  try {
+    if (!(await seriesIsMonitored(book.series_id))) return 'paused';
+    if (!(await automaticChapterAllowedFor(book.series_id, chapter))) return false;
+    // writeAtomic underneath: the old file stays until the new one is entirely there, and a copy that arrives
+    // short is offered as a hold (e.partial) and refused here.
+    const landed = await downloadChapter({ sourceId: via, seriesFolder: book.folder, chapter, meta }, { replace: true, preflight });
+    if (!landed) return false;
+  } catch (e: any) {
+    e?.partial?.drop?.();
+    if (e instanceof DownloadPreflightError) return e.reason === 'paused' ? 'paused' : false;
+    if (e?.diskFull) return 'disk';
+    return false;
+  }
+  const abs = join(book.root, book.file);
+  const group = groupsOf({ groups: copy.groups, scanlator: copy.scanlator ?? undefined }).join(' & ') || copy.scanlator || undefined;
+  try {
+    await restampBook(book.id, abs, [], { source: via, scanlator: group, chapterId: copy.sourceId });
+    // What the source says about the copy that is on disk now: the next change is measured from here.
+    await q('UPDATE lib_books SET rev_published_at = $2::timestamptz, rev_pages = $3 WHERE id = $1',
+      [book.id, copy.publishedAt, copy.pages && copy.pages > 0 ? copy.pages : null]);
+  } catch (e) {
+    log?.warn(`repair: "${book.title}" ch ${book.number} was re-downloaded but could not be restamped: ${(e as Error)?.message || e}`);
+  }
+  const now = await one<{ pages: number }>('SELECT pages FROM lib_books WHERE id = $1', [book.id]);
+  const readers = await one<{ n: number }>('SELECT count(*)::int AS n FROM read_progress WHERE book_id = $1', [book.id]).catch(() => null);
+  await logAudit('book.revision_updated', {
+    userId: opts.userId ?? null,
+    detail: {
+      bookId: book.id, seriesId: book.series_id, title: book.title, number: book.number, why,
+      from: { source: book.source_id, group: book.scanlator, chapterId: book.source_chapter_id }, to: { source: via, group, chapterId: copy.sourceId },
+      pages: [book.pages, now?.pages ?? 0], readers: readers?.n ?? 0,
+    },
+  });
+  notes.revised.push(`${book.title} ch ${book.number} (${why})`);
+  log?.info(`repair: "${book.title}" ch ${book.number}: revised by the source (${why}); ${book.pages} -> ${now?.pages ?? 0} pages`);
+  return true;
+}
+
 /** Current unattended authority for one repair copy, evaluated inside the downloader's source gate. */
 function repairCopyPreflight(
   seriesId: string,
@@ -1989,6 +2188,7 @@ function blank(): RepairResult {
     short: { looked: 0, replaced: 0, confirmed: 0, left: 0 },
     gaps: { series: 0, followed: 0, fetched: 0, unfillable: 0, sweep: 0 },
     groups: { looked: 0, replaced: 0, left: 0 },
+    revisions: { looked: 0, replaced: 0, left: 0 },
     names: { series: 0, named: 0 },
     directions: { asked: 0, learned: 0 },
     details: { asked: 0, filled: 0 },
@@ -2004,6 +2204,7 @@ function summaryOf(r: RepairResult): string {
     + `${r.gaps.fetched} fetched, ${r.failures.reset} failures reset, solver ${r.solver.reset ? 'reset' : 'untouched'} `
     + `(${r.solver.unblocked} unblocked, ${r.solver.expired} expired), groups `
     + (r.groups.off ? 'off' : `${r.groups.replaced} replaced / ${r.groups.left} left of ${r.groups.looked}`)
+    + ', revisions ' + (r.revisions.off ? 'off' : `${r.revisions.replaced} replaced / ${r.revisions.left} left of ${r.revisions.looked}`)
     + ', names ' + (r.names.off ? 'off' : `${r.names.named} named in ${r.names.series} series`)
     + `, directions ${r.directions.learned} learned of ${r.directions.asked} asked`
     + ', details ' + (r.details.off ? 'off' : `${r.details.filled} filled of ${r.details.asked} asked`);
@@ -2025,7 +2226,7 @@ export async function repairLibrary(log?: Log, opts: RepairOpts = {}): Promise<R
   // Fix everything's pass searches out of that run's own budget (AUTOFIX_SEARCHES), shared by every step it drives.
   const budget = opts.autofix && driven ? driven.budget : { left: REPAIR_HUNT_BUDGET };
   const pending: Dated[] = [];
-  const notes: Notes = { replaced: [], confirmed: [], followed: [], upgraded: [] };
+  const notes: Notes = { replaced: [], confirmed: [], followed: [], upgraded: [], revised: [] };
   let stopped: RepairResult['stopped'];
   r.stepMs = {};
   // The live object reads the very objects this run works with (see RepairLive): counts, searches left.
@@ -2056,7 +2257,10 @@ export async function repairLibrary(log?: Log, opts: RepairOpts = {}): Promise<R
       budget.left -= had - reserve.left;
       if (live) live.shortReserve = null;
     } else if (step === 'gaps') stopped = await stepGaps(r, opts, budget, pending, notes, log);
-    else if (step === 'groups') stopped = await stepGroups(r, opts, notes, log);
+    else if (step === 'groups') {
+      stopped = await stepGroups(r, opts, notes, log);
+      if (!stopped) stopped = await stepRevisions(r, opts, notes, log);
+    }
     else if (step === 'names') stopped = await stepNames(r, log);
     else if (step === 'directions') await stepDirections(r, log);
     else if (step === 'details') stopped = await stepDetails(r, log);
@@ -2064,7 +2268,7 @@ export async function repairLibrary(log?: Log, opts: RepairOpts = {}): Promise<R
     if (live) live.stepMs[step] = r.stepMs[step];
     if (activeCard) {
       activeCard.done++;
-      activeCard.fetched = r.short.replaced + r.gaps.fetched + r.groups.replaced + (r.failures.retried?.added ?? 0);
+      activeCard.fetched = r.short.replaced + r.gaps.fetched + r.groups.replaced + r.revisions.replaced + (r.failures.retried?.added ?? 0);
       activeCard.failed = r.short.left + (r.failures.retried?.failed ?? 0);
     }
   }
@@ -2109,6 +2313,7 @@ export async function repairLibrary(log?: Log, opts: RepairOpts = {}): Promise<R
       confirmed: notes.confirmed.slice(0, REPAIR_SHORT_MAX),
       followed: notes.followed.slice(0, REPAIR_GAPS_MAX),
       upgraded: notes.upgraded.slice(0, REPAIR_GROUPS_MAX),
+      revised: notes.revised.slice(0, REPAIR_REVISIONS_MAX),
     },
   });
   return out;

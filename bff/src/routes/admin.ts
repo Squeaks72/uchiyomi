@@ -684,7 +684,7 @@ export default async function adminRoutes(app: FastifyInstance) {
   // ---- server settings ----
   const SETTINGS_COLS = 'server_name, allow_registration, local_pick, automatic_title_logos, automatic_cover_titles, automatic_cover_title_generation, automatic_cover_title_apply, updater_hours, extension_hours, extension_auto_update, '
     + 'update_check, install_ping, install_ping_last, scanlator_prefs, cleanup_read, cleanup_read_days, backup_hour, backup_enabled, auto_follow_on_failure, '
-    + 'repair_enabled, repair_hour, unmapped_recycle_days, komga_ghost_chapters, adult_genres, adult_sources, adult_hiding, source_prefs, group_upgrade, borrow_names, fill_details, discover_lookups, '
+    + 'repair_enabled, repair_hour, unmapped_recycle_days, komga_ghost_chapters, adult_genres, adult_sources, adult_hiding, source_prefs, group_upgrade, revision_update, borrow_names, fill_details, discover_lookups, '
     + 'mangadex_langs, unstated_lang, hide_notice_types, deleted_as_ghosts, update_smart, finish_downloads, '
     + ARCHIVE_SETTINGS_COLS;
   // `extensions_configured` is not a column: extension_hours has a NOT NULL default, so its presence says
@@ -852,6 +852,7 @@ export default async function adminRoutes(app: FastifyInstance) {
        * preferred group's copy once it exists. Off by default -- it replaces files on disk.
        */
       groupUpgrade: z.boolean().optional(),
+      revisionUpdate: z.boolean().optional(),
       /**
        * Chapter names borrowed from another source (lib/borrowNames.ts, #85), the repair's seventh step. Off by
        * default. Off takes back the names it gave every series that follows this switch.
@@ -1036,6 +1037,7 @@ export default async function adminRoutes(app: FastifyInstance) {
     // not whenever that window happens to lapse.
     if (b.adultGenres !== undefined || b.adultSources !== undefined || b.adultHiding !== undefined) invalidateAdultFilter();
     if (b.groupUpgrade !== undefined) await q('UPDATE server_settings SET group_upgrade = $1, updated_at = now() WHERE id = 1', [b.groupUpgrade]);
+    if (b.revisionUpdate !== undefined) await q('UPDATE server_settings SET revision_update = $1, updated_at = now() WHERE id = 1', [b.revisionUpdate]);
     if (b.discoverLookups !== undefined) {
       await q('UPDATE server_settings SET discover_lookups = $1, updated_at = now() WHERE id = 1', [b.discoverLookups]);
       lookupsChanged();
