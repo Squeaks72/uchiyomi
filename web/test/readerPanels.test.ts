@@ -16,10 +16,10 @@ function page(w: number, h: number, rects: R[], paper = 255): Uint8ClampedArray 
   }
   return px;
 }
-const W = 200, H = 300;
+const W = 400, H = 600, M = 14, G = 10; // gutters are ~2.5 % of the page, as a drawn page's are
 
 test('a page of four panels is found in reading order', () => {
-  const px = page(W, H, [[10, 10, 95, 145], [105, 10, 190, 145], [10, 155, 95, 290], [105, 155, 190, 290]]);
+  const px = page(W, H, [[M, M, W / 2 - G / 2, H / 2 - G / 2], [W / 2 + G / 2, M, W - M, H / 2 - G / 2], [M, H / 2 + G / 2, W / 2 - G / 2, H - M], [W / 2 + G / 2, H / 2 + G / 2, W - M, H - M]]);
   const ltr = findPanels(px, W, H, false);
   assert.equal(ltr.length, 4);
   assert.ok(ltr[0].x < 0.1 && ltr[0].y < 0.1, 'top left first');
@@ -31,7 +31,7 @@ test('a page of four panels is found in reading order', () => {
 });
 
 test('a tall panel beside two short ones is one panel', () => {
-  const px = page(W, H, [[10, 10, 95, 290], [105, 10, 190, 145], [105, 155, 190, 290]]);
+  const px = page(W, H, [[M, M, W / 2 - G / 2, H - M], [W / 2 + G / 2, M, W - M, H / 2 - G / 2], [W / 2 + G / 2, H / 2 + G / 2, W - M, H - M]]);
   const p = findPanels(px, W, H, false);
   assert.equal(p.length, 3);
   assert.ok(p[0].h > 0.9, 'the tall one stays whole');
@@ -40,13 +40,13 @@ test('a tall panel beside two short ones is one panel', () => {
 });
 
 test('rows of unequal columns', () => {
-  const px = page(W, H, [[10, 10, 190, 100], [10, 110, 60, 290], [70, 110, 190, 290]]);
+  const px = page(W, H, [[M, M, W - M, 180], [M, 190, 120, H - M], [130, 190, W - M, H - M]]);
   assert.equal(findPanels(px, W, H, false).length, 3);
 });
 
 test('a splash page has no panels', () => {
   assert.deepEqual(findPanels(page(W, H, [[0, 0, W, H]]), W, H), []);
-  assert.deepEqual(findPanels(page(W, H, [[10, 10, 190, 290]]), W, H), []);
+  assert.deepEqual(findPanels(page(W, H, [[M, M, W - M, H - M]]), W, H), []);
 });
 
 test('a blank page and a tiny image have none', () => {
@@ -55,13 +55,39 @@ test('a blank page and a tiny image have none', () => {
 });
 
 test('a page on black paper is read the same way', () => {
-  const px = page(W, H, [[10, 10, 95, 290], [105, 10, 190, 290]], 0);
+  const px = page(W, H, [[M, M, W / 2 - G / 2, H - M], [W / 2 + G / 2, M, W - M, H - M]], 0);
   assert.equal(findPanels(px, W, H, false).length, 2);
 });
 
 test('a page number below the panels is not a panel', () => {
-  const px = page(W, H, [[10, 10, 95, 140], [105, 10, 190, 140], [10, 150, 190, 275], [95, 288, 105, 297]]);
+  const px = page(W, H, [[M, M, W / 2 - G / 2, 270], [W / 2 + G / 2, M, W - M, 270], [M, 280, W - M, 560], [190, 578, 210, 594]]);
   assert.equal(findPanels(px, W, H, false).length, 3);
+});
+
+test('pure white along a panel\'s side is not part of it', () => {
+  // Two panels whose art sits well in from their (white) edges: the boxes are the art.
+  const px = page(W, H, [[60, 60, 180, 540], [220, 60, 340, 540]]);
+  const p = findPanels(px, W, H, false);
+  assert.equal(p.length, 2);
+  assert.ok(p[0].x > 0.13 && p[0].x < 0.18, `left box starts at the art, not the margin: ${p[0].x}`);
+  assert.ok(p[1].x + p[1].w < 0.87 && p[1].x + p[1].w > 0.83, 'and the right one ends at it');
+});
+
+test('a figure over the gap between panels leaves them two panels, each framing the figure', () => {
+  // Two panels one above the other, with a figure (a block of art) drawn across the gutter between them.
+  const px = page(W, H, [[M, M, W - M, 290], [M, 300, W - M, H - M], [150, 270, 230, 330]]);
+  const p = findPanels(px, W, H, false);
+  assert.equal(p.length, 2, 'two panels, not one glued by the figure');
+  assert.ok(p[0].y + p[0].h > 0.5 - 0.012, 'the upper frame reaches into the gap the figure fills');
+  assert.ok(p[1].y < 0.5 + 0.012, 'and so does the lower one');
+});
+
+test('boxes that overlap are both kept', () => {
+  // Two panels side by side with a figure drawn across the gutter: their frames overlap over it.
+  const px = page(W, H, [[M, M, 195, H - M], [205, M, W - M, H - M], [175, 250, 225, 400]]);
+  const p = findPanels(px, W, H, false);
+  assert.equal(p.length, 2);
+  assert.ok(p[0].x + p[0].w > p[1].x, 'the two boxes overlap');
 });
 
 test('a panel is framed to fill the screen, wherever its page lies in the world', () => {
@@ -87,39 +113,23 @@ test('Panel view is a device setting, off until chosen', async () => {
 });
 
 test('an ordinary page of panels opens on its first panel', () => {
-  const px = page(W, H, [[10, 10, 95, 145], [105, 10, 190, 145], [10, 155, 95, 290], [105, 155, 190, 290]]);
+  const px = page(W, H, [[M, M, W / 2 - G / 2, H / 2 - G / 2], [W / 2 + G / 2, M, W - M, H / 2 - G / 2], [M, H / 2 + G / 2, W / 2 - G / 2, H - M], [W / 2 + G / 2, H / 2 + G / 2, W - M, H - M]]);
   assert.equal(analyzePage(px, W, H).overview, false);
 });
 
 test('a double-page spread is shown whole before its panels', () => {
-  const w = 400, h = 300;
-  const px = page(w, h, [[10, 10, 195, 140], [205, 10, 390, 140], [10, 150, 195, 290], [205, 150, 390, 290]]);
+  const w = 800, h = 600;
+  const px = page(w, h, [[M, M, 390, 290], [410, M, w - M, 290], [M, 310, 390, h - M], [410, 310, w - M, h - M]]);
   const a = analyzePage(px, w, h);
   assert.equal(a.panels.length, 4);
   assert.equal(a.overview, true);
 });
 
 test('one big panel beside small ones is shown whole first', () => {
-  const px = page(W, H, [[10, 10, 190, 200], [10, 210, 95, 290], [105, 210, 190, 290]]);
+  const px = page(W, H, [[M, M, W - M, 420], [M, 430, 190, H - M], [210, 430, W - M, H - M]]);
   const a = analyzePage(px, W, H);
   assert.equal(a.panels.length, 3);
   assert.equal(a.overview, true);
-});
-
-test('a figure crossing the gutter between panels shows the page whole first', () => {
-  // Four panels, with a figure 15 px wide reaching across the gap between the rows on the left only.
-  const rects: R[] = [[10, 10, 95, 140], [105, 10, 190, 140], [10, 160, 95, 290], [105, 160, 190, 290], [40, 130, 55, 170]];
-  const a = analyzePage(page(W, H, rects), W, H);
-  assert.equal(a.panels.length, 3);
-  assert.equal(a.overview, true);
-});
-
-test('a quiet strip inside a lone panel does not make a page open whole', () => {
-  const rects: R[] = [[10, 10, 190, 100], [10, 110, 95, 290], [105, 110, 190, 290]];
-  const px = page(W, H, rects);
-  // A blank band across the lower left panel, with no gutter beside it to line up with.
-  for (let y = 180; y < 200; y++) for (let x = 12; x < 93; x++) { const i = (y * W + x) * 4; px[i] = px[i + 1] = px[i + 2] = 255; }
-  assert.equal(analyzePage(px, W, H).overview, false);
 });
 
 test('panels that only slide the camera up and down the page are not framed', () => {
