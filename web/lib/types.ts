@@ -582,6 +582,11 @@ export interface PageInfo {
    * spread, `split` takes the detector's join apart. Sent whether or not ?spreads=1 was asked.
    */
   mark?: 'join' | 'split';
+  /**
+   * Panel view (bff lib/panelJob.ts): where this page's panels are -- boxes `[x, y, w, h]` as fractions of the page, left to right --
+   * and how large its lettering is as a share of the page's width. Sent only for a chapter panel detection has run on.
+   */
+  panels?: { boxes: number[][]; textH: number | null };
   fileName: string;
   mediaType: string;
   width?: number;

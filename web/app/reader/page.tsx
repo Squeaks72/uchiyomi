@@ -57,7 +57,7 @@ import { ReaderShortcuts, useHasKeyboard } from '@/components/ReaderShortcuts';
 import { ReaderAutoBar } from '@/components/ReaderAutoBar';
 import { capLabel } from '@/components/ReaderKeys';
 
-interface PageDim { number: number; width: number | null; height: number | null; junk?: boolean; missing?: boolean; removed?: boolean; restorable?: boolean; contentVersion?: string; join?: 'rtl' | 'ltr'; mark?: SpreadMark }
+interface PageDim { number: number; width: number | null; height: number | null; junk?: boolean; missing?: boolean; removed?: boolean; restorable?: boolean; contentVersion?: string; join?: 'rtl' | 'ltr'; mark?: SpreadMark; panels?: { boxes: number[][]; textH: number | null } }
 /**
  * `sourceId`: the adapter the copy came from, for naming it on a missing page's caption. Unknown for a downloaded copy.
  * `spreads` (#229, Join split double pages): what the server said of the chapter's spreads when asked (`x-spreads`):
@@ -66,7 +66,7 @@ interface PageDim { number: number; width: number | null; height: number | null;
  */
 interface Chapter { id: string; seriesId: string; seriesTitle: string; title: string; pages: PageDim[]; offline: boolean; readingDirection?: string | null; pruned?: boolean; sourceId?: string | null; spreads?: 'done' | 'pending' | 'none' }
 interface ChapterRef { id: string; label: string }
-interface FlatItem { ci: number; number: number; width: number | null; height: number | null; key: string; firstOfChapter: boolean; junk?: boolean; join?: 'rtl' | 'ltr'; mark?: SpreadMark; forced?: boolean; missing?: boolean; contentVersion?: string; collapsed?: boolean }
+interface FlatItem { ci: number; number: number; width: number | null; height: number | null; key: string; firstOfChapter: boolean; junk?: boolean; join?: 'rtl' | 'ltr'; mark?: SpreadMark; panels?: { boxes: number[][]; textH: number | null }; forced?: boolean; missing?: boolean; contentVersion?: string; collapsed?: boolean }
 
 /**
  * #229: when to ask again for a chapter whose spreads the server is still measuring, after each `pending`: then the
@@ -136,7 +136,7 @@ async function pageList(bookId: string, spreads: boolean,actor=getCurrentUser())
   const { data, headers } = await apiWithHeaders<PageInfo[]>(`/api/books/${bookId}/pages${spreads ? '?spreads=1' : ''}`,{expectedOwnerId:actor});
   const said = headers.get('x-spreads');
   return {
-    pages: data.map((p) => ({ number: p.number, width: p.width ?? null, height: p.height ?? null, junk: p.junk, missing: p.missing, removed: p.removed, restorable: p.restorable, contentVersion: p.contentVersion, join: p.join, mark: p.mark })),
+    pages: data.map((p) => ({ number: p.number, width: p.width ?? null, height: p.height ?? null, junk: p.junk, missing: p.missing, removed: p.removed, restorable: p.restorable, contentVersion: p.contentVersion, join: p.join, mark: p.mark, panels: p.panels })),
     spreads: spreads ? (said === 'done' || said === 'pending' ? said : 'none') : undefined,
   };
 }
@@ -2401,7 +2401,7 @@ function ReaderInner() {
     const win = [current - 1, current, current + 1].flatMap((i) => {
       const f = flat[i];
       const src = f && !f.missing && !f.collapsed ? srcFor(i) : null;
-      return f && src ? [{ i, key: f.key, src, number: f.number, width: f.width, height: f.height }] : [];
+      return f && src ? [{ i, key: f.key, src, number: f.number, width: f.width, height: f.height, panels: f.panels?.boxes, textH: f.panels?.textH ?? null }] : [];
     });
     return win.some((p) => p.i === current) ? win : null;
   })();
@@ -2656,7 +2656,7 @@ function ReaderInner() {
 
       {panelPage && (
         <PanelView pages={panelPage} current={current} rtl={rightFirst} filter={imgFilter} from={panelFrom.current}
-          reduceMotion={behavior !== 'smooth'} onTurn={panelTurn} onChrome={() => setChrome((c) => !c)} onRetry={refreshEditedPages} />
+          reduceMotion={behavior !== 'smooth'} comfortPx={device.textComfort} onTurn={panelTurn} onChrome={() => setChrome((c) => !c)} onRetry={refreshEditedPages} />
       )}
 
       {/* CHROME */}
