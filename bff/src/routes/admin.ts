@@ -90,6 +90,7 @@ import { keepRestricted, memberDefaults, memberDefaultsShape, permsShape, saveMe
 import { FOLLOW_LIMIT_MAX, followerLimit, forgetFollowerLimit } from '../lib/followLimit';
 import { borrowNamesFor, clearBorrowedNames } from '../lib/borrowNames';
 import { clearAutoDetails, fillDetailsFromSources, fillDetailsOn } from '../lib/autoDetails';
+import { panelSettings, panelState, panelsRemaining, runPanelBackfill } from '../lib/panelJob';
 import { lookupsChanged, libraryChanged, libraryRevision } from '../lib/discoverIdentity';
 import { sanitiseNoticeTypes, visibleBookCount } from '../lib/noticeChapters';
 import { seriesHidesNotices, hiddenCount, refreshNoticesActive } from '../lib/noticeSettings';
@@ -753,6 +754,8 @@ export default async function adminRoutes(app: FastifyInstance) {
       backup_keep: backups.keep,
       nightlyMode: mode?.m === 'autofix' ? 'autofix' : 'repair',
       hideNoticeShortOnly: shortOnly?.s !== false,
+      // Panel detection (lib/panelJob.ts): what is switched on and when, in the shape PATCH takes it.
+      panels: await panelSettings(),
       extensions_configured: suwayomiConfigured(),
       // How many chapters the read-chapter cleanup would delete if it ran now, at the CURRENT day setting.
       // Computed here rather than only in the tasks list because the tasks list does not show the job until
@@ -911,6 +914,15 @@ export default async function adminRoutes(app: FastifyInstance) {
        * below the scan. Off by default. Off takes back everything it filled in.
        */
       fillDetails: z.boolean().optional(),
+      /**
+       * Panel detection (lib/panelJob.ts): a neural network finds each page's panels for Reader → Panel view. `nightly` runs a pass over
+       * every chapter not yet looked at, at `hour`; `onImport` runs one shortly after new chapters land; `tier` is the model size those
+       * passes use (fast, careful, thorough). All off by default: nothing is detected, and no model is downloaded, until asked.
+       */
+      panels: z.object({
+        nightly: z.boolean().optional(), onImport: z.boolean().optional(),
+        tier: z.enum(['fast', 'careful', 'thorough']).optional(), hour: z.number().int().min(0).max(23).optional(),
+      }).optional(),
       /**
        * Discover's online name lookups (v0.56.0, lib/discoverIdentity.ts): AniList, MangaDex and MangaUpdates are asked,
        * once per name, which work a title shown in Discover is. On by default; off, nothing is sent anywhere and cards
@@ -1094,6 +1106,13 @@ export default async function adminRoutes(app: FastifyInstance) {
       // "Stop doing that" means the names it wrote go too; a series switched on for itself keeps its own.
       if (!b.borrowNames) await clearBorrowedNames('following-server').catch(() => 0);
     }
+    if (b.panels !== undefined) {
+      const p = b.panels;
+      if (p.nightly !== undefined) await q('UPDATE server_settings SET panels_nightly = $1, updated_at = now() WHERE id = 1', [p.nightly]);
+      if (p.onImport !== undefined) await q('UPDATE server_settings SET panels_on_import = $1, updated_at = now() WHERE id = 1', [p.onImport]);
+      if (p.tier !== undefined) await q('UPDATE server_settings SET panels_tier = $1, updated_at = now() WHERE id = 1', [p.tier]);
+      if (p.hour !== undefined) await q('UPDATE server_settings SET panels_hour = $1, updated_at = now() WHERE id = 1', [p.hour]);
+    }
     if (b.fillDetails !== undefined) {
       await q('UPDATE server_settings SET fill_details = $1, updated_at = now() WHERE id = 1', [b.fillDetails]);
       // The same promise: off, every series shows again exactly what it showed before it was switched on.
@@ -1214,6 +1233,17 @@ export default async function adminRoutes(app: FastifyInstance) {
           : null,
         running: phState.running,
         remaining: await pageHashRemaining().catch(() => null),
+      },
+      {
+        id: 'panels',
+        name: 'Find panels',
+        ...sched('nightly and on import, if switched on (Settings → Panel detection)'),
+        lastRun: panelState.finishedAt,
+        lastResult: panelState.finishedAt
+          ? { chapters: panelState.chapters, pages: panelState.pages, failed: panelState.failed, ms: panelState.ms, error: panelState.lastError }
+          : null,
+        running: panelState.running,
+        remaining: await panelsRemaining().catch(() => null),
       },
       // v0.55.7 (#168): the online matches stored by title before they were checked -- AniList links, covers and banners
       // -- held to the title check (lib/matchCheck.ts): in the background after a boot, then every 6h for whatever is
@@ -1525,6 +1555,11 @@ export default async function adminRoutes(app: FastifyInstance) {
       const run = runChapterCleanup(app.log);
       if (!run) return { ok: false, error: 'busy' };
       run.catch(() => {}); // runChapterCleanup logs it; this only stops an unhandled rejection
+      return { ok: true, started: true };
+    }
+    if (id === 'panels') {
+      if (panelState.running) return { ok: false, error: 'busy' };
+      runPanelBackfill().catch(() => {});
       return { ok: true, started: true };
     }
     if (id === 'pagehash') {

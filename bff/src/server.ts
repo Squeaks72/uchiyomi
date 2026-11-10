@@ -21,6 +21,8 @@ import { migrate } from './lib/migrate';
 import { loadSources, loadCustomSites, loadBuiltins, listSources, loadSuwayomiSources, scheduleSuwayomiRetry, suwayomiConfigured } from './lib/sources';
 import { scheduleFingerprintBackfill } from './lib/fingerprintJob';
 import { schedulePageHashBackfill } from './lib/pageHashJob';
+import { schedulePanelJobs } from './lib/panelJob';
+import panelRoutes from './routes/panels';
 import { solverHealth } from './lib/health';
 import { refreshHealthSummary } from './lib/healthSummary';
 import { recountUnreadable } from './lib/healthFiles';
@@ -301,6 +303,7 @@ async function main() {
   // Notification targets (#70): admin-only, with its own hooks, like admin.ts.
   await app.register(notifyRoutes);
   await app.register(catalogRoutes);
+  await app.register(panelRoutes);
   await app.register(imageRoutes);
   await app.register(personalRoutes);
   await app.register(privateLibraryRoutes);
@@ -1068,6 +1071,9 @@ async function main() {
   // deliberately last: it decodes every page in the library, which is the heaviest thing this process ever
   // does. Nothing breaks while it is unfinished -- an un-hashed page is simply never skipped.
   if (process.env.LIBRARY_BACKEND !== 'komga') schedulePageHashBackfill();
+  // Panel detection (Admin -> Panel detection): nightly and on import, each only if an admin switched it on.
+  const stopPanelJobs = process.env.LIBRARY_BACKEND !== 'komga' ? schedulePanelJobs() : () => {};
+  app.addHook('onClose', async () => { stopPanelJobs(); });
 }
 
 main().catch((e) => {
