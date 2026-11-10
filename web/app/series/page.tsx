@@ -69,6 +69,7 @@ import { SourcesExplainer } from '@/components/SourcesExplainer';
 import { SupplyLine } from '@/components/SupplyLine';
 import { ChapterFilterSheet } from '@/components/ChapterFilterSheet';
 import { ChapterVersionsSheet } from '@/components/ChapterVersionsSheet';
+import { PanelReview } from '@/components/PanelReview';
 import { PreviewReader } from '@/components/PreviewReader';
 import { CullSourcesDialog } from '@/components/CullSourcesDialog';
 import { foreignSources, type CullPlan } from '@/lib/cullPlan';
@@ -2010,6 +2011,7 @@ function SeriesInner() {
       case 'cover': setCoverPicker(true); break;
       case 'newBanner': void newBanner(); break;
       case 'move': setMoving(true); break;
+      case 'panels': setReviewingPanels(true); break;
       case 'rename': setRenaming(true); break;
       case 'remove': setDeleting(true); break;
       case 'cull': setCulling(true); break;
@@ -2018,6 +2020,9 @@ function SeriesInner() {
   // ⚠️ The sheet closes BEFORE its row's action runs (SeriesMoreSheet's onPick): Edit details, Rename folder, Remove's
   // typed-title confirmation and Find missing chapters are dialogs, and a dialog opened under a Sheet cannot be tapped.
   const [moreSheet, setMoreSheet] = useState(false);
+  // Panel detection's review sheet (components/PanelReview.tsx), from More.
+  const [reviewingPanels, setReviewingPanels] = useState(false);
+  useEffect(() => { setReviewingPanels(false); }, [id]);
   useEffect(() => { setMoreSheet(false); }, [id]);
   const more = useContextMenu(() => moreMenuItems(moreGroups, runAction), { label: title });
   const openMore = (el: HTMLElement) => {
@@ -2507,6 +2512,7 @@ function SeriesInner() {
         <PreviewReader source={previewing.source} sourceName={previewing.sourceName} sourceId={previewing.sourceId} title={title}
           initialNumber={previewing.number} onClose={() => setPreviewing(null)} />
       )}
+      {reviewingPanels && <PanelReview seriesId={id} title={title} rtl={series?.metadata?.readingDirection === 'RIGHT_TO_LEFT'} onClose={() => setReviewingPanels(false)} />}
       {chapterSheet && (
         <ChapterVersionsSheet number={chapterSheet.number} ghost={chapterSheet.ghost} book={chapterSheet.book}
           copies={versionsOf.get(chapterSheet.number) ?? []} sourceNames={sourceNames} isAdmin={isAdmin}

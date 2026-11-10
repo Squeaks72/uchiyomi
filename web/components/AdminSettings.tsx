@@ -679,6 +679,27 @@ function MaintenanceSection({ data, save }: { data: any; save: Save }) {
         </RowBlock>
       </RowGroup>
 
+      <RowGroup title={tr('Panel detection')}>
+        {/* A neural network finds each page's panels for Reader → Panel view (bff lib/panelJob.ts). All off by default: nothing is detected,
+            and no model is downloaded, until a pass is switched on here or a series is asked from its More menu. */}
+        <MoreOptions id="panels-more">
+        <SelectRow id="panels-nightly" label={tr('Find panels nightly')} value={data.panels?.nightly ? String(data.panels?.hour ?? 5) : 'off'}
+          help={joinSentences(
+            tr('Off by default. Every night, find the panels of every chapter not looked at yet. The first run downloads the model for the size chosen below.'),
+            nightly,
+          )}
+          options={[{ value: 'off', label: tr('Off') }, ...hours.map((h) => ({ value: String(h), label: clockText(h) }))]}
+          onChange={(v) => save({ panels: v === 'off' ? { nightly: false } : { nightly: true, hour: Number(v) } })} />
+        <SwitchRow id="panels-on-import" label={tr('Find panels when chapters arrive')} on={data.panels?.onImport === true}
+          help={tr('Off by default. A little after new chapters land — imported, uploaded or downloaded — find their panels, so a new chapter is ready to read panel by panel.')}
+          onChange={(next) => save({ panels: { onImport: next } })} />
+        <SelectRow id="panels-tier" label={tr('Panel detection size')} value={(data.panels?.tier ?? 'fast') as 'fast' | 'careful' | 'thorough'}
+          help={tr('Fast is the smallest model, a moment a page. Careful and Thorough look harder and take longer, and each downloads a larger model once. From a series’ More menu, Try harder runs the next size up on the pages you rejected and keeps the earlier answers to choose between.')}
+          options={[{ value: 'fast', label: tr('Fast') }, { value: 'careful', label: tr('Careful') }, { value: 'thorough', label: tr('Thorough') }]}
+          onChange={(v) => save({ panels: { tier: v } })} />
+        </MoreOptions>
+      </RowGroup>
+
       <RowGroup title={tr('Repair')}>
         {/* v0.41.0: the nightly repair, and since v0.55.0 what it runs -- the safe repair or a whole Fix everything. ONE
             control since v0.86.0 (NightlyModeRow): Off, Safe repair, Fix everything. ON with the safe repair by default

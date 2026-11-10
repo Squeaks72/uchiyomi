@@ -18,7 +18,9 @@ export type SeriesActionId =
   | 'copyLink' | 'openTab'
   | 'edit' | 'cover' | 'move' | 'newBanner' | 'rename' | 'remove'
   // The fork's: the other sources' cull.
-  | 'cull';
+  | 'cull'
+  // Panel detection's review (components/PanelReview.tsx).
+  | 'panels';
 
 export type SeriesActionGroupId = 'reading' | 'chapters' | 'share' | 'admin';
 
@@ -118,6 +120,8 @@ export function seriesActionGroups(x: SeriesActionsInput): SeriesActionGroup[] {
     { id: 'cover' as const, label: tr('Change cover'), hook: 'change-cover', disabled: offline },
     // Files it under another library (the Library's Select mode does the same for many): nothing on disk moves.
     { id: 'move' as const, label: tr('Move library'), hook: 'move-library', disabled: offline },
+    // Finding the panels of a series' pages with a neural network, and reviewing what it found (components/PanelReview.tsx).
+    { id: 'panels' as const, label: tr('Panel detection'), hook: 'panel-detection', disabled: offline },
     // Only while the hero is an automatic one: a real banner is changed in Edit details, and Shuffle answers 409 for it.
     ...(x.autoHero ? [{ id: 'newBanner' as const, label: tr('New banner'), hook: 'new-banner', disabled: offline }] : []),
     ...(x.hasFolder ? [{ id: 'rename' as const, label: tr('Rename folder'), disabled: offline }] : []),

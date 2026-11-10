@@ -108,6 +108,9 @@ export const ADMIN_SETTINGS: SettingsIndex = {
 
     // ---- Maintenance ----
     { id: 'nightly-backup', cat: 'maintenance', label: 'Nightly backup', keywords: ['backup', 'database backup', 'dump', 'backup time'] },
+    { id: 'panels-nightly', cat: 'maintenance', more: 'panels-more', label: 'Find panels nightly', keywords: ['panels', 'panel detection', 'panel view', 'comic', 'manga', 'neural', 'nightly'] },
+    { id: 'panels-on-import', cat: 'maintenance', more: 'panels-more', label: 'Find panels when chapters arrive', keywords: ['panels', 'panel detection', 'import', 'new chapters', 'download'] },
+    { id: 'panels-tier', cat: 'maintenance', more: 'panels-more', label: 'Panel detection size', keywords: ['panels', 'panel detection', 'model', 'fast', 'careful', 'thorough', 'try harder'] },
     { id: 'nightly-repair', cat: 'maintenance', label: 'Repair the library nightly', keywords: ['repair', 'fix everything', 'autofix', 'nightly'] },
     { id: 'repair-hour', cat: 'maintenance', label: 'Repair runs at', keywords: ['repair time', 'nightly time', 'overnight', 'hour', 'schedule'] },
     { id: 'bookorbit-sync', cat: 'maintenance', label: 'BookOrbit sync', keywords: ['bookorbit', 'sync', 'reading progress', 'manga', 'two-way'] },
