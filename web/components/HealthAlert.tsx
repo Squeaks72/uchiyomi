@@ -6,7 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { t as tr } from '@/lib/i18n';
-import { alertTone, bannerWanted, headlineText, prunedSeen, readSeen, seenValue, writeSeen, type HealthSummary } from '@/lib/healthAlert';
+import { alertTone, bannerWanted, headlineText, isCritical, prunedSeen, readSeen, seenValue, writeSeen, type HealthSummary } from '@/lib/healthAlert';
 import { IcAlert } from './icons';
 
 // lib/healthAlert.ts says what this is for and why it never runs the checks itself (#101).
@@ -23,6 +23,16 @@ export function useHealthSummary() {
     staleTime: 60_000,
     refetchOnWindowFocus: true,
   });
+}
+
+/** Whether the last report holds anything critical: the red dot on the phone's routes to Admin (More, Profile). */
+export function useCriticalHealth(): boolean {
+  return isCritical(useHealthSummary().data);
+}
+
+/** The red dot itself, positioned by its parent (`relative`). */
+export function CriticalDot({ className = '' }: { className?: string }) {
+  return <span aria-hidden data-health-dot className={`absolute h-2.5 w-2.5 rounded-full bg-red-400 ${className}`} />;
 }
 
 const countLine = (n: number) => (n === 1 ? tr('1 check found something') : tr('{n} checks found something', { n }));
@@ -54,8 +64,8 @@ export function HealthBanner() {
       <IcAlert width={14} height={14} className="shrink-0" />
       <span dir="auto" className="min-w-0">{headlineText(data) ?? countLine(data.count)}</span>
       {data.count > 1 && <span className="text-fog-400">{countLine(data.count)}</span>}
-      <Link href={HEALTH_HREF} onClick={dismiss} className="font-semibold underline-offset-2 hover:underline">{tr('Take a look')}</Link>
-      <button type="button" onClick={dismiss} className="text-fog-400 hover:text-fog-100">{tr('Not now')}</button>
+      <Link href={HEALTH_HREF} onClick={dismiss} className="inline-flex min-h-6 items-center pointer-coarse:min-h-10 pointer-coarse:px-1.5 font-semibold underline-offset-2 hover:underline">{tr('Take a look')}</Link>
+      <button type="button" onClick={dismiss} className="inline-flex min-h-6 items-center pointer-coarse:min-h-10 pointer-coarse:px-1.5 text-fog-400 hover:text-fog-100">{tr('Not now')}</button>
     </div>
   );
 }

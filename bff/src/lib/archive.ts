@@ -42,7 +42,8 @@ import { gateDepth } from './gate';
 import { rateKeyOf, refusedLately, withSlowPace } from './pace';
 import { classify } from './sourceHealth';
 import { checkRunning } from './sourceWatchdog';
-import { freeBytes, chapterFileRel } from './downloader';
+import { freeBytes } from './downloader';
+import { chapterFileNames } from './chapterFile';
 import { DL_ROOT, persistScan, setBookDates, setBookMeta } from './library';
 import { downloadWithFallback, type FallbackOutcome } from './chapterFallback';
 import { noteChapterFailure } from './chapterFailures';
@@ -858,8 +859,10 @@ async function candidatesFor(seriesIds: string[]): Promise<Map<string, Candidate
   return out;
 }
 
-const onDisk = (folder: string, n: number): Promise<boolean> =>
-  stat(join(DL_ROOT, chapterFileRel(folder, n))).then(() => true, () => false);
+const onDisk = async (folder: string, n: number): Promise<boolean> => {
+  for (const name of chapterFileNames(folder, n)) if (await stat(join(DL_ROOT, folder, name)).then(() => true, () => false)) return true;
+  return false;
+};
 
 /**
  * The start of a turn, written down before anything is asked of the site: the source's next start is reserved
@@ -1067,7 +1070,10 @@ async function runChapter(
       else throw e;
     }
     if (out && (out.kind === 'landed' || out.kind === 'partial')) {
-      bytes = await stat(join(DL_ROOT, chapterFileRel(r.folder, n))).then((s) => s.size, () => 0);
+      for (const name of chapterFileNames(r.folder, n)) {
+        bytes = await stat(join(DL_ROOT, r.folder, name)).then((s) => s.size, () => 0);
+        if (bytes) break;
+      }
       // The source chapter it came from rides on the landing, as the sweep's does (updater.ts Landed.chapterId):
       // setBookMeta stamps lib_books.source_chapter_id with it after the scan, so a later renumber (#116) knows
       // exactly which post the file is.

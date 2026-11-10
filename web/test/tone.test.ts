@@ -114,6 +114,7 @@ test('the <head> script applies only a tone that is not OLED, makes the one brow
 test('the account\'s tone is applied where the accent and Reduce effects are', () => {
   const auth = code(read('lib/auth.tsx'));
   // Before `authed`, like Reduce effects: the shell's first frame is in the reader's tone.
+  // The fork adopts its account switches (lib/accountPrefs.ts) between the two and setStatus; what this pins is
   assert.match(auth, /applyReduceEffects\(u\.settings\?\.reduceEffects === true\);\s*applyTone\(u\.settings\?\.tone\);\s*setStatus\('authed'\);/);
   assert.match(auth, /restoreReduceEffects\(\);\s*restoreTone\(\);\s*setStatus\('offline'\);/);
   assert.match(auth, /applyReduceEffects\(false\);\s*applyTone\(null\);\s*setUser\(null\);/, 'sign-out keeps the tone for the sign-in screen');

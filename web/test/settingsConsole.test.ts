@@ -484,7 +484,7 @@ test('a dialog gives focus back to what opened it, and a phone\'s page gives it 
   assert.match(effect, /const opener = document\.activeElement as HTMLElement \| null;/, 'the Modal does not remember what opened it');
   assert.match(effect, /return \(\) => \{ document\.removeEventListener\('keydown', onKey\); opener\?\.focus\(\); \};/, 'the Modal does not return focus');
   // `opener` is read BEFORE the first field takes focus, or it would remember the dialog's own ✕.
-  assert.ok(effect.indexOf('const opener') < effect.indexOf('first?.focus()'), 'the opener is read after the dialog took focus');
+  assert.ok(effect.indexOf('const opener') < effect.indexOf('target?.focus()'), 'the opener is read after the dialog took focus');
   const layout = code(read('components/ConsoleLayout.tsx'));
   // Once the screen has changed (the address first, the page after it): into a page its title takes the focus; Back --
   // the key or the phone's own -- returns it to the row the page was opened from, in view. A focus moved in `open`

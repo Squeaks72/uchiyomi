@@ -190,6 +190,15 @@ test('unnumbered chapters are named, not called missing', async () => {
   assert.match(r.checks.find((c) => c.name === 'Chapters')!.detail, /^none with a usable number \(24 without\)$/, 'both hits tried, 12 each');
 });
 
+test('a list numbered by the source\'s order passes and says so', async () => {
+  const { smokeTest } = await load();
+  const { UNNUMBERED } = await types();
+  const a = adapter({ listChapters: async () => Object.defineProperty([ch(1), ch(2)], UNNUMBERED, { value: 2 }) as SourceChapter[] });
+  const r = await smokeTest(a, { timeoutMs: 5000 });
+  assert.match(r.checks.find((c) => c.name === 'Chapters')!.detail, /^2 chapter\(s\), numbered by list order$/);
+  assert.ok(r.checks.find((c) => c.name === 'Chapters')!.ok);
+});
+
 test('every search hit throwing at the series page is a chapters-stage error, with the first error', async () => {
   const { smokeTest } = await load();
   const a = adapter({ getSeries: async (id: string) => { throw new Error(`suwayomi: gone ${id}`); } });

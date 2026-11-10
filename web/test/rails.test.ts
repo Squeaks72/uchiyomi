@@ -75,3 +75,12 @@ test('the arrows exist, are desktop-only, and mirror under RTL', () => {
   assert.ok(/rtl \? -1 : 1/.test(src), 'the RTL sign flip is missing from the scroll delta');
   assert.ok(/Math\.abs\(el\.scrollLeft\)/.test(src), 'the end detection will be wrong under RTL (negative scrollLeft)');
 });
+
+test('scroll jank guards: rail ends are not re-set when unchanged, tilt is rAF-throttled, home rails defer paint', () => {
+  assert.match(read('components/ScrollRail.tsx'), /setEnds\(\(p\) => \(p\.start === start && p\.end === end \? p :/);
+  const cards = read('components/cards.tsx');
+  assert.match(cards, /requestAnimationFrame\(\(\) => \{\s*raf\.current = 0;/);
+  assert.match(cards, /window\.scrollY !== lastScroll\.current\.y/);
+  assert.match(read('app/globals.css'), /\.rail-section \{ content-visibility: auto; contain-intrinsic-size: auto 340px; \}/);
+  assert.ok((read('app/page.tsx').match(/rail-section/g) ?? []).length >= 8);
+});

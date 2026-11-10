@@ -17,6 +17,7 @@ import { Modal, ConfirmDialog, msgOf } from '@/components/ConfirmDialog';
 import { MoveToLibrary } from '@/components/MoveToLibrary';
 import { currentSelectionLibrary, moveSeriesToLibrary } from '@/lib/moveLibrary';
 import { refusalBody, requestFailure } from '@/lib/refusals';
+import { invalidateBrowsing } from '@/lib/browseKeys';
 import { useAuth, canDownload, canUploadManually } from '@/lib/auth';
 import { AdultToggle, useAdultFilterConfigured, useAdultShown, useLibraries } from '@/components/AdultToggle';
 import { LibraryFilters, NO_SOURCE, READ_STATES, STATUSES, useLibrarySources } from '@/components/LibraryFilters';
@@ -315,6 +316,7 @@ function LibraryInner() {
     setPicked(new Set());
     qc.invalidateQueries({ queryKey: ['library'] });
     qc.invalidateQueries({ queryKey: ['home'] });
+    invalidateBrowsing(qc); // and the recommendation rows, which keep their own caches
   };
 
   const bulkFailure = (error: unknown, fallback: string) => {

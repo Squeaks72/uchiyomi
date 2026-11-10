@@ -12,6 +12,7 @@
 import { q } from './db';
 import type { PageFailure } from './downloader';
 import { hiddenNumbersActive } from './noticeChapters';
+import { beyondOfficial } from './officialCount';
 
 export interface ChapterFailure {
   seriesId: string;
@@ -90,6 +91,8 @@ export async function noteChapterFailure(f: ChapterFailure): Promise<void> {
   const blame = e?.blockStatus ? `${e.blockStatus} (cooldown)` : `${status} (no cooldown)`;
   console.warn(`[updater] "${f.title}" ch ${f.number} via ${f.sourceId}: ${pages}${blame}: ${reasonOf(e)}`);
   if (e?.diskFull) return; // not the chapter's fault, and not the source's
+  // Past the end of a finished work that is held whole: a site's placeholder, not a chapter to fetch (lib/officialCount.ts).
+  if (await beyondOfficial(f.seriesId, f.number)) return;
   // `at` is the latest attempt; `first_at` (v0.49.0) the first failure, kept on every later one -- the Health
   // page's "failing since" -- and filled from `at` for a row written before the column (or by a rollback).
   // Never for a number an admin hid while it was being fetched (#240): nothing tries it again, so the row would sit on

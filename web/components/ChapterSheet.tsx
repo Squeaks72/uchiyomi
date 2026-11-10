@@ -28,10 +28,10 @@ export function ChapterSheet({ title, chapters, activeId, onPick, onClose, heade
   return (
     <Sheet title={title} onClose={onClose}>
       {header}
-      <div className="-mx-1 divide-y divide-ink-800/70">
+      <ul className="-mx-1 divide-y divide-ink-800/70">
         {chapters.map((c) => (
+          <li key={c.id}>
           <button
-            key={c.id}
             onClick={() => { onPick(c.id); onClose(); }}
             aria-current={c.id === activeId ? 'true' : undefined}
             className={`flex w-full items-center gap-2 px-3 py-2.5 text-start text-sm transition
@@ -40,8 +40,9 @@ export function ChapterSheet({ title, chapters, activeId, onPick, onClose, heade
             <span className="min-w-0 flex-1 truncate">{c.label}</span>
             {c.id === activeId && <IcCheck width={15} height={15} className="shrink-0" />}
           </button>
+          </li>
         ))}
-      </div>
+      </ul>
     </Sheet>
   );
 }

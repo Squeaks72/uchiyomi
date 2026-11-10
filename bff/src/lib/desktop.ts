@@ -59,6 +59,8 @@ export const DESKTOP_FLOORS = Object.freeze({
   watchdog: 5 * 60 * 1000,
   cleanup: 5 * 60 * 1000,
   importSweep: 5 * 60 * 1000,
+  unmappedBin: 5 * 60 * 1000,
+  bookorbitSync: 2 * 60 * 1000,
   installPing: 10 * 60 * 1000,
   backupCatchUp: 5 * 60 * 1000,
   healthSummary: 5 * 60 * 1000,

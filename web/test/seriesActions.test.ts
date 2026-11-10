@@ -169,7 +169,7 @@ test('the page: four keys under the button, More by width, the sheet closed befo
   // Each item runs the page's own action.
   for (const [id, call] of [['remove', 'setDeleting(true)'], ['edit', "setEditing('details')"], ['rename', 'setRenaming(true)'], ['findMissing', 'setFindingMissing(true)'],
     ['archive', 'void archiveSlowly()'], ['newBanner', 'void newBanner()'], ['checkNew', 'void checkNow()'], ['markAllRead', 'void markAllRead()'],
-    ['cover', 'setCoverPicker(true)']] as const) {
+    ['cover', 'setCoverPicker(true)'], ['move', 'setMoving(true)']] as const) {
     assert.ok(page.includes(`case '${id}': ${call}; break;`), `${id} does not run ${call}`);
   }
 });

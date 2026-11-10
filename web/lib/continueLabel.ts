@@ -14,6 +14,8 @@
 //                                                                                 lowest such one when none is after
 //   start     nothing is read                               "Start reading"       the first chapter
 //   again     everything that can be opened is finished     "Read again"          the first chapter
+//   caughtup  the same, on a series still coming out        "Caught up · Ch. 1193" the LAST chapter: it is not a
+//                                                                                 series to start over, it is one to wait for
 //
 // "Can be opened" is the page's own rule, passed in: a chapter the server deleted has no pages to open -- unless this
 // device saved a copy, which is then the last copy left and opens perfectly.
@@ -21,7 +23,7 @@ import { t as tr } from './i18n';
 import { chapterLabel, chapterName } from './format';
 import type { ReadProgress } from './types';
 
-export type ContinueKind = 'none' | 'continue' | 'next' | 'start' | 'again';
+export type ContinueKind = 'none' | 'continue' | 'next' | 'start' | 'again' | 'caughtup';
 
 /** What the decision reads of a chapter: its place, its progress, and what the labels say of it. */
 export interface ContinueBook {
@@ -60,7 +62,7 @@ const readAt = (b: ContinueBook): number | null => {
 const placeOf = (b: ContinueBook): number => b.metadata?.numberSort ?? b.number;
 
 /** The one choice, from the chapter list in any order and the page's `openable` rule. */
-export function continueChoice<B extends ContinueBook>(books: readonly B[], openable: (b: B) => boolean): ContinueChoice<B> {
+export function continueChoice<B extends ContinueBook>(books: readonly B[], openable: (b: B) => boolean, opts: { ongoing?: boolean } = {}): ContinueChoice<B> {
   const list = [...books].sort((a, b) => placeOf(a) - placeOf(b));
   const open = list.filter(openable);
   if (!open.length) return { kind: 'none', book: null };
@@ -86,7 +88,10 @@ export function continueChoice<B extends ContinueBook>(books: readonly B[], open
 
   const unread = (b: B) => !finished(b) && openable(b);
   const next = list.slice(lastDone + 1).find(unread) ?? list.find(unread);
-  return next ? { kind: 'next', book: next } : { kind: 'again', book: open[0] };
+  if (next) return { kind: 'next', book: next };
+  // Everything there is has been read. On a series that is still coming out that is not "read it again from chapter 1":
+  // the reader is simply waiting, and the button offers the newest chapter they have.
+  return opts.ongoing ? { kind: 'caughtup', book: open[open.length - 1] } : { kind: 'again', book: open[0] };
 }
 
 /** "Ch. 12 · The Return": the chapter's label, and its own name when the source gave one. */
@@ -110,6 +115,8 @@ export function continueText(choice: ContinueChoice): { label: string; caption: 
     }
     case 'next':
       return { label: tr('Next · {chapter}', { chapter: chapterLabel(b) }), caption: chapterName(b) };
+    case 'caughtup':
+      return { label: tr('Caught up · {chapter}', { chapter: chapterLabel(b) }), caption: tr('Waiting for the next chapter') };
     case 'again':
       return { label: tr('Read again'), caption: fullName(b) };
     default:

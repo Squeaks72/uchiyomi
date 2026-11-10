@@ -23,7 +23,9 @@ import { withGate } from '../gate';
 import { notifyAdmins } from '../push';
 import { browsableIds, SHARED_CTX, viewCtxFor, type ViewCtx } from '../visibility';
 import { wantsNews } from '../nextUp';
-import { buildRequest, discordText, type Kind, type Message, type TargetConfig, type TargetSecret } from './kinds';
+import { buildRequest, discordText, emailMessage, type Kind, type Message, type TargetConfig, type TargetSecret } from './kinds';
+import { sendEmail } from './email';
+import { watchedAmong } from '../volumes/watch';
 import { REASON_TEXT, sendRequest, type SendOptions, type SendResult } from './send';
 import { renderDigest } from './template';
 
@@ -161,8 +163,11 @@ export interface DeliverOptions extends SendOptions {
 export async function deliver(row: TargetRow, msg: Message, opts: DeliverOptions = {}): Promise<SendResult> {
   const mode = opts.mode ?? 'count';
   const secret = openSecret(row.secret);
-  const req = secret ? buildRequest(row.kind, secret, row.config ?? { display: '' }, msg) : null;
-  const res: SendResult = req
+  const req = secret && row.kind !== 'email' ? buildRequest(row.kind, secret, row.config ?? { display: '' }, msg) : null;
+  // Fork: an email target is not a POST (lib/notify/email.ts); same lane, same bookkeeping.
+  const res: SendResult = secret && row.kind === 'email'
+    ? await withGate(`notify:${row.id}`, () => sendEmail(secret, emailMessage(msg), opts), { concurrency: 1, minGapMs: 1000 })
+    : req
     ? await withGate(`notify:${row.id}`, () => sendRequest(req, opts), { concurrency: 1, minGapMs: 1000 })
     : { ok: false, status: null, reason: 'secret_unreadable' };
   try {
@@ -248,6 +253,43 @@ export async function sendDigest(landed: ReadonlyArray<Landed>, opts: SendOption
     await deliver(t, {
       event: 'new_chapters', title, message: digestText(t, series), count,
       series: series.map((s) => ({ id: s.id, title: s.title, added: s.added })),
+    }, { retry: true, ...opts }).catch(() => {});
+  }));
+}
+
+/**
+ * Fork: volumes and arcs that just became complete (lib/volumes), ONE message per target that asked for
+ * `volume_complete`. Only series someone waits on by volume: a person's target names the ones THAT person waits on, a
+ * server-wide target the ones anybody does. The same visibility rule as the digest -- a person's own libraries and
+ * age cap, and the 18+ hide unless the target opted in -- and it fails closed the same way.
+ */
+export async function sendVolumeNews(done: ReadonlyArray<{ id: string; title: string; message: string }>, opts: SendOptions = {}): Promise<void> {
+  if (!done.length) return;
+  const targets = await q<TargetRow & { user_role: string | null }>(
+    `SELECT ${COLS}, u.role AS user_role FROM notify_targets t LEFT JOIN users u ON u.id = t.user_id
+      WHERE t.enabled AND 'volume_complete' = ANY(t.events)`).catch(() => [] as Array<TargetRow & { user_role: string | null }>);
+  if (!targets.length) return;
+  const anyone = new Set((await q<{ series_id: string }>(
+    'SELECT DISTINCT series_id FROM volume_watch WHERE series_id = ANY($1)', [done.map((d) => d.id)]).catch(() => [])).map((r) => r.series_id));
+  const title = await serverName();
+  await Promise.all(targets.map(async (t) => {
+    const wanted = t.user_id ? await watchedAmong(t.user_id, done.map((d) => d.id)) : anyone;
+    let items = done.filter((d) => wanted.has(d.id));
+    if (!items.length) return;
+    let ctx: ViewCtx;
+    try {
+      const who = t.user_id ? await viewCtxFor(t.user_id, t.user_role ?? 'user') : SHARED_CTX;
+      ctx = { ...who, hideAdultLibraries: !t.include_adult };
+    } catch { return; }
+    const allowed = await browsableIds(items.map((d) => d.id), ctx);
+    items = items.filter((d) => allowed.has(d.id));
+    if (!items.length) return;
+    const clean = (x: string) => (t.kind === 'discord' ? discordText(x) : x).replace(/[\u0000-\u001f\u007f-\u009f]+/g, ' ').trim();
+    const lines = items.map((d) => `${clean(d.title)}: ${d.message}`);
+    const message = (lines.length === 1 ? lines[0] : `${lines.length} series have a whole volume ready:\n${lines.join('\n')}`).slice(0, 1500);
+    await deliver(t, {
+      event: 'volume_complete', title, message, count: items.length,
+      series: items.map((d) => ({ id: d.id, title: d.title, added: 0 })),
     }, { retry: true, ...opts }).catch(() => {});
   }));
 }

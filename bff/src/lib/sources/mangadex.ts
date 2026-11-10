@@ -8,6 +8,7 @@
 import { SourceAdapter, SourceSeries, SourceChapter } from './types';
 import { directionFromLanguage } from '../directionSignals';
 import { canonLang, langLabel, mdLang } from '../lang';
+import { decodeEntities } from '../htmlText';
 
 /**
  * Where MangaDex's API is: MANGADEX_API_URL moves it (v0.56.0), a test knob like ANILIST_API_URL -- the browser walk points it
@@ -151,7 +152,7 @@ function toSeries(m: any, source: string): SourceSeries {
     sourceId: m.id,
     // The adapter's own id: a hit from MangaDex (ES-419) is added from MangaDex (ES-419), not from English.
     source,
-    title: firstLang(a.title) || (a.altTitles || []).map((t: any) => firstLang(t)).find(Boolean) || 'Untitled',
+    title: decodeEntities(firstLang(a.title) || (a.altTitles || []).map((t: any) => firstLang(t)).find(Boolean) || 'Untitled'),
     summary: firstLang(a.description),
     status: a.status ? String(a.status).toUpperCase() : undefined,
     genres,
@@ -210,6 +211,31 @@ export async function searchMangaDexWorks(title: string): Promise<MangaDexWork[]
       .filter((n): n is string => typeof n === 'string' && !!n.trim());
     const al = a.links && /^\d+$/.test(String(a.links.al ?? '')) ? String(a.links.al) : null;
     out.push({ id: m.id.toLowerCase(), names, al });
+  }
+  return out;
+}
+
+/** A MangaDex entry's publication state and its last chapter (lib/officialCount.ts). */
+export interface MangaDexOfficial { id: string; names: string[]; status: string | null; lastChapter: number | null }
+
+/**
+ * The entries a name may be, with MangaDex's `status` and `lastChapter` -- the number the work ends on, filled in by the
+ * community once it is completed (a whole number, or null for none or a fraction). Same search, limiter and failure rule
+ * as searchMangaDexWorks.
+ */
+export async function searchMangaDexOfficial(title: string): Promise<MangaDexOfficial[]> {
+  const s = title.trim();
+  if (!s) return [];
+  // Most followed first: by relevance alone the top five for "Attack on Titan" are doujinshi, and the work itself is not among them.
+  const j = await mdGet(`${API}/manga?title=${encodeURIComponent(s)}&limit=10&order[followedCount]=desc&${RATINGS}&contentRating[]=pornographic`);
+  const out: MangaDexOfficial[] = [];
+  for (const m of j?.data || []) {
+    if (typeof m?.id !== 'string') continue;
+    const a = m.attributes || {};
+    const names = [...Object.values(a.title || {}), ...((a.altTitles || []) as any[]).flatMap((t) => Object.values(t || {}))]
+      .filter((n): n is string => typeof n === 'string' && !!n.trim());
+    const last = /^\d+$/.test(String(a.lastChapter ?? '')) ? Number(a.lastChapter) : null;
+    out.push({ id: m.id.toLowerCase(), names, status: typeof a.status === 'string' ? a.status : null, lastChapter: last && last > 0 ? last : null });
   }
   return out;
 }
