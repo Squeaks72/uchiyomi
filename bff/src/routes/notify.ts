@@ -26,7 +26,7 @@ import { z } from 'zod';
 import { q, one } from '../lib/db';
 import { authenticate, requireAdmin, userIdOf } from '../lib/auth';
 import { logAudit } from '../lib/audit';
-import { EVENTS, KINDS, validateTarget, type Kind, type TargetInput } from '../lib/notify/kinds';
+import { EVENTS, KINDS, smtpEndpoint, validateTarget, type Kind, type TargetInput } from '../lib/notify/kinds';
 import { safeUrl } from '../lib/notify/guard';
 import { deliver, getTarget, listTargets, openSecret, sealSecret, toDto } from '../lib/notify';
 
@@ -39,6 +39,10 @@ const credentials = {
   token: z.string().max(4096).nullable().optional(),
   topic: z.string().max(64).optional(),
   service: z.string().max(255).optional(),
+  // Fork: an email target's account, sender and recipients (lib/notify/kinds.ts `email`).
+  username: z.string().max(254).optional(),
+  from: z.string().max(254).optional(),
+  to: z.string().max(1000).optional(),
 };
 const common = {
   name: z.string().trim().min(1).max(80),
@@ -130,7 +134,7 @@ export default async function notifyRoutes(app: FastifyInstance) {
 
     // Re-entering any credential re-validates the whole target: the new value merged over the stored ones.
     // What was stored has to be readable for that, unless the admin re-entered everything the kind needs.
-    const touched = (['url', 'token', 'topic', 'service'] as const).filter((k) => b[k] !== undefined);
+    const touched = (['url', 'token', 'topic', 'service', 'username', 'from', 'to'] as const).filter((k) => b[k] !== undefined);
     if (touched.length) {
       const old = openSecret(cur.secret);
       // A blank ntfy server is ntfy.sh, as on create; a blank address of any other kind is a bad_url below.
@@ -148,8 +152,10 @@ export default async function notifyRoutes(app: FastifyInstance) {
       // a move: validateTarget answers it with bad_url, never with a hint about what is stored.
       // Reintroduce by merging old.token when the origin changed: "A STORED TOKEN NEVER FOLLOWS THE ADDRESS TO
       // ANOTHER HOST" in notifyTargets.int.test.ts sees a 200, and B receives 'Bearer SEKRIT-ha-llat-91c2'.
-      const newOrigin = b.url !== undefined ? safeUrl(url)?.origin ?? null : null;
-      const moved = newOrigin !== null && newOrigin !== (old ? safeUrl(old.url)?.origin ?? null : null);
+      // An email server's "origin" is its scheme, host and port: URL gives smtp: addresses an opaque origin.
+      const originOf = (x: string | undefined) => (cur.kind === 'email' ? smtpEndpoint(x) : safeUrl(x)?.origin ?? null);
+      const newOrigin = b.url !== undefined ? originOf(url) : null;
+      const moved = newOrigin !== null && newOrigin !== (old ? originOf(old.url) : null);
       if (moved && old?.token && b.token === undefined) {
         return reply.code(400).send({ error: 'reenter_token', message: 'A new address needs its token typed again' });
       }
@@ -161,6 +167,9 @@ export default async function notifyRoutes(app: FastifyInstance) {
         token: b.token !== undefined ? b.token : old?.token,
         topic: b.topic ?? old?.topic,
         service: b.service ?? cur.config?.service,
+        username: b.username ?? old?.username,
+        from: b.from ?? old?.from,
+        to: b.to ?? old?.to?.join(', '),
       };
       const v = validateTarget(cur.kind, merged);
       if (!v.ok) return reply.code(400).send({ error: v.error, message: v.message });

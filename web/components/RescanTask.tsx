@@ -227,7 +227,7 @@ function Preview({ plan, onClose, onApplied }: { plan: RescanPlanView; onClose: 
           <p className="mt-0.5 text-[11px] leading-relaxed text-fog-500">
             {tr('Chapters added before v0.55.2 keep the first number in their file name, so “Vol 2 Ch 5” is chapter 2. Tick a series to number its files by the new rules instead. Trackers are told nothing now; the next chapter a reader finishes there sends its new number.')}
           </p>
-          <p className="mt-0.5 text-[11px] leading-relaxed text-fog-600">{tr('Series numbered by posting order, or in the middle of a renumber, are not listed.')}</p>
+          <p className="mt-0.5 text-[11px] leading-relaxed text-fog-500">{tr('Series numbered by posting order, or in the middle of a renumber, are not listed.')}</p>
           {numbers.length > 1 && (
             <div className="mt-2 flex flex-wrap gap-2">
               <button type="button" className="btn-key" onClick={() => setTicked(new Set(numbers.map((n) => n.seriesId)))}>{tr('Select all')}</button>
@@ -249,7 +249,7 @@ function Preview({ plan, onClose, onApplied }: { plan: RescanPlanView; onClose: 
                     {/* One box per example: a file name broken across two lines is reordered line by line, and in
                         Arabic half a name landed before the other example. */}
                     {n.examples.length > 0 && (
-                      <span className="block text-[11px] leading-snug text-fog-600">
+                      <span className="block text-[11px] leading-snug text-fog-500">
                         {n.examples.map((e) => <span key={e.file} className="me-3 inline-block max-w-full">{exampleLine(e)}</span>)}
                       </span>
                     )}

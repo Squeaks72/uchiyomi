@@ -8,6 +8,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { continueChoice, continueText, readCountText, type ContinueBook } from '../lib/continueLabel';
+import { seriesOngoing } from '../lib/activity';
 import { setActiveLocale } from '../lib/format';
 import { setActiveDict } from '../lib/i18n';
 
@@ -123,11 +124,30 @@ test('the page draws its button, its line and its count from these', () => {
   // Reintroduce the old label (`inProgress ? tr('Continue') : tr('Start reading')`) or the old pick
   // (`c.find((b) => !b.readProgress?.completed …)`): this fails.
   const page = code(readFileSync(join(ROOT, 'app/series/page.tsx'), 'utf8'));
-  assert.match(page, /const openable = \(b: Book\) => !b\.pruned \|\| downloaded\.has\(b\.id\);\s*return continueChoice\(books\?\.content \?\? \[\], openable\);/,
+  assert.match(page, /const openable = \(b: Book\) => !b\.pruned \|\| downloaded\.has\(b\.id\);\s*return continueChoice\(books\?\.content \?\? \[\], openable, \{ ongoing: seriesOngoing\(series\?\.metadata\?\.status\) \}\);/,
     'the button does not choose with the page\'s openable rule');
   assert.match(page, /const ctaText = books \|\| nothingYet \? continueText\(reading\)/, 'the button\'s words are not continueText\'s');
   assert.match(page, /<ContinueButton label=\{ctaText\.label\} disabled=\{!resumeBook\} onOpen=\{openReader\} \/>/);
   assert.match(page, /<ContinueButton compact label=\{ctaText\.label\} disabled=\{!resumeBook\} onOpen=\{openReader\} \/>/, 'the phone bar says something else');
   assert.match(page, /const readLine = readCountText\(readCount\.read, readCount\.total\);/);
   assert.doesNotMatch(page, /\binProgress\b|tr\('Continue'\)/, 'the old label is back');
+});
+
+test('everything read on a series still coming out: "Caught up", on the newest chapter -- never "Read again" from chapter 1', () => {
+  // One Piece, read to the latest chapter, said "Read again" and opened chapter 1 while the reader was only waiting.
+  const list = range(1, 5, { done: true });
+  const c = continueChoice(list, openable, { ongoing: true });
+  assert.equal(c.kind, 'caughtup');
+  assert.equal(c.book?.number, 5, 'it opens the newest chapter, not the first');
+  assert.deepEqual(continueText(c), { label: 'Caught up · Ch. 5', caption: 'Waiting for the next chapter' });
+  // Not finished -> unchanged: a finished series IS read again, and so is one that is not known to be coming out.
+  assert.equal(continueChoice(list, openable, { ongoing: false }).kind, 'again');
+  assert.equal(continueChoice(list, openable).kind, 'again');
+  // A new chapter arriving makes it "Next" again, ongoing or not.
+  assert.equal(continueChoice([...list, ch(6)], openable, { ongoing: true }).kind, 'next');
+});
+
+test('which statuses mean "still coming out"', () => {
+  for (const s of ['Ongoing', 'ONGOING', 'Publishing', 'releasing', 'On Hiatus', 'hiatus', 'serialized']) assert.equal(seriesOngoing(s), true, s);
+  for (const s of ['Completed', 'COMPLETED', 'Publishing finished', 'Cancelled', 'dropped', 'Finished', '', null, undefined, 'Unknown']) assert.equal(seriesOngoing(s as string | null | undefined), false, String(s));
 });

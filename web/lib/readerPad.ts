@@ -29,6 +29,7 @@ export const DEFAULT_PAD: PadMap = {
   fullscreen: [],
   menu: [9],
   focus: [3],
+  bookmark: [2],
   exit: [],
 };
 

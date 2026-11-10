@@ -150,7 +150,8 @@ export async function restampBook(bookId: string, abs: string, missing0: number[
   // back two pages long a second time -- the Health page would stay quiet about a download that failed
   // again. Reintroduce by removing it: "replacing a confirmed-short chapter un-confirms it" in
   // partialComplete.int.test.ts finds the stamp still there.
-  const set = ['missing_pages = $2', 'page_dims = NULL', 'pages = $3', 'size = $4', 'fp_at = NULL', 'short_confirmed_at = NULL', 'updated_at = now()'];
+  // rev_* go too: they describe the copy that WAS on disk (lib/repair.ts stepRevisions re-stamps them from the listing).
+  const set = ['missing_pages = $2', 'page_dims = NULL', 'pages = $3', 'size = $4', 'fp_at = NULL', 'short_confirmed_at = NULL', 'rev_published_at = NULL', 'rev_pages = NULL', 'updated_at = now()'];
   const params: any[] = [bookId, missing0.length ? missing0.map((i) => i + 1) : null, pages, size];
   if (via) {
     params.push(via.source, via.scanlator ?? null);

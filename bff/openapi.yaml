@@ -2599,6 +2599,125 @@ paths:
           description: Not authenticated
         "404":
           description: Not found, or not visible to this account
+  /api/series/{id}/volumes:
+    get:
+      tags:
+        - library
+      summary: The series' volumes and arcs, and whether the caller waits for whole volumes of it (fork).
+      operationId: getApiSeriesIdVolumes
+      description: >-
+        `{source, page, volumes, arcs, manual, checkedAt, waiting}`. `source` is `wikipedia`, `names` (the volume tags in the chapter names), `manual` (an admin's text) or `none`; each unit is `{kind, label, chapters, released}`. `manual` is the admin's text, answered to admins only.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Not authenticated
+        "404":
+          description: Not found, or not visible to this account
+  /api/series/{id}/volumes/wait:
+    put:
+      tags:
+        - library
+      summary: Wait for whole volumes of this series, or stop (fork).
+      operationId: putApiSeriesIdVolumesWait
+      description: >-
+        `{on}`. While on, the caller hears when a volume or arc is complete (web push, and any notification target of theirs that asked for volume_complete) and nothing about the series' single chapters.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      security:
+        - bearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                on:
+                  type: boolean
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Not authenticated
+        "400":
+          description: The body does not read
+        "404":
+          description: Not found, or not visible to this account
+  /api/series/{id}/volumes/refresh:
+    post:
+      tags:
+        - library
+      summary: Read the series' volume list again now (fork, admin).
+      operationId: postApiSeriesIdVolumesRefresh
+      description: >-
+        Asks Wikipedia (through the series' AniList entry) and falls back to the chapter names; answers what GET /api/series/{id}/volumes does.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Not authenticated
+        "403":
+          description: Not an admin
+        "404":
+          description: Not found, or not visible to this account
+  /api/series/{id}/volumes/manual:
+    put:
+      tags:
+        - library
+      summary: Set or clear the admin's volumes and arcs for a series (fork, admin).
+      operationId: putApiSeriesIdVolumesManual
+      description: >-
+        `{text}`, one unit per line: `Volume 3: 17-25` or `Arc Water 7: 322-430`; null clears it. Volumes in it replace the automatic ones; arcs come only from here. A line that does not read is refused with `bad_lines`.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      security:
+        - bearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                text:
+                  type: string
+                  nullable: true
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Not authenticated
+        "400":
+          description: The body does not read
+        "403":
+          description: Not an admin
+        "404":
+          description: Not found, or not visible to this account
   /api/series/{id}/other-titles:
     get:
       tags:
@@ -8572,6 +8691,27 @@ paths:
           description: Not an admin
         "409":
           description: This install cannot run the engine (unsupported)
+  /api/admin/extensions/backups/keep-all:
+    post:
+      tags:
+        - admin
+      summary: Keep every backup extension (fork).
+      operationId: postApiAdminExtensionsBackupsKeepAll
+      description: >-
+        Fork change. Requires an admin account and a token carrying the admin scope. Each extension Uchiyomi added by itself
+        (a backup) becomes the admin's -- shown in Discover, never removed for being unused -- and the sources are reloaded
+        once. Answers {ok, kept}: how many were backups. 400 not_configured without an extension engine.
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: No extension server is configured
+        "401":
+          description: Not authenticated
+        "403":
+          description: "Forbidden: token scope, account permission or age limit"
   /api/admin/settings:
     get:
       tags:

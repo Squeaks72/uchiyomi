@@ -8,6 +8,7 @@ import { actsAsAdmin, authenticate, userIdOf, roleOf } from '../lib/auth';
 import { getSource, listSources, isSwAdapterId, SW_PREFIX, swAdapterId, withTimeout } from '../lib/sources';
 import { MANGADEX_GROUP } from '../lib/sources/mangadex';
 import { supportsCreatorSearch, type SourceAdapter, type SourceSeries, type SourceChapter } from '../lib/sources/types';
+import { isOwnFile } from '../lib/chapterFile';
 import { chapterFileRel, sanitize, type DownloadInput } from '../lib/downloader';
 import { downloadWithFallback } from '../lib/chapterFallback';
 import { selectChapters, type ChapterFrom } from '../lib/selectChapters';
@@ -104,7 +105,7 @@ import {
 import { numKey } from '../lib/postingOrder';
 import { titleNumbered } from '../lib/titleNumbers';
 import { groupStats } from '../lib/groupStats';
-import { fetchAniListArt, TREND_COUNTRIES, type TrendCountry } from '../lib/anilist';
+import { fetchAniListArt, TREND_COUNTRIES, TAG_SORTS, fetchTagCollection, searchByTags, type TrendCountry, type TagSort, type TagInfo } from '../lib/anilist';
 import { trendingFor } from '../lib/trending';
 import { adultOk, becauseYouRead } from '../lib/anilistRelated';
 import { automaticAniListAllowed, withAniListMutation } from '../lib/anilistPolicy';
@@ -1528,7 +1529,7 @@ export async function addSeriesFromSource(opts: {
       message: `${src.name} did not return this title just now. Try again in a moment.`,
     };
   }
-  const automaticFolder = `${src.name}/${sanitize(title)}`;
+  const automaticFolder = sanitize(title); // the title alone: no source-name level (see the folder note below)
   const preferredShared = !opts.edition ? await one<{folder:string;library_id:string}>(`SELECT s.folder,s.library_id FROM lib_series s
     JOIN libraries l ON l.id=s.library_id WHERE NOT s.is_private AND NOT l.managed_private AND s.merged_into IS NULL
       AND ((s.source_id=$1 AND s.source_series_id=$2) OR s.folder=$3)
@@ -1578,13 +1579,11 @@ export async function addSeriesFromSource(opts: {
     }
     edition = { of: of.id, lang, ...(opts.edition.ofLang ? { ofLang: opts.edition.ofLang } : {}) };
   }
-  // ⚠️ Windows: the source's name is the first folder, and a custom site's name is whatever the admin typed --
-  // `Site: EN` is not a legal Windows name at all (the colon names a data stream) and `CON` or a trailing dot
-  // is one Explorer cannot open -- so there it gets the same treatment as the title. Linux keeps the name
-  // exactly: every folder already on a server is spelled that way.
-  const srcDir = process.platform === 'win32' ? sanitize(src.name) : src.name;
+  // A series can hold chapters from several sources, so its folder is the title alone, straight under the
+  // library root: no source-name level. Two different works that share a title would share the folder -- the
+  // same trade the edition suffix below already makes for languages.
   // An edition's folder carries its language (lib/editions.ts editionFolder), so it never lands in the original's.
-  let folder = edition ? editionFolder(srcDir, title, edition.lang) : `${srcDir}/${sanitize(title)}`;
+  let folder = edition ? editionFolder('', title, edition.lang) : sanitize(title);
   folder = !edition && scope.visibility==='shared' && preferredShared?.library_id===scope.libraryId
     ? preferredShared.folder : await folderForScope(scope,folder);
   // ⚠️ Desktop, case-insensitive disks (NTFS, APFS): a source that now spells the title `Solo leveling`
@@ -1957,6 +1956,31 @@ export async function addSeriesFromSource(opts: {
     };
   }
 
+  /**
+   * The row is written NOW, as the nothing-yet branch does, rather than minted by persistScan from chapter one: until
+   * then Discover and every title lookup found nothing and offered the same series as new, though the Library
+   * already showed it downloading. persistScan's `ON CONFLICT (library_id, folder)` lands on this row when the
+   * first chapter arrives. A row that was there before (revived above) is left as it is. If the first chapter
+   * never lands the row is removed again below, so a refused download leaves no empty series behind.
+   */
+  let mintedId: string | undefined;
+  if (!existing) {
+    const libs = await libraryRows();
+    mintedId = (await q<{ id: string }>(
+      `INSERT INTO lib_series (id, source, title, summary, author, status, genres, web, folder, books_count, library_id, scanned_at,
+                               auto_update, source_id, source_series_id, chapter_floor, lang)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,0,$10,now(),$11,$12,$13,$14,$15)
+       ON CONFLICT (library_id, folder) DO NOTHING
+       RETURNING id`,
+      [newSeriesId(), src.name, title, meta.summary || null, meta.author ?? null, meta.status ?? null, meta.genres ?? [], meta.url ?? null,
+       folder, libraryIdFor(folder, libs), autoUpdate !== false, source, sourceId, floor, stateLang],
+    ).catch(() => []))[0]?.id;
+    if (mintedId && series?.coverUrl) {
+      await q(`INSERT INTO series_art (series_id, cover, checked_at) VALUES ($1, $2, NULL)
+        ON CONFLICT (series_id) DO UPDATE SET cover = COALESCE(series_art.cover, EXCLUDED.cover)`, [mintedId, series.coverUrl]).catch(() => {});
+    }
+  }
+
   // The cover is for the Downloads view, which draws this card before chapter one is scanned in and the series
   // has a thumbnail of its own.
   jobs.set(folder, { title, total: toFetch.length, done: 0, status: 'downloading', startedAt: Date.now(), origin: 'add', ...(opts.userId ? { by: opts.userId } : {}),
@@ -2110,6 +2134,7 @@ export async function addSeriesFromSource(opts: {
         ? say('job.refusing', { source: src.name, status: blockReason })
         : say('job.undownloadable');
       const why = whyPart.text;
+      if (mintedId) await q('DELETE FROM lib_series WHERE id = $1 AND books_count = 0 AND NOT EXISTS (SELECT 1 FROM lib_books WHERE series_id = $1)', [mintedId]).catch(() => {});
       if (opts.wait === false) {
         // Detached: the caller has already been told the download started, so this card IS the failure
         // report. It is deliberately not swept -- see sweepJobs -- and is dismissed by hand.
@@ -2300,7 +2325,7 @@ export async function addSeriesFromSource(opts: {
   // everything else reads it off the job card once chapter one is scanned (`Job.seriesId`).
   void withOrigin('add', opts.userId ?? null, run).catch(() => {});
   return {
-    ok: true, status: 200, title, folder, chapters: toFetch.length, started: true, seriesId: existing?.id,
+    ok: true, status: 200, title, folder, chapters: toFetch.length, started: true, seriesId: existing?.id ?? mintedId,
     ...(opts.archive ? { archive: archiveOpt ? 'later' as const : 'nothing' as const } : {}),
     // The link waits for the row, which persistScan mints from chapter one: the job card carries the outcome.
     ...(edition ? { edition: { lang: edition.lang } } : {}),
@@ -2655,6 +2680,9 @@ export default async function sourceRoutes(app: FastifyInstance) {
           searchPages: typeof s.searchPage === 'function',
           creatorSearch: (['author', 'artist'] as const).some((field) => supportsCreatorSearch(s, field)),
           creatorFields: (['author', 'artist'] as const).filter((field) => supportsCreatorSearch(s, field)),
+          // Whether the source declares search filters of its own -- genres, tags, status, sort -- that Discover's Tags panel can
+          // drive (types.ts filters). Only the extension bridge does.
+          filterable: typeof s.filters === 'function',
           // What the reader has actually used. Health-then-alphabetical put "18 Porn Comic" and "1Manga.co"
           // at the front of this install's English group while Aqua Manga -- 176 of its 214 series, answering
           // in 2.5s -- was never in the first six fetched.
@@ -3122,7 +3150,7 @@ export default async function sourceRoutes(app: FastifyInstance) {
       && row.root === DL_ROOT
       && Number.isFinite(n)
       && row.number_end == null
-      && row.file === chapterFileRel(row.folder, n)
+      && isOwnFile(row.file, row.folder, n)
       && deliberatelyDeleted({ pruned: row.pruned_at != null, prunedReason: row.pruned_reason })
       && !!row.source_id
       && !!row.source_chapter_id;
@@ -3203,7 +3231,7 @@ export default async function sourceRoutes(app: FastifyInstance) {
           if (!current || current.series_id !== row.series_id || current.root !== DL_ROOT
               || Number(current.number) !== n || current.number_end != null
               || current.source_id !== row.source_id || current.source_chapter_id !== row.source_chapter_id
-              || current.file !== chapterFileRel(current.folder, n)
+              || !isOwnFile(current.file, current.folder, n)
               || !deliberatelyDeleted({ pruned: current.pruned_at != null, prunedReason: current.pruned_reason })) return false;
           const currentPath = await realContainedPath(DL_ROOT, current.file);
           const currentSource = getSource(current.source_id!);
@@ -3644,6 +3672,53 @@ export default async function sourceRoutes(app: FastifyInstance) {
    * than a clever shared one: the two differ only in which adapter method runs, and a wrapper that hid that
    * would make the access checks harder to see rather than easier.
    */
+  // A source's own search filters, for Discover's Tags panel. Cached a while: an extension's lists change with its releases.
+  const filterCache = new Map<string, { at: number; filters: unknown[] }>();
+  const filterSource = (req: FastifyRequest, reply: FastifyReply, id: unknown) => {
+    const src = typeof id === 'string' ? getSource(id) : null;
+    if (!src || typeof src.filters !== 'function' || typeof src.filteredSearch !== 'function') { reply.code(404).send({ error: 'not_found', message: 'That source has no filters of its own.' }); return null; }
+    if (!sourceAllowedFor(src, vc(req).maxAgeRating)) { denySource(reply); return null; }
+    // The 18+ hide, as on every Discover listing (#64): a hidden source answers as if it were not there.
+    if (!discoverable(req).some((s) => s.id === src.id)) { reply.code(404).send({ error: 'not_found', message: 'That source has no filters of its own.' }); return null; }
+    return src;
+  };
+  app.get('/api/sources/filters', async (req, reply) => {
+    const src = filterSource(req, reply, (req.query as { source?: string }).source);
+    if (!src) return reply;
+    const hit = filterCache.get(src.id);
+    if (hit && Date.now() - hit.at < 10 * 60_000) return { filters: hit.filters };
+    try {
+      const filters = await src.filters!();
+      filterCache.set(src.id, { at: Date.now(), filters });
+      return { filters };
+    } catch (e) {
+      return reply.code(502).send({ error: 'source_error', message: `${src.name} could not say what it can filter by: ${(e as Error).message}`.slice(0, 300) });
+    }
+  });
+
+  // Browse a source by its filters: `q` may be empty, `changes` are the controls the reader moved from their defaults.
+  app.post('/api/sources/browse', async (req, reply) => {
+    const b = z.object({
+      source: z.string().min(1).max(100), q: z.string().max(200).optional(), page: z.number().int().min(1).max(50).optional(),
+      changes: z.array(z.object({
+        path: z.array(z.number().int().min(0).max(1000)).min(1).max(2),
+        checkbox: z.boolean().optional(), tri: z.enum(['IGNORE', 'INCLUDE', 'EXCLUDE']).optional(), text: z.string().max(200).optional(),
+        select: z.number().int().min(0).max(1000).optional(),
+        sort: z.object({ index: z.number().int().min(0).max(1000), ascending: z.boolean() }).optional(),
+      })).max(80),
+    }).safeParse(req.body);
+    if (!b.success) return reply.code(400).send({ error: 'bad_request' });
+    const src = filterSource(req, reply, b.data.source);
+    if (!src) return reply;
+    if (await isDisabled(src.id).catch(() => false)) return { content: [] };
+    try {
+      const results = await src.filteredSearch!(b.data.q ?? '', b.data.changes, b.data.page ?? 1);
+      return { content: await decorate(ratedForViewer(req, results), src.id, vc(req)) };
+    } catch (e) {
+      return reply.code(502).send({ error: 'source_error', message: `${src.name} could not answer that: ${(e as Error).message}`.slice(0, 300) });
+    }
+  });
+
   app.get('/api/sources/popular', async (req, reply) => {
     const { source, page } = req.query as { source?: string; page?: string };
     const src = source ? getSource(source) : null;
@@ -3822,7 +3897,9 @@ export default async function sourceRoutes(app: FastifyInstance) {
   // what this route always answered), JP (manga) or CN (manhua), v0.61.0.
   app.get('/api/discover/trending', async (req, reply) => {
     reply.header('cache-control', 'no-store'); // never let a stale/empty copy get pinned client-side
-    const asked = (req.query as { country?: unknown }).country;
+    // Fork: `?kind=manhwa|manga|manhua` (the fork's own parameter before v0.61.0) still works, as the same three countries.
+    const { country: askedCountry, kind: askedKind } = req.query as { country?: unknown; kind?: unknown };
+    const asked = askedCountry ?? (typeof askedKind === 'string' ? ({ manhwa: 'KR', manga: 'JP', manhua: 'CN' } as Record<string, string>)[askedKind.toLowerCase()] : undefined);
     const country = (asked === undefined ? 'KR' : typeof asked === 'string' ? asked.toUpperCase() : '') as TrendCountry;
     if (!TREND_COUNTRIES.includes(country)) return reply.code(400).send({ error: 'bad_request', message: 'country is one of KR, JP, CN' });
     // From the stored copy (v0.98.0, lib/trending.ts): at once, after a restart too. `pending` only while a server that
@@ -3848,6 +3925,59 @@ export default async function sourceRoutes(app: FastifyInstance) {
       return !held && adultOk({ adult: false, genres: t.genres }, ctx) && !seen.has(k) && (seen.add(k), true);
     });
     return { content: out.slice(0, TREND_KEEP), pending: false };
+  });
+
+  // Discover by tags: AniList's tag and genre lists for the picker, and manga that carry every tag asked for. Like trending,
+  // what the library already holds is left out, and what this viewer may not see (18+ for an account that hides it, or one
+  // capped below 18) is never asked for or shown.
+  app.get('/api/discover/tag-list', async (req, reply) => {
+    reply.header('cache-control', 'private, max-age=3600');
+    try {
+      const { tags, genres } = await fetchTagCollection();
+      const ctx = vc(req);
+      const hidden = ctx.hideAdultLibraries || (ctx.maxAgeRating !== null && ctx.maxAgeRating < 18);
+      return { tags: hidden ? tags.filter((t) => !t.adult) : tags, genres: hidden ? genres.filter((g) => g !== 'Hentai') : genres };
+    } catch {
+      return reply.code(503).send({ error: 'unavailable', message: 'AniList could not be reached for its tag list.' });
+    }
+  });
+
+  app.get('/api/discover/by-tags', async (req, reply) => {
+    reply.header('cache-control', 'no-store');
+    const qs = req.query as Record<string, string | string[] | undefined>;
+    const list = (k: string): string[] => [qs[k]].flat().flatMap((v) => String(v ?? '').split(',')).map((v) => v.trim()).filter(Boolean).slice(0, 12);
+    const { tags: known, genres: knownGenres } = await fetchTagCollection().catch(() => ({ tags: [] as TagInfo[], genres: [] as string[] }));
+    const tagNames = new Map(known.map((t) => [t.name.toLowerCase(), t.name]));
+    const genreNames = new Map(knownGenres.map((g) => [g.toLowerCase(), g]));
+    // Each asked-for name is one AniList knows (spelled its way); an unknown one is refused rather than silently dropped.
+    const tags: string[] = []; const genres: string[] = []; const notTags: string[] = [];
+    for (const n of list('tag')) { const t = tagNames.get(n.toLowerCase()); const g = genreNames.get(n.toLowerCase()); if (t) tags.push(t); else if (g) genres.push(g); else return reply.code(400).send({ error: 'bad_request', message: `AniList has no tag or genre called "${n}".` }); }
+    for (const n of list('exclude')) { const t = tagNames.get(n.toLowerCase()); if (t) notTags.push(t); }
+    if (!tags.length && !genres.length) return reply.code(400).send({ error: 'bad_request', message: 'Pick at least one tag or genre.' });
+    const country = String(qs.country ?? '').toUpperCase();
+    const sort = String(qs.sort ?? 'POPULARITY_DESC') as TagSort;
+    const ctx = vc(req);
+    const safeOnly = ctx.hideAdultLibraries || (ctx.maxAgeRating !== null && ctx.maxAgeRating < 18);
+    // An adult tag asked for by a viewer who may not see them answers nothing, instead of the unfiltered list.
+    if (safeOnly && tags.some((t) => known.find((k) => k.name === t)?.adult)) return { content: [], hasNext: false };
+    let found;
+    try {
+      found = await searchByTags({
+        tags, genres, notTags, safeOnly,
+        country: (TREND_COUNTRIES as readonly string[]).includes(country) ? (country as TrendCountry) : null,
+        sort: (TAG_SORTS as readonly string[]).includes(sort) ? sort : 'POPULARITY_DESC',
+        page: Math.min(20, Math.max(1, Number(qs.page) || 1)),
+      });
+    } catch (e) {
+      return reply.code(503).send({ error: 'unavailable', message: `AniList could not search: ${(e as Error).message}` });
+    }
+    const idx = await libraryIndex().catch(() => noIndex());
+    const out = found.items.filter((t) => {
+      const held = heldFor(idx, { source: '', sourceId: '', title: t.title }).length > 0
+        || (t.id != null && (idx.byWork.get(`al:${t.id}`)?.length ?? 0) > 0);
+      return !held && adultOk({ adult: t.adult, genres: t.genres }, ctx);
+    });
+    return { content: out, hasNext: found.hasNext };
   });
 
   /**

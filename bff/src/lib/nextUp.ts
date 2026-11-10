@@ -3,6 +3,7 @@
 import { q, one } from './db';
 import { nextUpIn } from './nextUpRule';
 import { numKey } from './postingOrder';
+import { waitsForVolumes } from './volumes/watch';
 
 /** Whether this account asked for the filter: app_settings.data.notifyOnlyNext, per account, off unless a real `true`. */
 export async function notifyOnlyNextOn(userId: string): Promise<boolean> {
@@ -37,8 +38,10 @@ export async function isNextUp(userId: string, seriesId: string, numbers: readon
   } catch { return true; }
 }
 
-/** Whether to tell this account about chapters that just landed in a series: the setting is off, or one of them is next. */
+/** Whether to tell this account about chapters that just landed in a series: not while it waits for volumes of it, and then the setting is off, or one of them is next. */
 export async function wantsNews(userId: string, seriesId: string, numbers: readonly number[] | undefined): Promise<boolean> {
+  // Fork: an account waiting for whole volumes of this series hears about the volume (lib/volumes), not each chapter.
+  if (await waitsForVolumes(userId, seriesId)) return false;
   if (!numbers?.length) return true;
   if (!(await notifyOnlyNextOn(userId))) return true;
   return isNextUp(userId, seriesId, numbers);

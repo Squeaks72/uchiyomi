@@ -15,7 +15,7 @@ import { ADAPTERS } from './trackerProviders';
 import { applyIgnores, noIgnores, type IgnoreCtx } from './healthIgnore';
 import { DAY_MS, ignoredPart, hiddenPart, truncate, verdict } from './healthKit';
 import { detailOf, joined, noteOf, say, summaryOf, type Part } from './said';
-import type { HealthCheck, HealthItem } from './health';
+import type { HealthAction, HealthCheck, HealthItem } from './health';
 import { isRateLimitedError } from './trackerPace';
 
 /** A sign-in ending this soon is a finding. */
@@ -59,7 +59,8 @@ export async function trackerSync(ctx: IgnoreCtx = noIgnores()): Promise<HealthC
       ...detailOf(parts),
       key: `${r.provider}:${r.user_id}`,
       members: parts.map((p) => p.code),
-      ...(finding ? {} : { info: true }),
+      // The member alone can sign in again; the admin can ask them to, or drop a connection nobody will renew.
+      ...(finding ? { actions: ['remind', 'disconnect'] as HealthAction[] } : { info: true }),
     });
   }
   const ignored = applyIgnores('trackers', all, ctx);

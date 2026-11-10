@@ -1,4 +1,5 @@
 'use client';
+import { t as tr } from '@/lib/i18n';
 
 /**
  * Ninety days of reading, drawn as the floor of the profile hero.
@@ -19,7 +20,8 @@ export function TraceStrip({ days, className = '' }: {
   const max = Math.max(1, ...days.map((d) => d.chapters));
 
   return (
-    <div className={`flex h-16 w-full items-end gap-px px-4 lg:h-20 lg:px-8 ${className}`}>
+    <div role="img" aria-label={tr('Chapters read per day. Days shown: {n}', { n: days.length })}
+      className={`flex h-16 w-full items-end gap-px px-4 lg:h-20 lg:px-8 ${className}`}>
       {days.map((d, i) => (
         <div
           key={d.day}

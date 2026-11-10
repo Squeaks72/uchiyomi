@@ -455,6 +455,27 @@ const WORKS = `query($s:String){Page(perPage:5){media(search:$s,type:MANGA,forma
 /** An AniList entry as Discover's identity lookup needs it (lib/discoverIdentity.ts): its id and every name it goes by. */
 export interface AniListWork { id: number; titles: string[] }
 
+/** An entry's publication state and its chapter count (lib/officialCount.ts): AniList fills `chapters` once a work is finished. */
+export interface AniListOfficial { id: number; titles: string[]; status: string | null; chapters: number | null }
+const OFFICIAL = `query($s:String){Page(perPage:5){media(search:$s,type:MANGA,format_not_in:[NOVEL],sort:SEARCH_MATCH){id title{romaji english native}synonyms status chapters}}}`;
+
+/**
+ * The entries a name may be, with their status and chapter count, for the caller to keep only one that IS the name
+ * (namesMatch). Empty for no answer; throws on a transient failure, like searchAniListWorks. Public data: no token.
+ */
+export async function searchAniListOfficial(rawTitle: string): Promise<AniListOfficial[]> {
+  const s = clean(rawTitle);
+  if (!s) return [];
+  const r = await anilistFetch(ANILIST, POST({ query: OFFICIAL, variables: { s } }), BATCH);
+  if (r.status === 404) return [];
+  if (!r.ok) throw Object.assign(new Error(`anilist ${r.status}`), { status: r.status });
+  const j: any = await r.json();
+  return ((j?.data?.Page?.media ?? []) as any[]).filter((m) => typeof m?.id === 'number').map((m) => ({
+    id: m.id as number, titles: titlesOf(m), status: typeof m.status === 'string' ? m.status : null,
+    chapters: Number.isInteger(m.chapters) && m.chapters > 0 ? m.chapters : null,
+  }));
+}
+
 /**
  * The entries a name may be, by AniList's own search: up to five, each with its titles and synonyms, for the caller to
  * keep only one that IS the name (namesMatch). Empty for no answer. Throws on a transient failure -- a network error, a
@@ -526,4 +547,72 @@ export async function fetchTrending(country: TrendCountry, page = 1, background 
 /** Globally trending manhwa (Korean-origin manga): Discover's hero and first rail, as before v0.61.0. */
 export function fetchTrendingManhwa(page = 1): Promise<TrendingItem[]> {
   return fetchTrending('KR', page);
+}
+
+// ---- Discover by tags -------------------------------------------------------------------------------------------------
+
+export interface TagInfo { name: string; category: string; adult: boolean }
+export interface TagCollection { tags: TagInfo[]; genres: string[] }
+
+let tagCache: { at: number; value: TagCollection } | null = null;
+const TAG_TTL_MS = 24 * 3600_000;
+
+/** AniList's tags (with their category and whether they are adult) and genres, kept a day: the list barely moves. */
+export async function fetchTagCollection(): Promise<TagCollection> {
+  if (tagCache && Date.now() - tagCache.at < TAG_TTL_MS) return tagCache.value;
+  const r = await anilistFetch(ANILIST, POST({ query: '{MediaTagCollection{name category isAdult}GenreCollection}' }), ASK);
+  if (!r.ok) throw new Error(`anilist ${r.status}`);
+  const d: any = ((await r.json()) as any)?.data;
+  const tags: TagInfo[] = (d?.MediaTagCollection ?? [])
+    .filter((t: any) => typeof t?.name === 'string')
+    .map((t: any) => ({ name: t.name as string, category: String(t.category ?? ''), adult: t.isAdult === true }));
+  const genres: string[] = (d?.GenreCollection ?? []).filter((g: unknown): g is string => typeof g === 'string');
+  if (!tags.length && !genres.length) throw new Error('anilist returned no tags');
+  tagCache = { at: Date.now(), value: { tags, genres } };
+  return tagCache.value;
+}
+
+export const TAG_SORTS = ['POPULARITY_DESC', 'TRENDING_DESC', 'SCORE_DESC', 'START_DATE_DESC'] as const;
+export type TagSort = (typeof TAG_SORTS)[number];
+export interface TagSearch {
+  tags: string[]; genres: string[]; notTags: string[]; country: TrendCountry | null; sort: TagSort; page: number;
+  /** The viewer sees no 18+: AniList is asked for non-adult entries only. */
+  safeOnly: boolean;
+}
+export interface TagResult extends TrendingItem { adult: boolean }
+
+const BY_TAGS = `query($page:Int,$tags:[String],$genres:[String],$notTags:[String],$country:CountryCode,$sort:[MediaSort],$adult:Boolean){Page(page:$page,perPage:30){pageInfo{hasNextPage}media(type:MANGA,tag_in:$tags,genre_in:$genres,tag_not_in:$notTags,countryOfOrigin:$country,sort:$sort,isAdult:$adult,format_not_in:[NOVEL]){id isAdult title{romaji english}coverImage{extraLarge large}bannerImage description(asHtml:false)genres averageScore chapters status}}}`;
+
+/**
+ * Manga that carry every one of the tags and genres asked for (AniList's `tag_in` / `genre_in` mean "all of these") and
+ * none of `notTags`, by country of origin, in the order asked. A title with no cover is left out, as the trending rails do.
+ */
+export async function searchByTags(s: TagSearch): Promise<{ items: TagResult[]; hasNext: boolean }> {
+  const variables: Record<string, unknown> = { page: s.page, sort: [s.sort] };
+  if (s.tags.length) variables.tags = s.tags;
+  if (s.genres.length) variables.genres = s.genres;
+  if (s.notTags.length) variables.notTags = s.notTags;
+  if (s.country) variables.country = s.country;
+  if (s.safeOnly) variables.adult = false;
+  const r = await anilistFetch(ANILIST, POST({ query: BY_TAGS, variables }), ASK);
+  if (!r.ok) throw new Error(`anilist ${r.status}`);
+  const j: any = await r.json();
+  if (j?.errors?.length) throw new Error(String(j.errors[0]?.message ?? 'anilist error').slice(0, 200));
+  const media: any[] = j?.data?.Page?.media ?? [];
+  const items = media
+    .map((m) => ({
+      id: typeof m.id === 'number' ? m.id : null,
+      title: m.title?.english || m.title?.romaji || '',
+      cover: m.coverImage?.large || m.coverImage?.extraLarge || null,
+      coverXL: m.coverImage?.extraLarge || m.coverImage?.large || null,
+      banner: m.bannerImage ?? null,
+      description: plainText(String(m.description || '').replace(/<br\s*\/?>/gi, ' ')),
+      genres: Array.isArray(m.genres) ? m.genres : [],
+      score: typeof m.averageScore === 'number' ? m.averageScore : null,
+      chapters: typeof m.chapters === 'number' ? m.chapters : null,
+      status: m.status ?? null,
+      adult: m.isAdult === true,
+    }))
+    .filter((x) => x.title && x.cover);
+  return { items, hasNext: j?.data?.Page?.pageInfo?.hasNextPage === true };
 }

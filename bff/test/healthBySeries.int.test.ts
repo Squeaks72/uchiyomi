@@ -118,3 +118,36 @@ test('a series removed from the library leaves the view', { skip }, async () => 
   assert.ok(!ids.includes(gappy[0]) && !ids.includes(gappy[1]));
   assert.equal(ids.filter((id: string) => gappy.includes(id)).length, GAPPY - 2);
 });
+
+test("By series lists the series behind a source's trouble, and the ones that have only that source", { skip }, async () => {
+  // Chapters that would not download and Source health have one row per SOURCE, so the grouping skipped both and a series
+  // with failed chapters (or only a failing source) never showed here. Reintroduce by dropping seriesOfSourceRows: both
+  // series below are missing.
+  const { groupBySeries } = await import('../src/lib/health');
+  const { withAll } = await import('../src/lib/healthKit');
+  const SRC = 'hbs-src-trouble';
+  const ids = ['hbs_only', 'hbs_followed', 'hbs_failed'];
+  for (const id of ids) {
+    await q(`INSERT INTO lib_series (id, source, title, folder, source_id) VALUES ($1, 'test', $2, $1, $3)`, [id, `BS ${id}`, SRC]);
+  }
+  await q(`INSERT INTO series_sources (series_id, source_id, source_series_id) VALUES ('hbs_followed', 'hbs-src-other', 'x')`);
+  await q(`INSERT INTO series_sources (series_id, source_id, source_series_id) VALUES ('hbs_failed', 'hbs-src-other', 'y')`);
+  await q(`INSERT INTO chapter_failures (series_id, number, source_id, status, reason) VALUES ('hbs_failed', 3, $1, 'failed', 'HTTP 500')`, [SRC]);
+  try {
+    const check = (id: string, items: any[]) => withAll({ id, title: id, status: 'warn', summary: '', items: items.slice(0, 1) }, items);
+    const rows = await groupBySeries([
+      check('chapter-failures', [{ title: 'Trouble', detail: '', sourceId: SRC }]),
+      check('sources', [{ title: 'Trouble', detail: '', sourceId: SRC, state: 'failing' }]),
+    ]);
+    const by = new Map(rows.map((r) => [r.seriesId, r.findings.map((f) => f.check).sort()]));
+    assert.deepEqual(by.get('hbs_failed'), ['chapter-failures'], 'a series with a chapter that would not download is not listed');
+    assert.ok(rows.find((r) => r.seriesId === 'hbs_failed')!.findings[0].item.actions?.includes('find_sources'), 'no Find other source on a failed-chapters finding');
+    assert.deepEqual(by.get('hbs_only'), ['sources'], 'a series whose only source is failing is not listed');
+    assert.ok(!by.has('hbs_followed'), 'a series with another source was listed as having only the failing one');
+    const only = rows.find((r) => r.seriesId === 'hbs_only')!.findings[0].item;
+    assert.equal(only.findScope, 'series');
+    assert.ok(only.actions?.includes('find_sources'));
+  } finally {
+    await q(`DELETE FROM lib_series WHERE id = ANY($1)`, [ids]);
+  }
+});

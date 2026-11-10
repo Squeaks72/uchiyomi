@@ -57,7 +57,7 @@ test('the backdrop route draws manual, local and fetched artwork by its provenan
   assert.match(localCover, /look === 'hero' \? await heroSharp\(localCover.bytes, ar\)\s*: await ambientComposite\(localCover.bytes\)/, 'a local cover stays ambient in banner mode');
 
   const fetched = branch('const srcRow =');
-  assert.match(fetched, /input = await fetchCoverImage\(url, srcRow\?\.source_id \|\| undefined\);\s*fetched = true;/);
+  assert.match(fetched, /input = (?:ownCover === 'upload' \? await readFile\(artFile\(id, 'cover'\)\) : )?await fetchCoverImage\(url, srcRow\?\.source_id \|\| undefined\);\s*fetched = true;/);
   assert.match(fetched, /catch \{\s*input = await firstPageInput\(id, ctx\);\s*\}/, 'unavailable remote art falls back to a page');
   assert.match(fetched, /const look = backdropLook\(style, \{ hasUrl: !!url, fromBanner: fetched && !!art.banner \}\);/);
   assert.match(fetched, /look === 'banner' \? await bannerSharp\(input\) : await ambientComposite\(input\)/);
