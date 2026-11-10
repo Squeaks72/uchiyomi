@@ -3401,6 +3401,184 @@ paths:
           description: Not authenticated
         "404":
           description: No such chapter, or one the caller may not see
+  /api/panels/status:
+    get:
+      tags:
+        - library
+      summary: What panel detection is doing now, and which models are on disk.
+      description: >-
+        The detector runs one chapter at a time. `models` says, per tier (fast, careful, thorough), whether its model has been downloaded
+        yet and how large it is: a tier downloads its model the first time it runs.
+      operationId: getApiPanelsStatus
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Not authenticated
+        "403":
+          description: Admin only
+  /api/books/{id}/panels:
+    get:
+      tags:
+        - library
+      summary: One chapter's panel-detection results, page by page.
+      description: >-
+        Each page carries every tier's answer (`candidates`, boxes as page fractions `[x, y, w, h]` in left-to-right order), which one is
+        `chosen`, whether a person `rejected` the page, the height of its lettering as a share of its width (`textH`), and the `next` tier
+        "try harder" would run. For the review screen.
+      operationId: getApiBooksIdPanels
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Not authenticated
+        "403":
+          description: Admin only
+        "404":
+          description: No such chapter or series, or one the caller may not see
+    post:
+      tags:
+        - library
+      summary: Detect a chapter's panels, or try harder on some of its pages.
+      description: >-
+        Queued and answered at once; progress is `GET /api/panels/status`. `harder` runs, for each page, the next tier above what it has and
+        ADDS the answer beside the earlier ones, choosing it. `pages` limits it. Admin only.
+      operationId: postApiBooksIdPanels
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                tier: { type: string, enum: [fast, careful, thorough] }
+                pages: { type: array, items: { type: integer } }
+                harder: { type: boolean }
+                force: { type: boolean }
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Not authenticated
+        "403":
+          description: Admin only
+        "404":
+          description: No such chapter or series, or one the caller may not see
+  /api/books/{id}/pages/{n}/panels:
+    put:
+      tags:
+        - library
+      summary: Reject a page's panels, or choose another tier's answer.
+      description: >-
+        `rejected: true` puts the page back to being read whole for every account; `chosen` shows another tier's answer instead and un-rejects.
+        Admin only.
+      operationId: putApiBooksIdPagesNPanels
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: n
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                rejected: { type: boolean }
+                chosen: { type: string, enum: [fast, careful, thorough] }
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Not authenticated
+        "403":
+          description: Admin only
+        "404":
+          description: No such chapter or series, or one the caller may not see
+  /api/series/{id}/panels:
+    get:
+      tags:
+        - library
+      summary: A series' chapters with their panel-detection status.
+      description: >-
+        For each chapter: pages found, pages rejected, and the tiers that have run. Admin only.
+      operationId: getApiSeriesIdPanels
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Not authenticated
+        "403":
+          description: Admin only
+        "404":
+          description: No such chapter or series, or one the caller may not see
+    post:
+      tags:
+        - library
+      summary: Detect a whole series' panels, or try harder on it.
+      description: >-
+        Queues every chapter at `tier`, or with `harder` the next tier up for each page (`onlyRejected`: just the pages a person rejected). Admin only.
+      operationId: postApiSeriesIdPanels
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                tier: { type: string, enum: [fast, careful, thorough] }
+                harder: { type: boolean }
+                onlyRejected: { type: boolean }
+                force: { type: boolean }
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Not authenticated
+        "403":
+          description: Admin only
+        "404":
+          description: No such chapter or series, or one the caller may not see
   /api/offline/plan:
     get:
       tags:

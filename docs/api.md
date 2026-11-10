@@ -1183,6 +1183,10 @@ GET    /api/books/:id             POST   /api/books/:id/refetch
 GET    /api/books/:id/pages
 GET    /api/books/:id/next        PUT    /api/books/:id/progress
 PUT    /api/books/:id/pages/:n/junk
+PUT    /api/books/:id/pages/:n/panels
+GET    /api/books/:id/panels      POST   /api/books/:id/panels
+GET    /api/series/:id/panels     POST   /api/series/:id/panels
+GET    /api/panels/status
 PUT    /api/books/:id/pages/:n/spread
 GET    /api/admin/books/:id/page-cleanup
 POST   /api/admin/books/:id/page-cleanup

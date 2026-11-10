@@ -1002,6 +1002,34 @@ CREATE TABLE IF NOT EXISTS page_hashes (
 );
 CREATE INDEX IF NOT EXISTS page_hashes_hash_idx ON page_hashes (hash);
 
+-- Panel detection (lib/panelJob.ts): where the panels of a comic page are, found by a neural network on the server so the reader
+-- can frame one at a time (Reader -> Panel view). One row per page, PLUS a page-0 row that is the chapter's "looked at" mark, as
+-- page_hashes has (a chapter with nothing found is otherwise indistinguishable from one never visited).
+--   candidates  what each tier found: {"fast": {"boxes": [[x,y,w,h], ...]}, "careful": {...}}, boxes as page fractions in left-to-right
+--               reading order. Kept side by side so "try harder" ADDS an answer and a person can choose between them.
+--   chosen      the tier shown to readers (null: none yet);  rejected  a person said no to every one -- the page is read whole
+--   text_h      the height of the page's lettering as a share of its width: how legible the page is on a given screen
+--   ver         lib/panelDetect.ts PANEL_VERSION: a page found under another is found again
+-- Derived data like page_hashes, so it CASCADEs with its chapter. Additive: older servers ignore it all.
+CREATE TABLE IF NOT EXISTS page_panels (
+  book_id     text NOT NULL REFERENCES lib_books(id) ON DELETE CASCADE,
+  page        int  NOT NULL CHECK (page >= 0),
+  width       int,
+  height      int,
+  candidates  jsonb NOT NULL DEFAULT '{}'::jsonb,
+  chosen      text,
+  rejected    boolean NOT NULL DEFAULT false,
+  text_h      real,
+  ver         int  NOT NULL DEFAULT 1,
+  detected_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (book_id, page)
+);
+ALTER TABLE server_settings ADD COLUMN IF NOT EXISTS panels_nightly   boolean NOT NULL DEFAULT false;
+ALTER TABLE server_settings ADD COLUMN IF NOT EXISTS panels_on_import boolean NOT NULL DEFAULT false;
+ALTER TABLE server_settings ADD COLUMN IF NOT EXISTS panels_tier      text    NOT NULL DEFAULT 'fast';
+ALTER TABLE server_settings ADD COLUMN IF NOT EXISTS panels_hour      int     NOT NULL DEFAULT 5;
+ALTER TABLE server_settings ADD COLUMN IF NOT EXISTS panels_last_run  timestamptz;
+
 -- #354: absent means disabled. A series rule overrides its source rule, including an explicit false.
 CREATE TABLE IF NOT EXISTS source_page_rules (
   source_id text NOT NULL,
