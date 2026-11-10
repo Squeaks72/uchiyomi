@@ -2,7 +2,7 @@
 import { motion } from 'framer-motion';
 import { useRef, useState } from 'react';
 import { ReaderPrefs } from '@/lib/readerPrefs';
-import { COLUMN_WIDTH, type ColorFilter, type DevicePrefs } from '@/lib/readerDevice';
+import { COLUMN_WIDTH, TEXT_COMFORT, type ColorFilter, type DevicePrefs } from '@/lib/readerDevice';
 import type { AutoGuess } from '@/lib/readerAuto';
 import { seriesTypeKey } from '@/lib/seriesTypes';
 import { tapZone, type TapLayout } from '@/lib/readerGesture';
@@ -431,6 +431,20 @@ export function ReaderSettings({
             <p className="mt-1 text-[11px] leading-snug text-fog-500">
               {tr('Reads a comic or manga page one panel at a time, each filling the screen, right to left for manga. A tap on either side steps through the panels and then turns the page; the middle shows the controls and a double tap shows the whole page. A splash page, or a layout with no clear gutters, is shown whole.')}
             </p>
+            {device.panelView && (
+              <div className="mt-3">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm font-medium text-fog-200">{`${tr('Comfortable text size')} · ${device.textComfort} px`}</span>
+                </div>
+                <input type="range" min={TEXT_COMFORT.min} max={TEXT_COMFORT.max} step={TEXT_COMFORT.step} value={device.textComfort}
+                  aria-label={`${tr('Comfortable text size')} · ${tr('This device')}`} aria-valuetext={`${device.textComfort} px`}
+                  onChange={(e) => setDevice({ textComfort: Number(e.target.value) })}
+                  className="mt-2 w-full accent-[rgb(var(--accent))]" data-reader-text-comfort />
+                <p className="mt-1 text-[11px] leading-snug text-fog-500">
+                  {tr('How tall a letter is when it reads without effort on this screen. A panel zooms in only as far as the lettering needs to get there, and a page that is legible already is not zoomed at all. Larger means more zoom.')}
+                </p>
+              </div>
+            )}
           </div>
         )}
 

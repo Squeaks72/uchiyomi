@@ -2,7 +2,7 @@
   "_meta": {
     "language": "de",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 5726
+    "strings": 5729
   },
   "1 check found something": "1 Prüfung hat etwas gefunden",
   "1 member": "1 Mitglied",
@@ -5729,5 +5729,8 @@
   "revised by source: {n} replaced": "von der Quelle überarbeitet: {n} ersetzt",
   "Panel view": "Panelansicht",
   "Panel {n} of {total}": "Panel {n} von {total}",
-  "Reads a comic or manga page one panel at a time, each filling the screen, right to left for manga. A tap on either side steps through the panels and then turns the page; the middle shows the controls and a double tap shows the whole page. A splash page, or a layout with no clear gutters, is shown whole.": "Liest eine Comic- oder Manga-Seite Panel für Panel, jedes bildschirmfüllend, bei Manga von rechts nach links. Ein Tippen auf eine Seite wechselt durch die Panels und blättert dann um; die Mitte zeigt die Steuerung, ein Doppeltippen die ganze Seite. Eine Titelseite oder ein Layout ohne klare Zwischenräume wird ganz gezeigt."
+  "Reads a comic or manga page one panel at a time, each filling the screen, right to left for manga. A tap on either side steps through the panels and then turns the page; the middle shows the controls and a double tap shows the whole page. A splash page, or a layout with no clear gutters, is shown whole.": "Liest eine Comic- oder Manga-Seite Panel für Panel, jedes bildschirmfüllend, bei Manga von rechts nach links. Ein Tippen auf eine Seite wechselt durch die Panels und blättert dann um; die Mitte zeigt die Steuerung, ein Doppeltippen die ganze Seite. Eine Titelseite oder ein Layout ohne klare Zwischenräume wird ganz gezeigt.",
+  "Comfortable text size": "Angenehme Textgröße",
+  "How tall a letter is when it reads without effort on this screen. A panel zooms in only as far as the lettering needs to get there, and a page that is legible already is not zoomed at all. Larger means more zoom.": "Wie hoch ein Buchstabe auf diesem Bildschirm sein muss, um mühelos lesbar zu sein. Ein Panel wird nur so weit vergrößert, wie die Beschriftung es braucht, und eine bereits lesbare Seite gar nicht. Größer bedeutet mehr Zoom.",
+  "Find panels": "Panels finden"
 }

@@ -43,6 +43,21 @@ export interface DevicePrefs {
    * (lib/readerPanels.ts). A phone wants it; off -- every page whole, the reader as it always was -- until chosen.
    */
   panelView: boolean;
+  /**
+   * Comfortable text size, in CSS pixels: how tall a letter is on this device when it reads without effort. Panel view zooms a
+   * frame in only as far as the page's lettering needs to reach it, and not at all on a page that is legible already.
+   */
+  textComfort: number;
+}
+
+/** Comfortable text size's range and step, in CSS pixels: the sheet's slider and what a stored value is cleaned to. */
+export const TEXT_COMFORT = { min: 5, max: 16, step: 0.5, default: 8.5 } as const;
+
+/** A stored comfortable text size made sound: a step of the range, or the default for anything else. */
+export function cleanTextComfort(v: unknown): number {
+  const n = typeof v === 'number' ? v : NaN;
+  if (!Number.isFinite(n) || n < TEXT_COMFORT.min || n > TEXT_COMFORT.max) return TEXT_COMFORT.default;
+  return Math.round(n / TEXT_COMFORT.step) * TEXT_COMFORT.step;
 }
 
 /** Column width's range and step, in percent: the sheet's slider and what a stored value is cleaned to. */
@@ -64,6 +79,7 @@ export const DEFAULT_DEVICE: DevicePrefs = {
   fitPages: false,
   tapFocus: false,
   panelView: false,
+  textComfort: TEXT_COMFORT.default,
 };
 
 export const DEVICE_KEY = 'yomi_reader_device';
@@ -82,6 +98,7 @@ export function migrateDevicePrefs(raw: unknown): DevicePrefs {
     fitPages: r.fitPages === true,
     tapFocus: r.tapFocus === true,
     panelView: r.panelView === true,
+    textComfort: cleanTextComfort(r.textComfort),
   };
 }
 

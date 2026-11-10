@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ReaderImg } from '@/components/ReaderPage';
 import { t as tr } from '@/lib/i18n';
-import { WHOLE_PAGE, cameraOf, framingPanels, panelsOfImage, type Box } from '@/lib/readerPanels';
+import { DEFAULT_COMFORT_PX, WHOLE_PAGE, cameraOf, framingPanels, legibleCap, panelsOfImage, serverPanels, type Box } from '@/lib/readerPanels';
 import type { ReaderImageRetry } from '@/lib/readerImageRetry';
 
 /**
@@ -41,9 +41,16 @@ const SWIPE_PX = 48;
 /** The gap between two pages of the strip, as a share of the screen's width. */
 const GAP = 0.06;
 
-export interface PanelPage { i: number; key: string; src: string; number: number; width: number | null; height: number | null }
+export interface PanelPage {
+  i: number; key: string; src: string; number: number; width: number | null; height: number | null;
+  /** The server's panels for this page ([x, y, w, h] fractions, bff panel detection), when it has run on the chapter; the page is then
+   *  not read in the browser. An empty list is the server's word that there are none. */
+  panels?: number[][];
+  /** The height of the page's lettering as a share of its width: how much zoom it needs (lib/readerPanels.ts legibleCap). */
+  textH?: number | null;
+}
 
-export function PanelView({ pages, current, rtl, filter, from, reduceMotion, onTurn, onChrome, onRetry }: {
+export function PanelView({ pages, current, rtl, filter, from, reduceMotion, comfortPx = DEFAULT_COMFORT_PX, onTurn, onChrome, onRetry }: {
   /** The current page and the ones either side that exist, by index in the reading flow. */
   pages: PanelPage[];
   current: number;
@@ -53,6 +60,8 @@ export function PanelView({ pages, current, rtl, filter, from, reduceMotion, onT
   /** Which frame a page opens on when it becomes current: the first, or the last (turning back to it). */
   from: 'first' | 'last';
   reduceMotion?: boolean;
+  /** The height of a letter that is comfortable to read on this device, in CSS pixels (Reader → Comfortable text size). */
+  comfortPx?: number;
   /** Past the last frame (1) or before the first (-1): turn the page. */
   onTurn: (dir: 1 | -1) => void;
   onChrome: () => void;
@@ -80,10 +89,14 @@ export function PanelView({ pages, current, rtl, filter, from, reduceMotion, onT
   useEffect(() => { setWhole(false); }, [current]);
 
   const dirKey = rtl ? 'r' : 'l';
+  // Pages the server has already answered for: not read again here.
+  const served = useRef(new Set<string>());
+  served.current = new Set(pages.filter((p) => p.panels !== undefined).map((p) => p.key));
   const loaded = useCallback((key: string, img: HTMLImageElement) => {
     if (img.naturalWidth && img.naturalHeight) {
       setSizes((s) => (s[key]?.w === img.naturalWidth && s[key]?.h === img.naturalHeight ? s : { ...s, [key]: { w: img.naturalWidth, h: img.naturalHeight } }));
     }
+    if (served.current.has(key)) return;
     const ck = `${key}|${dirKey}`;
     let f = found.get(ck);
     if (!f) {
@@ -108,17 +121,23 @@ export function PanelView({ pages, current, rtl, filter, from, reduceMotion, onT
   // current, since `from` is spent by then.
   const latch = useRef<{ key: string; start: 'first' | 'last' } | null>(null);
   if (cur && latch.current?.key !== cur.key) latch.current = { key: cur.key, start: from };
-  const res = cur ? results[`${cur.key}|${dirKey}`] ?? found.get(`${cur.key}|${dirKey}`) ?? null : null;
+  const curSize = cur ? sizeOf(cur) : null;
+  const res = cur
+    ? cur.panels !== undefined ? serverPanels(cur.panels, rtl, curSize ? curSize.w / curSize.h : null)
+      : results[`${cur.key}|${dirKey}`] ?? found.get(`${cur.key}|${dirKey}`) ?? null
+    : null;
   // Only the panels the camera zooms in on: a strip the full width of the screen would just slide up and down a page that is
   // in view already. Any left out, and the page opens whole first so it is still seen before it is gone into.
-  const framing = cur && res && res.panels.length > 1 && view.w ? framingPanels(res.panels, worldOf(cur), view) : null;
+  // How far to zoom is bounded by how big the lettering is: legible already, and there is nothing to zoom for.
+  const cap = legibleCap(cur?.textH, view.w, comfortPx);
+  const framing = cur && res && res.panels.length > 1 && view.w ? framingPanels(res.panels, worldOf(cur), view, cap) : null;
   const panels = framing && framing.kept.length ? framing.kept : null;
   const overview = !!panels && (res!.overview || framing!.skipped > 0);
   const frames: Box[] = panels ? (overview ? [WHOLE_PAGE, ...panels] : panels) : [WHOLE_PAGE];
   const first = overview ? 1 : 0; // the first panel's frame
   const at = cur && pick?.key === cur.key ? Math.min(pick.i, frames.length - 1) : latch.current?.start === 'last' ? frames.length - 1 : 0;
   const framed = whole ? WHOLE_PAGE : frames[at];
-  const cam = cur && view.w ? cameraOf(framed, worldOf(cur), view) : null;
+  const cam = cur && view.w ? cameraOf(framed, worldOf(cur), view, framed === WHOLE_PAGE ? Infinity : cap) : null;
 
   // A jump of more than a page (the scrubber, the page grid) is a cut, not a pan across everything between.
   const lastIdx = useRef(current);
