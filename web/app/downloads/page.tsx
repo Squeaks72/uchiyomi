@@ -134,7 +134,10 @@ export default function DownloadsPage() {
             ? tr('Tap the download icon on any chapter — or turn on Keep favorites offline under Profile → Settings → Downloads — to read offline. Perfect for flights and commutes.')
             : tr('Nothing is saved on this device, and there is no connection to fetch anything with. Reconnect and download a chapter to read it here.')}
           cta={/* no cta offline: it points at the library, which is built entirely from the server */
-            online ? { href: '/library', label: tr('Browse library') } : undefined} />
+            online ? { href: '/library', label: tr('Browse library') } : undefined}>
+          {/* The switch the sentence above names is one tap away rather than a path to remember. */}
+          <Link href="/profile/?tab=Settings&section=downloads" className="btn-key text-sm">{tr('Open Settings')}</Link>
+        </EmptyState>
       ) : (
         // One card per series, side by side on a wide screen (.board), each with its cover. Every chapter is ONE link to
         // the reader: the browser walk counts them and clicks one by its address offline (e2e/run.mjs).

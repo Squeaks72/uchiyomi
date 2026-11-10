@@ -1,0 +1,204 @@
+name: Fork sync
+
+# Keeps this fork current with upstream, then rebuilds the image.
+#
+# `main` is a pure mirror of upstream and is never committed to directly, so it
+# can always be fast-forwarded. `tim` is upstream plus the local patches, and is
+# rebased onto the new `main` on every sync -- rebase rather than merge so the
+# patch set stays a readable list of commits on top of a known upstream, and so
+# a patch that upstream has since adopted disappears on its own instead of
+# conflicting forever.
+#
+# Timing: the image has to exist before CA Auto Update pulls it, 04:00 in
+# America/Chicago -- 09:00 UTC. The nominal time is not the time it runs, though:
+# GitHub queues scheduled workflows under load and drops them outright when it is
+# busy enough. At '0 6' the four runs before 2026-10-08 started 10:34, 10:53, 10:56
+# and 12:41 UTC -- 4h34m to 6h41m late, every one of them landing AFTER the pull it
+# is meant to beat, so the fork sat a release behind for a day at a time. The run
+# due 2026-10-08 never fired at all.
+#
+# So: a long way ahead of 09:00, and off the top of the hour, which is where the
+# queue is deepest (minute 0 of an hour is the single most contended slot there is).
+#
+# And twice, because a dropped run is invisible -- GitHub skipping a schedule is not
+# an error this workflow can see and alert on, only an absence. Two attempts, each
+# far enough ahead that even a 6h41m delay still beats the pull:
+#
+#   22:13 UTC  worst case lands 04:54 the next day
+#   01:37 UTC  worst case lands 08:18
+#
+# 3h24m apart, so a queue deep enough to drop one has had time to drain before the
+# other. Whichever runs second is almost always a no-op: with `tim` already on top of
+# upstream the sync exits early and the build job never starts, so the cost of the
+# spare is one 30-second run a day. 22:13 UTC is also late afternoon in Chicago,
+# which is a better time to be told a rebase stopped than 01:00 is.
+#
+# If both are dropped the fork keeps yesterday's image for a day. Re-run by hand
+# (`gh workflow run fork-sync.yml --repo Squeaks72/uchiyomi --ref tim`) when the
+# fork is behind and no run explains why.
+#
+# When replaying the patches one commit at a time conflicts, the NET change is tried as a single
+# commit on top of upstream (the old stack is kept as a tag, tim-pre-sync-YYYYMMDD), and the files that
+# only ever conflict mechanically are merged by .github/scripts/fork-resolve.mjs (locale strings both
+# sides appended, the lockfile, the changelog). Only a real collision stops the run.
+#
+# What the fork carries is upstream plus (a) features of its own and (b) features whose upstream PR is still OPEN, listed in
+# .github/fork-prs.json. The moment such a PR is closed -- merged, rebuilt by the maintainer, or declined -- the fork stops
+# carrying its copy: the first step below reverses the PR's change set (.github/scripts/fork-retire.mjs) before anything is
+# rebased, so what runs is upstream's decision. A change set that will not reverse cleanly fails the run (and nothing is
+# pushed) rather than half-dropping a feature.
+#
+# A rebase that does not apply cleanly stops here and fails the run rather than
+# forcing anything: a silently dropped patch is worse than a stale image. (Issues
+# are disabled on this fork, so the failed run and its email are the alert.)
+#
+# Pushing needs the SYNC_TOKEN secret: a fine-grained PAT on this repo only, with
+# Contents and Workflows read/write. GITHUB_TOKEN can never push a commit that
+# adds or changes a file under .github/workflows/, and upstream does that (v0.44.0
+# added desktop.yml and engine-pack.yml), so without it the mirror is refused.
+#
+# Upstream's own workflows are kept DISABLED here. A new one arrives enabled, and
+# desktop.yml runs on every push to `main` -- so the order below is: rebase, push
+# `tim` (the default branch, which registers any new workflow), disable anything
+# that is not fork-*.yml, and only then mirror `main`.
+
+on:
+  schedule:
+    # Two chances to beat the 04:00 Chicago pull; see the timing note above.
+    - cron: '13 22 * * *'
+    - cron: '37 1 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: fork-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      changed: ${{ steps.rebase.outputs.changed }}
+      version: ${{ steps.rebase.outputs.version }}
+      # A push made with a PAT triggers fork-build on its own; one made with
+      # GITHUB_TOKEN does not, and then the build job below has to call it.
+      pushed_with_pat: ${{ steps.rebase.outputs.pushed_with_pat }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # Full history: a rebase needs the merge base, and a shallow clone
+          # cannot find one.
+          fetch-depth: 0
+          ref: tim
+          token: ${{ secrets.SYNC_TOKEN || github.token }}
+
+      - name: Stop carrying features whose upstream PR is decided
+        id: retire
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git config user.name  "Squeaks72"
+          git config user.email "Squeaks72@users.noreply.github.com"
+          git fetch --quiet origin 'refs/heads/pr/*:refs/remotes/origin/pr/*' || true
+          node .github/scripts/fork-retire.mjs
+
+      - name: Rebase the patches onto upstream
+        id: rebase
+        env:
+          HAS_PAT: ${{ secrets.SYNC_TOKEN != '' }}
+        run: |
+          set -euo pipefail
+          git config user.name  "Squeaks72"
+          git config user.email "Squeaks72@users.noreply.github.com"
+          git remote add upstream https://github.com/AngeloSha/uchiyomi.git
+          git fetch --tags upstream main
+          echo "pushed_with_pat=$HAS_PAT" >> "$GITHUB_OUTPUT"
+
+          if git merge-base --is-ancestor upstream/main HEAD; then
+            if [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/tim)" ]; then
+              # Nothing new upstream, but features were retired above: those commits are the change.
+              git push --force-with-lease origin tim
+              version=$(node -p "require('./bff/package.json').version")
+              echo "changed=true" >> "$GITHUB_OUTPUT"
+              echo "version=$version" >> "$GITHUB_OUTPUT"
+              echo "::notice title=Retired::stopped carrying decided features (PRs ${{ steps.retire.outputs.retired }}), still on upstream v${version}"
+              exit 0
+            fi
+            echo "already on top of upstream/main"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          orig=$(git rev-parse HEAD)
+          if ! git rebase upstream/main; then
+            git rebase --abort || true
+            # Replaying the patches one commit at a time can conflict where the sum of them does not: a
+            # patch and its later revert, a fix-up, or two commits that both touch a hunk upstream moved.
+            # So try the NET change as one commit on top of upstream. What conflicts there is a real
+            # collision with upstream, apart from the files fork-resolve.mjs knows how to merge (locale
+            # strings both sides appended, the lockfile, the changelog). Whatever is left stops the run.
+            echo "::warning title=Replay conflicted::trying the net change as one commit"
+            tag="tim-pre-sync-$(date -u +%Y%m%d)"
+            git tag -f "$tag" "$orig"
+            git push -f origin "refs/tags/$tag"
+            git checkout -q --detach upstream/main
+            if ! git merge --squash "$orig"; then
+              if ! node .github/scripts/fork-resolve.mjs; then
+                git merge --abort 2>/dev/null || git reset -q --hard
+                echo "changed=false" >> "$GITHUB_OUTPUT"
+                exit 1
+              fi
+            fi
+            version=$(node -p "require('./bff/package.json').version")
+            { echo "Fork patches on top of upstream v${version}"; echo
+              echo "The patch stack, replayed one commit at a time, conflicted with upstream; its net change"
+              echo "applies as this one commit. The stack it replaces is tag ${tag}:"; echo
+              git log --reverse --format='  %h %s' "$(git merge-base "$orig" upstream/main)..$orig"; } > /tmp/squash-msg.txt
+            git commit -q -F /tmp/squash-msg.txt
+            git checkout -q -B tim
+          fi
+
+          if ! git diff --quiet "$(git merge-base "$orig" upstream/main)" upstream/main -- .github/workflows \
+             && [ "$HAS_PAT" != "true" ]; then
+            echo "::error title=SYNC_TOKEN needed::upstream changed .github/workflows/, which GITHUB_TOKEN may not push. Add a SYNC_TOKEN secret (fine-grained PAT: this repo, Contents + Workflows read/write)."
+            exit 1
+          fi
+
+          git push --force-with-lease origin tim
+          version=$(node -p "require('./bff/package.json').version")
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "::notice title=Synced::now on upstream v${version}"
+
+      - name: Keep upstream's workflows disabled
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          # A workflow file new to the default branch takes a moment to register.
+          sleep 10
+          gh api "repos/${GITHUB_REPOSITORY}/actions/workflows" --paginate \
+            --jq '.workflows[] | select(.state == "active") | select(.path | test("/fork-[^/]+\\.ya?ml$") | not) | "\(.id) \(.path)"' |
+          while read -r id path; do
+            echo "::notice title=Disabled upstream workflow::$path"
+            gh api -X PUT "repos/${GITHUB_REPOSITORY}/actions/workflows/$id/disable"
+          done
+
+      - name: Mirror upstream onto main
+        run: |
+          set -euo pipefail
+          # Always a fast-forward, because nothing ever commits to main here.
+          git push --force origin "upstream/main:refs/heads/main"
+
+  build:
+    needs: sync
+    if: needs.sync.outputs.changed == 'true' && needs.sync.outputs.pushed_with_pat != 'true'
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/fork-build.yml

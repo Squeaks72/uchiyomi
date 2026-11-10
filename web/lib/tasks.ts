@@ -20,7 +20,7 @@ export const TASK_NAMES = keys(
  */
 export const SCHEDULE_KEYS = keys(
   'on demand', 'every {h}h', 'daily at {hh}:00', 'in the background, rechecked every 6h',
-  'on demand · after a database-only restore', 'switched off · on demand', 'every {h}h · never during a chapter sweep',
+  'on demand · after a database-only restore', 'switched off · on demand', 'every {h}h · never during a chapter sweep', 'daily at {hh}:00 · never during a chapter sweep',
   'hourly · as soon as everyone has finished', 'hourly · 1 day after everyone has finished',
   'hourly · {n} days after everyone has finished', 'every {h}h · check only',
 );
@@ -115,6 +115,11 @@ export function taskResult(r: any): string {
       const n = g.replaced ?? 0;
       const line = n === 1 ? tr('group upgrades: 1 replaced') : tr('group upgrades: {n} replaced', { n });
       bits.push(g.left ? `${line}, ${leftUnchanged(g.left)}` : line);
+    }
+    // Revised chapters are on unless switched off, so like the group line this one is said only when the step replaced one.
+    if (ran('groups') && r.revisions && !r.revisions.off && (r.revisions.replaced ?? 0) > 0) {
+      const n = r.revisions.replaced;
+      bits.push(n === 1 ? tr('revised by source: 1 replaced') : tr('revised by source: {n} replaced', { n }));
     }
     // Reading directions (#102) are learned quietly most nights once a library has been through it once, so the
     // clause appears when one was learned -- and always on a run that asked for nothing else, where an empty

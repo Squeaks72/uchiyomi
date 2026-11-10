@@ -111,12 +111,12 @@ test('every string on the Removed row and in the two dialogs is translated, and 
   assert.match(panel, /tr\('1 chapter · removed \{when\}'/, 'the singular caption is not translated');
   assert.match(panel, /tr\('\{n\} chapters · removed \{when\}'/, 'the plural caption is not translated');
   assert.equal((panel.match(/\{tr\('Folder'\)\}: <span dir="ltr">\{(purge|forget)\.folder\}<\/span>/g) || []).length, 2, 'both dialogs must translate "Folder" and keep the path LTR');
-  assert.match(panel, /\{tr\('Removing a series hides it from the library, search and the updater\./, 'the intro paragraph is not translated');
+  assert.match(panel, /\{tr\('Removing a series hides it from the library, search and updates\./, 'the intro paragraph is not translated');
   assert.doesNotMatch(panel, /\bchapter\{r\.books_count === 1/, 'the caption is still pluralised in JS');
   // The title: two lines on a phone (line-clamp-2), one line with an ellipsis and a tooltip from lg up. A
   // 506 px title against a 168 px column at 390 lost everything after "Kaguya-sama: Love Is War – The",
   // and two long-prefix titles were indistinguishable.
-  assert.match(panel, /<p className="[^"]*\bline-clamp-2\b[^"]*\blg:block\b[^"]*\blg:truncate\b[^"]*" title=\{r\.title\}>\{r\.title\}<\/p>/, 'the Removed row title must clamp to two lines on a phone and truncate with a tooltip on a desktop');
+  assert.match(panel, /<p (?:id=\{`removed-\$\{r\.id\}`\} )?className="[^"]*\bline-clamp-2\b[^"]*\blg:block\b[^"]*\blg:truncate\b[^"]*" title=\{r\.title\}>\{r\.title\}<\/p>/, 'the Removed row title must clamp to two lines on a phone and truncate with a tooltip on a desktop');
 
   const es = JSON.parse(read('public/locales/es.json'));
   for (const label of ['Type {title} to confirm', 'Put back', 'Restoring…', 'Folder', 'Working…',

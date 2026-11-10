@@ -379,7 +379,7 @@ try {
     check(!!painted, `Reduce effects: client navigation paints ${heading}`,
       `after clicking ${href}: ${await page.evaluate(() => `${location.pathname} · ${document.querySelector('main h1')?.textContent?.trim() || 'no heading'} · opacity ${getComputedStyle(document.querySelector('main > div') || document.body).opacity}`)}`);
   };
-  await clientHop('/collections', 'Collections');
+  await clientHop('/collections', 'Lists');
   await clientHop('/library', 'Library');
   await shot('library-reduce-effects');
 

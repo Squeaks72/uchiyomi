@@ -163,7 +163,7 @@ function SourceRow({ check, it, rowKey }: { check: HealthCheck; it: HealthItem; 
       <p className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
         <span dir="auto" data-source-name className="min-w-0 break-words text-sm text-fog-100">{name}</span>
         {it.sourceId?.startsWith('sw:') && (
-          <span className="shrink-0 rounded-[4px] bg-ink-800 px-1.5 text-[10px] font-semibold leading-4 text-fog-400">{tr('Extension')}</span>
+          <span className="shrink-0 rounded-[4px] bg-ink-800 px-1.5 text-[11px] font-semibold leading-4 text-fog-400">{tr('Extension')}</span>
         )}
       </p>
     </HealthRow>

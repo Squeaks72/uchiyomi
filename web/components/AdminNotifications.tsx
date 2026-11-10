@@ -26,8 +26,8 @@ import { Switch } from '@/components/Switch';
 import { IcPlus } from '@/components/icons';
 import { RowGroup, SaveState, Segmented, useAutosave, useRowPad } from '@/components/settings';
 
-type Kind = 'webhook' | 'home_assistant' | 'ntfy' | 'discord';
-type NotifyEvent = 'new_chapters' | 'health';
+type Kind = 'webhook' | 'home_assistant' | 'ntfy' | 'discord' | 'email';
+type NotifyEvent = 'new_chapters' | 'health' | 'volume_complete';
 
 /** What GET /api/admin/notify-targets answers per target. Nothing in it can be used to post to the target. */
 interface NotifyTarget {
@@ -50,8 +50,8 @@ interface NotifyTarget {
   lastResult: 'ok' | 'error' | null;
 }
 
-const KIND_LABEL: Record<Kind, string> = { webhook: 'Webhook', home_assistant: 'Home Assistant', ntfy: 'ntfy', discord: 'Discord' };
-const KINDS: Kind[] = ['webhook', 'home_assistant', 'ntfy', 'discord'];
+const KIND_LABEL: Record<Kind, string> = { webhook: 'Webhook', home_assistant: 'Home Assistant', ntfy: 'ntfy', discord: 'Discord', email: 'Email' };
+const KINDS: Kind[] = ['webhook', 'home_assistant', 'ntfy', 'discord', 'email'];
 /** The server switches a target off after this many failed deliveries in a row (lib/notify AUTO_DISABLE_AFTER). */
 const AUTO_OFF = 10;
 const HA_SERVICE = /^[a-z0-9_]+\.[a-z0-9_]+$/;
@@ -116,7 +116,7 @@ export function NotificationsSection() {
     <>
       {/* One group of targets (v0.86.0) under the category's own title, Add above its end, and the note about them under it. */}
       <RowGroup id="notify-targets"
-        description={tr('Send new chapters and server problems somewhere besides this browser: a webhook, Home Assistant, ntfy or Discord. One message per library update, not one per chapter.')}
+        description={tr('Send new chapters, whole volumes and server problems somewhere besides this browser: a webhook, Home Assistant, ntfy, Discord or email. One message per library update, not one per chapter.')}
         action={(
           <button type="button" onClick={() => setEditing('new')} className="btn-key">
             <IcPlus width={14} height={14} />{tr('Add')}
@@ -202,6 +202,7 @@ function TargetRow({ t, onEdit, onDelete, refresh }: {
   const what = [
     t.events.includes('new_chapters') ? tr('New chapters') : null,
     t.events.includes('health') ? tr('Server problems') : null,
+    t.events.includes('volume_complete') ? tr('Whole volumes') : null,
   ].filter(Boolean).join(' · ');
 
   return (
@@ -251,6 +252,10 @@ function TargetDialog({ target, onClose, onSaved }: { target: NotifyTarget | nul
   const [removeToken, setRemoveToken] = useState(false);
   const [topic, setTopic] = useState('');
   const [service, setService] = useState(target?.service ?? '');
+  // Fork: an email target's account, sender and recipients. Write-only like every credential: blank on edit = keep.
+  const [username, setUsername] = useState('');
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
   const [events, setEvents] = useState<NotifyEvent[]>(target?.events ?? ['new_chapters', 'health']);
   const [template, setTemplate] = useState(target?.template ?? '');
   const [userId, setUserId] = useState(target?.userId ?? '');
@@ -275,10 +280,14 @@ function TargetDialog({ target, onClose, onSaved }: { target: NotifyTarget | nul
   const typedOrigin = (() => {
     const raw = url.trim() || (kind === 'ntfy' ? 'https://ntfy.sh' : '');
     if (!raw) return null;
-    try { return new URL(raw).origin; } catch { return null; }
+    try {
+      const u = new URL(raw);
+      // An smtp: address has an opaque origin; the server compares scheme, host and port (kinds.ts smtpEndpoint).
+      return kind === 'email' ? `${u.protocol}//${u.hostname.toLowerCase()}:${u.port || (u.protocol === 'smtps:' ? '465' : '587')}` : u.origin;
+    } catch { return null; }
   })();
   // What the server sends back is the masked form: scheme and host, then "/…" when a path was kept.
-  const storedOrigin = target?.target ? target.target.replace(/\/….*$/, '') : null;
+  const storedOrigin = target?.target ? target.target.replace(/\/….*$/, '').replace(/ → .*$/, '') : null;
   const moved = editing && !!url.trim() && !!typedOrigin && !!storedOrigin && typedOrigin !== storedOrigin;
   // What a NEW target cannot be saved without; an edit may leave every credential blank (kept as stored) --
   // unless the address moved to another host, which needs its token, and an ntfy topic, typed again.
@@ -289,6 +298,7 @@ function TargetDialog({ target, onClose, onSaved }: { target: NotifyTarget | nul
       (kind !== 'ntfy' && !url.trim())
       || (kind === 'home_assistant' && (!token.trim() || !service.trim()))
       || (kind === 'ntfy' && !topic.trim())
+      || (kind === 'email' && !to.trim())
     ));
 
   const save = async () => {
@@ -299,6 +309,11 @@ function TargetDialog({ target, onClose, onSaved }: { target: NotifyTarget | nul
     if (token.trim()) creds.token = token.trim();
     else if (removeToken) creds.token = null;
     if (topic.trim()) creds.topic = topic.trim();
+    if (kind === 'email') {
+      if (username.trim()) creds.username = username.trim();
+      if (from.trim()) creds.from = from.trim();
+      if (to.trim()) creds.to = to.trim();
+    }
     if (kind === 'home_assistant' && service.trim() && service.trim() !== (target?.service ?? '')) creds.service = service.trim();
     const common = { name: name.trim(), events, template: template.trim() || null, userId: userId || null, includeAdult };
     try {
@@ -376,6 +391,26 @@ function TargetDialog({ target, onClose, onSaved }: { target: NotifyTarget | nul
           </Field>
         )}
 
+        {kind === 'email' && (
+          <>
+            <Field label={tr('Mail server')} help={keepHint ?? tr('smtps://smtp.gmail.com:465 for Gmail; smtp://host:587 for a server that uses STARTTLS. The connection is always encrypted.')}>
+              <input value={url} onChange={(e) => setUrl(e.target.value)} autoComplete="off" autoCapitalize="none"
+                placeholder="smtps://smtp.gmail.com:465" className="field" dir="ltr" />
+            </Field>
+            <Field label={tr('User name')} help={keepHint ?? tr('Usually your email address.')}>
+              <input value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="off" autoCapitalize="none" className="field" dir="ltr" />
+            </Field>
+            <TokenField label={tr('Password')} help={tr('For Gmail, an app password (Google Account → Security → App passwords), not your own password.')} value={token} onChange={setToken}
+              editing={editing} hasToken={!!target?.hasToken} retype={moved} />
+            <Field label={tr('From (optional)')} help={keepHint ?? tr('Leave blank to send from the user name.')}>
+              <input value={from} onChange={(e) => setFrom(e.target.value)} type="email" autoComplete="off" autoCapitalize="none" className="field" dir="ltr" />
+            </Field>
+            <Field label={tr('Send to')} help={keepHint ?? tr('Up to five addresses, separated by commas.')}>
+              <input value={to} onChange={(e) => setTo(e.target.value)} type="text" inputMode="email" autoComplete="off" autoCapitalize="none" className="field" dir="ltr" />
+            </Field>
+          </>
+        )}
+
         <fieldset>
           <legend className="mb-1 text-xs font-semibold text-fog-400">{tr('Send')}</legend>
           {/* items-start: these labels run to two lines at 390 px, and a centred box would float between them. */}
@@ -386,6 +421,10 @@ function TargetDialog({ target, onClose, onSaved }: { target: NotifyTarget | nul
           <label className="mt-1 flex items-start gap-2 text-xs text-fog-300">
             <input type="checkbox" checked={events.includes('health')} onChange={(e) => toggle('health', e.target.checked)} className="mt-0.5 shrink-0 accent-accent" />
             {tr('Server problems — a source refusing this server, the Cloudflare solver, extensions')}
+          </label>
+          <label className="mt-1 flex items-start gap-2 text-xs text-fog-300">
+            <input type="checkbox" checked={events.includes('volume_complete')} onChange={(e) => toggle('volume_complete', e.target.checked)} className="mt-0.5 shrink-0 accent-accent" />
+            {tr('Whole volumes — when every chapter of a volume or arc is here, for series someone waits on by volume')}
           </label>
           {!events.length && <p className="mt-1 text-[11px] text-rose-300">{tr('Pick at least one.')}</p>}
         </fieldset>
@@ -414,7 +453,7 @@ function TargetDialog({ target, onClose, onSaved }: { target: NotifyTarget | nul
 
         {events.includes('new_chapters') && (
           <Field label={tr('Message')}
-            help={<>{tr('{count} chapters added · {series} the series’ title, or “3 series” · {list} up to ten titles')}</>}>
+            help={<>{tr('You can use {count} for the number of chapters added, {series} for the series title (or “3 series”) and {list} for up to ten titles.')}</>}>
             <input value={template} onChange={(e) => setTemplate(e.target.value)} maxLength={500} autoComplete="off"
               placeholder={DEFAULT_TEMPLATE} className="field" dir="auto" />
             {/* A span, not a <p>: this sits inside the field's <label>, which may hold phrasing content only. */}

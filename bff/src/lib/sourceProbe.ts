@@ -230,7 +230,7 @@ export async function smokeTest(src: SourceAdapter, opts: { timeoutMs?: number }
   if (chapters.length) {
     // Numbers, not rows: a source that lists a chapter once per group would otherwise report twice the count.
     const numbers = new Set(chapters.map((c) => c.number)).size;
-    checks.push({ name: 'Chapters', ok: true, detail: `${numbers} chapter(s)${hitNo > 1 ? ` (search hit ${hitNo})` : ''}`, stage: 'chapters' });
+    checks.push({ name: 'Chapters', ok: true, detail: `${numbers} chapter(s)${hitNo > 1 ? ` (search hit ${hitNo})` : ''}${unnumberedOf(chapters) ? ', numbered by list order' : ''}`, stage: 'chapters' });
     if (title) passed.push('chapters');
     else fail({ stage: 'chapters', kind: 'empty', error: 'the series page returned no data' });
   } else {

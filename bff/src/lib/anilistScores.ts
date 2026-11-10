@@ -15,6 +15,7 @@ import { runtime } from './runtime';
 import { visibleToAll } from './visibility';
 import { fetchAniListScores } from './anilist';
 import { refreshAniListRelated } from './anilistRelated';
+import { refreshOfficialCounts } from './officialCount';
 
 type Log = { info: (m: string) => void; warn: (m: string) => void };
 
@@ -90,6 +91,15 @@ export function scheduleAniListScores(log: Log, delayMs = 4 * 60_000, everyMs = 
         if (r.asked) log.info(`anilist related: ${r.stored} of ${r.asked} entries read${r.missing ? `, ${r.missing} not answered` : ''}${r.skipped ? `, ${r.skipped} skipped (lookups switched off)` : ''}`);
       } catch (e) {
         log.warn(`anilist related: the refresh failed: ${(e as Error)?.message || e}`);
+      }
+    }
+    // The official chapter counts (lib/officialCount.ts) ride the same tick, after the others, for the same reason.
+    if (!runtime.stopping) {
+      try {
+        const r = await refreshOfficialCounts();
+        if (r.asked) log.info(`official counts: ${r.counted} of ${r.asked} series have a known total${r.cleared ? `, ${r.cleared} moot failures cleared` : ''}`);
+      } catch (e) {
+        log.warn(`official counts: the refresh failed: ${(e as Error)?.message || e}`);
       }
     }
     setTimeout(tick, everyMs).unref?.();

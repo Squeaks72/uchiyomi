@@ -315,6 +315,7 @@ export function SwitchRow({ label, help, on, disabled, id, device, onChange }: {
   onChange: (next: boolean) => Promise<unknown> | unknown;
 }) {
   const { status, run } = useAutosave();
+  const swId = useId();
   const [local, setLocal] = useState(on);
   // The prop catching up is adopted DURING render (React's "previous prop" pattern), not in an effect: an
   // effect would paint one frame of the stale value first, which on a switch is a visible double-flip.
@@ -326,8 +327,9 @@ export function SwitchRow({ label, help, on, disabled, id, device, onChange }: {
     if (!ok) setLocal(on);
   };
   return (
-    <Row id={id} label={label} help={help} status={status} device={device}>
-      <Switch on={local} onChange={(next) => { void flip(next); }} disabled={disabled} label={label} />
+    // The row's words press the switch too (phone fix): `htmlFor` makes the label one.
+    <Row id={id} label={label} htmlFor={swId} help={help} status={status} device={device}>
+      <Switch id={swId} on={local} onChange={(next) => { void flip(next); }} disabled={disabled} label={label} />
     </Row>
   );
 }
@@ -405,7 +407,7 @@ export function Segmented<T extends string>({ label, value, options, disabled, o
             onClick={() => pick(i)}
             onKeyDown={(e) => onKey(e, i)}
             title={o.icon ? o.label : undefined}
-            className={`relative rounded-lg ${o.icon ? 'px-2' : 'px-3'} py-1.5 text-xs disabled:cursor-not-allowed`}
+            className={`relative rounded-lg ${o.icon ? 'px-2 pointer-coarse:px-3' : 'px-3'} py-1.5 pointer-coarse:py-2.5 text-xs disabled:cursor-not-allowed`}
           >
             {selected && (
               <motion.span aria-hidden layoutId={id} className="absolute inset-0 rounded-lg bg-accent-soft"

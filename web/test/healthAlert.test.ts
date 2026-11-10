@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { alertTone, bannerWanted, type HealthSummary } from '../lib/healthAlert';
+import { alertTone, bannerWanted, isCritical, type HealthSummary } from '../lib/healthAlert';
 
 const summary = (o: Partial<HealthSummary> = {}): HealthSummary => ({
   at: '2026-09-26T00:00:00Z', worst: 'warn', count: 1, headline: 'Chapter failures: 3 chapters keep failing', key: 'k1', checks: [], ...o,
@@ -19,6 +19,38 @@ test('a clean report shows nothing at all', () => {
 test('the marker takes the worst status', () => {
   assert.equal(alertTone(summary()), 'warn');
   assert.equal(alertTone(summary({ worst: 'problem' })), 'problem');
+});
+
+test('only a critical report reddens the Admin dots: an amber one does not', () => {
+  assert.equal(isCritical(summary({ worst: 'problem' })), true);
+  assert.equal(isCritical(summary()), false, 'a warning is amber in the header and nothing at all on the Admin entries');
+  assert.equal(isCritical(summary({ worst: 'ok', count: 0, headline: null, key: '' })), false);
+  assert.equal(isCritical(null), false);
+});
+
+test('the checks an admin must act on are critical on the server (bff lib/health.ts SEVERITY)', () => {
+  const src = readFileSync(join(__dirname, '../../bff/src/lib/health.ts'), 'utf8');
+  assert.match(src, /id: 'chapter-gaps',[\s\S]{0,200}status: verdict\(items, 'problem'\)/, 'a chapter gap is critical');
+  assert.match(src, /id: 'chapter-failures',[\s\S]{0,200}status: verdict\(all, 'problem'\)/, 'chapters that keep failing are critical');
+  assert.match(src, /id: 'frozen-series',[\s\S]{0,200}status: stuck \? 'problem'/, 'a series that cannot update is critical');
+});
+
+test('the official count is of whole chapters from 1: neither a .5 extra nor a Chapter 0 counts toward it (bff lib/officialCount.ts)', () => {
+  const src = readFileSync(join(__dirname, '../../bff/src/lib/officialCount.ts'), 'utf8');
+  const held = src.match(/b\.number >= 1 AND b\.number = floor\(b\.number\)/g) ?? [];
+  assert.equal(held.length, 1, 'the held count takes whole chapters from 1 only');
+  assert.doesNotMatch(src, /floor\(b\.number\)\)\s*\)?\s*(>=|<)/, 'a half chapter must not be rounded up to its whole number');
+});
+
+test('every card on the Health page can be rechecked: its id is in the server\'s RECHECKABLE_CHECKS', async () => {
+  const src = readFileSync(join(__dirname, '../../bff/src/lib/health.ts'), 'utf8');
+  const list = src.match(/export const RECHECKABLE_CHECKS = \[([\s\S]*?)\] as const/)![1];
+  const listed = new Set([...list.matchAll(/'([a-z-]+)'/g)].map((m) => m[1]));
+  const { CHECK_TITLES } = await import('../lib/healthCopy');
+  for (const id of Object.keys(CHECK_TITLES)) {
+    assert.ok(listed.has(id), `"${id}" has a card with a Recheck, but the route answers it "Invalid option"`);
+    assert.match(src, new RegExp(`case '${id}':`), `"${id}" is listed but recheckCheck has no case for it`);
+  }
 });
 
 test('a dismissal remembers the checks: one going quiet brings nothing back, a new or worse one does (v0.48.3)', async () => {

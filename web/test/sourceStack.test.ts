@@ -13,6 +13,9 @@ import { join } from 'path';
 import * as React from 'react';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared-runtime';
+import { AuthProvider } from '../lib/auth';
 import { iconStack, type StackSource } from '../lib/sourceGroups';
 import { SourceCard, type SourceItem } from '../components/cards';
 
@@ -22,9 +25,16 @@ import { SourceCard, type SourceItem } from '../components/cards';
 const ROOT = join(__dirname, '..');
 const MANGADEX = { pkgName: 'mangadex', name: 'MangaDex' };
 const src = (source: string, name = source, extension: StackSource['extension'] = null): StackSource => ({ source, name, extension });
-const card = (item: Partial<SourceItem>, providers?: StackSource[]) => renderToStaticMarkup(createElement(SourceCard, {
-  item: { source: 'a', sourceId: '1', title: 'Solo Leveling', ...item }, providers, onAdd: () => {},
-}));
+// The card's own right-click menu (components/DiscoverMenu.tsx) reads the router and the query client, so a card
+// rendered on its own is given both -- a push that goes nowhere and an empty cache, which is all the markup needs.
+const noRouter = { push: () => {}, replace: () => {}, back: () => {}, forward: () => {}, refresh: () => {}, prefetch: () => {} };
+const card = (item: Partial<SourceItem>, providers?: StackSource[]) => renderToStaticMarkup(
+  createElement(AppRouterContext.Provider, { value: noRouter as any },
+    createElement(QueryClientProvider, { client: new QueryClient() },
+      createElement(AuthProvider, null,
+        createElement(SourceCard, {
+          item: { source: 'a', sourceId: '1', title: 'Solo Leveling', ...item }, providers, onAdd: () => {},
+        })))));
 const icons = (html: string) => [...html.matchAll(/<img src="\/img\/sources\/icon\/([^"]+)"/g)].map((m) => decodeURIComponent(m[1]));
 
 test("MangaDex's languages are one icon, named for MangaDex (iconStack)", () => {
@@ -70,7 +80,8 @@ test('the card draws the stack in the top corner, "+2" for the rest, and the 18+
   assert.match(html, /role="img" aria-label="Asura Scans, MangaDex, Flame Comics, Reaper Scans, Aqua Manga" title="Asura Scans, MangaDex, Flame Comics, Reaper Scans, Aqua Manga"/);
   const id = /<span id="([^"]+)" role="img"/.exec(html)?.[1];
   assert.ok(id && html.includes(`aria-describedby="${id}"`), 'a screen reader never hears the sources: the button is not described by the stack');
-  assert.match(html, /class="absolute end-1\.5 top-1\.5 z-10 flex items-center gap-1 rounded-md bg-ink-950\/80 p-1 backdrop-blur"/, 'the stack left the top corner');
+  // Trailing classes allowed: the box is pressable (it opens the details card), so it also carries a hover ground.
+  assert.match(html, /class="absolute end-1\.5 top-1\.5 z-10 flex items-center gap-1 rounded-md bg-ink-950\/80 p-1 backdrop-blur[^"]*"/, 'the stack left the top corner');
   assert.match(html, /data-rating-mark="true" class="absolute end-1\.5 top-9 /, 'the 18+ mark sits on the icons');
   // The badge it replaced is gone: the icons say it.
   assert.doesNotMatch(html, /\d+ sources/, 'the "{n} sources" badge is back');
@@ -102,7 +113,7 @@ test('the page gives every card its providers, in Newest, Popular and search ali
   // Reintroduce `sourceName={mode === 'newest' && order.length > 1 ? …}`: "a mode or a single source draws no icons"
   // fails; by mapping providers without their extension: "MangaDex's languages are told apart on the page" fails.
   const page = readFileSync(join(ROOT, 'app/discover/page.tsx'), 'utf8');
-  assert.match(page, /<SourceCard key=\{`\$\{it\.source\}:\$\{it\.sourceId\}`\} item=\{[^}]*\}\}\s*providers=\{stackOf\(it\)\}\s*onAdd=/, 'a mode or a single source draws no icons');
+  assert.match(page, /<SourceCard key=\{`\$\{it\.source\}:\$\{it\.sourceId\}`\} item=\{[^\n]*\}\s*providers=\{stackOf\(it\)\}\s*onAdd=/, 'a mode or a single source draws no icons');
   assert.doesNotMatch(page, /sourceName=/, 'a mode or a single source draws no icons');
   assert.match(page, /const extOf = useMemo\(\(\) => new Map<string, SrcExtension \| null>\(sources\.map\(\(s\) => \[s\.id, s\.extension \?\? null\]\)\), \[sources\]\);/,
     "MangaDex's languages are told apart on the page");
