@@ -11,6 +11,7 @@ import { useSectionArrival } from '@/lib/useSectionArrival';
 import { useReduceEffects } from '@/lib/effects';
 import { Avatar } from '@/components/Avatar';
 import { ConsoleFootRow, ConsoleLayout, type PageView } from '@/components/ConsoleLayout';
+import { CriticalDot, useCriticalHealth } from '@/components/HealthAlert';
 import { HouseBoard } from '@/components/HouseBoard';
 import { SpineWall } from '@/components/SpineWall';
 import { TraceStrip } from '@/components/TraceStrip';
@@ -470,9 +471,10 @@ function YouBoard({ history }: { history?: HistoryRow[] }) {
  */
 function FootRows({ isAdmin }: { isAdmin: boolean }) {
   const { logout } = useAuth();
+  const critical = useCriticalHealth();
   return (
     <div className="card grad-border overflow-hidden rounded-2xl p-1.5" data-console-foot>
-      {isAdmin && <ConsoleFootRow href="/admin/" icon={<IcSettings width={18} height={18} />} label={tr('Admin')} />}
+      {isAdmin && <ConsoleFootRow href="/admin/" icon={<span className="relative"><IcSettings width={18} height={18} />{critical && <CriticalDot className="-end-1 -top-1" />}</span>} label={tr('Admin')} />}
       <ConsoleFootRow href="https://ko-fi.com/angeloshaheen" external
         icon={<span className="text-base leading-none">☕</span>} label={tr('Support Uchiyomi')} />
       {/* Not on desktop: the app signs itself back in at once, so "Sign out" there would do nothing visible. */}
@@ -494,7 +496,7 @@ function GoalModal({ current, onClose, onSave }: { current: number; onClose: () 
     <Modal title={tr('Weekly goal')} onClose={onClose}>
       <div className="flex flex-wrap gap-1.5">
         {[5, 10, 20].map((q) => (
-          <button key={q} onClick={() => setValue(String(q))}
+          <button key={q} type="button" onClick={() => setValue(String(q))} aria-pressed={n === q} aria-label={tr('{n} chapters', { n: q })}
             className={`chip text-xs ${n === q ? 'chip-active' : ''}`}>{q}</button>
         ))}
       </div>
@@ -502,8 +504,8 @@ function GoalModal({ current, onClose, onSave }: { current: number; onClose: () 
       <input id="weekly-goal-input" type="number" inputMode="numeric" min={1} value={value}
         onChange={(e) => setValue(e.target.value)} className="field mt-1" />
       <div className="mt-4 flex gap-2">
-        <button onClick={onClose} className="btn-ghost flex-1 py-2 text-sm">{tr('Cancel')}</button>
-        <button onClick={() => onSave(n)} disabled={!n || n < 1} className="btn-accent flex-1 py-2 text-sm disabled:opacity-50">{tr('Save')}</button>
+        <button type="button" onClick={onClose} className="btn-ghost flex-1 py-2 text-sm">{tr('Cancel')}</button>
+        <button type="button" onClick={() => onSave(n)} disabled={!n || n < 1} className="btn-accent flex-1 py-2 text-sm disabled:opacity-50">{tr('Save')}</button>
       </div>
     </Modal>
   );

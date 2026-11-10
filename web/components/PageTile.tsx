@@ -35,7 +35,6 @@ export function PageTile({
     <Link
       href={`/reader/?book=${encodeURIComponent(bookId)}&page=${page}`}
       className={`group relative block overflow-hidden rounded-2xl border border-ink-800 bg-ink-900 ${className}`}
-      aria-label={tr('Open page {n}', { n: page })}
     >
       <Img
         src={img.page(bookId, page, 400)}
@@ -53,7 +52,7 @@ export function PageTile({
             ? tr('Ch. {c} · p.{n}', { c: String(chapter), n: page })
             : tr('p.{n}', { n: page })}
         </p>
-        {note ? <p className="mt-0.5 line-clamp-2 text-[10px] leading-snug text-white/65">{note}</p> : null}
+        {note ? <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-white/65">{note}</p> : null}
       </div>
     </Link>
   );

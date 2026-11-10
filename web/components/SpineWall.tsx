@@ -46,13 +46,13 @@ export function SpineWall({ ids, label, titles, className = '', contained = fals
               // The inline z-index is what makes the newest cover the front one; a plain `hover:z-30` class
               // would lose to it, hence the important modifier.
               style={{ zIndex: ids.length - i }}
-              className={`relative shrink-0 hover:!z-30 ${i ? '-ms-5 lg:-ms-6' : ''}`}
+              className={`relative shrink-0 focus-within:!z-30 hover:!z-30 ${i ? '-ms-5 lg:-ms-6' : ''}`}
               initial={still ? false : { opacity: 0, y: 14 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.45, delay: still ? 0 : 0.14 + i * 0.035, ease: [0.22, 0.61, 0.36, 1] }}
             >
               <Link href={`/series/?id=${encodeURIComponent(id)}`} aria-label={titles?.[i] || tr('Series')}
-                className="block transition-transform duration-300 hover:-translate-y-2 hover:scale-[1.06]">
+                className="block transition-transform duration-300 hover:-translate-y-2 hover:scale-[1.06] focus-visible:-translate-y-2 focus-visible:scale-[1.06]">
                 <Img src={img.seriesThumb(id)} alt=""
                   className="aspect-[2/3] h-24 rounded-lg border border-white/10 shadow-[10px_0_22px_-8px_rgba(0,0,0,0.95)] lg:h-36 rtl:shadow-[-10px_0_22px_-8px_rgba(0,0,0,0.95)]" />
               </Link>

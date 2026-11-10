@@ -46,6 +46,8 @@ export function PullToRefresh({ onRefresh, children }: { onRefresh: () => Promis
           </span>
         )}
       </div>
+      {/* Mounted before it has anything to say, or a screen reader never announces the first change. */}
+      <div role="status" className="sr-only">{busy ? tr('Refreshing…') : ''}</div>
       {children}
     </div>
   );

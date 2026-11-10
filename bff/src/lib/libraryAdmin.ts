@@ -42,6 +42,7 @@ import { carries, standingsOf } from './sourceStanding';
 import { followGuard } from './seriesLang';
 import { followerLimit } from './followLimit';
 import { removeMergeDuplicates } from './extraCopies';
+import { pruneEmptyAncestors } from './emptyFolders';
 
 export interface SeriesRow {
   id: string;
@@ -1382,6 +1383,9 @@ export async function renameSeriesFolder(id: string, newFolder: string, visibili
     const code = (error as {code?:string}).code;
     return {ok:false,code:code==='privacy_destination_conflict'||code==='unsafe_files'?code:'file_operation_failed',reason:`Could not update the catalogue; folder moves were undone. ${(error as Error).message}`};
   }
+  // The move can leave the folder it came out of (a source folder, say) empty; tidy it now, not at the nightly sweep.
+  // Best-effort: the rename is done, and a leftover empty folder is only clutter.
+  if (dest.toLowerCase() !== row.folder.toLowerCase()) await pruneEmptyAncestors(roots, row.folder).catch(() => []);
   return { ok: true };
 }
 

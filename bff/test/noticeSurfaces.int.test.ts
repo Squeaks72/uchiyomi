@@ -288,9 +288,10 @@ test('notice chapters, surface by surface: unchanged with every switch off, the 
         await hide(['manhwa']);
         assert.equal((await app.inject({ method: 'POST', url: '/api/updates/seen', headers: asUser })).statusCode, 200);
         assert.deepEqual(await updates(), []);
-        assert.equal(await count(), 4, 'the two-page 2.5 is hidden either way');
+        // Chapter 0 is an extra like a fraction (v0.55.7): the renumbered b_nts_9 goes too while the switch is off.
+        assert.equal(await count(), 3, 'the two-page 2.5 and the twenty-page chapter 0 are hidden');
         await land('b_nts_45l', 4.5, 20);
-        assert.equal(await count(), 4, 'every fraction is a notice: the twenty-page 4.5 too');
+        assert.equal(await count(), 3, 'every fraction is a notice: the twenty-page 4.5 too');
         assert.deepEqual(await updates(), [], 'a hidden fraction is announced as new');
         assert.equal(await badge(), 0, "Home's badge disagrees with Updates");
         await shortOnly(true);
