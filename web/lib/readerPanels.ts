@@ -22,6 +22,14 @@ const MIN_W = 0.06;
 const MIN_H = 0.04;
 /** Panels together fill less than this share of the page: the "gutters" were holes in art. */
 const MIN_COVERAGE = 0.4;
+/** ... or less than this, and the page is shown whole before its panels: something other than panels is on it. */
+const OVERVIEW_COVERAGE = 0.7;
+/** One panel this much of the page beside others is a dominant element -- a splash with insets -- shown whole first. */
+const OVERVIEW_DOMINANT = 0.55;
+/** A row or column this clear is a soft gutter: a figure crossing it keeps it from being a hard one. */
+const SOFT_INK = 0.25;
+/** A page wider than this (width over height) is a double-page spread. */
+export const SPREAD_ASPECT = 1.15;
 const MAX_PANELS = 14;
 const MAX_DEPTH = 6;
 /** What a frame keeps around its panel, as a share of the page. */
@@ -37,18 +45,33 @@ const PAD = 0.008;
  * cut again. A piece with no gutter is a panel, trimmed to its ink.
  */
 export function findPanels(rgba: ArrayLike<number>, w: number, h: number, rtl = false): Box[] {
-  if (!(w >= 16 && h >= 16) || rgba.length < w * h * 4) return [];
+  return analyzePage(rgba, w, h, rtl).panels;
+}
+
+/**
+ * A page's panels and whether it should be shown WHOLE before them (`overview`): a double-page spread; a page one panel
+ * of which takes most of it; one whose panels leave much of it unaccounted for; or one where a figure crosses what would be a
+ * gutter, so that a piece that ought to have been cut still has a clear band across it. In each the page is the picture
+ * and the panels are in it, so the reader sees it first and then goes in.
+ */
+export function analyzePage(rgba: ArrayLike<number>, w: number, h: number, rtl = false): { panels: Box[]; overview: boolean } {
+  const none = { panels: [] as Box[], overview: false };
+  if (!(w >= 16 && h >= 16) || rgba.length < w * h * 4) return none;
   const lum = new Uint8Array(w * h);
   for (let i = 0, p = 0; i < w * h; i++, p += 4) lum[i] = 0.299 * rgba[p] + 0.587 * rgba[p + 1] + 0.114 * rgba[p + 2];
 
   const paper = paperOf(lum, w, h);
-  if (paper == null) return [];
+  if (paper == null) return none;
   const ink = new Uint8Array(w * h);
   for (let i = 0; i < ink.length; i++) ink[i] = Math.abs(lum[i] - paper) > INK ? 1 : 0;
 
   const minGutterX = Math.max(2, Math.round(w * MIN_GUTTER));
   const minGutterY = Math.max(2, Math.round(h * MIN_GUTTER));
   const out: Array<{ x0: number; y0: number; x1: number; y1: number }> = [];
+  // Gutters cut, and soft ones left uncut inside a piece: a soft gap that runs level with a real gutter elsewhere is the same
+  // gutter with a figure across it.
+  const bands: Array<{ axis: 'x' | 'y'; a: number; b: number }> = [];
+  const softs: Array<{ axis: 'x' | 'y'; a: number; b: number }> = [];
 
   const cut = (x0: number, y0: number, x1: number, y1: number, depth: number) => {
     const t = trim(ink, w, x0, y0, x1, y1);
@@ -56,23 +79,32 @@ export function findPanels(rgba: ArrayLike<number>, w: number, h: number, rtl = 
     [x0, y0, x1, y1] = t;
     if (depth < MAX_DEPTH) {
       const rows = pieces(ink, w, x0, y0, x1, y1, 'y', minGutterY);
-      if (rows.length > 1) { for (const [a, b] of rows) cut(x0, a, x1, b, depth + 1); return; }
+      if (rows.length > 1) { for (let k = 1; k < rows.length; k++) bands.push({ axis: 'y', a: rows[k - 1][1], b: rows[k][0] }); for (const [a, b] of rows) cut(x0, a, x1, b, depth + 1); return; }
       const cols = pieces(ink, w, x0, y0, x1, y1, 'x', minGutterX);
-      if (cols.length > 1) { for (const [a, b] of (rtl ? cols.reverse() : cols)) cut(a, y0, b, y1, depth + 1); return; }
+      if (cols.length > 1) { for (let k = 1; k < cols.length; k++) bands.push({ axis: 'x', a: cols[k - 1][1], b: cols[k][0] }); for (const [a, b] of (rtl ? cols.reverse() : cols)) cut(a, y0, b, y1, depth + 1); return; }
+    }
+    // No hard gutter, but a soft one: two panels a figure reaches across, left as one piece.
+    for (const axis of ['y', 'x'] as const) {
+      const runs = pieces(ink, w, x0, y0, x1, y1, axis, axis === 'y' ? minGutterY : minGutterX, SOFT_INK);
+      for (let k = 1; k < runs.length; k++) softs.push({ axis, a: runs[k - 1][1], b: runs[k][0] });
     }
     out.push({ x0, y0, x1, y1 });
   };
   cut(0, 0, w, h, 0);
 
   const panels = out.filter((p) => (p.x1 - p.x0) / w >= MIN_W && (p.y1 - p.y0) / h >= MIN_H && density(ink, w, p) > 0.003);
-  if (panels.length < 2 || panels.length > MAX_PANELS) return [];
-  const area = panels.reduce((s, p) => s + ((p.x1 - p.x0) * (p.y1 - p.y0)) / (w * h), 0);
-  if (area < MIN_COVERAGE) return [];
-  return panels.map((p) => {
+  if (panels.length < 2 || panels.length > MAX_PANELS) return none;
+  const areas = panels.map((p) => ((p.x1 - p.x0) * (p.y1 - p.y0)) / (w * h));
+  const area = areas.reduce((a, b) => a + b, 0);
+  if (area < MIN_COVERAGE) return none;
+  const level = (s: { a: number; b: number }, g: { a: number; b: number }) => Math.min(s.b, g.b) - Math.max(s.a, g.a) >= 0.7 * (s.b - s.a);
+  const broken = softs.some((s) => bands.some((g) => g.axis === s.axis && level(s, g)));
+  const overview = w / h > SPREAD_ASPECT || broken || area < OVERVIEW_COVERAGE || Math.max(...areas) > OVERVIEW_DOMINANT;
+  return { overview, panels: panels.map((p) => {
     const x = Math.max(0, p.x0 / w - PAD);
     const y = Math.max(0, p.y0 / h - PAD);
     return { x, y, w: Math.min(1, p.x1 / w + PAD) - x, h: Math.min(1, p.y1 / h + PAD) - y };
-  });
+  }) };
 }
 
 /** The paper's brightness: white or black, whichever fills at least half the page's outer ring; null for neither. */
@@ -105,7 +137,7 @@ function trim(ink: Uint8Array, w: number, x0: number, y0: number, x1: number, y1
 }
 
 /** The runs of a region between its gutters along `axis` (the rows for 'y'), a gutter being `min` or more clear lines. */
-function pieces(ink: Uint8Array, w: number, x0: number, y0: number, x1: number, y1: number, axis: 'x' | 'y', min: number): Array<[number, number]> {
+function pieces(ink: Uint8Array, w: number, x0: number, y0: number, x1: number, y1: number, axis: 'x' | 'y', min: number, tol = GUTTER_INK): Array<[number, number]> {
   const lo = axis === 'y' ? y0 : x0;
   const hi = axis === 'y' ? y1 : x1;
   const across = axis === 'y' ? x1 - x0 : y1 - y0;
@@ -113,7 +145,7 @@ function pieces(ink: Uint8Array, w: number, x0: number, y0: number, x1: number, 
     let c = 0;
     if (axis === 'y') for (let x = x0; x < x1; x++) c += ink[i * w + x];
     else for (let y = y0; y < y1; y++) c += ink[y * w + i];
-    return c / across <= GUTTER_INK;
+    return c / across <= tol;
   };
   const runs: Array<[number, number]> = [];
   let start = lo;
@@ -135,11 +167,12 @@ function density(ink: Uint8Array, w: number, p: { x0: number; y0: number; x1: nu
   return c / Math.max(1, (p.x1 - p.x0) * (p.y1 - p.y0));
 }
 
-/** The panels of a loaded page, read from a copy at most 320 px wide and 1,280 rows tall. [] when it has none or cannot be read back (a tainted canvas). */
-export function panelsOfImage(img: HTMLImageElement, rtl: boolean): Box[] {
+/** The panels of a loaded page (and whether it opens whole, `analyzePage`), read from a copy at most 320 px wide and 1,280 rows tall. [] when it has none or cannot be read back (a tainted canvas). */
+export function panelsOfImage(img: HTMLImageElement, rtl: boolean): { panels: Box[]; overview: boolean } {
+  const none = { panels: [] as Box[], overview: false };
   const w0 = img.naturalWidth;
   const h0 = img.naturalHeight;
-  if (!w0 || !h0) return [];
+  if (!w0 || !h0) return none;
   const k = Math.min(1, 320 / w0, 1280 / h0);
   const w = Math.max(1, Math.round(w0 * k));
   const h = Math.max(1, Math.round(h0 * k));
@@ -148,11 +181,11 @@ export function panelsOfImage(img: HTMLImageElement, rtl: boolean): Box[] {
     c.width = w;
     c.height = h;
     const ctx = c.getContext('2d', { willReadFrequently: true });
-    if (!ctx) return [];
+    if (!ctx) return none;
     ctx.drawImage(img, 0, 0, w, h);
-    return findPanels(ctx.getImageData(0, 0, w, h).data, w, h, rtl);
+    return analyzePage(ctx.getImageData(0, 0, w, h).data, w, h, rtl);
   } catch {
-    return [];
+    return none;
   }
 }
 
@@ -164,15 +197,13 @@ const MAX_SCALE = 4;
 const MARGIN = 0.03;
 
 /**
- * Where to put a page so `box` of it fills a `vw` x `vh` screen: the size the whole page is drawn at, and the offset of
- * its top left corner. The page is first fitted to the screen's width, then scaled so the box just fits.
+ * The camera that puts `box` of a page on a `view` screen: a uniform scale and the offset of the world's origin, as
+ * `translate(x, y) scale(s)` from the top left. `page` is the page's place in the world (its left, top and size, the page
+ * fitted to the screen's width), so the pages of a chapter can lie side by side and the camera pan across them: one
+ * transform moves between any two frames, the pages never changing shape on the way.
  */
-export function frameOf(box: Box, page: { w: number; h: number }, view: { w: number; h: number }): { width: number; height: number; x: number; y: number } {
-  if (!(page.w > 0 && page.h > 0 && view.w > 0 && view.h > 0)) return { width: view.w, height: view.h, x: 0, y: 0 };
-  const baseW = view.w;
-  const baseH = view.w * (page.h / page.w);
-  const s = Math.max(0.05, Math.min(MAX_SCALE, (view.w * (1 - 2 * MARGIN)) / (box.w * baseW), (view.h * (1 - 2 * MARGIN)) / (box.h * baseH)));
-  const width = baseW * s;
-  const height = baseH * s;
-  return { width, height, x: view.w / 2 - (box.x + box.w / 2) * width, y: view.h / 2 - (box.y + box.h / 2) * height };
+export function cameraOf(box: Box, page: { x: number; y: number; w: number; h: number }, view: { w: number; h: number }): { s: number; x: number; y: number } {
+  if (!(page.w > 0 && page.h > 0 && view.w > 0 && view.h > 0)) return { s: 1, x: 0, y: 0 };
+  const s = Math.max(0.05, Math.min(MAX_SCALE * (view.w / page.w), (view.w * (1 - 2 * MARGIN)) / (box.w * page.w), (view.h * (1 - 2 * MARGIN)) / (box.h * page.h)));
+  return { s, x: view.w / 2 - (page.x + (box.x + box.w / 2) * page.w) * s, y: view.h / 2 - (page.y + (box.y + box.h / 2) * page.h) * s };
 }

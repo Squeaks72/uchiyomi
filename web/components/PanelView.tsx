@@ -2,20 +2,29 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ReaderImg } from '@/components/ReaderPage';
 import { t as tr } from '@/lib/i18n';
-import { WHOLE_PAGE, frameOf, panelsOfImage, type Box } from '@/lib/readerPanels';
+import { WHOLE_PAGE, cameraOf, panelsOfImage, type Box } from '@/lib/readerPanels';
 import type { ReaderImageRetry } from '@/lib/readerImageRetry';
 
 /**
- * Panel view (Reader → Panel view): the page being read, one panel at a time, laid over the paged track.
+ * Panel view (Reader → Panel view): the pages laid side by side in one strip, and a camera over it that is framed on one
+ * panel at a time.
+ *
+ * The strip is the chapter as an open book: page `i` sits at a fixed place in the world (reading order left to right, or
+ * right to left for manga), each page fitted to the screen's width. A step to the next panel, or over the page's edge to
+ * the next page, only moves the camera -- one uniform `translate() scale()` that is the ONLY thing animated -- so the pages
+ * never change shape on the way and a page turn is the same continuous pan as a step across a page.
+ * ⚠️ Never animate a page's width, height or clip instead: two things changing at once is the page pinched and then
+ * smushed flat that this replaced.
  *
  * The track underneath is untouched and still owns which page is current, the scrubber, progress and the chapter's end:
- * this only draws the current page framed to a panel, and when it runs out of panels asks the reader to turn the page
- * (`onTurn`), which scrolls the track as a tap on its edge would. The page it lands on mounts a new view (keyed by the
- * page), so every page starts at its first panel -- or its last, turning back (`from`).
+ * past the last frame this asks the reader to turn the page (`onTurn`), which scrolls the track as a tap on its edge
+ * would, and `current` follows. The camera then glides to the next page's first frame (or the previous page's last, going
+ * back, `from`). Only the current page and its two neighbours are drawn.
  *
- * Panels are found once the page has loaded (lib/readerPanels.ts), per page and direction, and kept for the session. No
- * panels -- a splash, full-bleed art, a layout without clear gutters -- and the page is its own single frame: shown whole,
- * and a tap on an edge turns it.
+ * A page's frames are its panels (lib/readerPanels.ts, found once it has loaded, kept for the session) -- preceded by the
+ * whole page when something on it is bigger than a panel: a double-page spread, a figure across the gutters, one panel that
+ * is most of the page (`analyzePage`'s `overview`). No panels -- a splash, full-bleed art, no clear gutters -- and the page
+ * is its own single frame, and a tap on an edge turns it.
  *
  * Gestures, all here since this sits over the track: a tap on the forward side steps on, the back side steps back, the
  * middle toggles the controls; a swipe steps; a double tap in the middle shows the whole page and again returns to the
@@ -23,39 +32,38 @@ import type { ReaderImageRetry } from '@/lib/readerImageRetry';
  * on a page would wait out the double-tap window on every one.
  */
 
-/** Panels found, by page and direction, for the session: stepping back to a page does not read its pixels again. */
-const found = new Map<string, Box[]>();
+interface Found { panels: Box[]; overview: boolean }
+/** What was found, by page and direction, for the session: stepping back to a page does not read its pixels again. */
+const found = new Map<string, Found>();
 
 const DOUBLE_MS = 280;
 const SWIPE_PX = 48;
+/** The gap between two pages of the strip, as a share of the screen's width. */
+const GAP = 0.06;
 
-export function PanelView({ pageKey, src, alt, width, height, rtl, filter, from, reduceMotion, onTurn, onChrome, onRetry }: {
-  pageKey: string;
-  src: string;
-  alt: string;
-  /** The page's size as the server knows it, when it does: framing can start before the image has loaded. */
-  width: number | null;
-  height: number | null;
-  /** Panels in a row read right to left. */
+export interface PanelPage { i: number; key: string; src: string; number: number; width: number | null; height: number | null }
+
+export function PanelView({ pages, current, rtl, filter, from, reduceMotion, onTurn, onChrome, onRetry }: {
+  /** The current page and the ones either side that exist, by index in the reading flow. */
+  pages: PanelPage[];
+  current: number;
+  /** Pages and panels in a row read right to left. */
   rtl: boolean;
   filter?: string;
-  /** Which panel the page opens on: the first, or the last (turning back to it). */
+  /** Which frame a page opens on when it becomes current: the first, or the last (turning back to it). */
   from: 'first' | 'last';
   reduceMotion?: boolean;
-  /** Past the last panel (1) or before the first (-1): turn the page. */
+  /** Past the last frame (1) or before the first (-1): turn the page. */
   onTurn: (dir: 1 | -1) => void;
   onChrome: () => void;
   onRetry?: ReaderImageRetry;
 }) {
-  const cacheKey = `${pageKey}|${rtl ? 'r' : 'l'}`;
-  const [panels, setPanels] = useState<Box[] | null>(() => found.get(cacheKey) ?? null);
-  const [size, setSize] = useState<{ w: number; h: number } | null>(width && height ? { w: width, h: height } : null);
+  const [sizes, setSizes] = useState<Record<string, { w: number; h: number }>>({});
+  const [results, setResults] = useState<Record<string, Found>>({});
   const [view, setView] = useState({ w: 0, h: 0 });
-  const [idx, setIdx] = useState<number | null>(null);
+  const [pick, setPick] = useState<{ key: string; i: number } | null>(null);
   const [whole, setWhole] = useState(false);
   const box = useRef<HTMLDivElement>(null);
-  // Where the page opened is decided once: the parent's `from` is spent as soon as the page is on screen.
-  const [start] = useState(from);
 
   useEffect(() => {
     const el = box.current;
@@ -68,26 +76,57 @@ export function PanelView({ pageKey, src, alt, width, height, rtl, filter, from,
     return () => { ro?.disconnect(); window.removeEventListener('resize', m); };
   }, []);
 
-  const loaded = useCallback((img: HTMLImageElement) => {
-    if (img.naturalWidth && img.naturalHeight) setSize((s) => (s && s.w === img.naturalWidth && s.h === img.naturalHeight ? s : { w: img.naturalWidth, h: img.naturalHeight }));
-    if (found.has(cacheKey)) { setPanels(found.get(cacheKey)!); return; }
-    const p = panelsOfImage(img, rtl);
-    if (found.size > 400) found.delete(found.keys().next().value as string);
-    found.set(cacheKey, p);
-    setPanels(p);
-  }, [cacheKey]);
+  // The whole-page look is for the page it was asked on.
+  useEffect(() => { setWhole(false); }, [current]);
 
-  const list = panels && panels.length > 1 ? panels : null;
-  // Where the page opens, once its panels are known.
-  const at = idx ?? (list ? (start === 'last' ? list.length - 1 : 0) : 0);
-  const framed = !whole && list ? list[Math.min(at, list.length - 1)] : WHOLE_PAGE;
-  const f = size && view.w ? frameOf(framed, size, view) : null;
+  const dirKey = rtl ? 'r' : 'l';
+  const loaded = useCallback((key: string, img: HTMLImageElement) => {
+    if (img.naturalWidth && img.naturalHeight) {
+      setSizes((s) => (s[key]?.w === img.naturalWidth && s[key]?.h === img.naturalHeight ? s : { ...s, [key]: { w: img.naturalWidth, h: img.naturalHeight } }));
+    }
+    const ck = `${key}|${dirKey}`;
+    let f = found.get(ck);
+    if (!f) {
+      f = panelsOfImage(img, rtl);
+      if (found.size > 400) found.delete(found.keys().next().value as string);
+      found.set(ck, f);
+    }
+    const got = f;
+    setResults((m) => (m[ck] === got ? m : { ...m, [ck]: got }));
+  }, [dirKey, rtl]);
+
+  const cur = pages.find((p) => p.i === current);
+  const sizeOf = (p: PanelPage) => sizes[p.key] ?? (p.width && p.height ? { w: p.width, h: p.height } : null);
+  // A page whose shape is not known yet is drawn as a typical one, and laid out again once it loads.
+  const worldOf = (p: PanelPage) => {
+    const sz = sizeOf(p);
+    return { x: (rtl ? -1 : 1) * p.i * view.w * (1 + GAP), y: 0, w: view.w, h: sz ? view.w * (sz.h / sz.w) : view.w * 1.45 };
+  };
+
+  // The frames of the current page: its panels, the whole page first when it asks for that. The page being left is
+  // forgotten: a new one opens on its first frame, or its last when it was reached by turning back -- latched when it became
+  // current, since `from` is spent by then.
+  const latch = useRef<{ key: string; start: 'first' | 'last' } | null>(null);
+  if (cur && latch.current?.key !== cur.key) latch.current = { key: cur.key, start: from };
+  const res = cur ? results[`${cur.key}|${dirKey}`] ?? found.get(`${cur.key}|${dirKey}`) ?? null : null;
+  const panels = res && res.panels.length > 1 ? res.panels : null;
+  const frames: Box[] = panels ? (res!.overview ? [WHOLE_PAGE, ...panels] : panels) : [WHOLE_PAGE];
+  const first = panels && res!.overview ? 1 : 0; // the first panel's frame
+  const at = cur && pick?.key === cur.key ? Math.min(pick.i, frames.length - 1) : latch.current?.start === 'last' ? frames.length - 1 : 0;
+  const framed = whole ? WHOLE_PAGE : frames[at];
+  const cam = cur && view.w ? cameraOf(framed, worldOf(cur), view) : null;
+
+  // A jump of more than a page (the scrubber, the page grid) is a cut, not a pan across everything between.
+  const lastIdx = useRef(current);
+  const jumped = Math.abs(current - lastIdx.current) > 1;
+  useEffect(() => { lastIdx.current = current; }, [current]);
 
   const step = (d: 1 | -1) => {
-    if (whole || !list) { onTurn(d); return; }
+    if (!cur) return;
+    if (whole) { setWhole(false); return; }
     const n = at + d;
-    if (n < 0 || n >= list.length) { onTurn(d); return; }
-    setIdx(n);
+    if (n < 0 || n >= frames.length) { onTurn(d); return; }
+    setPick({ key: cur.key, i: n });
   };
 
   // ---- gestures ----
@@ -123,38 +162,53 @@ export function PanelView({ pageKey, src, alt, width, height, rtl, filter, from,
     if (now - lastTap.current < DOUBLE_MS) {
       lastTap.current = 0;
       if (timer.current) { clearTimeout(timer.current); timer.current = null; }
-      if (list) setWhole((w) => !w);
+      if (panels) setWhole((w) => !w);
       return;
     }
     lastTap.current = now;
     timer.current = setTimeout(() => { timer.current = null; onChrome(); }, DOUBLE_MS);
   };
 
+  const onWhole = whole || !panels || at < first;
   return (
-    <div ref={box} data-panel-view data-panels={list ? list.length : 0} data-whole={whole || !list ? '' : undefined}
+    <div ref={box} data-panel-view data-panels={panels ? panels.length : 0} data-overview={panels && res!.overview ? '' : undefined}
+      data-frame={at} data-whole={onWhole ? '' : undefined}
       onPointerDown={onDown} onPointerUp={onUp} onPointerCancel={() => { down.current = null; }}
       // A tap here is this view's own: the long-press menu and the browser's drag of an image are not wanted over it.
       onContextMenu={(e) => e.preventDefault()}
       dir="ltr" className="absolute inset-0 z-10 touch-none select-none overflow-hidden bg-ink-950">
-      {/* The page, drawn at the size that puts the framed box on the screen's centre. Hidden until it is measured, so it
-          is never seen at the wrong place on its way there. */}
-      <div className="absolute left-0 top-0 origin-top-left"
-        style={f ? {
-          width: f.width, height: f.height, transform: `translate(${f.x}px, ${f.y}px)`,
-          // Only the framed box shows: its neighbours' edges, and the page's own, would peek in round it otherwise.
-          clipPath: `inset(${framed.y * 100}% ${(1 - framed.x - framed.w) * 100}% ${(1 - framed.y - framed.h) * 100}% ${framed.x * 100}%)`,
-          transition: reduceMotion ? undefined : 'transform 220ms ease-out, width 220ms ease-out, height 220ms ease-out, clip-path 220ms ease-out',
-        } : { width: '100%', height: '100%', opacity: 0 }}>
-        <ReaderImg onRetry={onRetry} src={src} alt={alt} className="pointer-events-none block h-full w-full max-w-none" filter={filter} onLoaded={loaded} />
+      {/* The strip: every page at its place in the world, moved as one by the camera. Hidden until the screen is measured,
+          so it is never seen anywhere but where it will rest. */}
+      <div className="absolute left-0 top-0 origin-top-left will-change-transform"
+        style={cam ? {
+          transform: `translate(${cam.x}px, ${cam.y}px) scale(${cam.s})`,
+          transition: reduceMotion || jumped ? 'none' : 'transform 360ms cubic-bezier(0.25, 0.8, 0.25, 1)',
+        } : { opacity: 0 }}>
+        {view.w > 0 && pages.map((p) => {
+          const w = worldOf(p);
+          return (
+            <div key={p.key} data-panel-page={p.number} className="absolute bg-ink-900" style={{ left: w.x, top: w.y, width: w.w, height: w.h }}>
+              <StripImg page={p} filter={filter} onLoaded={loaded} onRetry={onRetry} />
+            </div>
+          );
+        })}
       </div>
-      {list && !whole && (
+      {cur && panels && !whole && at >= first && (
         <div aria-live="polite" data-panel-count
           className="pointer-events-none absolute inset-x-0 bottom-[max(0.6rem,env(safe-area-inset-bottom))] flex justify-center">
           <span className="rounded-full bg-black/60 px-2.5 py-0.5 text-[11px] font-medium tabular-nums text-fog-200 backdrop-blur">
-            {tr('Panel {n} of {total}', { n: Math.min(at, list.length - 1) + 1, total: list.length })}
+            {tr('Panel {n} of {total}', { n: at - first + 1, total: panels.length })}
           </span>
         </div>
       )}
     </div>
   );
+}
+
+/** One page of the strip. Its own component so the load callback is stable and a page is read once, not on every render. */
+function StripImg({ page, filter, onLoaded, onRetry }: {
+  page: PanelPage; filter?: string; onLoaded: (key: string, img: HTMLImageElement) => void; onRetry?: ReaderImageRetry;
+}) {
+  const loaded = useCallback((img: HTMLImageElement) => onLoaded(page.key, img), [onLoaded, page.key]);
+  return <ReaderImg onRetry={onRetry} src={page.src} alt={tr('Page {n}', { n: page.number })} className="pointer-events-none block h-full w-full max-w-none" filter={filter} onLoaded={loaded} />;
 }
