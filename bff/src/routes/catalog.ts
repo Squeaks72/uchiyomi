@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { q, one } from '../lib/db';
 import { cleanLibraryReader } from '../lib/libraryReader';
 import { junkPagesFor, setPageOverride } from '../lib/junkPages';
+import { panelsFor } from '../lib/panelJob';
 import { spreadsFor } from '../lib/spreadMeasure';
 import { marksFor, marksJson, setMark } from '../lib/spreadMarks';
 import { komgaImage } from '../lib/komga';
@@ -1125,8 +1126,11 @@ export default async function catalogRoutes(app: FastifyInstance) {
     // v0.89.0 (#262): the caller's own marks ride along the same way, `mark` on the first page of a pair (lib/spreadMarks.ts):
     // this account's word on where its spreads are, which the reader applies over the detector's joins below.
     const marks = Array.isArray(pages) ? await marksFor(userIdOf(req), id, pages.length).catch(() => new Map()) : new Map();
-    const listed = (junk.size || marks.size) && Array.isArray(pages)
-      ? pages.map((p: any) => ({ ...p, ...(junk.has(p.number) ? { junk: true } : {}), ...(marks.has(p.number) ? { mark: marks.get(p.number) } : {}) }))
+    // Panel detection (lib/panelJob.ts): where a page's panels are, and how large its lettering is, for Reader → Panel view. Only
+    // pages somebody found panels on -- a chapter nothing has run on comes back exactly as it did.
+    const panels = Array.isArray(pages) ? await panelsFor(id).catch(() => new Map<number, { boxes: number[][]; textH: number | null }>()) : new Map<number, { boxes: number[][]; textH: number | null }>();
+    const listed = (junk.size || marks.size || panels.size) && Array.isArray(pages)
+      ? pages.map((p: any) => ({ ...p, ...(junk.has(p.number) ? { junk: true } : {}), ...(marks.has(p.number) ? { mark: marks.get(p.number) } : {}), ...(panels.has(p.number) ? { panels: panels.get(p.number) } : {}) }))
       : pages;
     // #229, opt-in: a reader who turned Join split double pages on asks with ?spreads=1, and the pages a source cut from
     // one spread come back with `join` (which side the next page is on). Only READ here: a chapter not measured yet is

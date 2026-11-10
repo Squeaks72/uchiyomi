@@ -908,6 +908,9 @@ let hold: Promise<void> | null = null;
  */
 const unprintedHooks: Array<(n: number) => void> = [];
 export function onUnprintedFiles(fn: (n: number) => void): void { unprintedHooks.push(fn); }
+/** Called after every scan that landed -- an import, an upload, a download the updater swept in -- so a job can look for what is new. */
+const scanDoneHooks: Array<() => void> = [];
+export function onScanDone(fn: () => void): void { scanDoneHooks.push(fn); }
 
 /**
  * Run `fn` with no library scan in flight: wait out the one running, and keep the next from starting until
@@ -1255,6 +1258,7 @@ async function scanOnce(): Promise<ScanResult> {
   await reconcileListingProgress().catch((e) => console.warn('[scan] listing marks not reconciled:', (e as Error).message));
   // Files with no fingerprint yet: read them while they are where the scan found them (the hook's note).
   if (unprinted) for (const fn of unprintedHooks) { try { fn(unprinted); } catch { /* a timer is not worth a scan */ } }
+  for (const fn of scanDoneHooks) { try { fn(); } catch { /* likewise */ } }
   const ms = Date.now() - t0;
   const loud = walkIssues.filter((i) => !QUIET_WALK.has(i.reason));
   const meeting = walks.find((w) => w.met !== undefined);
