@@ -48,6 +48,7 @@ export function ActionIcon({ id, size = 16 }: { id: SeriesActionId; size?: numbe
     case 'openTab': return <IcExternal size={size} />;
     case 'edit': return <IcPencil {...p} />;
     case 'cover': return <IcCover size={size} />;
+    case 'panels': return <IcFindMissing size={size} />;
     case 'newBanner': return <IcBanner size={size} />;
     case 'rename': return <IcFolder size={size} />;
     case 'move': return <IcMove size={size} />;
