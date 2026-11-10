@@ -584,6 +584,9 @@ async function main() {
   app.addHook('onClose',async()=>{stopTitleExtractions();});
   const stopTitleExtractionBatch=startTitleExtractionBatch(app.log);
   app.addHook('onClose',async()=>{stopTitleExtractionBatch();});
+  // Panel detection's timers (started further down, once the server is up): hooks cannot be added after listen.
+  let stopPanelJobs = () => {};
+  app.addHook('onClose', async () => { stopPanelJobs(); });
 
   /**
    * The opt-in install count.
@@ -1072,8 +1075,7 @@ async function main() {
   // does. Nothing breaks while it is unfinished -- an un-hashed page is simply never skipped.
   if (process.env.LIBRARY_BACKEND !== 'komga') schedulePageHashBackfill();
   // Panel detection (Admin -> Panel detection): nightly and on import, each only if an admin switched it on.
-  const stopPanelJobs = process.env.LIBRARY_BACKEND !== 'komga' ? schedulePanelJobs() : () => {};
-  app.addHook('onClose', async () => { stopPanelJobs(); });
+  stopPanelJobs = process.env.LIBRARY_BACKEND !== 'komga' ? schedulePanelJobs() : () => {};
 }
 
 main().catch((e) => {

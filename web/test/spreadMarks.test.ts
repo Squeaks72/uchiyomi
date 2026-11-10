@@ -124,7 +124,7 @@ test('the mark rides the flow from the page list, the download and the reader', 
   const flow = buildFlow([{ id: 'c', pages: [{ number: 1, width: 1, height: 2 }, { number: 2, width: 1, height: 2, mark: 'join' }] }], 'show');
   assert.equal(flow[1].mark, 'join');
   const reader = code(read('app/reader/page.tsx'));
-  assert.match(reader, /join: p\.join, mark: p\.mark \}/, 'the page list\'s `mark` is kept');
+  assert.match(reader, /join: p\.join, mark: p\.mark(?:, panels: p\.panels)? \}/, 'the page list\'s `mark` is kept');
   assert.match(reader, /applyMarks\(buildFlow\(chapters, flowJunk, expanded\) as FlatItem\[\], markDir\)/, 'the marks are applied to the flow');
   const dl = code(read('lib/downloads.ts'));
   assert.match(dl, /join: p\.join, mark: p\.mark \}/, 'a downloaded chapter keeps the account\'s marks');
