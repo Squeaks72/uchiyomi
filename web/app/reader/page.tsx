@@ -2397,8 +2397,13 @@ function ReaderInner() {
     if (s == null || slides[s]?.length !== 1 || half[s] || joined[s]) return null;
     const wide = !!it.width && !!it.height && it.width > it.height;
     if (wide && wideMode !== 'whole') return null;
-    const src = srcFor(current);
-    return src ? { it, src } : null;
+    // The page and its neighbours, drawn side by side as the strip the camera pans across (components/PanelView.tsx).
+    const win = [current - 1, current, current + 1].flatMap((i) => {
+      const f = flat[i];
+      const src = f && !f.missing && !f.collapsed ? srcFor(i) : null;
+      return f && src ? [{ i, key: f.key, src, number: f.number, width: f.width, height: f.height }] : [];
+    });
+    return win.some((p) => p.i === current) ? win : null;
   })();
   const panelTurn = (d: 1 | -1) => {
     panelFrom.current = d < 0 ? 'last' : 'first';
@@ -2650,8 +2655,7 @@ function ReaderInner() {
       )}
 
       {panelPage && (
-        <PanelView key={panelPage.it.key} pageKey={panelPage.it.key} src={panelPage.src} alt={tr('Page {n}', { n: panelPage.it.number })}
-          width={panelPage.it.width} height={panelPage.it.height} rtl={rightFirst} filter={imgFilter} from={panelFrom.current}
+        <PanelView pages={panelPage} current={current} rtl={rightFirst} filter={imgFilter} from={panelFrom.current}
           reduceMotion={behavior !== 'smooth'} onTurn={panelTurn} onChrome={() => setChrome((c) => !c)} onRetry={refreshEditedPages} />
       )}
 
