@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ReaderImg } from '@/components/ReaderPage';
 import { t as tr } from '@/lib/i18n';
-import { WHOLE_PAGE, cameraOf, panelsOfImage, type Box } from '@/lib/readerPanels';
+import { WHOLE_PAGE, cameraOf, framingPanels, panelsOfImage, type Box } from '@/lib/readerPanels';
 import type { ReaderImageRetry } from '@/lib/readerImageRetry';
 
 /**
@@ -109,9 +109,13 @@ export function PanelView({ pages, current, rtl, filter, from, reduceMotion, onT
   const latch = useRef<{ key: string; start: 'first' | 'last' } | null>(null);
   if (cur && latch.current?.key !== cur.key) latch.current = { key: cur.key, start: from };
   const res = cur ? results[`${cur.key}|${dirKey}`] ?? found.get(`${cur.key}|${dirKey}`) ?? null : null;
-  const panels = res && res.panels.length > 1 ? res.panels : null;
-  const frames: Box[] = panels ? (res!.overview ? [WHOLE_PAGE, ...panels] : panels) : [WHOLE_PAGE];
-  const first = panels && res!.overview ? 1 : 0; // the first panel's frame
+  // Only the panels the camera zooms in on: a strip the full width of the screen would just slide up and down a page that is
+  // in view already. Any left out, and the page opens whole first so it is still seen before it is gone into.
+  const framing = cur && res && res.panels.length > 1 && view.w ? framingPanels(res.panels, worldOf(cur), view) : null;
+  const panels = framing && framing.kept.length ? framing.kept : null;
+  const overview = !!panels && (res!.overview || framing!.skipped > 0);
+  const frames: Box[] = panels ? (overview ? [WHOLE_PAGE, ...panels] : panels) : [WHOLE_PAGE];
+  const first = overview ? 1 : 0; // the first panel's frame
   const at = cur && pick?.key === cur.key ? Math.min(pick.i, frames.length - 1) : latch.current?.start === 'last' ? frames.length - 1 : 0;
   const framed = whole ? WHOLE_PAGE : frames[at];
   const cam = cur && view.w ? cameraOf(framed, worldOf(cur), view) : null;
@@ -171,7 +175,7 @@ export function PanelView({ pages, current, rtl, filter, from, reduceMotion, onT
 
   const onWhole = whole || !panels || at < first;
   return (
-    <div ref={box} data-panel-view data-panels={panels ? panels.length : 0} data-overview={panels && res!.overview ? '' : undefined}
+    <div ref={box} data-panel-view data-panels={panels ? panels.length : 0} data-overview={overview ? '' : undefined}
       data-frame={at} data-whole={onWhole ? '' : undefined}
       onPointerDown={onDown} onPointerUp={onUp} onPointerCancel={() => { down.current = null; }}
       // A tap here is this view's own: the long-press menu and the browser's drag of an image are not wanted over it.

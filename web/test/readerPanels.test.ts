@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { findPanels, analyzePage, cameraOf } from '../lib/readerPanels';
+import { findPanels, analyzePage, cameraOf, framingPanels } from '../lib/readerPanels';
 
 type R = [number, number, number, number];
 /** A page of `w` x `h`: paper-coloured, with each rect filled with mid-grey "art" (and some black strokes inside). */
@@ -120,4 +120,18 @@ test('a quiet strip inside a lone panel does not make a page open whole', () => 
   // A blank band across the lower left panel, with no gutter beside it to line up with.
   for (let y = 180; y < 200; y++) for (let x = 12; x < 93; x++) { const i = (y * W + x) * 4; px[i] = px[i + 1] = px[i + 2] = 255; }
   assert.equal(analyzePage(px, W, H).overview, false);
+});
+
+test('panels that only slide the camera up and down the page are not framed', () => {
+  const view = { w: 400, h: 800 };
+  const page = { x: 0, y: 0, w: 400, h: 600 };
+  // Three strips the page's full width: no zoom to be had.
+  const strips = [{ x: 0, y: 0.02, w: 1, h: 0.3 }, { x: 0, y: 0.35, w: 1, h: 0.3 }, { x: 0, y: 0.68, w: 1, h: 0.3 }];
+  assert.deepEqual(framingPanels(strips, page, view), { kept: [], skipped: 3 });
+  // A grid of four: each is zoomed in on by about 2x.
+  const grid = [{ x: 0, y: 0, w: 0.5, h: 0.5 }, { x: 0.5, y: 0, w: 0.5, h: 0.5 }, { x: 0, y: 0.5, w: 0.5, h: 0.5 }, { x: 0.5, y: 0.5, w: 0.5, h: 0.5 }];
+  assert.equal(framingPanels(grid, page, view).kept.length, 4);
+  // A wide strip beside two small panels: the strip is skipped, the small ones are kept.
+  const mixed = [{ x: 0, y: 0, w: 1, h: 0.4 }, { x: 0, y: 0.45, w: 0.5, h: 0.5 }, { x: 0.5, y: 0.45, w: 0.5, h: 0.5 }];
+  assert.deepEqual([framingPanels(mixed, page, view).kept.length, framingPanels(mixed, page, view).skipped], [2, 1]);
 });
