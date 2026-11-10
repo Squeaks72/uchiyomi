@@ -32,6 +32,8 @@ export interface FlowPage {
   missing?: boolean;
   /** #229: this page and the next are one spread a source served as two files; the side the next is on. Carried, as `junk`. */
   join?: 'rtl' | 'ltr';
+  /** Panel view: the server's panels for this page (types.ts PageInfo). Carried. */
+  panels?: { boxes: number[][]; textH: number | null };
   /** v0.89.0 (#262): the reader's own word on this page and the next (lib/spreadMarks.ts). Carried; applyMarks applies it. */
   mark?: 'join' | 'split';
 }
@@ -59,6 +61,8 @@ export interface FlowItem {
   collapsed?: boolean;
   /** From the page list: this page and the next are one spread (lib/readerSpread.ts pairs them when joining is on). */
   join?: 'rtl' | 'ltr';
+  /** From the page list: where the panels are, and how big the lettering is (Panel view). */
+  panels?: { boxes: number[][]; textH: number | null };
   /** From the page list: the reader's own merge or split of this page and the next (lib/spreadMarks.ts). */
   mark?: 'join' | 'split';
 }
@@ -108,6 +112,7 @@ export function buildFlow(
         junk: p.junk,
         contentVersion: p.contentVersion,
         join: p.join,
+        panels: p.panels,
         mark: p.mark,
         // ⚠️ Passed through untouched and never a reason to collapse or drop the page. The flow's job is
         // to keep "flat index" and "page number" the same thing, and a missing page is still a page --

@@ -1198,7 +1198,7 @@ export default async function adminRoutes(app: FastifyInstance) {
       {
         id: 'panels',
         name: 'Find panels',
-        ...sched('nightly and on import, if switched on (Settings → Panel detection)'),
+        ...sched('on demand'),
         lastRun: panelState.finishedAt,
         lastResult: panelState.finishedAt
           ? { chapters: panelState.chapters, pages: panelState.pages, failed: panelState.failed, ms: panelState.ms, error: panelState.lastError }
