@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { findPanels, frameOf } from '../lib/readerPanels';
+import { findPanels, analyzePage, cameraOf } from '../lib/readerPanels';
 
 type R = [number, number, number, number];
 /** A page of `w` x `h`: paper-coloured, with each rect filled with mid-grey "art" (and some black strokes inside). */
@@ -64,15 +64,18 @@ test('a page number below the panels is not a panel', () => {
   assert.equal(findPanels(px, W, H, false).length, 3);
 });
 
-test('a panel is framed to fill the screen', () => {
-  const f = frameOf({ x: 0, y: 0, w: 0.5, h: 0.25 }, { w: 1000, h: 1500 }, { w: 400, h: 800 });
-  // Fitted to the width: 0.5 of a 400 px page is 200, doubled to ~376 (3 % margins).
-  assert.ok(Math.abs(f.width - 400 * (0.94 / 0.5)) < 1);
-  // Its centre is the screen's centre.
-  assert.ok(Math.abs(f.x + 0.25 * f.width - 200) < 1e-6 && Math.abs(f.y + 0.125 * f.height - 400) < 1e-6);
+test('a panel is framed to fill the screen, wherever its page lies in the world', () => {
+  const view = { w: 400, h: 800 };
+  const page = { x: -1236, y: 0, w: 400, h: 600 };
+  const box = { x: 0, y: 0, w: 0.5, h: 0.25 };
+  const c = cameraOf(box, page, view);
+  assert.ok(Math.abs(c.s - 0.94 / 0.5) < 1e-9, 'fitted to the width, with the 3 % margins');
+  // The box's centre lands on the screen's centre.
+  assert.ok(Math.abs(c.x + (page.x + 0.25 * page.w) * c.s - 200) < 1e-6);
+  assert.ok(Math.abs(c.y + (page.y + 0.125 * page.h) * c.s - 400) < 1e-6);
   // The whole page contains in the screen.
-  const all = frameOf({ x: 0, y: 0, w: 1, h: 1 }, { w: 1000, h: 1500 }, { w: 400, h: 400 });
-  assert.ok(all.height <= 400 && all.width <= 400);
+  const all = cameraOf({ x: 0, y: 0, w: 1, h: 1 }, { x: 0, y: 0, w: 400, h: 1200 }, { w: 400, h: 800 });
+  assert.ok(all.s * 1200 <= 800 && all.s * 400 <= 400);
 });
 
 test('Panel view is a device setting, off until chosen', async () => {
@@ -81,4 +84,40 @@ test('Panel view is a device setting, off until chosen', async () => {
   assert.equal(migrateDevicePrefs({}).panelView, false);
   assert.equal(migrateDevicePrefs({ panelView: 'yes' }).panelView, false);
   assert.equal(migrateDevicePrefs({ panelView: true }).panelView, true);
+});
+
+test('an ordinary page of panels opens on its first panel', () => {
+  const px = page(W, H, [[10, 10, 95, 145], [105, 10, 190, 145], [10, 155, 95, 290], [105, 155, 190, 290]]);
+  assert.equal(analyzePage(px, W, H).overview, false);
+});
+
+test('a double-page spread is shown whole before its panels', () => {
+  const w = 400, h = 300;
+  const px = page(w, h, [[10, 10, 195, 140], [205, 10, 390, 140], [10, 150, 195, 290], [205, 150, 390, 290]]);
+  const a = analyzePage(px, w, h);
+  assert.equal(a.panels.length, 4);
+  assert.equal(a.overview, true);
+});
+
+test('one big panel beside small ones is shown whole first', () => {
+  const px = page(W, H, [[10, 10, 190, 200], [10, 210, 95, 290], [105, 210, 190, 290]]);
+  const a = analyzePage(px, W, H);
+  assert.equal(a.panels.length, 3);
+  assert.equal(a.overview, true);
+});
+
+test('a figure crossing the gutter between panels shows the page whole first', () => {
+  // Four panels, with a figure 15 px wide reaching across the gap between the rows on the left only.
+  const rects: R[] = [[10, 10, 95, 140], [105, 10, 190, 140], [10, 160, 95, 290], [105, 160, 190, 290], [40, 130, 55, 170]];
+  const a = analyzePage(page(W, H, rects), W, H);
+  assert.equal(a.panels.length, 3);
+  assert.equal(a.overview, true);
+});
+
+test('a quiet strip inside a lone panel does not make a page open whole', () => {
+  const rects: R[] = [[10, 10, 190, 100], [10, 110, 95, 290], [105, 110, 190, 290]];
+  const px = page(W, H, rects);
+  // A blank band across the lower left panel, with no gutter beside it to line up with.
+  for (let y = 180; y < 200; y++) for (let x = 12; x < 93; x++) { const i = (y * W + x) * 4; px[i] = px[i + 1] = px[i + 2] = 255; }
+  assert.equal(analyzePage(px, W, H).overview, false);
 });
