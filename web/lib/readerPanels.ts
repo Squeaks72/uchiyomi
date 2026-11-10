@@ -207,3 +207,18 @@ export function cameraOf(box: Box, page: { x: number; y: number; w: number; h: n
   const s = Math.max(0.05, Math.min(MAX_SCALE * (view.w / page.w), (view.w * (1 - 2 * MARGIN)) / (box.w * page.w), (view.h * (1 - 2 * MARGIN)) / (box.h * page.h)));
   return { s, x: view.w / 2 - (page.x + (box.x + box.w / 2) * page.w) * s, y: view.h / 2 - (page.y + (box.y + box.h / 2) * page.h) * s };
 }
+
+/** A panel frame must zoom in on the whole page's frame by at least this much to be worth a stop. */
+export const MIN_ZOOM = 1.3;
+
+/**
+ * The panels worth a frame on a screen: those the camera zooms in on, by at least MIN_ZOOM over the whole page's own frame.
+ * A page whose panels are strips the full width of the screen has nothing to zoom into -- the camera would only slide up and
+ * down a page that is all in view already -- so those are `skipped`, and the reader goes straight on past them. `page` is the
+ * page in the world (the page fitted to the screen's width), `view` the screen.
+ */
+export function framingPanels(panels: Box[], page: { x: number; y: number; w: number; h: number }, view: { w: number; h: number }): { kept: Box[]; skipped: number } {
+  const whole = cameraOf(WHOLE_PAGE, page, view).s;
+  const kept = panels.filter((b) => cameraOf(b, page, view).s >= whole * MIN_ZOOM);
+  return { kept, skipped: panels.length - kept.length };
+}
