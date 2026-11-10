@@ -81,7 +81,7 @@ test('the reader names the source from what it already has, and asks /api/source
   assert.match(src, /const unnamedMissingSource = chapters\.some\(\(c\) => !!c\.sourceId && !seriesSourceNames\[c\.sourceId\] && c\.pages\.some\(\(p\) => p\.missing\)\)/, 'the gate no longer keys on an unnamed source with a missing page');
   // The flag and the source id both have to survive loadChapter, or the caption never renders online. (v0.77.0: the page
   // list is read by pageList, which carries #229's `join` beside them, and since v0.89.0 #262's `mark`.)
-  assert.match(src, /junk: p\.junk, missing: p\.missing, removed: p\.removed, restorable: p\.restorable, contentVersion: p\.contentVersion, join: p\.join, mark: p\.mark \}\)\)/, 'loadChapter drops the missing flag from the page list');
+  assert.match(src, /junk: p\.junk, missing: p\.missing, removed: p\.removed, restorable: p\.restorable, contentVersion: p\.contentVersion, join: p\.join, mark: p\.mark(?:, panels: p\.panels)? \}\)\)/, 'loadChapter drops the missing flag from the page list');
   assert.match(src, /sourceId: b\.sourceId \?\? null,/, 'loadChapter drops the book\'s sourceId');
 });
 

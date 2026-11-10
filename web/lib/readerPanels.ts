@@ -426,9 +426,9 @@ const MARGIN = 0.03;
  * fitted to the screen's width), so the pages of a chapter can lie side by side and the camera pan across them: one
  * transform moves between any two frames, the pages never changing shape on the way.
  */
-export function cameraOf(box: Box, page: { x: number; y: number; w: number; h: number }, view: { w: number; h: number }): { s: number; x: number; y: number } {
+export function cameraOf(box: Box, page: { x: number; y: number; w: number; h: number }, view: { w: number; h: number }, maxScale = Infinity): { s: number; x: number; y: number } {
   if (!(page.w > 0 && page.h > 0 && view.w > 0 && view.h > 0)) return { s: 1, x: 0, y: 0 };
-  const s = Math.max(0.05, Math.min(MAX_SCALE * (view.w / page.w), (view.w * (1 - 2 * MARGIN)) / (box.w * page.w), (view.h * (1 - 2 * MARGIN)) / (box.h * page.h)));
+  const s = Math.max(0.05, Math.min(maxScale, MAX_SCALE * (view.w / page.w), (view.w * (1 - 2 * MARGIN)) / (box.w * page.w), (view.h * (1 - 2 * MARGIN)) / (box.h * page.h)));
   return { s, x: view.w / 2 - (page.x + (box.x + box.w / 2) * page.w) * s, y: view.h / 2 - (page.y + (box.y + box.h / 2) * page.h) * s };
 }
 
@@ -441,8 +441,41 @@ export const MIN_ZOOM = 1.3;
  * down a page that is all in view already -- so those are `skipped`, and the reader goes straight on past them. `page` is the
  * page in the world (the page fitted to the screen's width), `view` the screen.
  */
-export function framingPanels(panels: Box[], page: { x: number; y: number; w: number; h: number }, view: { w: number; h: number }): { kept: Box[]; skipped: number } {
+export function framingPanels(panels: Box[], page: { x: number; y: number; w: number; h: number }, view: { w: number; h: number }, cap = Infinity): { kept: Box[]; skipped: number } {
   const whole = cameraOf(WHOLE_PAGE, page, view).s;
-  const kept = panels.filter((b) => cameraOf(b, page, view).s >= whole * MIN_ZOOM);
+  const kept = panels.filter((b) => cameraOf(b, page, view, cap).s >= whole * MIN_ZOOM);
   return { kept, skipped: panels.length - kept.length };
+}
+
+// ---- how much zoom the lettering needs ----
+
+/** The height of a comfortable letter on a phone, in CSS pixels: the default of Reader → Comfortable text size. */
+export const DEFAULT_COMFORT_PX = 8.5;
+/** A frame goes this much past the zoom that just makes the lettering comfortable: a little room, not a magnifying glass. */
+const COMFORT_HEADROOM = 1.15;
+
+/**
+ * The most a panel frame should zoom, from how large the page's lettering is. `textH` is the height of a letter as a share of the
+ * page's WIDTH (the server measures it, bff lib/panelDetect.ts glyphHeight); the page is drawn `viewW` wide at scale 1, so a letter is
+ * `textH * viewW` CSS pixels there, and `comfortPx / (textH * viewW)` is the zoom that makes it comfortable. A page whose lettering
+ * is legible already comes out near or below the whole page's own scale, which `framingPanels` reads as "nothing to zoom for".
+ * Infinity when the lettering was not measured: zoom to fit the panel, as before.
+ */
+export function legibleCap(textH: number | null | undefined, viewW: number, comfortPx = DEFAULT_COMFORT_PX): number {
+  if (!(textH && textH > 0 && viewW > 0 && comfortPx > 0)) return Infinity;
+  return (comfortPx / (textH * viewW)) * COMFORT_HEADROOM;
+}
+
+/** Boxes (page fractions) in reading order: a row left to right, or right to left for manga, rows top to bottom. */
+export function orderBoxes(boxes: Box[], rtl: boolean): Box[] {
+  const placed = boxes.map((b) => ({ x0: b.x, y0: b.y, x1: b.x + b.w, y1: b.y + b.h, b }));
+  return orderPanels(placed, 1, 1, rtl).map((p) => p.b);
+}
+
+/** A server answer's boxes ([x, y, w, h] page fractions) as boxes in reading order, and whether the page opens whole before them. */
+export function serverPanels(raw: number[][] | undefined, rtl: boolean, aspect: number | null): { panels: Box[]; overview: boolean } {
+  const boxes = (raw ?? []).filter((r) => r.length === 4).map(([x, y, w, h]) => ({ x, y, w, h }));
+  if (boxes.length < 2) return { panels: [], overview: false };
+  const dominant = Math.max(...boxes.map((b) => b.w * b.h)) > OVERVIEW_DOMINANT;
+  return { panels: orderBoxes(boxes, rtl), overview: (aspect != null && aspect > SPREAD_ASPECT) || dominant };
 }

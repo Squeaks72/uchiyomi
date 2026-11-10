@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { findPanels, analyzePage, cameraOf, framingPanels } from '../lib/readerPanels';
+import { findPanels, analyzePage, cameraOf, framingPanels, legibleCap, orderBoxes, serverPanels } from '../lib/readerPanels';
 
 type R = [number, number, number, number];
 /** A page of `w` x `h`: paper-coloured, with each rect filled with mid-grey "art" (and some black strokes inside). */
@@ -144,4 +144,49 @@ test('panels that only slide the camera up and down the page are not framed', ()
   // A wide strip beside two small panels: the strip is skipped, the small ones are kept.
   const mixed = [{ x: 0, y: 0, w: 1, h: 0.4 }, { x: 0, y: 0.45, w: 0.5, h: 0.5 }, { x: 0.5, y: 0.45, w: 0.5, h: 0.5 }];
   assert.deepEqual([framingPanels(mixed, page, view).kept.length, framingPanels(mixed, page, view).skipped], [2, 1]);
+});
+
+test('how far to zoom follows how big the lettering is', () => {
+  // Lettering 1.7 % of the page's width on a 390 px phone is 6.6 px a letter; 8.5 px is comfortable: about 1.29x, with a little room.
+  const cap = legibleCap(0.0169, 390, 8.5);
+  assert.ok(cap > 1.4 && cap < 1.6, `cap ${cap}`);
+  // Unmeasured lettering: no cap, zoom to fit.
+  assert.equal(legibleCap(null, 390), Infinity);
+  assert.equal(legibleCap(0, 390), Infinity);
+  // A wider screen shows the same page's letters larger, so it needs less zoom.
+  assert.ok(legibleCap(0.0169, 600, 8.5) < cap);
+});
+
+test('a page that reads comfortably already has no frames to zoom into; small lettering gets a moderate zoom', () => {
+  const view = { w: 390, h: 844 };
+  const page = { x: 0, y: 0, w: 390, h: 585 };
+  const grid = [{ x: 0, y: 0, w: 0.5, h: 0.5 }, { x: 0.5, y: 0, w: 0.5, h: 0.5 }, { x: 0, y: 0.5, w: 0.5, h: 0.5 }, { x: 0.5, y: 0.5, w: 0.5, h: 0.5 }];
+  // Lettering 3.5 % of the width is 13.7 px on this phone: legible at once.
+  assert.deepEqual(framingPanels(grid, page, view, legibleCap(0.035, 390, 8.5)), { kept: [], skipped: 4 });
+  // 1.7 % is 6.6 px: the frames are kept, and zoom only to the comfortable size, not to fill the screen with a quarter-page.
+  const small = legibleCap(0.0169, 390, 8.5);
+  assert.equal(framingPanels(grid, page, view, small).kept.length, 4);
+  const filled = cameraOf(grid[0], page, view).s;
+  const comfy = cameraOf(grid[0], page, view, small).s;
+  assert.ok(comfy < filled, 'capped below filling the screen');
+  assert.ok(Math.abs(comfy - small) < 1e-9, 'at the comfortable zoom');
+});
+
+test('a panel too big to reach the comfortable zoom still fits the screen', () => {
+  const view = { w: 390, h: 844 };
+  const page = { x: 0, y: 0, w: 390, h: 585 };
+  const wide = { x: 0, y: 0, w: 1, h: 0.45 };
+  const cap = legibleCap(0.0169, 390, 8.5) * 3; // lettering needing far more zoom than the panel can give
+  assert.equal(cameraOf(wide, page, view, cap).s, cameraOf(wide, page, view).s);
+});
+
+test('server panels are put in reading order for the series\' direction', () => {
+  const raw = [[0, 0, 0.5, 0.5], [0.5, 0, 0.5, 0.5], [0, 0.5, 0.5, 0.5], [0.5, 0.5, 0.5, 0.5]];
+  assert.deepEqual(serverPanels(raw, false, 0.67).panels.map((b) => [b.x, b.y]), [[0, 0], [0.5, 0], [0, 0.5], [0.5, 0.5]]);
+  assert.deepEqual(serverPanels(raw, true, 0.67).panels.map((b) => [b.x, b.y]), [[0.5, 0], [0, 0], [0.5, 0.5], [0, 0.5]]);
+  assert.equal(serverPanels(raw, false, 0.67).overview, false);
+  assert.equal(serverPanels(raw, false, 1.4).overview, true, 'a spread opens whole');
+  assert.deepEqual(serverPanels([[0, 0, 1, 1]], false, 0.67), { panels: [], overview: false }, 'one box is no panels');
+  assert.deepEqual(serverPanels(undefined, false, null), { panels: [], overview: false });
+  assert.equal(orderBoxes([], false).length, 0);
 });
