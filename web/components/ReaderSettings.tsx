@@ -421,6 +421,19 @@ export function ReaderSettings({
           </div>
         )}
 
+        {/* Panel view: a page read one panel at a time, on this device. Off until chosen: every page whole, as it always was. */}
+        {prefs.mode === 'paged' && (
+          <div className="py-3">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-sm font-medium text-fog-200">{`${tr('Panel view')} · ${tr('This device')}`}</span>
+              <Switch on={device.panelView} onChange={(panelView) => setDevice({ panelView })} label={tr('Panel view')} />
+            </div>
+            <p className="mt-1 text-[11px] leading-snug text-fog-500">
+              {tr('Reads a comic or manga page one panel at a time, each filling the screen, right to left for manga. A tap on either side steps through the panels and then turns the page; the middle shows the controls and a double tap shows the whole page. A splash page, or a layout with no clear gutters, is shown whole.')}
+            </p>
+          </div>
+        )}
+
         {/* v0.61.0: the keys and a game controller, on this device. Folded: most readers never change them. */}
         <div className="py-3">
           <Disclosure label={`${tr('Keys and controller')} · ${tr('This device')}`}>

@@ -46,6 +46,7 @@ import { NextInStory } from '@/components/RelatedRail';
 import { IcChevronLeft, IcChevronRight, IcSliders, IcGrid, IcComment } from '@/components/icons';
 import { SEAM_H, useChapterTalk, useTalkOn } from '@/lib/comments';
 import { ChapterTalkSheet, TalkKey, TalkStrip } from '@/components/ChapterTalk';
+import { PanelView } from '@/components/PanelView';
 import { ReaderImg, MissingCaption, ReaderPageRow, SlidePending, SlideRegion, SlideTurned, SlideTurnedPair, DIVIDER_H, measurePage } from '@/components/ReaderPage';
 import { CHAPTER_SAMPLE, LEFT_HALF, RIGHT_HALF, WHOLE, chapterSideCrop, halfCrop, pairCrop, type Region } from '@/lib/readerCrop';
 import { t as tr } from '@/lib/i18n';
@@ -350,6 +351,10 @@ function ReaderInner() {
   /** What the last press on the page was made with, for the right-click menu below: a touch long-press is not a right click. */
   const lastPointer = useRef('mouse');
   const pinch = useRef<{ dist: number; zoom: number } | null>(null);
+  /** Panel view: the paged track is on its Up Next card, past the last page (the panels are put away there). */
+  const [onCard, setOnCard] = useState(false);
+  /** Panel view: the panel the next page opens on -- its last when the page was reached by turning back. */
+  const panelFrom = useRef<'first' | 'last'>('first');
 
   const seriesId0 = chapters[0]?.seriesId || '';
   const setPref = (p: Partial<ReaderPrefs>) => {
@@ -1161,6 +1166,7 @@ function ReaderInner() {
       pagedSlide.current = s;
       // Away from the slide a page was brought into frame on: it shows its pair again when it is next seen.
       setFocus((f) => (f && f.slide !== s ? null : f));
+      setOnCard(s >= slides.length);
       const idxs = slides[Math.max(0, Math.min(slides.length - 1, s))];
       const i = idxs ? idxs[idxs.length - 1] : 0; // last page of a spread → completion fires on the final spread
       setCurrent((c) => (c === i ? c : i));
@@ -2379,6 +2385,26 @@ function ReaderInner() {
    * chapter before the empty-list guard above existed.
    */
   const offlineEnd = refsFrom === 'offline';
+  // ---- Panel view (Reader → Panel view, this device) ----
+  // The page being read, drawn one panel at a time over the paged track (components/PanelView.tsx). Only a page that is
+  // alone on its slide and shown as it is: a pair, a half, a joined or turned wide page, a placeholder, and the Up Next
+  // card at the end keep the track's own drawing.
+  const panelPage = (() => {
+    if (!device.panelView || prefs.mode !== 'paged' || !ready || onCard || focus) return null;
+    const it = flat[current];
+    if (!it || it.missing || it.collapsed) return null;
+    const s = slideOf[current];
+    if (s == null || slides[s]?.length !== 1 || half[s] || joined[s]) return null;
+    const wide = !!it.width && !!it.height && it.width > it.height;
+    if (wide && wideMode !== 'whole') return null;
+    const src = srcFor(current);
+    return src ? { it, src } : null;
+  })();
+  const panelTurn = (d: 1 | -1) => {
+    panelFrom.current = d < 0 ? 'last' : 'first';
+    perform(d > 0 ? 'next' : 'prev', { tap: true });
+  };
+  useEffect(() => { panelFrom.current = 'first'; }, [current]);
   const upNextCard = (
     <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}
       className="mx-auto w-full max-w-3xl px-6 py-16 text-center">
@@ -2621,6 +2647,12 @@ function ReaderInner() {
             <span className="me-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-accent">{tr('Next chapter')}</span>{chapterNote}
           </p>
         </div>
+      )}
+
+      {panelPage && (
+        <PanelView key={panelPage.it.key} pageKey={panelPage.it.key} src={panelPage.src} alt={tr('Page {n}', { n: panelPage.it.number })}
+          width={panelPage.it.width} height={panelPage.it.height} rtl={rightFirst} filter={imgFilter} from={panelFrom.current}
+          reduceMotion={behavior !== 'smooth'} onTurn={panelTurn} onChrome={() => setChrome((c) => !c)} onRetry={refreshEditedPages} />
       )}
 
       {/* CHROME */}

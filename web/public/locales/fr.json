@@ -2,7 +2,7 @@
   "_meta": {
     "language": "fr",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 5629
+    "strings": 5632
   },
   "1 check found something": "1 vérification a trouvé quelque chose",
   "1 member": "1 membre",
@@ -5632,5 +5632,8 @@
   "Re-download chapters a source has revised": "Retélécharger les chapitres révisés par une source",
   "On by default. When a source re-posts a chapter you already have, or changes its upload date or page count, the nightly repair downloads the new version over your copy. Only files Uchiyomi downloaded itself are replaced. A copy that is much shorter never replaces yours, a chapter you picked a version for by hand is never touched, and at most ten are replaced a night. Reading progress is kept.": "Activé par défaut. Quand une source republie un chapitre que vous avez déjà, ou change sa date de mise en ligne ou son nombre de pages, la réparation de nuit télécharge la nouvelle version par-dessus votre copie. Seuls les fichiers téléchargés par Uchiyomi sont remplacés. Une copie nettement plus courte ne remplace jamais la vôtre, un chapitre dont vous avez choisi la version à la main n’est jamais touché, et dix au plus sont remplacés par nuit. La progression de lecture est conservée.",
   "revised by source: 1 replaced": "révisés par la source : 1 remplacé",
-  "revised by source: {n} replaced": "révisés par la source : {n} remplacés"
+  "revised by source: {n} replaced": "révisés par la source : {n} remplacés",
+  "Panel view": "Vue par case",
+  "Panel {n} of {total}": "Case {n} sur {total}",
+  "Reads a comic or manga page one panel at a time, each filling the screen, right to left for manga. A tap on either side steps through the panels and then turns the page; the middle shows the controls and a double tap shows the whole page. A splash page, or a layout with no clear gutters, is shown whole.": "Lit une page de bande dessinée ou de manga case par case, chacune plein écran, de droite à gauche pour un manga. Un appui sur un côté parcourt les cases puis tourne la page ; le centre affiche les commandes et un double appui montre la page entière. Une page pleine ou une mise en page sans gouttières nettes s'affiche en entier."
 }

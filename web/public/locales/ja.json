@@ -2,7 +2,7 @@
   "_meta": {
     "language": "ja",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 5629
+    "strings": 5632
   },
   "1 check found something": "1 件のチェックで問題を検出",
   "1 member": "メンバー 1 人",
@@ -5632,5 +5632,8 @@
   "Re-download chapters a source has revised": "ソースが修正した章を再ダウンロード",
   "On by default. When a source re-posts a chapter you already have, or changes its upload date or page count, the nightly repair downloads the new version over your copy. Only files Uchiyomi downloaded itself are replaced. A copy that is much shorter never replaces yours, a chapter you picked a version for by hand is never touched, and at most ten are replaced a night. Reading progress is kept.": "既定でオン。すでにある章をソースが再投稿したり、アップロード日やページ数を変更したりすると、夜間の修復が新しい版をコピーの上にダウンロードします。置き換えるのは Uchiyomi 自身がダウンロードしたファイルだけです。大幅に短いコピーが置き換えることはなく、手動で版を選んだ章には触れず、置き換えは1晩に最大10件です。読書の進捗は保持されます。",
   "revised by source: 1 replaced": "ソースによる修正: 1件置換",
-  "revised by source: {n} replaced": "ソースによる修正: {n}件置換"
+  "revised by source: {n} replaced": "ソースによる修正: {n}件置換",
+  "Panel view": "コマ表示",
+  "Panel {n} of {total}": "{n} / {total} コマ",
+  "Reads a comic or manga page one panel at a time, each filling the screen, right to left for manga. A tap on either side steps through the panels and then turns the page; the middle shows the controls and a double tap shows the whole page. A splash page, or a layout with no clear gutters, is shown whole.": "コミックやマンガのページを1コマずつ画面いっぱいに表示します。マンガは右から左へ。左右どちらかをタップするとコマを進め、最後のコマの次はページをめくります。中央でメニューを表示、ダブルタップでページ全体を表示します。扉絵やコマの区切りがはっきりしないページは全体を表示します。"
 }

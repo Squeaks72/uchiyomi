@@ -38,6 +38,11 @@ export interface DevicePrefs {
    * does what Tap zones says, the middle shows the controls, the reader as it always was -- until chosen.
    */
   tapFocus: boolean;
+  /**
+   * Panel view: in Paged mode, a page with panels it can find is read one panel at a time, each framed to fill the screen
+   * (lib/readerPanels.ts). A phone wants it; off -- every page whole, the reader as it always was -- until chosen.
+   */
+  panelView: boolean;
 }
 
 /** Column width's range and step, in percent: the sheet's slider and what a stored value is cleaned to. */
@@ -58,6 +63,7 @@ export const DEFAULT_DEVICE: DevicePrefs = {
   columnWidth: COLUMN_WIDTH.max,
   fitPages: false,
   tapFocus: false,
+  panelView: false,
 };
 
 export const DEVICE_KEY = 'yomi_reader_device';
@@ -75,6 +81,7 @@ export function migrateDevicePrefs(raw: unknown): DevicePrefs {
     columnWidth: cleanColumnWidth(r.columnWidth),
     fitPages: r.fitPages === true,
     tapFocus: r.tapFocus === true,
+    panelView: r.panelView === true,
   };
 }
 
