@@ -2,7 +2,7 @@
   "_meta": {
     "language": "pt-BR",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 5611
+    "strings": 5614
   },
   "1 check found something": "1 verificação encontrou algo",
   "1 member": "1 membro",
@@ -5614,5 +5614,8 @@
   "Re-download chapters a source has revised": "Baixar de novo capítulos revisados pela fonte",
   "On by default. When a source re-posts a chapter you already have, or changes its upload date or page count, the nightly repair downloads the new version over your copy. Only files Uchiyomi downloaded itself are replaced. A copy that is much shorter never replaces yours, a chapter you picked a version for by hand is never touched, and at most ten are replaced a night. Reading progress is kept.": "Ativado por padrão. Quando uma fonte republica um capítulo que você já tem, ou muda a data de envio ou o número de páginas, o reparo noturno baixa a nova versão sobre a sua cópia. Só são substituídos arquivos que o Uchiyomi baixou. Uma cópia bem mais curta nunca substitui a sua, um capítulo cuja versão você escolheu à mão não é tocado, e no máximo dez são substituídos por noite. O progresso de leitura é mantido.",
   "revised by source: 1 replaced": "revisados pela fonte: 1 substituído",
-  "revised by source: {n} replaced": "revisados pela fonte: {n} substituídos"
+  "revised by source: {n} replaced": "revisados pela fonte: {n} substituídos",
+  "Panel view": "Modo por quadro",
+  "Panel {n} of {total}": "Quadro {n} de {total}",
+  "Reads a comic or manga page one panel at a time, each filling the screen, right to left for manga. A tap on either side steps through the panels and then turns the page; the middle shows the controls and a double tap shows the whole page. A splash page, or a layout with no clear gutters, is shown whole.": "Lê uma página de quadrinhos ou mangá quadro a quadro, cada um preenchendo a tela, da direita para a esquerda no mangá. Um toque em qualquer lado avança pelos quadros e depois vira a página; o centro mostra os controles e um toque duplo mostra a página inteira. Uma página inteira ou um layout sem espaços claros aparece inteiro."
 }

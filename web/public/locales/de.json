@@ -2,7 +2,7 @@
   "_meta": {
     "language": "de",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 5611
+    "strings": 5614
   },
   "1 check found something": "1 Prüfung hat etwas gefunden",
   "1 member": "1 Mitglied",
@@ -5614,5 +5614,8 @@
   "Re-download chapters a source has revised": "Von der Quelle überarbeitete Kapitel erneut herunterladen",
   "On by default. When a source re-posts a chapter you already have, or changes its upload date or page count, the nightly repair downloads the new version over your copy. Only files Uchiyomi downloaded itself are replaced. A copy that is much shorter never replaces yours, a chapter you picked a version for by hand is never touched, and at most ten are replaced a night. Reading progress is kept.": "Standardmäßig an. Veröffentlicht eine Quelle ein bereits vorhandenes Kapitel erneut oder ändert sie Upload-Datum oder Seitenzahl, lädt die nächtliche Reparatur die neue Version über deine Kopie. Ersetzt werden nur Dateien, die Uchiyomi selbst heruntergeladen hat. Eine deutlich kürzere Kopie ersetzt deine nie, ein von Hand gewähltes Kapitel bleibt unberührt, und pro Nacht werden höchstens zehn ersetzt. Der Lesefortschritt bleibt erhalten.",
   "revised by source: 1 replaced": "von der Quelle überarbeitet: 1 ersetzt",
-  "revised by source: {n} replaced": "von der Quelle überarbeitet: {n} ersetzt"
+  "revised by source: {n} replaced": "von der Quelle überarbeitet: {n} ersetzt",
+  "Panel view": "Panelansicht",
+  "Panel {n} of {total}": "Panel {n} von {total}",
+  "Reads a comic or manga page one panel at a time, each filling the screen, right to left for manga. A tap on either side steps through the panels and then turns the page; the middle shows the controls and a double tap shows the whole page. A splash page, or a layout with no clear gutters, is shown whole.": "Liest eine Comic- oder Manga-Seite Panel für Panel, jedes bildschirmfüllend, bei Manga von rechts nach links. Ein Tippen auf eine Seite wechselt durch die Panels und blättert dann um; die Mitte zeigt die Steuerung, ein Doppeltippen die ganze Seite. Eine Titelseite oder ein Layout ohne klare Zwischenräume wird ganz gezeigt."
 }

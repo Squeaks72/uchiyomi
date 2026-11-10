@@ -2,7 +2,7 @@
   "_meta": {
     "language": "ar",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 5618
+    "strings": 5621
   },
   "1 check found something": "فحص واحد وجد شيئًا",
   "1 member": "عضو واحد",
@@ -5621,5 +5621,8 @@
   "Re-download chapters a source has revised": "إعادة تنزيل الفصول التي نقّحها المصدر",
   "On by default. When a source re-posts a chapter you already have, or changes its upload date or page count, the nightly repair downloads the new version over your copy. Only files Uchiyomi downloaded itself are replaced. A copy that is much shorter never replaces yours, a chapter you picked a version for by hand is never touched, and at most ten are replaced a night. Reading progress is kept.": "مفعّل افتراضيًا. عندما يعيد مصدر نشر فصل لديك أو يغيّر تاريخ رفعه أو عدد صفحاته، ينزّل الإصلاح الليلي النسخة الجديدة فوق نسختك. لا تُستبدل إلا الملفات التي نزّلها Uchiyomi بنفسه. لا تحلّ نسخة أقصر بكثير محل نسختك، ولا يُمَسّ فصل اخترت نسخته يدويًا، ويُستبدل عشرة فصول على الأكثر كل ليلة. يُحفظ تقدّم القراءة.",
   "revised by source: 1 replaced": "نقّحه المصدر: استُبدل فصل واحد",
-  "revised by source: {n} replaced": "نقّحه المصدر: استُبدل {n} فصول"
+  "revised by source: {n} replaced": "نقّحه المصدر: استُبدل {n} فصول",
+  "Panel view": "عرض اللوحات",
+  "Panel {n} of {total}": "اللوحة {n} من {total}",
+  "Reads a comic or manga page one panel at a time, each filling the screen, right to left for manga. A tap on either side steps through the panels and then turns the page; the middle shows the controls and a double tap shows the whole page. A splash page, or a layout with no clear gutters, is shown whole.": "يقرأ صفحة القصة المصورة أو المانغا لوحة بعد لوحة، وتملأ كل لوحة الشاشة، ومن اليمين إلى اليسار في المانغا. تنقل النقرة على أي جانب بين اللوحات ثم تقلب الصفحة؛ والوسط يعرض عناصر التحكم والنقر المزدوج يعرض الصفحة كاملة. وتُعرض الصفحة الكاملة أو التخطيط بلا فواصل واضحة كما هو."
 }
