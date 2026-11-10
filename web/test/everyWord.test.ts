@@ -387,7 +387,7 @@ test('every toast, refusal fallback and sign-in error is said through tr()', () 
 });
 
 /** Placeholders that are examples of what to type, never words: a URL, an address, a Home Assistant service. */
-const EXAMPLE = /^(https?:\/\/|notify\.)/;
+const EXAMPLE = /^(https?:\/\/|smtps?:\/\/|notify\.)/; // smtps?: the fork's email target
 /** Attributes that show or say words. `label`, `sub`, `help` and `body` are this app's own components'. */
 const UI_ATTRS = ['aria-label', 'title', 'placeholder', 'alt', 'confirmLabel', 'label', 'sub', 'body', 'description', 'help', 'hint'];
 

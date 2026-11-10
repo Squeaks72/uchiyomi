@@ -224,7 +224,6 @@ let refusalLogged: string | null = null;
 async function load(list: () => Promise<RemoteSource[]>, quiet: boolean, beforeRegister?: () => void): Promise<LoadResult> {
   if (!suwayomiConfigured()) {
     beforeRegister?.();
-    // What this load leaves out replaces what the last one did, and a load that registers nothing leaves nothing out.
     leftOut = new Set();
     return { configured: false, reachable: false, available: 0, registered: 0, skipped: 0 };
   }

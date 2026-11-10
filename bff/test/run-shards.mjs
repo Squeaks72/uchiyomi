@@ -84,7 +84,7 @@ function runFile(f, k) {
     const started = Date.now();
     const child = spawn(process.execPath, ['--import', 'tsx', '--test', '--test-concurrency=1', `--test-timeout=${testLimitMs}`, join('test', f)], {
       cwd: bff,
-      env: { ...process.env, TEST_DATABASE_URL: dbUrl(k) },
+      env: { MAX_FOLLOWED_SOURCES: '2', ...process.env, TEST_DATABASE_URL: dbUrl(k) },
       stdio: ['ignore', 'pipe', 'pipe'],
       // Its own process group, so a stop reaches the test process `node --test` starts under it too.
       detached: true,

@@ -66,7 +66,7 @@ export function StatusMark({ tone, label, size = 'sm', title, className, working
   className?: string;
   working?: boolean;
 }) {
-  const text = size === 'xs' ? 'text-[10px]' : size === 'md' ? 'text-xs' : 'text-[11px]';
+  const text = size === 'xs' ? 'text-[11px]' : size === 'md' ? 'text-xs' : 'text-[11px]';
   const glyph = size === 'xs' ? 10 : size === 'md' ? 13 : 12;
   return (
     <span data-status={tone} title={title} {...(label ? {} : { role: 'img', 'aria-label': title })}

@@ -43,6 +43,11 @@ export function alertTone(s: HealthSummary | null | undefined): HealthTone | nul
   return s && s.count > 0 && s.worst !== 'ok' ? s.worst : null;
 }
 
+/** Critical, not just worth a look: something is missing from the library that only an admin can put right (bff SEVERITY). */
+export function isCritical(s: HealthSummary | null | undefined): boolean {
+  return alertTone(s) === 'problem';
+}
+
 /**
  * What a dismissal remembers (v0.48.3): which checks were finding something, and how badly -- not a hash of the
  * set. A hash changes when a check goes QUIET too (fixed, or its last finding ignored), and brought back a banner

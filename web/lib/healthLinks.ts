@@ -62,6 +62,16 @@ export function healthLinks(check: string, it: HealthItem): HealthLink[] {
     case 'duplicates':
       if (it.seriesIds?.length) return it.seriesIds.map((id, i) => ({ href: seriesHref(id), label: it.titles?.[i] }));
       break;
+    // A chapter whose file is gone or damaged: the series, and the two tasks that put it right.
+    // A series with no cover: the series (where a cover is picked), and the art page where covers are fetched.
+    case 'covers':
+      if (it.seriesId) return [{ href: seriesHref(it.seriesId) }, { href: `${seriesHref(it.seriesId)}&attach=1`, label: tr('Find a source') }, { href: '/admin/?tab=Art', label: tr('Art') }];
+      break;
+    // A series missing its description, genres or cover: the series, and the search that attaches a source to take them
+    // from (the server fills what is empty from every attached source). Open is the series itself.
+    case 'details':
+      if (it.seriesId) return [{ href: seriesHref(it.seriesId) }, { href: `${seriesHref(it.seriesId)}&attach=1`, label: tr('Find a source') }];
+      break;
     // #72: the engine's row is about no series; its setup steps, Check again and Connect are on Admin → Sources.
     case 'extension-engine':
       return [{ href: '/admin/?tab=Sources' }];
@@ -71,7 +81,13 @@ export function healthLinks(check: string, it: HealthItem): HealthLink[] {
     case 'disk':
       return it.key?.startsWith('folder:')
         ? [{ href: '/admin/?tab=Tasks&section=task-verify', label: tr('Verify chapter files') }]
-        : [{ href: '/admin/?tab=Settings&section=archive-free-space', label: tr('Downloads') }];
+        // Free space: the floors' settings, and where space can be taken back from -- files the library does not hold, and
+        // the bin they wait in after a delete (Library → Unmapped files), which empties at once from there.
+        : [{ href: '/admin/?tab=Settings&section=archive-free-space', label: tr('Downloads') },
+           { href: '/admin/?tab=Library&section=unmapped-files', label: tr('Unmapped files and bin') }];
+    // Files the downloads folder holds that the library does not: map them to a series or delete them there.
+    case 'downloads-missing':
+      return [{ href: '/admin/?tab=Library&section=unmapped-files', label: tr('Unmapped files') }];
     // v0.72.0: a member's tracker sign-in is theirs to renew, under their own Profile: nothing here to open.
     case 'trackers':
       return [];

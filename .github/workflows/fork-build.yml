@@ -1,0 +1,99 @@
+name: Fork build
+
+# Builds the all-in-one image this fork runs on Unraid and publishes it to
+# ghcr.io/squeaks72/uchiyomi.
+#
+# Deliberately much smaller than upstream's release.yml. Upstream publishes three
+# images (bff, web, aio) for two architectures and merges the digests into one
+# index, because it ships to everybody. This box pulls exactly one of those six
+# combinations, so building only `aio` for linux/amd64 turns a ~25 minute release
+# into a ~6 minute one, and removes the digest-merge machinery that upstream's
+# own comments describe as its most fragile part.
+#
+# `:latest` is what the Unraid container tracks (CA Auto Update pulls it nightly
+# at 04:00 local). Every build also gets an immutable
+# `v<upstream version>-tim.<sha>` tag, which is the thing to pin the container to
+# if a build ever turns out bad.
+
+on:
+  push:
+    branches: [tim]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'logo-options/**'
+      - 'templates/**'
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+  packages: write
+
+# One build at a time, newest wins: a sync commit landing while an earlier build
+# is still running would otherwise race it to `:latest`.
+concurrency:
+  group: fork-build
+  cancel-in-progress: true
+
+env:
+  IMAGE: ghcr.io/squeaks72/uchiyomi
+
+jobs:
+  build:
+    name: aio / linux-amd64
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Work out the tags
+        id: tags
+        run: |
+          set -euo pipefail
+          # The upstream version this fork is sitting on. bff/package.json is the
+          # one place that carries it as a bare value; the changelog heading and
+          # the git tag are both absent on a rebased branch.
+          version=$(node -p "require('./bff/package.json').version" 2>/dev/null || echo 0.0.0)
+          sha=$(git rev-parse --short HEAD)
+          echo "version=v${version}" >> "$GITHUB_OUTPUT"
+          echo "immutable=v${version}-tim.${sha}" >> "$GITHUB_OUTPUT"
+          echo "::notice title=Building::${IMAGE}:latest and :v${version}-tim.${sha}"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile.aio
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:latest
+            ${{ env.IMAGE }}:${{ steps.tags.outputs.immutable }}
+          # Layer cache in the Actions cache, so a sync that only moved the web
+          # app does not rebuild the API's node_modules (and vice versa).
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          labels: |
+            org.opencontainers.image.title=Uchiyomi (Squeaks72 fork)
+            org.opencontainers.image.description=Personal fork of Uchiyomi, tracking upstream with local patches
+            org.opencontainers.image.source=https://github.com/Squeaks72/uchiyomi
+            org.opencontainers.image.version=${{ steps.tags.outputs.immutable }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.licenses=MPL-2.0
+
+      - name: Say what to pull
+        run: |
+          echo "### Image published" >> "$GITHUB_STEP_SUMMARY"
+          echo '' >> "$GITHUB_STEP_SUMMARY"
+          echo '- `${{ env.IMAGE }}:latest`' >> "$GITHUB_STEP_SUMMARY"
+          echo '- `${{ env.IMAGE }}:${{ steps.tags.outputs.immutable }}` (pin here to roll back)' >> "$GITHUB_STEP_SUMMARY"

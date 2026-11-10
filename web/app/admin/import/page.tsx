@@ -21,7 +21,7 @@ import { revealed } from '@/lib/adult';
 import { useAuth } from '@/lib/auth';
 import { useToast } from '@/components/Toast';
 import { ConfirmDialog, msgOf } from '@/components/ConfirmDialog';
-import { Img, ProgressBar } from '@/components/ui';
+import { Img, ProgressBar, ToggleChip } from '@/components/ui';
 import { SourceIcon } from '@/components/SourcePicker';
 import { sourceCover } from '@/components/cards';
 import { ImportMatchSheet } from '@/components/ImportMatchSheet';
@@ -112,7 +112,7 @@ function TrackerIntake({ starting, onStart, canStart }: {
 
   return (
     <div className="mb-4 rounded-xl border border-ink-700 bg-ink-900/50 p-2.5" data-tracker-intake>
-      <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-fog-500">{tr('From your tracker')}</p>
+      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-fog-500">{tr('From your tracker')}</p>
       {!connected.length ? (
         <Link href="/profile/?tab=Connections&card=tracking" className="block text-[11px] text-fog-500 underline decoration-ink-600 underline-offset-2 hover:text-fog-300">
           {broken.length ? tr('Your tracker token no longer works. Reconnect it under Profile.') : NOT_CONNECTED()}
@@ -121,7 +121,7 @@ function TrackerIntake({ starting, onStart, canStart }: {
         <>
           {/* One chip per connected provider, single-select. Shown even when it is the only one: the chip
               names the account the list is read from, which is the thing a person with two accounts checks. */}
-          <div className="mb-2 flex flex-wrap gap-1.5">
+          <div role="group" aria-label={tr('From your tracker')} className="mb-2 flex flex-wrap gap-1.5">
             {connected.map((t) => (
               <button key={t.provider} type="button" onClick={() => setTracker(t.provider)}
                 className={`chip text-xs ${sel?.provider === t.provider ? 'chip-active' : ''}`} aria-pressed={sel?.provider === t.provider}>
@@ -130,14 +130,14 @@ function TrackerIntake({ starting, onStart, canStart }: {
               </button>
             ))}
           </div>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <div role="group" aria-label={tr('Reading')} className="flex flex-wrap items-center gap-x-3 gap-y-1">
             {/* `min-h-7 py-1`: the box is 14 px and the text 16 px, so the label was a 16 px tap target on
                 the one new phone control while every chip around it is ≥ 26 px. The padding widens what a
                 thumb can hit without changing how the row looks. */}
             {LIST_STATUSES.map((s) => (
-              <label key={s.id} className="inline-flex min-h-7 items-center gap-1.5 py-1 text-xs text-fog-300">
+              <label key={s.id} className="inline-flex min-h-7 items-center gap-1.5 py-1 text-xs text-fog-300 pointer-coarse:min-h-10">
                 <input type="checkbox" checked={statuses.has(s.id)} onChange={() => toggle(s.id)}
-                  className="size-3.5 rounded border-ink-600 bg-ink-800 accent-accent" />
+                  className="size-3.5 pointer-coarse:size-5 rounded border-ink-600 bg-ink-800 accent-accent" />
                 {tr(s.label)}
               </label>
             ))}
@@ -163,7 +163,7 @@ function OpenImports({ batches, onOpen }: { batches: ImportBatchSummary[]; onOpe
   if (!batches.length) return null;
   return (
     <div className="mb-4 rounded-xl border border-ink-700 bg-ink-900/50 p-2.5">
-      <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-fog-500">{tr('Open imports')}</p>
+      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-fog-500">{tr('Open imports')}</p>
       <ul className="space-y-1">
         {batches.map((b) => {
           const counts = b.state === 'resolving'
@@ -232,7 +232,7 @@ function IntakeCard({ backupRef, mdUrl, setMdUrl, pasted, setPasted, starting, c
       {/* Names the button that commits, not a "Continue" this page never shows -- the wording was written
           before the button was, and a promise about a control that does not exist is not a promise. */}
       <p className="mb-3 text-[11px] text-fog-500">
-        {tr('Uchiyomi matches each title against your sources and shows you the pick before anything is added — nothing lands in your library until you press Import selected.')}
+        {tr('Uchiyomi finds each title in your sources and lets you review the matches. Nothing is added until you press Import selected.')}
       </p>
 
       <div className="mb-2 flex flex-wrap items-center gap-2">
@@ -281,13 +281,13 @@ function ResolvingCard({ batch, note, onResume }: { batch: ImportBatch; note: st
   const pct = batch.total ? Math.round((batch.resolved / batch.total) * 100) : 0;
   return (
     <div className="card grad-border wide p-4">
-      <p className="mb-1 text-sm font-semibold text-fog-100">
+      <p role="status" className="mb-1 text-sm font-semibold text-fog-100">
         {batch.stale ? tr('Matching was interrupted') : tr('Matching your titles…')}<Note note={note} />
       </p>
       <p className="mb-3 text-[11px] text-fog-500">
         {batch.stale
           ? tr('The server restarted before this finished. Resume to pick up where it left off.')
-          : tr('Checking each title against your sources — this can take a few minutes for a long list. You can leave this page; your progress is saved.')}
+          : tr('Matching each title to your sources. A long list takes a few minutes. You can leave this page; your progress is saved.')}
       </p>
       <ProgressBar value={batch.total ? batch.resolved / batch.total : 0} />
       <p className="mt-1.5 text-[11px] tabular-nums text-fog-500">{tr('{done}/{total} · {pct}%', { done: batch.resolved, total: batch.total, pct })}</p>
@@ -315,7 +315,7 @@ function ReviewRow({ c, sourceName, selected, onToggle, onEdit }: {
         <input type="checkbox" checked={selected} onChange={() => onToggle(c.id)}
           className="size-4 shrink-0 rounded border-ink-600 bg-ink-800 accent-accent" aria-label={tr('Select title')} />
       ) : (
-        <span className="size-4 shrink-0" aria-hidden />
+        <span className="size-4 pointer-coarse:size-5 shrink-0" aria-hidden />
       )}
       <Img src={c.match_cover ? sourceCover(c.match_source || undefined, c.match_cover) : ''} alt=""
         fallbackSrc={c.match_cover || undefined} className="h-14 w-10 shrink-0 rounded" />
@@ -414,7 +414,7 @@ function ReviewCard({
           series and its chapter list, one title at a time, so two hundred rows is minutes, not a database
           write. */}
       <p className="mb-3 text-[11px] text-fog-500">
-        {tr('Selected titles are added to your library only — no chapters are downloaded, but each title is looked up on its source, so a long list takes a few minutes. New releases arrive through auto-update, or fetch older ones from the series page.')}
+        {tr('Selected titles are added to your library without downloading any chapters. Each title is looked up on its source, so a long list takes a few minutes. New chapters arrive automatically; fetch older ones from the series page.')}
       </p>
       <p className="mb-3 text-[11px] text-fog-500">{tr('The selected library is the default. Entries marked private by your tracker or backup stay in your private library.')}</p>
 
@@ -505,7 +505,7 @@ function RunCard({ batch, items, runIds, runTotal, note, marked, onStartOver }: 
   const linked = batch.state === 'done' ? linkedLine(linkedCount(items)) : null;
   return (
     <div className="card grad-border wide p-4">
-      <p className="mb-1.5 text-sm font-semibold text-fog-100">
+      <p role="status" className="mb-1.5 text-sm font-semibold text-fog-100">
         {batch.state === 'importing'
           ? tr('Importing… {done}/{total}', { done, total })
           : tr('Done — {added} added · {already} already had · {failed} failed', { added: batch.added, already: batch.already, failed: batch.failed })}
@@ -522,9 +522,10 @@ function RunCard({ batch, items, runIds, runTotal, note, marked, onStartOver }: 
       <ul data-lenis-prevent className="mt-3 max-h-96 space-y-1 overflow-y-auto">
         {targeted.map((c) => (
           <li key={c.id} className="flex items-center gap-2 text-xs">
-            <span className={c.status === 'added' ? 'text-emerald-400' : c.status === 'already' ? 'text-fog-500' : c.status ? 'text-red-400' : 'text-fog-600'}>
+            <span aria-hidden className={c.status === 'added' ? 'text-emerald-400' : c.status === 'already' ? 'text-fog-500' : c.status ? 'text-red-400' : 'text-fog-600'}>
               {c.status === 'added' ? '✓' : c.status === 'already' ? '·' : c.status ? '✗' : '…'}
             </span>
+            {c.status && <span className="sr-only">{runStatusLabel(c.status, !!c.linked)}: </span>}
             {c.status === 'already' && c.linked ? (
               // Two lines rather than `truncate`: the suffix is long in German and Russian, and a one-line
               // ellipsis would cut the title to make room for the words that explain it.
@@ -844,8 +845,8 @@ function ImportWizardInner() {
         <ConfirmDialog
           title={tr('Discard this import?')}
           body={batch.added > 0
-            ? tr('The list and every match you reviewed are thrown away. Anything this import already added ({n} so far) stays in your library.', { n: batch.added })
-            : tr('The list and every match you reviewed are thrown away. Nothing has been added to your library yet, so nothing else changes.')}
+            ? tr('This throws away the list and your reviewed matches. Titles already added ({n} so far) stay in your library.', { n: batch.added })
+            : tr('This throws away the list and your reviewed matches. Nothing has been added to your library yet.')}
           confirmLabel={tr('Discard')}
           danger
           busy={discardBusy}

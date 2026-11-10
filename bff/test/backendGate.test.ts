@@ -45,8 +45,10 @@ test('the scheduled check and the nightly repair start on an install that never 
   // The gate is the `if (` that opens the block holding the call's own `tick`.
   const openerOf = (at: number) => {
     const head = server.slice(0, at);
-    const i = head.lastIndexOf('const tick = async');
-    const gate = head.slice(0, i).lastIndexOf('if (');
+    // The block's own opener is the last `if (` at main()'s indent before the tick: helpers declared inside the block (the repair
+    // hour's timer) carry deeper-indented ifs of their own.
+    const i = Math.max(head.lastIndexOf('const tick = async'), head.lastIndexOf('async function tick'));
+    const gate = head.slice(0, i).lastIndexOf('\n  if (') + 3;
     return head.slice(gate, head.indexOf(')', gate) + 1);
   };
   assert.equal(openerOf(sweep), 'if (OWNED)', `the sweep is gated by ${openerOf(sweep)}`);

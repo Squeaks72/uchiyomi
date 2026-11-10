@@ -71,7 +71,7 @@ export function HouseBoard({ members, youId, weekCovers = [], weekTitles = [], s
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium text-fog-100">
                     {m.display_name}
-                    {m.id === youId && <span className="ms-2 rounded bg-accent/20 px-1.5 py-0.5 text-[10px] font-semibold text-accent">{tr('You')}</span>}
+                    {m.id === youId && <span className="ms-2 rounded bg-accent/20 px-1.5 py-0.5 text-[11px] font-semibold text-accent">{tr('You')}</span>}
                   </p>
                   <p className="font-display text-xl font-bold tabular-nums text-accent">{m.week}</p>
                   {/* `total` comes back from /api/leaderboard already and was being thrown away. */}

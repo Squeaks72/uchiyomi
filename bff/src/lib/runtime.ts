@@ -116,6 +116,8 @@ export const runtime: {
    * tests and until the server has started; callers use `runtime.rearmBackup?.()`.
    */
   rearmBackup: (() => void) | null;
+  /** The same for the nightly repair, after `repair_hour` is saved (server.ts). */
+  rearmRepair: (() => void) | null;
 } = {
   lastScan: 0,
   lastUpdate: 0,
@@ -134,4 +136,5 @@ export const runtime: {
   finishing: false,
   quietWantedAt: 0,
   rearmBackup: null,
+  rearmRepair: null,
 };

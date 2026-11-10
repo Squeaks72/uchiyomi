@@ -18,6 +18,7 @@ import { useReduceEffects } from '@/lib/effects';
 import { EASE } from '@/lib/motion';
 import { t as tr } from '@/lib/i18n';
 import { statusText } from '@/lib/activity';
+import { applyFavorite } from '@/lib/favoriteCache';
 import { withCoverBust } from '@/lib/coverBust';
 
 function FavButton({ series }: { series: Series }) {
@@ -31,6 +32,7 @@ function FavButton({ series }: { series: Series }) {
     try {
       if (next) await api('/api/favorites', { json: { seriesId: series.id } });
       else await api(`/api/favorites/${series.id}`, { method: 'DELETE' });
+      applyFavorite(qc, series.id, next);
       qc.invalidateQueries({ queryKey: ['home'] });
     } catch { setFav(!next); }
   };

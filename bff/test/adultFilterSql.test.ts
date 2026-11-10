@@ -1,4 +1,4 @@
-// The 18+ filter's genre list never reaches SQL as text.
+// The 18+ filter reads its genre list from the database, never from a string (and no longer for library series).
 //
 // `browsable()` cannot bind parameters (25 call sites interpolate its result into queries with hand-written
 // parameter arrays), and the first version of the configurable filter therefore pasted the admin's genre names
@@ -24,25 +24,24 @@ const ctx = (adultGenres: string[], extra: Partial<ViewCtx> = {}): ViewCtx =>
   ({ ...V.SYSTEM_CTX, hideAdultLibraries: true, adultGenres, adultSources: [], ...extra });
 
 test('no configured value ever appears in the SQL, whatever the context holds', () => {
-  // Reintroduce by interpolating ctx.adultGenres into the IN list: the hostile strings appear in the query.
   const hostile = ["x') OR true --", "'; DROP TABLE lib_series; --", 'e\\\' OR 1=1 --', '$1', 'ecchi'];
   const p = new V.Params();
   const sql = V.browsable('s', ctx(hostile), p);
   for (const h of hostile) assert.ok(!sql.includes(h), `the value ${JSON.stringify(h)} reached the query`);
-  assert.match(sql, /jsonb_array_elements_text\(s2_ad\.adult_genres\)/, 'the list is read from the column');
   assert.deepEqual(p.values, [], 'browsable() bound a parameter, which its 25 call sites cannot carry');
 });
 
-test('the genre rule holds for a context that carries no lists, like the digest builds', () => {
-  // notify/index.ts takes a viewer's context and switches hideAdultLibraries on for a target that excludes 18+,
-  // without loading the lists. With the list read in SQL, that is enough.
-  const sql = V.browsable('s', ctx([]), new V.Params());
-  assert.match(sql, /adult_genres/);
-  assert.match(sql, /adult_exempt/, 'the per-series exemption is part of the clause');
+test('a series in the library is judged by its library alone, genres and own rating included', () => {
+  // Reintroduce the genre or series-rating clause in browsable(): the Dandadan bug, a series filed in an
+  // ordinary library vanishing while "Show 18+" was off.
+  const sql = V.browsable('s', ctx(['ecchi']), new V.Params());
+  assert.doesNotMatch(sql, /adult_genres/, 'a genre list judges a series that is already filed');
+  assert.doesNotMatch(sql, /o_ar\./, "a series' own rating judges a series that is already filed");
+  assert.match(sql, /l_ad\.age_rating/, 'the library rating is the rule');
 });
 
-test('the reveal switches the genre clause off entirely', () => {
-  assert.doesNotMatch(V.browsable('s', ctx(['ecchi'], { hideAdultLibraries: false }), new V.Params()), /adult_genres/);
+test('the reveal switches the 18+ clause off entirely', () => {
+  assert.doesNotMatch(V.browsable('s', ctx(['ecchi'], { hideAdultLibraries: false }), new V.Params()), /l_ad/);
 });
 
 test('sanitiseAdultList keeps genres as typed, tidies them, and refuses only what is not a label', () => {
@@ -77,28 +76,17 @@ test('sourceBrowsableFor: named sources hide only while the switch is on, case-i
   assert.equal(V.sourceBrowsableFor({ id: 'x', isNsfw: true }, { ...on, hideAdultLibraries: false, maxAgeRating: 16 }), false);
 });
 
-test("a series' own 18+ rating leaves the listing, without binding a parameter", () => {
-  // Reintroduce by dropping the series clause from browsable(): a series rated 18+ inside an ordinary library
-  // stayed on Home's Continue Reading with "Show 18+" off, because only the library's rating was checked.
+test('there is no per-series override: the library rating is the whole rule, and binds nothing', () => {
+  // Reintroduce adult_exempt in browsable(): "Always show" comes back as a second way to file a series.
   const p = new V.Params();
   const sql = V.browsable('s', ctx([]), p);
-  assert.match(sql, /o_ar\.age_rating FROM series_overrides o_ar WHERE o_ar\.series_id = s\.id/, 'the override is consulted');
-  assert.match(sql, /s\.age_rating, 0\) < 18/, 'and what the scan read, against the adult rating');
+  assert.doesNotMatch(sql, /adult_exempt/);
+  assert.match(sql, /l_ad\.age_rating >= 18/);
   assert.deepEqual(p.values, []);
-  assert.doesNotMatch(V.browsable('s', ctx([], { hideAdultLibraries: false }), new V.Params()), /o_ar/, 'the reveal switches it off');
-});
-
-test('"Always show" outranks the library rating and the series rating, not just the genres', () => {
-  // Reintroduce by leaving the exemption off either clause: an exempt series in an 18+ library, or rated 18+
-  // itself, vanishes from the shelf despite its checkbox.
-  const sql = V.browsable('s', ctx([]), new V.Params());
-  const guarded = (needle: RegExp) => sql.split(/\n/).join(' ').match(needle);
-  assert.ok(guarded(/o_ex0\.adult_exempt[^]*?\) OR NOT EXISTS \(\s*SELECT 1 FROM libraries l_ad/), 'library clause is exemptable');
-  assert.ok(guarded(/\) OR COALESCE\(\s*\(SELECT o_ar\.age_rating/), 'series rating clause is exemptable');
   assert.match(V.browsable('s', ctx([], { maxAgeRating: 12 }), new V.Params()), /age_rating IS NULL OR|<= \$/, 'the age cap is still applied');
 });
 
-test('"Always show" never reaches visible(): it is a shelf switch, and the age cap stays the permission', () => {
+test('adult_exempt never reaches visible(): the age cap stays the permission', () => {
   // PR #130 let the flag lift a capped account's age limit in visible(); v0.50.0 left that part out. Reintroduce by
   // OR-ing adult_exempt into the cap clause: the first assertion finds it. adultFilter.int.test.ts runs the same
   // rule against Postgres ("a capped account still cannot open an exempt 18+ series").

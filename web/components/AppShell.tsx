@@ -31,10 +31,11 @@ import { useNativeNavigationLayout, usesSideNavigation } from '@/lib/nativeLayou
 
 function Splash() {
   return (
-    <div className="flex min-h-screen-d items-center justify-center">
+    <div role="status" className="flex min-h-screen-d items-center justify-center">
       <div className="animate-pulse-soft">
         <Mark size={56} />
       </div>
+      <span className="sr-only">{tr('Loading…')}</span>
     </div>
   );
 }
@@ -63,7 +64,7 @@ function OfflineLanding() {
  */
 function OfflineBanner({ name }: { name: string }) {
   return (
-    <div className="flex items-center justify-center gap-2 bg-ink-800 px-4 py-1.5 text-[11px] text-fog-300 lg:ps-[calc(var(--rail-w)+1rem)]">
+    <div role="status" className="flex items-center justify-center gap-2 bg-ink-800 px-4 py-1.5 text-[11px] text-fog-300 lg:ps-[calc(var(--rail-w)+1rem)]">
       <IcWifiOff width={12} height={12} />
       <span>{tr('Offline — showing {name}’s downloads', { name })}</span>
     </div>
@@ -162,6 +163,7 @@ function AppShellContent({ children }: { children: React.ReactNode }) {
 
   return (
     <>
+      <a href="#main" className="skip-link btn-key btn-key-primary">{tr('Skip to content')}</a>
       <CinematicFX />
       {/* Above the top bar (UI refresh): nothing sits between the bar and a page's art, which starts under it. One stack, so
           only its first line meets an installed app's status bar (app/globals.css .banner-stack): two `safe-top` lines,
@@ -175,7 +177,7 @@ function AppShellContent({ children }: { children: React.ReactNode }) {
       </div>
       <TopNav onSearchFocus={() => { setPaletteSeed(''); setPalette(true); }} />
       {sideNavigation && <Sidebar nativeCompact={nativeSide && !wide} />}
-      <main className="shell relative z-[1] pb-28 lg:pb-12">
+      <main id="main" tabIndex={-1} className="outline-none shell relative z-[1] pb-28 lg:pb-12">
         <PageTransition>{children}</PageTransition>
       </main>
       {!hostNavigation && <BottomNav nativeSide={nativeSide} />}

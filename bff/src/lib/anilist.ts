@@ -455,6 +455,27 @@ const WORKS = `query($s:String){Page(perPage:5){media(search:$s,type:MANGA,forma
 /** An AniList entry as Discover's identity lookup needs it (lib/discoverIdentity.ts): its id and every name it goes by. */
 export interface AniListWork { id: number; titles: string[] }
 
+/** An entry's publication state and its chapter count (lib/officialCount.ts): AniList fills `chapters` once a work is finished. */
+export interface AniListOfficial { id: number; titles: string[]; status: string | null; chapters: number | null }
+const OFFICIAL = `query($s:String){Page(perPage:5){media(search:$s,type:MANGA,format_not_in:[NOVEL],sort:SEARCH_MATCH){id title{romaji english native}synonyms status chapters}}}`;
+
+/**
+ * The entries a name may be, with their status and chapter count, for the caller to keep only one that IS the name
+ * (namesMatch). Empty for no answer; throws on a transient failure, like searchAniListWorks. Public data: no token.
+ */
+export async function searchAniListOfficial(rawTitle: string): Promise<AniListOfficial[]> {
+  const s = clean(rawTitle);
+  if (!s) return [];
+  const r = await anilistFetch(ANILIST, POST({ query: OFFICIAL, variables: { s } }), BATCH);
+  if (r.status === 404) return [];
+  if (!r.ok) throw Object.assign(new Error(`anilist ${r.status}`), { status: r.status });
+  const j: any = await r.json();
+  return ((j?.data?.Page?.media ?? []) as any[]).filter((m) => typeof m?.id === 'number').map((m) => ({
+    id: m.id as number, titles: titlesOf(m), status: typeof m.status === 'string' ? m.status : null,
+    chapters: Number.isInteger(m.chapters) && m.chapters > 0 ? m.chapters : null,
+  }));
+}
+
 /**
  * The entries a name may be, by AniList's own search: up to five, each with its titles and synonyms, for the caller to
  * keep only one that IS the name (namesMatch). Empty for no answer. Throws on a transient failure -- a network error, a
