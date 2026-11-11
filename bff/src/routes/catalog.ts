@@ -9,6 +9,7 @@ import { spreadsFor } from '../lib/spreadMeasure';
 import { marksFor, marksJson, setMark } from '../lib/spreadMarks';
 import { komgaImage } from '../lib/komga';
 import { otherTitlesFor } from '../lib/otherTitles';
+import { similarFacets, similarFor, MAX_SELECTED } from '../lib/anilistSimilar';
 import { content as komga, NATIVE_PROGRESS, OWNED } from '../lib/backend';
 import { UnsupportedFilter, owned } from '../lib/ownedCatalog';
 import { cleanDescription } from '../lib/htmlText';
@@ -748,6 +749,47 @@ export default async function catalogRoutes(app: FastifyInstance) {
       content.push(x);
     }
     return { content: await enrichSeries(req, content) };
+  });
+
+  /**
+   * Find similar (fork, lib/anilistSimilar.ts): the genres and strongest non-spoiler tags of this series' AniList entry,
+   * for the chips of the series page's "Find similar" panel. `{lookups, genres, tags: [{name, rank}]}`; `lookups: false`
+   * as for /related. Asks AniList once per series a day (kept). A 404 for a series this viewer may not open.
+   */
+  app.get('/api/series/:id/similar/facets', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    await komga.series(vc(req), id);
+    if (!OWNED) return { lookups: false, genres: [], tags: [] };
+    try {
+      const r = await similarFacets(id);
+      return { lookups: r.lookups, genres: r.facets?.genres ?? [], tags: r.facets?.tags ?? [] };
+    } catch { return reply.code(503).send({ error: 'AniList is busy; try again in a moment' }); }
+  });
+
+  /**
+   * Find similar (fork): series like this one that share at least `min` of the chosen `genres` and `tags` (comma-separated
+   * names from /similar/facets; names the series does not carry are ignored). `{lookups, busy?, partial?, total, content:
+   * [{anilistId, matched, hits, score, series?, outside?}]}`: a held series is `series` (enriched like every rail) when this
+   * viewer may list it and left out otherwise, one the server does not hold is `outside` as in /related, 18+ entries as
+   * there. Asks AniList (pools kept six hours), unlike the rest of the page; `busy` when its quota has no room.
+   */
+  app.get('/api/series/:id/similar/search', async (req) => {
+    const { id } = req.params as { id: string };
+    await komga.series(vc(req), id);
+    if (!OWNED) return { lookups: false, total: 0, content: [] };
+    const qs = req.query as Record<string, unknown>;
+    const list = (v: unknown) => (typeof v === 'string' ? v.split(',').map((x) => x.trim()).filter((x) => x && x.length <= 60).slice(0, MAX_SELECTED) : []);
+    const min = Math.max(1, Math.min(MAX_SELECTED * 2, parseInt(String(qs.min ?? '1'), 10) || 1));
+    const r = await similarFor(id, { genres: list(qs.genres), tags: list(qs.tags) }, min, vc(req));
+    const heldIds = r.content.flatMap((e) => (e.seriesId ? [e.seriesId] : []));
+    const found = (await Promise.all(heldIds.map((x) => komga.series(vc(req), x).catch(() => null)))).filter(Boolean) as any[];
+    const byId = new Map((await enrichSeries(req, found)).map((x: any) => [x.id, x]));
+    const content = r.content.flatMap(({ seriesId, ...e }) => {
+      if (!seriesId) return [e];
+      const series = byId.get(seriesId);
+      return series ? [{ ...e, series }] : [];
+    });
+    return { ...r, content };
   });
 
   /**

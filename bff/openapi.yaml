@@ -2570,6 +2570,77 @@ paths:
           description: Not authenticated
         "404":
           description: Not found, or not visible to this account
+  /api/series/{id}/similar/facets:
+    get:
+      tags:
+        - library
+      summary: The genres and tags Find similar offers for this series (fork).
+      operationId: getApiSeriesIdSimilarFacets
+      description: >-
+        `{lookups, genres: string[], tags: [{name, rank}]}`: the genres and the strongest AniList tags (rank 0-100, spoiler
+        tags left out) of the series' linked AniList entry. `lookups` is false, with nothing else, as for `/related`. Asks
+        AniList, once a day per series (kept); 503 when AniList's quota has no room.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Not authenticated
+        "404":
+          description: Not found, or not visible to this account
+        "503":
+          description: AniList is busy
+  /api/series/{id}/similar/search:
+    get:
+      tags:
+        - library
+      summary: Series that share at least N of the chosen genres and tags (fork).
+      operationId: getApiSeriesIdSimilarSearch
+      description: >-
+        `{lookups, busy?, partial?, total, content: [{anilistId, matched, hits, score, series?, outside?}]}`, at most 36,
+        most shared chips first. `genres` and `tags` are comma-separated names from `/similar/facets` (names the series does
+        not carry are ignored); `min` is how many of the chosen ones an answer must share. A series the server holds is
+        `series`, enriched like every rail, when this account may list it and left out otherwise; one it does not hold is
+        `outside`, as in `/related`, and 18+ entries follow the same rule. Asks AniList (a pool per chosen tag, kept six
+        hours); `busy` when its quota had no room for any pool, `partial` when it ran out part-way.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: genres
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: tags
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: min
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Not authenticated
+        "404":
+          description: Not found, or not visible to this account
   /api/series/{id}/related:
     get:
       tags:
