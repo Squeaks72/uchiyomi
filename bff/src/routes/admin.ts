@@ -90,7 +90,7 @@ import { keepRestricted, memberDefaults, memberDefaultsShape, permsShape, saveMe
 import { FOLLOW_LIMIT_MAX, followerLimit, forgetFollowerLimit } from '../lib/followLimit';
 import { borrowNamesFor, clearBorrowedNames } from '../lib/borrowNames';
 import { clearAutoDetails, fillDetailsFromSources, fillDetailsOn } from '../lib/autoDetails';
-import { panelSettings, panelState, panelsRemaining, runPanelBackfill } from '../lib/panelJob';
+import { NIGHTLY_BUDGET_MS, panelSettings, panelState, panelsRemaining, runPanelBackfill } from '../lib/panelJob';
 import { lookupsChanged, libraryChanged, libraryRevision } from '../lib/discoverIdentity';
 import { sanitiseNoticeTypes, visibleBookCount } from '../lib/noticeChapters';
 import { seriesHidesNotices, hiddenCount, refreshNoticesActive } from '../lib/noticeSettings';
@@ -1559,7 +1559,8 @@ export default async function adminRoutes(app: FastifyInstance) {
     }
     if (id === 'panels') {
       if (panelState.running) return { ok: false, error: 'busy' };
-      runPanelBackfill().catch(() => {});
+      // Run now is one nightly's worth, newest first: the whole backlog of a large library is days.
+      runPanelBackfill({ budgetMs: NIGHTLY_BUDGET_MS }).catch(() => {});
       return { ok: true, started: true };
     }
     if (id === 'pagehash') {
