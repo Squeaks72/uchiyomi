@@ -336,7 +336,7 @@ const RELATED_CHUNK = 10;
 const str = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v.trim() : null);
 
 /** A related node as kept, or null for one that is not a manga to read: an anime, a light novel, no id or no name. */
-function relatedNode(n: any): Omit<RelatedItem, 'rel' | 'rating'> | null {
+export function relatedNode(n: any): Omit<RelatedItem, 'rel' | 'rating'> | null {
   if (!n || !Number.isSafeInteger(n.id) || n.id <= 0) return null;
   // Light novels are type MANGA on AniList: format tells them apart.
   if (n.type !== 'MANGA' || n.format === 'NOVEL') return null;
@@ -547,4 +547,53 @@ export async function fetchTrending(country: TrendCountry, page = 1, background 
 /** Globally trending manhwa (Korean-origin manga): Discover's hero and first rail, as before v0.61.0. */
 export function fetchTrendingManhwa(page = 1): Promise<TrendingItem[]> {
   return fetchTrending('KR', page);
+}
+
+// ---- Find similar (fork): genres and tags, and a pool of entries that share them ------------------------------------
+
+/** One AniList tag of an entry: how strongly (0-100) readers say it applies, and whether naming it spoils the story. */
+export interface AniListTag { name: string; rank: number; spoiler: boolean }
+export interface AniListFacets { genres: string[]; tags: AniListTag[] }
+/** A pool entry: the related-works shape plus its tags, which the match is scored on. */
+export type FacetItem = Omit<RelatedItem, 'rel' | 'rating'> & { tags: AniListTag[] };
+
+const TAGS = 'tags{name rank isGeneralSpoiler isMediaSpoiler}';
+const FACETS = `query($id:Int){Media(id:$id,type:MANGA){id genres ${TAGS}}}`;
+// `minimumTagRank` keeps a tag a few readers mentioned from pulling in the whole catalogue; `isAdult` is null (no
+// filter) or false, so a viewer hiding 18+ does not spend the pool's fifty places on entries they will never see.
+const POOL = `query($tag:String,$genre:String,$min:Int,$adult:Boolean){Page(page:1,perPage:50){media(type:MANGA,tag:$tag,genre:$genre,minimumTagRank:$min,isAdult:$adult,format_not_in:[NOVEL],sort:POPULARITY_DESC){${NODE} ${TAGS}}}}`;
+/** A tag below this rank is noise on an entry: kept out of what is offered and what is matched. */
+export const TAG_MIN_RANK = 50;
+
+function tagsOf(list: unknown): AniListTag[] {
+  return (Array.isArray(list) ? list : [])
+    .filter((t: any) => typeof t?.name === 'string' && t.name && Number.isFinite(t.rank))
+    .map((t: any) => ({ name: String(t.name), rank: Math.round(t.rank), spoiler: t.isGeneralSpoiler === true || t.isMediaSpoiler === true }))
+    .filter((t) => t.rank >= TAG_MIN_RANK)
+    .sort((a, b) => b.rank - a.rank)
+    .slice(0, 40);
+}
+
+/** An entry's genres and tags, or null when AniList has no such manga. A lookup someone waits on (ASK). */
+export async function fetchAniListFacets(id: number): Promise<AniListFacets | null> {
+  const r = await anilistFetch(ANILIST, POST({ query: FACETS, variables: { id } }), ASK);
+  if (r.status === 404) return null;
+  if (!r.ok) throw new Error(`anilist ${r.status}`);
+  const m: any = JSON.parse((await readCapped(r, MEDIA_MAX_BYTES)).toString('utf8'))?.data?.Media;
+  if (!m) return null;
+  return { genres: (Array.isArray(m.genres) ? m.genres : []).filter((g: unknown): g is string => typeof g === 'string'), tags: tagsOf(m.tags) };
+}
+
+/** The fifty most popular manga carrying a tag (or, with no tag, a genre), with their genres and tags. ASK. */
+export async function fetchAniListFacetPool(by: { tag?: string; genre?: string }, adult: boolean): Promise<FacetItem[]> {
+  const variables = { tag: by.tag ?? null, genre: by.genre ?? null, min: by.tag ? TAG_MIN_RANK + 10 : null, adult: adult ? null : false };
+  const r = await anilistFetch(ANILIST, POST({ query: POOL, variables }), ASK);
+  if (!r.ok) throw new Error(`anilist ${r.status}`);
+  const j: any = JSON.parse((await readCapped(r, MEDIA_MAX_BYTES)).toString('utf8'));
+  const out: FacetItem[] = [];
+  for (const m of j?.data?.Page?.media ?? []) {
+    const n = relatedNode(m);
+    if (n) out.push({ ...n, tags: tagsOf(m.tags) });
+  }
+  return out;
 }

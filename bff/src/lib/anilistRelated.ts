@@ -177,6 +177,23 @@ function itemsOf(v: unknown): RelatedItem[] {
       genres: Array.isArray(x.genres) ? x.genres : [] }));
 }
 
+/**
+ * The AniList entry a series is linked to (checked, or linked by a person), and its work key, for the lookups that ask
+ * AniList about the entry itself (lib/anilistSimilar.ts). Null for a series in a library whose lookups are off or with no
+ * such link: the same condition as relatedFor's `lookups: false`.
+ */
+export async function similarTarget(seriesId: string): Promise<{ anilistId: number; work: string } | null> {
+  const e = await entryOf(seriesId);
+  if (!e) return null;
+  const r = await one<{ al: string | null }>(
+    `SELECT t.external_id AS al FROM series_trackers t
+      WHERE t.series_id = $1 AND t.provider = 'anilist' AND (t.linked_by IS NOT NULL OR t.checked_at IS NOT NULL) LIMIT 1`,
+    [seriesId],
+  );
+  const n = Number(r?.al);
+  return Number.isSafeInteger(n) && n > 0 && n <= 2_147_483_647 ? { anilistId: n, work: e.work } : null;
+}
+
 interface Entry { work: string; row: { relations: RelatedItem[]; recs: RelatedItem[] } | null }
 
 /**
@@ -205,7 +222,7 @@ async function entryOf(seriesId: string): Promise<Entry | null> {
  * the series asked about and its own editions. `undefined` when the server holds none; `null` when it holds one this
  * viewer may not see -- dropped by the caller, never named.
  */
-function shownHeld(held: Held[], seriesId: string, work: string, shown: Set<string>): Held | null | undefined {
+export function shownHeld(held: Held[], seriesId: string, work: string, shown: Set<string>): Held | null | undefined {
   if (!held.length) return undefined;
   const others = held.filter((h) => h.id !== seriesId && h.work !== work);
   if (!others.length) return null; // it is this series (or another edition of it)
