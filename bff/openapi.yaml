@@ -2641,6 +2641,67 @@ paths:
           description: Not authenticated
         "404":
           description: Not found, or not visible to this account
+  /api/series/{id}/anilist/search:
+    get:
+      tags:
+        - library
+      summary: AniList manga matching a name, to link a series by hand (fork; admin).
+      operationId: getApiSeriesIdAnilistSearch
+      description: >-
+        `{content: [{anilistId, title, altTitle, cover, format, status, score}]}`, at most 8, for `q` (default: the series' title). 18+ entries only for an account that may see them. 503 when AniList's quota has no room.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: q
+          in: query
+          required: false
+          schema:
+            type: string
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Not authenticated
+        "403":
+          description: Admin only
+        "404":
+          description: Not found, or not visible to this account
+        "503":
+          description: AniList is busy
+  /api/series/{id}/anilist-link:
+    put:
+      tags:
+        - library
+      summary: Link a series to an AniList entry by hand (fork; admin).
+      operationId: putApiSeriesIdAnilistLink
+      description: >-
+        Body `{anilistId, title?}`. Recorded as a person's choice, which automatic matching never overwrites. 409 `lookups_off` for a series in a library whose AniList lookups are off.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Not authenticated
+        "403":
+          description: Admin only
+        "404":
+          description: Not found, or not visible to this account
+        "400":
+          description: Bad request
+        "409":
+          description: The series' library has AniList lookups off
   /api/series/{id}/related:
     get:
       tags:
