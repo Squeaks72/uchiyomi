@@ -4,18 +4,19 @@
 //
 // One answer for both (GET /api/series/:id/related, one query key), read from the copy the server keeps -- opening a
 // page never asks AniList. A work the library holds is its own card (SeriesCard), opening the series; one it does not
-// hold is AniList's cover (OutsideCard), which leads to Discover searching every source for it -- for an account that
+// hold is AniList's cover (OutsideCard), which opens the add-to-library prompt -- for an account that
 // may add series. Without that permission it is not a link, and says it is not in the library: Discover would refuse it.
+import { useState } from 'react';
 import { ScrollRail, CARD_RAIL } from './ScrollRail';
-import Link from 'next/link';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useAuth, canDownload } from '@/lib/auth';
 import { t as tr } from '@/lib/i18n';
-import { findHref, relationLabel, shownRows, type RelatedAnswer, type RelatedOutside } from '@/lib/related';
+import { relationLabel, shownRows, type RelatedAnswer, type RelatedOutside } from '@/lib/related';
 import { Img, SectionTitle } from '@/components/ui';
 import { SeriesCard, sourceCover } from '@/components/cards';
 import { IcPlus } from '@/components/icons';
+import { AddSeriesDialog } from '@/components/AddSeriesDialog';
 
 /** The series' related works: one key, so the reader's end card reuses what the series page already asked. */
 function useRelated(seriesId: string) {
@@ -29,7 +30,7 @@ function useRelated(seriesId: string) {
 
 /**
  * A related work the library does not hold: AniList's cover, its score in the corner, the relation under the title.
- * With `mayAdd` the whole card is a link to Discover searching for it, with the add mark in the corner the trending
+ * With `mayAdd` the whole card opens the add-to-library prompt (as a card on Discover does), with the add mark in the corner the trending
  * cards carry -- squared, as the app's keys are; without it a plain card whose cover says it is not in the library.
  */
 export function OutsideCard({ item, note, mayAdd }: { item: RelatedOutside; note?: string; mayAdd: boolean }) {
@@ -62,9 +63,29 @@ export function OutsideCard({ item, note, mayAdd }: { item: RelatedOutside; note
     </>
   );
   const cls = 'group block w-32 shrink-0 [scroll-snap-align:start]';
-  return mayAdd
-    ? <Link href={findHref(item.title)} title={tr('Find it on your sources')} data-outside={item.anilistId} className={cls}>{face}</Link>
-    : <div data-outside={item.anilistId} className={cls}>{face}</div>;
+  // Fork: the card opens the add-to-library prompt itself, as a card on Discover does (a trending seed finds the title on the
+  // sources), rather than leaving for a Discover search.
+  const [adding, setAdding] = useState(false);
+  if (!mayAdd) return <div data-outside={item.anilistId} className={cls}>{face}</div>;
+  return (
+    <>
+      <button type="button" onClick={() => setAdding(true)} title={tr('Add to library')} data-outside={item.anilistId} className={`${cls} text-start`}>{face}</button>
+      {adding && <AddOutside title={item.title} onClose={() => setAdding(false)} />}
+    </>
+  );
+}
+
+/** The prompt for an AniList work the library does not hold. Its own component so the hooks load only once it is opened. */
+function AddOutside({ title, onClose }: { title: string; onClose: () => void }) {
+  const { isAdmin } = useAuth();
+  const qc = useQueryClient();
+  return (
+    <AddSeriesDialog seed={{ kind: 'trending', title }} sources={[]} mayFollow={isAdmin} onClose={onClose}
+      onAdded={() => {
+        // The work is held now: the rails that named it as AniList's cover show it as the library's series.
+        for (const k of ['related', 'similar-search', 'similar', 'source-jobs', 'series']) void qc.invalidateQueries({ queryKey: [k] });
+      }} />
+  );
 }
 
 /** The series page's "Related", just above More like this: every relation the server keeps, held ones as themselves. */
