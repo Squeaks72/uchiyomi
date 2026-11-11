@@ -1197,7 +1197,7 @@ GET    /api/series/:id            GET    /api/series/:id/books
 GET    /api/series/:id/similar    GET    /api/series/:id/color
 GET    /api/series/:id/related    GET    /api/series/:id/other-titles
 GET    /api/series/:id/similar/facets    GET    /api/series/:id/similar/search
-GET    /api/series/:id/anilist/search    PUT    /api/series/:id/anilist-link
+GET    /api/series/:id/anilist/search    GET    /api/series/:id/anilist-link    PUT    /api/series/:id/anilist-link
 GET    /api/series/:id/volumes    PUT    /api/series/:id/volumes/wait
 POST   /api/series/:id/volumes/refresh
 PUT    /api/series/:id/volumes/manual

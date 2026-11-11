@@ -2674,6 +2674,29 @@ paths:
         "503":
           description: AniList is busy
   /api/series/{id}/anilist-link:
+    get:
+      tags:
+        - library
+      summary: The AniList entry a series is linked to (fork).
+      operationId: getApiSeriesIdAnilistLink
+      description: >-
+        `{linked, anilistId, title, byPerson, lookups}`: `byPerson` is true for a link an admin chose, which automatic
+        matching never overwrites; `lookups` is the series' library's AniList lookups switch.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Not authenticated
+        "404":
+          description: Not found, or not visible to this account
     put:
       tags:
         - library

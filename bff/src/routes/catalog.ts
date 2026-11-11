@@ -821,6 +821,23 @@ export default async function catalogRoutes(app: FastifyInstance) {
     } catch { return reply.code(503).send({ error: 'AniList is busy; try again in a moment' }); }
   });
 
+  /** The AniList entry this series is linked to, if any: `{linked, anilistId, title, byPerson, lookups}` (fork). */
+  app.get('/api/series/:id/anilist-link', async (req) => {
+    const { id } = req.params as { id: string };
+    await komga.series(vc(req), id);
+    if (!OWNED) return { linked: false, anilistId: null, title: null, byPerson: false, lookups: false };
+    const r = await one<{ on: boolean; al: string | null; title: string | null; person: boolean | null }>(
+      `SELECT l.anilist_lookup AS "on", t.external_id AS al, t.title, (t.linked_by IS NOT NULL) AS person
+         FROM lib_series s JOIN libraries l ON l.id = s.library_id
+         LEFT JOIN series_trackers t ON t.series_id = s.id AND t.provider = 'anilist'
+        WHERE s.id = $1`, [id]);
+    const n = Number(r?.al);
+    return {
+      linked: Number.isSafeInteger(n) && n > 0, anilistId: Number.isSafeInteger(n) && n > 0 ? n : null,
+      title: r?.title ?? null, byPerson: !!r?.person, lookups: !!r?.on,
+    };
+  });
+
   app.put('/api/series/:id/anilist-link', async (req, reply) => {
     const { id } = req.params as { id: string };
     if (!actsAsAdmin(req)) return reply.code(403).send({ error: 'forbidden' });
