@@ -175,6 +175,16 @@ export function nameSaysMore(name: string, number: number): 'part' | 'other' | n
 }
 
 /**
+ * A chapter title that only says the number again ("Chapter 4", "Ch. 4", "Vol.2 Ch. 4", "🔒 Ch. 4") or says nothing: the
+ * source published no real name for it. A lock or other symbol a source puts in front of a premium chapter is not a name.
+ * Pure. What the nightly name step looks for in the listing, and what a borrowed name may stand in for (fork).
+ */
+export function isGenericName(title: string | null | undefined, number: number): boolean {
+  const bare = (title ?? '').replace(/^[^\p{L}\p{N}]+/u, '').trim();
+  return chapterName(bare, number) === null;
+}
+
+/**
  * lib_books.chapter_name_source of a chapter name the LISTING healed onto a book that had none (lib/seriesListing.ts):
  * the name of whichever copy the listing chose for the number when the heal ran, not the file's own (#116). Every
  * other non-null value is the id of the source a name was BORROWED from (lib/borrowNames.ts), which is why this one
