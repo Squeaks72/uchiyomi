@@ -561,7 +561,7 @@ const TAGS = 'tags{name rank isGeneralSpoiler isMediaSpoiler}';
 const FACETS = `query($id:Int){Media(id:$id,type:MANGA){id genres ${TAGS}}}`;
 // `minimumTagRank` keeps a tag a few readers mentioned from pulling in the whole catalogue; `isAdult` is null (no
 // filter) or false, so a viewer hiding 18+ does not spend the pool's fifty places on entries they will never see.
-const POOL = `query($tag:String,$genre:String,$min:Int,$adult:Boolean){Page(page:1,perPage:50){media(type:MANGA,tag:$tag,genre:$genre,minimumTagRank:$min,isAdult:$adult,format_not_in:[NOVEL],sort:POPULARITY_DESC){${NODE} ${TAGS}}}}`;
+const POOL = `query($tag:String,$genre:String,$min:Int,$adult:Boolean){Page(page:1,perPage:50){media(type:MANGA,tag:$tag,genre:$genre,minimumTagRank:$min,isAdult:$adult,format_not_in:[NOVEL,ONE_SHOT],sort:POPULARITY_DESC){${NODE} ${TAGS}}}}`;
 /** A tag below this rank is noise on an entry: kept out of what is offered and what is matched. */
 export const TAG_MIN_RANK = 50;
 

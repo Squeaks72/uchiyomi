@@ -146,6 +146,15 @@ export function adultOk(item: { adult?: boolean; genres?: readonly string[] }, c
 }
 
 /**
+ * A one-shot is not recommended or related (fork): its chapter is almost always already in the main series' own chapter list
+ * (a "Chapter 0: Oneshot"), so a card for it offers something the reader has. AniList's own format says which entries are
+ * one-shots. Applied to the works the server does NOT hold; one the library holds is the library's series, shown as itself.
+ */
+export function isOneShot(item: { format?: string | null }): boolean {
+  return String(item.format ?? '').toUpperCase() === 'ONE_SHOT';
+}
+
+/**
  * The library series an AniList entry is, by the strongest evidence first: its very entry (a series linked to it, or
  * whose name is known to be it -- lib/discoverIdentity.ts byWork), then a name the library knows a series by, exactly
  * (nameKey) -- its three titles, and a synonym only when long enough to say which work it is (MIN_OTHER_NAME_KEY, the
@@ -260,7 +269,7 @@ export async function relatedFor(seriesId: string, ctx: ViewCtx): Promise<{ look
       if (!listed.has(h.id)) { listed.add(h.id); content.push({ relation: it.rel!, seriesId: h.id }); }
       return;
     }
-    if (!adultOk(it, ctx)) return;
+    if (!adultOk(it, ctx) || isOneShot(it)) return;
     content.push({
       relation: it.rel!,
       outside: { anilistId: it.id, title: it.title, cover: it.cover, format: it.format, status: it.status, score: it.score },
@@ -342,7 +351,7 @@ export async function becauseYouRead(userId: string, ctx: ViewCtx): Promise<{
   // Reintroduce by keeping what is held: "Because you read leaves out what the server holds" in
   // anilistRelated.int.test.ts finds a held work on the row.
   const lists = seeds
-    .map((s) => ({ seed: { id: s.id, title: s.title }, recs: itemsOf(s.recs).filter((it) => !heldEntry(idx, it).length && adultOk(it, ctx)) }))
+    .map((s) => ({ seed: { id: s.id, title: s.title }, recs: itemsOf(s.recs).filter((it) => !heldEntry(idx, it).length && adultOk(it, ctx) && !isOneShot(it)) }))
     .filter((l) => l.recs.length > 0);
   // One from each seed in turn, so the first cards on screen are not all one series' picks; one card per AniList entry, the
   // first seed to name it keeping it. Reintroduce the one-seed row: "Because you read draws from every recent read" fails.

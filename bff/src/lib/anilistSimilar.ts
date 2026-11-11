@@ -13,7 +13,7 @@
 // Who sees what is decided per viewer, as for Related: a series the server holds is the library's (when the viewer may list
 // it), one it does not is AniList's cover and words, and 18+ entries follow adultOk.
 import { fetchAniListFacets, fetchAniListFacetPool, type AniListFacets, type FacetItem } from './anilist';
-import { adultOk, heldEntry, shownHeld, similarTarget, type OutsideWork } from './anilistRelated';
+import { adultOk, heldEntry, isOneShot, shownHeld, similarTarget, type OutsideWork } from './anilistRelated';
 import { libraryIndex } from './discoverIdentity';
 import { browsableIds, type ViewCtx } from './visibility';
 
@@ -195,6 +195,7 @@ export async function similarFor(seriesId: string, sel: Selection, min: number, 
       return;
     }
     const it = s.item;
+    if (isOneShot(it)) return;
     content.push({ ...base, outside: { anilistId: it.id, title: it.title, cover: it.cover, format: it.format, status: it.status, score: it.score } });
   });
   return { lookups: true, ...(partial ? { partial: true } : {}), total, content };

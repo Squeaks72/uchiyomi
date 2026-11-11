@@ -1898,6 +1898,18 @@ CREATE TABLE IF NOT EXISTS series_other_titles (
 );
 ALTER TABLE series_other_titles ADD COLUMN IF NOT EXISTS anilist_id text;
 
+-- Chapter names borrowed from another source for chapters the series' own source only lists as "Chapter 4" (fork,
+-- lib/borrowNames.ts). The listing is rewritten whole at every check, so a borrowed name lives apart from it and is
+-- shown only while the listing's own title is still a bare number. Additive: an older version ignores it.
+CREATE TABLE IF NOT EXISTS series_borrowed_names (
+  series_id  text NOT NULL REFERENCES lib_series(id) ON DELETE CASCADE,
+  number     real NOT NULL,
+  name       text NOT NULL,
+  donor      text NOT NULL,
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (series_id, number)
+);
+
 -- A library move that found the series busy (a download, scan or rename holding it) is kept here and done when it is free,
 -- instead of being refused (fork). One row per series: asking again replaces the destination. Additive: an older version
 -- boots on this schema and ignores it.
