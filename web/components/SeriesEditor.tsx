@@ -17,6 +17,8 @@
 import { useEffect, useId, useMemo, useRef, useState, type DragEvent, type KeyboardEvent as ReactKeyboardEvent, type ReactNode, type RefObject } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { AnilistLinkPicker } from './AnilistLink';
+import { useAuth } from '@/lib/auth';
 import { api, ApiError, img } from '@/lib/api';
 import type { Series } from '@/lib/types';
 import { languageName } from '@/lib/format';
@@ -508,7 +510,23 @@ function ReadingPane({ id, series, meta, save, onSaved }: {
         options={[{ value: '', label: tr('Automatic') }, ...SERIES_TYPES.filter((v) => v !== 'unknown').map((v) => ({ value: v as string, label: tr(seriesTypeKey(v)) }))]}
         onPick={(seriesType) => save({ seriesType })} />
       <LanguageRow id={id} series={series} onSaved={onSaved} />
+      <AnilistLinkRow id={id} />
     </>
+  );
+}
+
+/** Admin: which AniList entry this series is (fork). Shown once, as a row that opens the picker; see components/AnilistLink.tsx. */
+function AnilistLinkRow({ id }: { id: string }) {
+  const { isAdmin } = useAuth();
+  const [open, setOpen] = useState(false);
+  if (!isAdmin) return null;
+  return (
+    <Row label={tr('AniList entry')} help={tr('Link this series to its AniList entry by hand. Find similar, related works and scores need it.')} stacked>
+      <button type="button" className="btn-key" aria-expanded={open} data-anilist-link-open onClick={() => setOpen((v) => !v)}>
+        {open ? tr('Close') : tr('Link or change…')}
+      </button>
+      {open && <div className="mt-3"><AnilistLinkPicker seriesId={id} onLinked={() => setOpen(false)} /></div>}
+    </Row>
   );
 }
 

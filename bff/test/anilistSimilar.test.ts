@@ -52,3 +52,13 @@ test('ties on score fall to the community score, then the id', () => {
   const out = scorePool(target, { genres: [], tags: ['Aliens'] }, pool, 1, 0);
   assert.deepEqual(out.map((s) => s.item.id), [3, 4, 5]);
 });
+
+test('the library’s own genres are offered after AniList’s, once each, any case', async () => {
+  const { withOwn } = await import('../src/lib/anilistSimilar');
+  assert.deepEqual(withOwn(['Action', 'Comedy'], ['action', 'Shounen', ' shounen ', 'Slice of Life', '']), ['Action', 'Comedy', 'Shounen', 'Slice of Life']);
+});
+
+test('a genre chip is also met by a tag of that name', () => {
+  const out = scorePool(target, { genres: ['Shounen'], tags: [] }, [item(1, [], [['Shounen', 80]]), item(2, [], [['Ghost', 80]])], 1, 0);
+  assert.deepEqual(out.map((s) => s.item.id), [1]);
+});

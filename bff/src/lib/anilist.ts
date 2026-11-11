@@ -597,3 +597,13 @@ export async function fetchAniListFacetPool(by: { tag?: string; genre?: string }
   }
   return out;
 }
+
+const PICKS = `query($s:String){Page(perPage:8){media(search:$s,type:MANGA,format_not_in:[NOVEL],sort:SEARCH_MATCH){${NODE}}}}`;
+
+/** AniList manga whose names match a search, for a person choosing which entry a series is. ASK. */
+export async function searchAniListPicks(search: string): Promise<Array<Omit<RelatedItem, 'rel' | 'rating'>>> {
+  const r = await anilistFetch(ANILIST, POST({ query: PICKS, variables: { s: search } }), ASK);
+  if (!r.ok) throw new Error(`anilist ${r.status}`);
+  const j: any = JSON.parse((await readCapped(r, MEDIA_MAX_BYTES)).toString('utf8'));
+  return (j?.data?.Page?.media ?? []).map(relatedNode).filter((x: unknown): x is Omit<RelatedItem, 'rel' | 'rating'> => !!x);
+}
