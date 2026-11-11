@@ -244,8 +244,25 @@ export async function panelsRemaining(): Promise<number> {
   return Number(rows[0]?.n ?? 0);
 }
 
-/** Detect every chapter not yet looked at, at the settings' tier. Safe to call repeatedly, and to interrupt. */
-export async function runPanelBackfill(opts: { max?: number; tier?: Tier } = {}): Promise<PanelProgress> {
+export interface PassOptions {
+  max?: number;
+  tier?: Tier;
+  /** Stop starting new chapters after this long: a library of tens of thousands of chapters is days of work for one thread. */
+  budgetMs?: number;
+  /** Only chapters whose FILE is this many days old or less (lib_books.mtime, in ms): what "On import" is for. Not `updated_at`: every scan touches that. */
+  recentDays?: number;
+}
+
+/** What one nightly pass may spend, and what a pass after an import may: the backlog drains a few hours a night, not all at once. */
+export const NIGHTLY_BUDGET_MS = 2 * 3600_000;
+export const IMPORT_BUDGET_MS = 20 * 60_000;
+export const IMPORT_RECENT_DAYS = 2;
+
+/**
+ * Detect chapters not yet looked at, at the settings' tier, NEWEST FIRST -- so what just arrived is done before the backlog -- until
+ * none are left or the budget is spent. Safe to call repeatedly, and to interrupt.
+ */
+export async function runPanelBackfill(opts: PassOptions = {}): Promise<PanelProgress> {
   const client = await pool.connect();
   let held = false;
   try {
@@ -259,6 +276,8 @@ export async function runPanelBackfill(opts: { max?: number; tier?: Tier } = {})
     await exclusive(async () => {
       beginRun('pass', tier);
       const limit = opts.max ?? Infinity;
+      const deadline = opts.budgetMs ? Date.now() + opts.budgetMs : Infinity;
+      const recent = opts.recentDays ?? null;
       try {
         // ⚠️ Not from a root that is not there: a chapter is marked looked-at whether or not it could be read, so a pass over an
         // unmounted share would retire every chapter on it for good (lib/catalogRootGuard.ts; the same note as pageHashJob.ts).
@@ -276,17 +295,19 @@ export async function runPanelBackfill(opts: { max?: number; tier?: Tier } = {})
               WHERE b.pruned_at IS NULL
                 AND NOT EXISTS (SELECT 1 FROM page_panels p WHERE p.book_id = b.id AND p.page = 0 AND p.ver = $4)
                 AND COALESCE(b.root, $2) <> ALL($3::text[])
-              ORDER BY b.id LIMIT $1`,
-            [Math.min(BATCH, Math.max(0, limit - panelState.chapters)), LIBRARY_ROOT, down, PANEL_VERSION],
+                AND ($5::int IS NULL OR b.mtime > (extract(epoch FROM now() - make_interval(days => $5::int)) * 1000)::bigint)
+              ORDER BY b.mtime DESC, b.id LIMIT $1`,
+            [Math.min(BATCH, Math.max(0, limit - panelState.chapters)), LIBRARY_ROOT, down, PANEL_VERSION, recent],
           );
           if (!batch.length) break;
           for (const b of batch) {
+            if (Date.now() > deadline) break;
             panelState.current = b.title || `Chapter ${b.number}`;
             await detectBookNow(b, { tier });
             panelState.chapters++;
           }
           panelState.remaining = await panelsRemaining().catch(() => null);
-          if (panelState.chapters >= limit) break;
+          if (panelState.chapters >= limit || Date.now() > deadline) break;
         }
       } catch (e) {
         panelState.lastError = (e as Error)?.message ?? String(e);
@@ -318,7 +339,7 @@ export function armPanelPass(delayMs = IMPORT_DELAY_MS): void {
     importTimer = null;
     try {
       const s = await panelSettings();
-      if (s.onImport && !panelState.running) await runPanelBackfill({ tier: s.tier });
+      if (s.onImport && !panelState.running) await runPanelBackfill({ tier: s.tier, recentDays: IMPORT_RECENT_DAYS, budgetMs: IMPORT_BUDGET_MS });
     } catch (e) { console.warn('[panels] import pass failed:', (e as Error)?.message); }
   }, delayMs);
   importTimer.unref?.();
@@ -337,7 +358,7 @@ export function schedulePanelJobs(): () => void {
   const tick = async () => {
     try {
       const s = await panelSettings();
-      if (nightlyDue(s) && !panelState.running) await runPanelBackfill({ tier: s.tier });
+      if (nightlyDue(s) && !panelState.running) await runPanelBackfill({ tier: s.tier, budgetMs: NIGHTLY_BUDGET_MS });
     } catch (e) { console.warn('[panels] nightly check failed:', (e as Error)?.message); }
   };
   const timer = setInterval(tick, 10 * 60_000);
