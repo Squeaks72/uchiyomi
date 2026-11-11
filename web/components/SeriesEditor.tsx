@@ -17,7 +17,7 @@
 import { useEffect, useId, useMemo, useRef, useState, type DragEvent, type KeyboardEvent as ReactKeyboardEvent, type ReactNode, type RefObject } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { AnilistLinkPicker } from './AnilistLink';
+import { AnilistLinkPicker, AnilistLinkStatus } from './AnilistLink';
 import { useAuth } from '@/lib/auth';
 import { api, ApiError, img } from '@/lib/api';
 import type { Series } from '@/lib/types';
@@ -522,10 +522,12 @@ function AnilistLinkRow({ id }: { id: string }) {
   if (!isAdmin) return null;
   return (
     <Row label={tr('AniList entry')} help={tr('Link this series to its AniList entry by hand. Find similar, related works and scores need it.')} stacked>
-      <button type="button" className="btn-key" aria-expanded={open} data-anilist-link-open onClick={() => setOpen((v) => !v)}>
+      <AnilistLinkStatus seriesId={id} />
+      <button type="button" className="btn-key mt-2" aria-expanded={open} data-anilist-link-open onClick={() => setOpen((v) => !v)}>
         {open ? tr('Close') : tr('Link or change…')}
       </button>
-      {open && <div className="mt-3"><AnilistLinkPicker seriesId={id} onLinked={() => setOpen(false)} /></div>}
+      {/* The picker stays open after a link, saying what it linked: closing it on success looked like nothing happened. */}
+      {open && <div className="mt-3"><AnilistLinkPicker seriesId={id} /></div>}
     </Row>
   );
 }

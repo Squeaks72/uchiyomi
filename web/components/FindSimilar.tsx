@@ -9,7 +9,7 @@ import { useState } from 'react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useAuth, canDownload } from '@/lib/auth';
-import { AnilistLinkPicker } from '@/components/AnilistLink';
+import { AnilistLinkPicker, AnilistLinkStatus } from '@/components/AnilistLink';
 import { t as tr } from '@/lib/i18n';
 import { defaultTags, effectiveMin, matchNote, searchUrl, type SimilarAnswer, type SimilarFacets } from '@/lib/similar';
 import { ScrollRail, CARD_RAIL } from '@/components/ScrollRail';
@@ -94,6 +94,7 @@ export function FindSimilar({ seriesId }: { seriesId: string }) {
           )}
           {facets?.lookups && (
             <>
+              <div className="mb-3"><AnilistLinkStatus seriesId={seriesId} /></div>
               {facets.genres.length > 0 && (
                 <div className="mb-3">
                   <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-fog-500">{tr('Genres')}</p>
