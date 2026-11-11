@@ -31,6 +31,7 @@ import { extensionSettingsHref } from '@/lib/sourcePrefs';
 import { baseOf, codeLabel, editionLangPreset, languageChoices, openingLanguage } from '@/lib/editions';
 import { MANGADEX_LANGUAGES_HREF } from '@/lib/mangadexLangs';
 import { ContentScopePicker, useContentScope } from '@/components/ContentScopePicker';
+import { useLibraries } from '@/components/AdultToggle';
 import type { ContentVisibility } from '@/lib/contentScope';
 import { ListChoiceField, CollectionPickerModal, addToList, type ListChoice } from '@/components/CollectionPicker';
 
@@ -239,6 +240,9 @@ export function AddSeriesDialog({ seed, sources, mayFollow, onClose, onAdded }: 
   // simply clears the choice instead of racing the arrival of the new detail.
   const [pickChoice, setPickChoice] = useState<ChapterPick | null>(null);
   const [autoUpdate, setAutoUpdate] = useState(true);
+  // Fork: which of the libraries this goes into. '' lets the server choose (the library whose folder rule fits, else the default).
+  const [libraryId, setLibraryId] = useState('');
+  const libraries = useLibraries().data ?? [];
   // "Archive the rest slowly" (#117). Off until switched on, for every add: the rest of a series is days of
   // fetching, and that is a choice, not a default.
   const [archiveOn, setArchiveOn] = useState(false);
@@ -484,6 +488,7 @@ export function AddSeriesDialog({ seed, sources, mayFollow, onClose, onAdded }: 
         json: {
           source: picked.source, sourceId: picked.sourceId, chapterCount, chapterFrom, autoUpdate, force, alsoFollow: alsoFollowBody, numbering,
           ...(!edSeed ? { visibility: contentScope.visibility } : {}),
+          ...(!edSeed && contentScope.visibility === 'shared' && libraryId ? { libraryId } : {}),
           ...(archiving ? { archive: true } : {}), ...(editionBody ? { edition: editionBody } : {}),
         },
         // The client has never set a timeout anywhere, so the only bound was the proxy's 120s -- which
@@ -782,6 +787,15 @@ export function AddSeriesDialog({ seed, sources, mayFollow, onClose, onAdded }: 
         </div>
         <div className="min-w-0 flex-1">
           {!edSeed && <div className="mb-4"><ContentScopePicker scope={scopeControl} disabled={adding} /></div>}
+          {!edSeed && contentScope.visibility === 'shared' && libraries.length > 1 && (
+            <div className="mb-4" data-add-library>
+              <label htmlFor="add-library" className="mb-1 block text-xs font-semibold text-fog-300">{tr('Add to library')}</label>
+              <select id="add-library" value={libraryId} disabled={adding} onChange={(e) => setLibraryId(e.target.value)} className="field w-full text-sm">
+                <option value="">{tr('Automatic')}</option>
+                {libraries.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+              </select>
+            </div>
+          )}
           {/* On a phone a small cover sits beside the source and count instead of a 112 px one stacked above the whole
               body (which pushed the picker and "Add to library" below the fold); from sm up the tall cover beside the
               body above is the layout. */}

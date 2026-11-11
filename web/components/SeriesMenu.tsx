@@ -10,6 +10,7 @@ import type { Series } from '@/lib/types';
 import { useToast } from './Toast';
 import { useContextMenu, type MenuItem } from './ContextMenu';
 import { useArchiveEnqueue } from './ArchiveQueue';
+import { msgOf } from '@/components/ConfirmDialog';
 import { MoveToLibrary } from './MoveToLibrary';
 
 /**
@@ -87,10 +88,11 @@ export function useSeriesMenu(series: Series) {
     <MoveToLibrary n={1} busy={moveBusy} onClose={() => setMoving(false)} onPick={async (libraryId) => {
       setMoveBusy(true);
       try {
-        await api(`/api/admin/series/${encodeURIComponent(series.id)}/library`, { json: { libraryId } });
-        toast(tr('1 series updated'), 'success');
+        const r = await api<{ queued?: boolean }>(`/api/admin/series/${encodeURIComponent(series.id)}/library`, { json: { libraryId } });
+        // Fork: a series another task is using is queued and moved as soon as it is free, not refused.
+        toast(r?.queued ? tr('Queued: another task is using this series, so it will move as soon as that finishes.') : tr('1 series updated'), 'success');
         settle();
-      } catch { toast(tr('Could not do that'), 'error'); }
+      } catch (e) { toast(msgOf(e, tr('Could not do that')), 'error'); }
       setMoveBusy(false);
       setMoving(false);
     }} />,

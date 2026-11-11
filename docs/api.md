@@ -2031,6 +2031,7 @@ GET    /api/admin/libraries/preview
 GET    /api/admin/libraries/folders
 PATCH  /api/admin/libraries/:id   DELETE /api/admin/libraries/:id
 POST   /api/admin/libraries/:id/consolidate
+GET    /api/admin/libraries/:id/removal
 POST   /api/admin/libraries/:id/relocate
 POST   /api/admin/series/bulk/genres
 POST   /api/admin/series/:id/library
@@ -2086,7 +2087,7 @@ name}`), and nothing is saved. `GET /api/admin/libraries` gives each library its
 that does not exist is **404** `not_found`. Every save moves the series it reaches in its own transaction: each series
 that is not filed by hand (`POST /api/admin/series/:id/library`) and sits under a folder the library held before the
 save or holds after it goes to the library holding the longest folder its own folder is in, across every library's
-folders, or to the default library `lib`. `DELETE /api/admin/libraries/:id` also moves what the library holds by hand,
+folders, or to the default library `lib`. `GET /api/admin/libraries/:id/removal` says what a removal would do and why it is refused when it is (fork); `DELETE /api/admin/libraries/:id?moveTo=<library>` files the series no other library covers into that library, by hand, instead of the default one; a moved series another task is using is queued (`202 {queued: true}` on `POST /api/admin/series/:id/library`, `queued` on the bulk route) and moved when it is free. `DELETE /api/admin/libraries/:id` also moves what the library holds by hand,
 which is filed by hand nowhere after that: it goes where its folder says, and the folder rule takes it from then on.
 All three answer `moved`, the number of series that changed library. `GET
 /api/admin/libraries/preview?paths=…&paths=…` runs the same statement without saving and answers `{path, paths,

@@ -111,6 +111,29 @@ export async function previewMoves(qq: Qq, id: string | null, paths: string[]): 
 }
 
 /**
+ * What removing library `id` would do to its series, for the Remove dialog: how many go where, and which ones fall into the
+ * default library only because no other library's folders cover them ("unplaced": `goes` is the default, 'lib'). A removed or
+ * merged-away series is not counted: nobody is promised it. Read-only; the removal itself is applyMoves.
+ */
+export async function previewRemoval(qq: Qq, id: string): Promise<{
+  total: number; byLibrary: Array<{ id: string; n: number }>; unplaced: { n: number; sample: string[] };
+}> {
+  const args = [id, [] as string[], true];
+  const by = await qq<{ goes: string; n: number }>(`${MOVES} SELECT goes, count(*)::int AS n FROM moves WHERE shown GROUP BY goes ORDER BY n DESC`, args);
+  const sample = await qq<{ title: string }>(`${MOVES} SELECT title FROM moves WHERE shown AND goes = 'lib' ORDER BY title LIMIT 12`, args);
+  return {
+    total: by.reduce((a, r) => a + r.n, 0),
+    byLibrary: by.map((r) => ({ id: r.goes, n: r.n })),
+    unplaced: { n: by.find((r) => r.goes === 'lib')?.n ?? 0, sample: sample.map((r) => r.title) },
+  };
+}
+
+/** The ids of the series removing library `id` would drop into the default library for want of any other that covers them. */
+export async function unplacedIds(qq: Qq, id: string): Promise<string[]> {
+  return (await qq<{ id: string }>(`${MOVES} SELECT id FROM moves WHERE goes = 'lib'`, [id, [] as string[], true])).map((r) => r.id);
+}
+
+/**
  * Move every series the save reaches, inside the save's transaction and BEFORE its library_paths rows are rewritten
  * (they are what it held before). Answers how many series changed library, removed ones included.
  *

@@ -320,7 +320,7 @@ function LibraryInner() {
   const bulk = async (path: string, extra: Record<string, unknown>) => {
     setActing(true);
     try {
-      const r = await api<{ applied: number; skipped: { id: string }[] }>(path, {
+      const r = await api<{ applied: number; queued?: number; skipped: { id: string }[] }>(path, {
         json: { seriesIds: [...picked], ...extra },
       });
       // Say what was skipped rather than silently applying to fewer than were selected. Each count its own pair of
@@ -329,9 +329,11 @@ function LibraryInner() {
       const updated = r.applied === 1 ? tr('1 series updated') : tr('{n} series updated', { n: r.applied });
       const gone = r.skipped.length === 1 ? tr('1 series is no longer in the library')
         : tr('{n} series are no longer in the library', { n: r.skipped.length });
-      toast(r.skipped.length ? `${updated} · ${gone}` : updated, 'success');
+      // Fork: moves that found a series busy are queued, not refused.
+      const queued = r.queued ? ` · ${r.queued === 1 ? tr('1 queued: it will move when the task using it finishes') : tr('{n} queued: they will move when the tasks using them finish', { n: r.queued })}` : '';
+      toast(`${r.skipped.length ? `${updated} · ${gone}` : updated}${queued}`, 'success');
       settle();
-    } catch { toast(tr('Could not apply that'), 'error'); }
+    } catch (e) { toast(msgOf(e, tr('Could not apply that')), 'error'); }
     setActing(false);
   };
 

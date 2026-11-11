@@ -12685,6 +12685,33 @@ paths:
           description: Not authenticated
         "403":
           description: "Forbidden: token scope, account permission or age limit"
+  /api/admin/libraries/{id}/removal:
+    get:
+      tags:
+        - admin
+      summary: What removing a library would do, and why it cannot be removed when it cannot (fork).
+      operationId: getApiAdminLibrariesIdRemoval
+      description: >-
+        `{name, blocked, total, byLibrary: [{id, name, n}], unplaced: {n, sample}}`. `blocked` is `{error, message}` for the
+        default library and for an account's private library, `null` otherwise. `unplaced` counts the series no other
+        library's folders cover, which would fall into the default library; `DELETE ?moveTo=` files them elsewhere.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Not authenticated
+        "403":
+          description: Admin only
+        "404":
+          description: No such library
   /api/admin/libraries/{id}:
     patch:
       tags:

@@ -19,7 +19,7 @@ import { content as komga } from '../lib/backend';
 import { cacheBytes } from '../lib/imageCache';
 import { runtime } from '../lib/runtime';
 import { persistScan, libraryIdFor, libraryRows, LIBRARY_ROOT, DL_ROOT, setBookDates, setBookMeta } from '../lib/library';
-import { applyMoves, heldElsewhere, lockLibrarySaves, previewMoves, setFolders, storedFolders, healFolderCase, underSql, LIBRARY_MAX_FOLDERS } from '../lib/libraryFolders';
+import { applyMoves, heldElsewhere, lockLibrarySaves, previewMoves, previewRemoval, unplacedIds, setFolders, storedFolders, healFolderCase, underSql, LIBRARY_MAX_FOLDERS } from '../lib/libraryFolders';
 import { containedPath, allWritable, realContainedPath } from '../lib/fsGuard';
 import { deleteSeries, restoreSeries, mergeSeries, mergeRefusal, MergeConflictError, getSeriesRow, deleteSeriesFiles, renameSeriesFolder, forgetSeries, diskSpelling, deleteChapterFiles } from '../lib/libraryAdmin';
 import { keepOneOfEach } from '../lib/heldTwice';
@@ -3276,7 +3276,9 @@ export default async function adminRoutes(app: FastifyInstance) {
     return { ok: true, username: row.username };
   });
 
-  type FolderMove = { id: string; title: string; from: string; to: string; status: 'planned' | 'conflict' | 'moved' | 'refused'; reason?: string; fix?: string };
+  type FolderMove = { id: string; title: string; from: string; to: string; status: 'planned' | 'conflict' | 'moved' | 'refused'; reason?: string; fix?: string;
+    /** Refused only because another task held the series: the move is queued rather than lost (pending_library_moves). */
+    busy?: boolean };
 
   /** `<target>/<leaf>` for each series, with collisions (two in this move, or a folder already taken) flagged. */
   async function planFolderMoves(rows: { id: string; title: string; folder: string }[], target: string): Promise<FolderMove[]> {
@@ -3307,7 +3309,7 @@ export default async function adminRoutes(app: FastifyInstance) {
       if (m.status !== 'planned') continue;
       if (m.to === m.from) { m.status = 'moved'; continue; }
       const claim = claimSeriesWriter([m.id], [m.from, m.to]);
-      if (!claim) { m.status = 'refused'; m.reason = 'Another task (a download, scan or rename) is using that series right now.'; m.fix = 'Try again when it has finished.'; continue; }
+      if (!claim) { m.status = 'refused'; m.busy = true; m.reason = 'Another task (a download, scan or rename) is using that series right now.'; m.fix = 'Try again when it has finished.'; continue; }
       try {
         const r = await renameSeriesFolder(m.id, m.to);
         if (r.ok) m.status = 'moved'; else { m.status = 'refused'; m.reason = r.reason; m.fix = (r as { fix?: string }).fix; }
@@ -3325,16 +3327,62 @@ export default async function adminRoutes(app: FastifyInstance) {
     return first?.path ?? '';
   }
 
-  /** Puts series in a library: moves their folders into its root unless `moveFiles` is off, then pins them there. */
-  async function putInLibrary(rows: { id: string; title: string; folder: string }[], libraryId: string, moveFiles: boolean) {
+  /**
+   * Puts series in a library: moves their folders into its root unless `moveFiles` is off, then pins them there. A series
+   * another task is using right now is not refused: its move is queued (`queued`) and done when it is free (fork).
+   */
+  async function putInLibrary(rows: { id: string; title: string; folder: string }[], libraryId: string, moveFiles: boolean, userId: string | null = null) {
     const root = moveFiles ? await libraryRootFolder(libraryId) : null;
     const moves = root === null ? [] : await planFolderMoves(rows, root);
     await runFolderMoves(moves);
+    const busy = moves.filter((m) => m.busy);
+    for (const m of busy) await queueLibraryMove(m.id, libraryId, moveFiles, userId);
     const failed = new Set(moves.filter((m) => m.status !== 'moved').map((m) => m.id));
     const ok = rows.filter((r) => !failed.has(r.id)).map((r) => r.id);
     if (ok.length) await q('UPDATE lib_series SET library_id = $2, library_pinned = true WHERE id = ANY($1)', [ok, libraryId]);
-    return { applied: ok.length, problems: moves.filter((m) => failed.has(m.id)) };
+    return { applied: ok.length, queued: busy.length, problems: moves.filter((m) => failed.has(m.id) && !m.busy) };
   }
+
+  async function queueLibraryMove(seriesId: string, libraryId: string, moveFiles: boolean, userId: string | null) {
+    await q(
+      `INSERT INTO pending_library_moves (series_id, library_id, move_files, requested_by) VALUES ($1,$2,$3,$4)
+       ON CONFLICT (series_id) DO UPDATE SET library_id = EXCLUDED.library_id, move_files = EXCLUDED.move_files,
+         requested_by = EXCLUDED.requested_by, requested_at = now(), attempts = 0`,
+      [seriesId, libraryId, moveFiles, userId]);
+    setTimeout(() => { void processLibraryMoves(); }, 10_000).unref();
+  }
+
+  /** Does every queued move whose series is free now; one that is still busy stays queued. Never overlaps itself. */
+  let movingQueue = false;
+  async function processLibraryMoves(): Promise<void> {
+    if (movingQueue || runtime.stopping) return;
+    movingQueue = true;
+    try {
+      const rows = await q<{ series_id: string; library_id: string; move_files: boolean }>(
+        'SELECT series_id, library_id, move_files FROM pending_library_moves ORDER BY requested_at LIMIT 50');
+      for (const r of rows) {
+        if (runtime.stopping) break;
+        const series = await one<{ folder: string; title: string }>('SELECT folder, title FROM lib_series WHERE id = $1', [r.series_id]);
+        if (!series) { await q('DELETE FROM pending_library_moves WHERE series_id = $1', [r.series_id]); continue; }
+        const root = r.move_files ? await libraryRootFolder(r.library_id) : null;
+        const moves = root === null ? [] : await planFolderMoves([{ id: r.series_id, ...series }], root);
+        await runFolderMoves(moves);
+        const m = moves[0];
+        if (m?.busy) { await q('UPDATE pending_library_moves SET attempts = attempts + 1 WHERE series_id = $1', [r.series_id]); continue; }
+        if (m && m.status !== 'moved') {
+          // A real refusal (a clash, a read-only volume): retrying would only repeat it. Drop it and say so in the log.
+          app.log.warn({ seriesId: r.series_id, reason: m.reason }, 'queued library move refused');
+          await q('DELETE FROM pending_library_moves WHERE series_id = $1', [r.series_id]);
+          continue;
+        }
+        await q('UPDATE lib_series SET library_id = $2, library_pinned = true WHERE id = $1', [r.series_id, r.library_id]);
+        await q('DELETE FROM pending_library_moves WHERE series_id = $1', [r.series_id]);
+      }
+    } catch (e) { app.log.warn({ err: e }, 'library move queue failed'); }
+    finally { movingQueue = false; }
+  }
+  setInterval(() => { void processLibraryMoves(); }, 30_000).unref();
+  setTimeout(() => { void processLibraryMoves(); }, 20_000).unref();
 
   /**
    * Move one series into a library by hand, regardless of where its folder lives.
@@ -3365,7 +3413,11 @@ export default async function adminRoutes(app: FastifyInstance) {
 
     const lib = await one<{ id: string }>('SELECT id FROM libraries WHERE id = $1', [b.data.libraryId]);
     if (!lib) return reply.code(404).send({ error: 'no_such_library' });
-    const done = await putInLibrary([{ id, title: series.title, folder: series.folder }], b.data.libraryId, b.data.moveFiles !== false);
+    const done = await putInLibrary([{ id, title: series.title, folder: series.folder }], b.data.libraryId, b.data.moveFiles !== false, userIdOf(req));
+    if (done.queued) {
+      await logAudit('series.library', { userId: userIdOf(req), detail: { id, libraryId: b.data.libraryId, queued: true }, req });
+      return reply.code(202).send({ ok: true, queued: true, message: 'Another task is using this series right now. The move is queued and will happen as soon as it has finished.' });
+    }
     if (!done.applied) {
       const why = done.problems[0];
       return reply.code(409).send({ error: 'move_failed', message: why?.reason ?? 'The files could not be moved.', fix: why?.fix, problems: done.problems });
@@ -3397,6 +3449,7 @@ export default async function adminRoutes(app: FastifyInstance) {
     const skipped = b.data.seriesIds.filter((id) => !found.some((f) => f.id === id)).map((id) => ({ id }));
 
     let applied = found.length;
+    let queued = 0;
     let problems: FolderMove[] = [];
     if (b.data.libraryId === null) {
       const libs = await libraryRows();
@@ -3407,13 +3460,14 @@ export default async function adminRoutes(app: FastifyInstance) {
     } else {
       const lib = await one<{ id: string }>('SELECT id FROM libraries WHERE id = $1', [b.data.libraryId]);
       if (!lib) return reply.code(404).send({ error: 'no_such_library' });
-      const done = await putInLibrary(found, b.data.libraryId, b.data.moveFiles !== false);
+      const done = await putInLibrary(found, b.data.libraryId, b.data.moveFiles !== false, userIdOf(req));
       applied = done.applied;
+      queued = done.queued;
       problems = done.problems;
     }
     await logAudit('series.library', {
       userId: userIdOf(req), detail: { n: applied, libraryId: b.data.libraryId, moveFiles: b.data.moveFiles !== false }, req });
-    return { applied, skipped, ...(problems.length ? { problems } : {}) };
+    return { applied, queued, skipped, ...(problems.length ? { problems } : {}) };
   });
 
   // Add and/or remove genres on a whole selection. Written to series_overrides, the layer a scan never overwrites.
@@ -3890,32 +3944,88 @@ export default async function adminRoutes(app: FastifyInstance) {
     };
   });
 
+  /**
+   * What removing a library would do, and why it cannot be removed when it cannot (fork): `{name, blocked, total, byLibrary:
+   * [{id, name, n}], unplaced: {n, sample}}`. `blocked` is `{error, message}` -- the default library and a private library
+   * an account owns are never removed here. `unplaced` are the series no other library's folders cover, which would fall
+   * into the default library: the Remove dialog offers to file them in a library of the admin's choice first.
+   */
+  app.get('/api/admin/libraries/:id/removal', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const lib = await one<{ name: string; managed_private: boolean }>('SELECT name, managed_private FROM libraries WHERE id = $1', [id]);
+    if (!lib && id !== 'lib') return reply.code(404).send({ error: 'not_found' });
+    const blocked = id === 'lib'
+      ? { error: 'cannot_delete', message: 'The default library cannot be removed: it holds every series no other library covers.' }
+      : lib?.managed_private
+        ? { error: 'managed_private_library', message: 'This is an account\u2019s private library, managed from that account\u2019s privacy settings. It cannot be removed here.' }
+        : null;
+    if (blocked) return { name: lib?.name ?? 'Default', blocked, total: 0, byLibrary: [], unplaced: { n: 0, sample: [] } };
+    const plan = await previewRemoval(q, id);
+    const names = new Map((await q<{ id: string; name: string }>('SELECT id, name FROM libraries')).map((l) => [l.id, l.name]));
+    return {
+      name: lib!.name, blocked: null, total: plan.total,
+      byLibrary: plan.byLibrary.map((r) => ({ id: r.id, name: names.get(r.id) ?? (r.id === 'lib' ? 'Default' : r.id), n: r.n })),
+      unplaced: plan.unplaced,
+    };
+  });
+
+  /**
+   * Remove a library. Its series go back to whichever library still holds their folder, else the default one. `moveTo`
+   * (fork) files the ones no other library covers into that library instead, by hand (pinned there, files untouched).
+   * Every refusal says why.
+   */
   app.delete('/api/admin/libraries/:id', async (req, reply) => {
     const { id } = req.params as { id: string };
-    if (await one('SELECT 1 FROM libraries WHERE id=$1 AND managed_private',[id])) return reply.code(409).send({error:'managed_private_library'});
-    if (id === 'lib') {
-      return reply.code(400).send({ error: 'cannot_delete', message: 'The default library cannot be removed.' });
+    const moveTo = typeof (req.query as { moveTo?: unknown })?.moveTo === 'string' ? (req.query as { moveTo: string }).moveTo : '';
+    if (await one('SELECT 1 FROM libraries WHERE id=$1 AND managed_private',[id])) {
+      return reply.code(409).send({ error: 'managed_private_library', message: 'This is an account\u2019s private library, managed from that account\u2019s privacy settings. It cannot be removed here.' });
     }
-    const moved = await tx(async (qq) => {
-      await lockLibrarySaves(qq);
-      // Back to whichever library still holds each folder -- the enclosing one for a nested library, the
-      // default otherwise. Sending everything to the default would tear a nested library's contents out of
-      // its parent on delete, which is not what "remove this library" means. What it held by hand moves too.
-      //
-      // The FK is RESTRICT on purpose: read_progress cascades from lib_series, so a cascading library delete
-      // would destroy reading history two hops away.
-      const n = await applyMoves(qq, id, [], true);
-      // Whoever was granted this one specifically. Taking their row away can leave them with none at all,
-      // and none means every library -- so removing a shelf would quietly hand them the whole collection.
-      const granted = await qq<{ user_id: string }>('SELECT user_id FROM user_libraries WHERE library_id = $1', [id]);
-      await qq('DELETE FROM user_libraries WHERE library_id = $1', [id]);
-      for (const g of granted) await keepRestricted(qq, g.user_id);
-      // Its library_paths rows go with it (ON DELETE CASCADE).
-      await qq('DELETE FROM libraries WHERE id = $1', [id]);
-      return n;
-    });
-    await logAudit('library.delete', { userId: userIdOf(req), detail: { id, moved }, req });
-    return { ok: true, moved };
+    if (id === 'lib') {
+      return reply.code(400).send({ error: 'cannot_delete', message: 'The default library cannot be removed: it holds every series no other library covers.' });
+    }
+    if (moveTo) {
+      if (moveTo === id) return reply.code(400).send({ error: 'bad_request', message: 'Pick a different library to move the series into.' });
+      if (!(await one('SELECT 1 FROM libraries WHERE id = $1 AND NOT managed_private', [moveTo]))) {
+        return reply.code(404).send({ error: 'no_such_library', message: 'The library you chose to move the series into no longer exists.' });
+      }
+    }
+    let filed = 0;
+    let moved = 0;
+    try {
+      moved = await tx(async (qq) => {
+        await lockLibrarySaves(qq);
+        // The series no other library covers go where the admin chose, filed by hand, before the rest go by folder.
+        if (moveTo) {
+          const ids = await unplacedIds(qq, id);
+          if (ids.length) {
+            await qq('UPDATE lib_series SET library_id = $2, library_pinned = true WHERE id = ANY($1)', [ids, moveTo]);
+            filed = ids.length;
+          }
+        }
+        // Back to whichever library still holds each folder -- the enclosing one for a nested library, the
+        // default otherwise. Sending everything to the default would tear a nested library's contents out of
+        // its parent on delete, which is not what "remove this library" means. What it held by hand moves too.
+        //
+        // The FK is RESTRICT on purpose: read_progress cascades from lib_series, so a cascading library delete
+        // would destroy reading history two hops away.
+        const n = await applyMoves(qq, id, [], true);
+        // Whoever was granted this one specifically. Taking their row away can leave them with none at all,
+        // and none means every library -- so removing a shelf would quietly hand them the whole collection.
+        const granted = await qq<{ user_id: string }>('SELECT user_id FROM user_libraries WHERE library_id = $1', [id]);
+        await qq('DELETE FROM user_libraries WHERE library_id = $1', [id]);
+        for (const g of granted) await keepRestricted(qq, g.user_id);
+        // Its library_paths rows go with it (ON DELETE CASCADE).
+        await qq('DELETE FROM libraries WHERE id = $1', [id]);
+        return n;
+      });
+    } catch (e) {
+      if ((e as { code?: string }).code === '23503') {
+        return reply.code(409).send({ error: 'in_use', message: 'Something still refers to this library, so it could not be removed. Reload and try again; if it persists, check the server log.' });
+      }
+      throw e;
+    }
+    await logAudit('library.delete', { userId: userIdOf(req), detail: { id, moved, filed, moveTo: moveTo || null }, req });
+    return { ok: true, moved, filed };
   });
 
   // Set/replace a cover or background: paste a URL, upload an image (base64 data URL), or reset to automatic. The body

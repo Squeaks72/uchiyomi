@@ -14,6 +14,7 @@ import { bytes, numberText, relativeTime } from '@/lib/format';
 import { shownDeviceName } from '@/lib/device';
 import { useToast } from '@/components/Toast';
 import { ConfirmDialog, Modal, msgOf } from '@/components/ConfirmDialog';
+import { RemoveLibraryDialog } from '@/components/RemoveLibraryDialog';
 import { ArmButton, ConfirmKey, useArmed } from '@/components/ArmButton';
 import { Avatar } from '@/components/Avatar';
 import { IcChevronLeft, IcChevronRight, IcTrash, IcPlus, IcRefresh, IcX, IcGrid, IcShield, IcRows, IcGlobe, IcUsers, IcUser, IcClock } from '@/components/icons';
@@ -1828,10 +1829,10 @@ function LibrariesSection() {
   const openEdit = (l: LibraryRow) => { setEditing(l); setAdding(false); };
   const close = () => { setAdding(false); setEditing(null); };
 
-  const remove = async (l: LibraryRow) => {
+  const remove = async (l: LibraryRow, moveTo = '') => {
     setBusy(true);
     try {
-      await api(`/api/admin/libraries/${l.id}`, { method: 'DELETE' });
+      await api(`/api/admin/libraries/${l.id}${moveTo ? `?moveTo=${encodeURIComponent(moveTo)}` : ''}`, { method: 'DELETE' });
       toast(tr('Removed'), 'success');
       setConfirmDel(null);
       refresh();
@@ -1909,15 +1910,8 @@ function LibrariesSection() {
       {access && <LibraryAccessDialog lib={access} onClose={() => setAccess(null)} onSaved={refresh} />}
 
       {confirmDel && (
-        <ConfirmDialog
-          title={tr('Remove “{name}”?', { name: confirmDel.name })}
-          body={<>{tr('Its series move to another library that covers their folder, or to the default one. Nothing is deleted and no reading progress changes.')}</>}
-          confirmLabel={tr('Remove library')}
-          danger
-          busy={busy}
-          onConfirm={() => remove(confirmDel)}
-          onClose={() => setConfirmDel(null)}
-        />
+        <RemoveLibraryDialog lib={confirmDel} libs={libs.map((l) => ({ id: l.id, name: l.name }))} busy={busy}
+          onConfirm={(moveTo) => remove(confirmDel, moveTo)} onClose={() => setConfirmDel(null)} />
       )}
     </section>
   );

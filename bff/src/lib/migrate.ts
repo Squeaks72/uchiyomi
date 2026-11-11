@@ -1898,6 +1898,18 @@ CREATE TABLE IF NOT EXISTS series_other_titles (
 );
 ALTER TABLE series_other_titles ADD COLUMN IF NOT EXISTS anilist_id text;
 
+-- A library move that found the series busy (a download, scan or rename holding it) is kept here and done when it is free,
+-- instead of being refused (fork). One row per series: asking again replaces the destination. Additive: an older version
+-- boots on this schema and ignores it.
+CREATE TABLE IF NOT EXISTS pending_library_moves (
+  series_id    text PRIMARY KEY REFERENCES lib_series(id) ON DELETE CASCADE,
+  library_id   text NOT NULL REFERENCES libraries(id) ON DELETE CASCADE,
+  move_files   boolean NOT NULL DEFAULT true,
+  requested_by text,
+  requested_at timestamptz NOT NULL DEFAULT now(),
+  attempts     integer NOT NULL DEFAULT 0
+);
+
 -- v0.61.0: the release radar (lib/releaseRadar.ts) -- when a series' next chapter is likely, from when its chapters
 -- came: the dates its sources list, else when they arrived on this server (most chapters carry no source date).
 -- One row per series, rewritten whole after every listing refresh and after a check lands chapters; no row while
