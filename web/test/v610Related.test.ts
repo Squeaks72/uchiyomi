@@ -74,27 +74,27 @@ test('the six relations are named from keys(), in the order the server answers t
   assert.equal(shownRows(undefined).length, 0);
 });
 
-test('an outside card leads to Discover only for an account that may add series', () => {
+test('an outside card opens the add prompt only for an account that may add series', () => {
   const card = (mayAdd: boolean, note?: string) => mounted(createElement(OutsideCard, { item: outside, note, mayAdd }));
   // Reintroduce the link whatever the permission (`mayAdd` ignored): "not a link without the permission" fails -- and a
   // member who may not add series is sent to a page that refuses them.
   const may = card(true, 'Prequel');
-  // Outside the Next runtime the link drops the static export's trailing slash; findHref's own string is pinned above.
-  assert.match(may, /^<a [^>]*href="\/discover\/?\?q=Rel%20Prequel%20Outside"/, 'the card does not lead to Discover searching for it');
-  assert.match(may, /title="Find it on your sources"/);
+  // Fork: the card is a button that opens the add-to-library prompt (a trending seed), not a link to a Discover search.
+  assert.match(may, /^<button [^>]*data-outside="\d+"/, 'the card does not open the add prompt');
+  assert.match(may, /title="Add to library"/);
   assert.match(may, /data-find-mark/, 'no add mark on a card that leads to adding');
   assert.doesNotMatch(may, /Not in your library/);
   assert.match(may, /<p data-card-note="true"[^>]*>Prequel<\/p>/, 'the relation is not the note under the title');
   assert.match(may, /<bdi dir="ltr">70%<\/bdi>/, 'the score is not shown, or not left to right');
   const mayNot = card(false, 'Prequel');
-  assert.doesNotMatch(mayNot, /<a\b/, 'not a link without the permission');
+  assert.doesNotMatch(mayNot, /<(a|button)\b/, 'not a link or button without the permission');
   assert.doesNotMatch(mayNot, /data-find-mark/);
   assert.match(mayNot, /data-not-held="true"[^>]*>Not in your library<\/span>/, 'a card that leads nowhere does not say why');
   // The words are the reader's language.
-  setActiveDict({ 'Not in your library': 'Nicht in deiner Bibliothek', 'Find it on your sources': 'In deinen Quellen finden' });
+  setActiveDict({ 'Not in your library': 'Nicht in deiner Bibliothek', 'Add to library': 'Zur Bibliothek hinzufügen' });
   try {
     assert.match(card(false), />Nicht in deiner Bibliothek</);
-    assert.match(card(true), /title="In deinen Quellen finden"/);
+    assert.match(card(true), /title="Zur Bibliothek hinzufügen"/);
   } finally { setActiveDict({}); }
   // The permission is the app's one rule (lib/auth.ts canDownload), read from the signed-in account, in both rails.
   const rail = code(read('components/RelatedRail.tsx'));
