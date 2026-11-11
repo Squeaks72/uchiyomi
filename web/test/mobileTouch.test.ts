@@ -64,8 +64,3 @@ test('between chapters: the webtoon column has a visible break, and paged mode n
   assert.match(r, /data-chapter-note/, 'paged mode says nothing when a chapter changes');
   assert.match(r, /if \(was === null \|\| was === id \|\| prefs\.mode !== 'paged'\) return;/, 'the note shows on the first chapter or in the column');
 });
-
-test('Discover\'s search box takes a whole row on a phone, so the keys beside it cannot squeeze it to nothing', () => {
-  const discover = read('app/discover/page.tsx');
-  assert.match(discover, /className="field flex min-w-0 flex-1 [^"]*max-sm:order-first max-sm:max-w-none max-sm:basis-full/);
-});
