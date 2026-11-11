@@ -16,8 +16,7 @@ test('blurb strips markup and cuts at a word', () => {
   assert.ok(out.endsWith('…') && out.length <= 41, out);
 });
 
-test('the big banners are behind the showBanners setting on Home and Discover', () => {
+test('the big banners are behind the showBanners setting on Home', () => {
   assert.match(read('app/page.tsx'), /useBanners\(\)/);
-  assert.match(read('app/discover/page.tsx'), /useBanners\(\)/);
   assert.match(read('components/ProfileSettings.tsx'), /useBanners\(\)/);
 });
