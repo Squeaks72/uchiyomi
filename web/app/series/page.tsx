@@ -98,6 +98,7 @@ import { FavouriteKey, IcListAdd, MoreKey, SeriesKey, SeriesMoreSheet, moreMenuI
 import { ProgressRing } from '@/components/ProgressRing';
 import { SeriesEditor, copyPath, type EditTab } from '@/components/SeriesEditor';
 import { RelatedRail } from '@/components/RelatedRail';
+import { FindSimilar } from '@/components/FindSimilar';
 import { safeColor } from '@/lib/safeColor';
 
 /** "Marking 3 chapters read…", counted: the busy half of Mark read's one card. */
@@ -2733,6 +2734,8 @@ function SeriesInner() {
           <ScrollRail label={tr('More like this')} className={CARD_RAIL}>{similar!.content.map((s) => <SeriesCard key={s.id} series={s} />)}</ScrollRail>
         </section>
       )}
+      {/* Fork: More like this, narrowed by the genres and tags a person picks (components/FindSimilar.tsx). */}
+      <FindSimilar seriesId={id} />
       {/* Room under the last rows for the phone's bar (ContinueBar), which can be up whenever the button has scrolled
           away; the select bar's own room takes over while Select is on. */}
       {!Toolbar && <div aria-hidden className="h-16 lg:hidden" />}
