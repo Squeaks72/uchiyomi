@@ -70,7 +70,12 @@ export function AnilistLinkPicker({ seriesId, onLinked }: { seriesId: string; on
           <IcRefresh width={16} height={16} className="animate-spin" aria-hidden />{tr('Searching AniList…')}
         </p>
       )}
-      {search.isError && <p role="status" className="text-sm text-fog-500">{tr('AniList is busy. Try again in a moment.')}</p>}
+      {search.isError && (
+        <p role="status" className="flex flex-wrap items-center gap-3 text-sm text-fog-500">
+          {tr('AniList is busy. Try again in a moment.')}
+          <button type="button" className="btn-key" disabled={search.isFetching} onClick={() => void search.refetch()}>{tr('Retry')}</button>
+        </p>
+      )}
       {link.isSuccess && (
         <p role="status" data-anilist-linked className="rounded-lg border border-accent/40 bg-accent/10 px-3 py-2 text-sm text-fog-50">
           {tr('Linked to')} <strong>{link.variables?.title}</strong>.
