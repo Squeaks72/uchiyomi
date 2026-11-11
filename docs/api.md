@@ -1196,6 +1196,7 @@ POST   /api/refresh               GET    /api/refresh
 GET    /api/series/:id            GET    /api/series/:id/books
 GET    /api/series/:id/similar    GET    /api/series/:id/color
 GET    /api/series/:id/related    GET    /api/series/:id/other-titles
+GET    /api/series/:id/similar/facets    GET    /api/series/:id/similar/search
 GET    /api/series/:id/volumes    PUT    /api/series/:id/volumes/wait
 POST   /api/series/:id/volumes/refresh
 PUT    /api/series/:id/volumes/manual
@@ -1221,6 +1222,13 @@ DELETE /api/series/:id/listing-progress
 GET    /api/translate             GET    /api/books/:id/translations
 POST   /api/books/:id/translations
 ```
+
+**Find similar** (fork). `GET /api/series/:id/similar/facets` answers `{lookups, genres, tags: [{name, rank}]}`: the genres and
+strongest non-spoiler AniList tags of the series' entry. `GET /api/series/:id/similar/search?genres=&tags=&min=` answers
+`{lookups, busy?, partial?, total, content: [{anilistId, matched, hits, score, series?, outside?}]}`: the series that
+share at least `min` of the chosen names, most shared first, a held one as `series` and any other as `outside` (the same
+18+ and visibility rules as `/related`). Unlike the rest of the page these ask AniList, through the server's one quota
+(a pool of fifty per chosen tag, kept six hours; the facets a day), so they answer `busy` / 503 rather than queue.
 
 **Related works and More like this** (since v0.61.0). `GET /api/series/:id/related` answers `{lookups, content:
 [{relation, series?, outside?}]}`: what AniList relates the series to -- `relation` is `SEQUEL`, `PREQUEL`, `PARENT` (the
