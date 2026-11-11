@@ -26,6 +26,15 @@ function Chip({ on, onClick, children, title }: { on: boolean; onClick: () => vo
 }
 
 /** A line with a spinner: something is being asked of AniList, which can take several seconds. */
+function Retry({ onClick, busy, children }: { onClick: () => void; busy?: boolean; children: React.ReactNode }) {
+  return (
+    <p role="status" data-similar-retry className="mb-3 flex flex-wrap items-center gap-3 text-sm text-fog-400">
+      <span>{children}</span>
+      <button type="button" onClick={onClick} disabled={busy} className="btn-key">{tr('Retry')}</button>
+    </p>
+  );
+}
+
 function Working({ children }: { children: React.ReactNode }) {
   return (
     <p role="status" data-similar-working className="mb-3 flex items-center gap-2 text-sm text-accent">
@@ -54,10 +63,14 @@ export function FindSimilar({ seriesId }: { seriesId: string }) {
   const chosen = genres.length + chosenTags.length;
   const min = effectiveMin(chosen, picked);
 
+  // Nothing is asked of AniList while chips move: a search runs for the choice as it was when Find was pressed.
+  const [sent, setSent] = useState<{ genres: string[]; tags: string[]; min: number } | null>(null);
+  const sentKey = (v: { genres: string[]; tags: string[]; min: number }) => JSON.stringify([[...v.genres].sort(), [...v.tags].sort(), v.min]);
+  const changed = !!sent && sentKey(sent) !== sentKey({ genres, tags: chosenTags, min });
   const searchQ = useQuery({
-    queryKey: ['similar-search', seriesId, [...genres].sort(), [...chosenTags].sort(), min],
-    queryFn: () => api<SimilarAnswer>(searchUrl(seriesId, genres, chosenTags, min)),
-    enabled: open && !!facets?.lookups && chosen > 0,
+    queryKey: ['similar-search', seriesId, sent ? sentKey(sent) : null],
+    queryFn: () => api<SimilarAnswer>(searchUrl(seriesId, sent!.genres, sent!.tags, sent!.min)),
+    enabled: open && !!facets?.lookups && !!sent,
     staleTime: 10 * 60_000,
     placeholderData: keepPreviousData,
     retry: false,
@@ -83,7 +96,7 @@ export function FindSimilar({ seriesId }: { seriesId: string }) {
       {open && (
         <div className="px-4">
           {facetsQ.isPending && <Working>{tr('Loading genres and tags from AniList…')}</Working>}
-          {facetsQ.isError && <p className="text-sm text-fog-500" role="status">{tr('AniList is busy. Try again in a moment.')}</p>}
+          {facetsQ.isError && <Retry busy={facetsQ.isFetching} onClick={() => void facetsQ.refetch()}>{tr('AniList is busy. Try again in a moment.')}</Retry>}
           {noLookups && (
             <div className="mb-3 space-y-3" data-similar-nolink>
               <p className="text-sm text-fog-300">{tr('This series has no AniList link to find similar series from.')}</p>
@@ -121,18 +134,31 @@ export function FindSimilar({ seriesId }: { seriesId: string }) {
                     onChange={(e) => setPicked(Number(e.target.value))} className="min-w-0 max-w-xs flex-1" />
                 </label>
               ) : <p className="mb-4 text-sm text-fog-500">{tr('Pick at least one genre or tag.')}</p>}
+              <div className="mb-4 flex flex-wrap items-center gap-3">
+                <button type="button" data-similar-submit disabled={chosen === 0 || searching} className="btn-key btn-key-primary"
+                  onClick={() => {
+                    // The same choice again is the cached answer, unless that answer was "busy": then it asks again.
+                    if (sent && !changed) { if (answer?.busy || searchQ.isError) void searchQ.refetch(); return; }
+                    setSent({ genres: [...genres], tags: [...chosenTags], min });
+                  }}>
+                  {tr('Find similar series')}
+                </button>
+                {changed && !searching && <span data-similar-changed className="text-sm text-fog-400">{tr('Your choice changed. Press Find to update the results.')}</span>}
+              </div>
             </>
           )}
           {searching && <Working>{tr('Searching AniList for similar series…')}</Working>}
-          {answer?.busy && <p className="text-sm text-fog-500" role="status">{tr('AniList is busy. Try again in a moment.')}</p>}
-          {answer && !searching && !answer.busy && answer.content.length === 0 && (
+          {(answer?.busy || searchQ.isError) && !searching && (
+            <Retry onClick={() => void searchQ.refetch()}>{tr('AniList is busy. Try again in a moment.')}</Retry>
+          )}
+          {answer && !searching && !answer.busy && !changed && answer.content.length === 0 && (
             <p className="text-sm text-fog-500" data-similar-empty>{tr('Nothing shares that many. Lower the number or pick fewer.')}</p>
           )}
         </div>
       )}
       {open && firstSearch && <RailSkeleton />}
       {open && answer && answer.content.length > 0 && (
-        <div className={`transition-opacity ${searching ? 'opacity-40' : ''}`} aria-busy={searching}>
+        <div className={`transition-opacity ${searching || changed ? 'opacity-40' : ''}`} aria-busy={searching}>
         <ScrollRail label={tr('Find similar')} className={CARD_RAIL}>
           {answer.content.map((h) => (h.series
             ? <SeriesCard key={`s:${h.series.id}`} series={h.series} note={matchNote(h, answer.total)} />
