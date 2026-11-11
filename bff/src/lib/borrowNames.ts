@@ -8,7 +8,7 @@ import { judgeCandidate, bounded, MIN_TRY_MS, type Judgement } from './autoFollo
 import { effectivePrefsFor, readSeriesPrefs } from './scanlatorPrefs';
 import { MIN_HAVE } from './fill';
 import { chapterName } from './library';
-import { HEALED_NAME } from './naming';
+import { HEALED_NAME, isGenericName } from './naming';
 import { isRange } from './chapterRanges';
 import { HUNT_MAX_SOURCES, seriesIsAdult, sweepAllowedFor } from './sourceHunt';
 import { visibleToAll } from './visibility';
@@ -85,9 +85,13 @@ export async function borrowNamesFor(seriesId: string, opts: { now?: number; for
     `SELECT b.id, b.number::float8 AS number, b.chapter_name, ${isRange('b')} AS range
        FROM lib_books b WHERE b.series_id = $1 AND b.pruned_at IS NULL`, [seriesId]).catch(() => []);
   const nameless = books.filter((b) => !b.chapter_name && !b.range);
-  if (!nameless.length) return { named: 0, why: 'nothing_to_do' };
-  const listed = (await q<{ number: number }>('SELECT DISTINCT number::float8 AS number FROM series_listing WHERE series_id = $1', [seriesId]).catch(() => []))
-    .map((r) => Number(r.number));
+  const listedRows = await q<{ number: number; title: string | null }>(
+    'SELECT number::float8 AS number, title FROM series_listing WHERE series_id = $1', [seriesId]).catch(() => []);
+  // Fork: chapters the listing has (not downloaded) whose own source only says "Chapter 4": named too, in
+  // series_borrowed_names, which the listing shows while its own title stays a bare number.
+  const genericListed = listedRows.filter((r) => isGenericName(r.title, Number(r.number))).map((r) => Number(r.number));
+  if (!nameless.length && !genericListed.length) return { named: 0, why: 'nothing_to_do' };
+  const listed = [...new Set(listedRows.map((r) => Number(r.number)))];
   const numbers = [...new Set([...books.map((b) => Number(b.number)), ...listed])].filter((n) => Number.isFinite(n));
   // Coverage against a handful of numbers proves nothing, whatever the donor says (the hunt's MIN_HAVE).
   if (numbers.length < MIN_HAVE) return { named: 0, why: 'too_few' };
@@ -166,7 +170,15 @@ export async function borrowNamesFor(seriesId: string, opts: { now?: number; for
   // EXACT numbers: 12.5 is not 12, and neither is 13 -- the floor the first version compared by is how a donor
   // one chapter off named every chapter after the one it was missing.
   const writes = nameless.map((b) => ({ id: b.id, name: byNumber.get(Number(b.number)) })).filter((w): w is { id: string; name: string } => !!w.name);
-  if (!writes.length) return { named: 0, donor: donor.source, why: 'no_names' };
+  const overlay = genericListed.map((n) => ({ n, name: byNumber.get(n) })).filter((w): w is { n: number; name: string } => !!w.name);
+  if (!writes.length && !overlay.length) return { named: 0, donor: donor.source, why: 'no_names' };
+  for (const o of overlay) {
+    await q(
+      `INSERT INTO series_borrowed_names (series_id, number, name, donor) VALUES ($1, $2, $3, $4)
+       ON CONFLICT (series_id, number) DO UPDATE SET name = EXCLUDED.name, donor = EXCLUDED.donor, updated_at = now()`,
+      [seriesId, o.n, o.name, donor.source]).catch(() => {});
+  }
+  if (!writes.length) return { named: overlay.length, donor: donor.source };
   const params: unknown[] = [donor.source];
   const tuples = writes.map((w) => { params.push(w.id, w.name); return `($${params.length - 1}, $${params.length})`; });
   const written = await q<{ id: string }>(
@@ -176,7 +188,7 @@ export async function borrowNamesFor(seriesId: string, opts: { now?: number; for
       RETURNING b.id`,
     params,
   );
-  return { named: written.length, donor: donor.source };
+  return { named: written.length + overlay.length, donor: donor.source };
 }
 
 /**
@@ -190,6 +202,11 @@ export async function clearBorrowedNames(scope: { seriesId: string } | 'followin
   // A name the listing healed (HEALED_NAME, lib/seriesListing.ts) is marked too, and is not a borrowed one: it is
   // the series' own source's name, and it stays. Reintroduce by clearing every marked name: "switching it off takes
   // back exactly what was borrowed" in borrowNames.int.test.ts takes the healed "Own Four" back too.
+  await q(
+    scope === 'following-server'
+      ? `DELETE FROM series_borrowed_names n USING lib_series s WHERE s.id = n.series_id AND s.borrow_names IS NULL`
+      : 'DELETE FROM series_borrowed_names WHERE series_id = $1',
+    scope === 'following-server' ? [] : [scope.seriesId]).catch(() => {});
   const rows = scope === 'following-server'
     ? await q<{ id: string }>(
       `UPDATE lib_books b SET chapter_name = NULL, chapter_name_source = NULL, updated_at = now()

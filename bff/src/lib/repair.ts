@@ -151,7 +151,7 @@ const REVISION_SETTLE_MS = 24 * 60 * 60 * 1000;
  * Series one run may look for a chapter-name donor for (stepNames). Each is up to HUNT_MAX_SOURCES searches
  * and two lookups per candidate judged, all for something cosmetic, so it is kept to a handful a night.
  */
-export const REPAIR_NAMES_MAX = envInt('REPAIR_NAMES_MAX', 5, 1, 100);
+export const REPAIR_NAMES_MAX = envInt('REPAIR_NAMES_MAX', 20, 1, 100);
 /**
  * Series one run may ask about their reading direction, per signal (stepDirections). MangaDex answers 100 per
  * request and AniList 50, so the default is at most five and ten requests a night.
@@ -1802,7 +1802,11 @@ async function stepNames(r: RepairResult, log?: Log): Promise<RepairResult['stop
       WHERE ${visibleToAll('s')}
         AND s.auto_update
         AND COALESCE(s.borrow_names, (SELECT borrow_names FROM server_settings WHERE id = 1)) IS TRUE
-        AND EXISTS (SELECT 1 FROM lib_books b WHERE b.series_id = s.id AND b.pruned_at IS NULL AND b.chapter_name IS NULL)
+        AND (EXISTS (SELECT 1 FROM lib_books b WHERE b.series_id = s.id AND b.pruned_at IS NULL AND b.chapter_name IS NULL)
+             -- Fork: or listed chapters whose own title is only the number (borrowNames names them in series_borrowed_names).
+             OR EXISTS (SELECT 1 FROM series_listing l WHERE l.series_id = s.id
+                           AND (l.title IS NULL OR l.title ~* '^[^[:alnum:]]*([[:alpha:]]{2,12}[.]?)?[[:space:].]*[0-9]+([.][0-9]+)?[[:space:]]*$')
+                           AND NOT EXISTS (SELECT 1 FROM series_borrowed_names n WHERE n.series_id = s.id AND n.number = l.number)))
         AND COALESCE((s.name_donor->>'none')::bigint, 0) <= $1
       ORDER BY s.latest_mtime DESC NULLS LAST
       LIMIT $2`,
