@@ -21,7 +21,7 @@ import { chooseReleases, groupsOf, mergePrefs, normGroup, releaseOrder, type Cho
 import { CHAPTER_RETRY_CAP } from './updater';
 import { finishDownloadsOn, retryCapFor } from './finishDownloads';
 import { chapterName } from './library';
-import { HEALED_NAME } from './naming';
+import { HEALED_NAME, isGenericName } from './naming';
 import { holds, isRange } from './chapterRanges';
 import { effectivePrefsFor, readSeriesPrefs } from './scanlatorPrefs';
 import { listedShown } from './noticeChapters';
@@ -760,6 +760,8 @@ interface GhostRow {
   number: number; title: string | null; published_at: Date | null; scanlator: string | null;
   groups: string[]; source_id: string; status: ListingStatus; attempts: number | null; reason: string | null;
   copies: ListingCopy[] | null; marked: boolean;
+  /** A name another source gave this number (series_borrowed_names), used while the listing's own title is only the number. */
+  borrowed_name?: string | null;
   /** The ledger row's status (chapter_failures.status): a refusal or a failure, for the row's retry cap. */
   fail_status: string | null;
 }
@@ -808,8 +810,9 @@ export async function listingFor(seriesId: string, opts: { floor: number | null;
   const s = await one<{ source_checked_at: Date | null }>('SELECT source_checked_at FROM lib_series WHERE id = $1', [seriesId]);
   const rows = await q<GhostRow>(
     `SELECT l.number, l.title, l.published_at, l.scanlator, l.groups, l.source_id, l.status, l.copies, f.attempts, f.reason,
-            f.status AS fail_status, (lp.user_id IS NOT NULL) AS marked
+            f.status AS fail_status, (lp.user_id IS NOT NULL) AS marked, bn.name AS borrowed_name
        FROM series_listing l
+       LEFT JOIN series_borrowed_names bn ON bn.series_id = l.series_id AND bn.number = l.number
        LEFT JOIN chapter_failures f ON f.series_id = l.series_id AND f.number = l.number
        LEFT JOIN listing_progress lp ON lp.user_id = $2 AND lp.series_id = l.series_id AND lp.number = l.number
        JOIN lib_series s_l ON s_l.id = l.series_id
@@ -857,7 +860,7 @@ export async function listingFor(seriesId: string, opts: { floor: number | null;
       const cap = retryCapFor(r.fail_status, finish, CHAPTER_RETRY_CAP);
       const g: Ghost = {
         number: Number(r.number),
-        title: r.title,
+        title: r.borrowed_name && isGenericName(r.title, Number(r.number)) ? r.borrowed_name : r.title,
         publishedAt: iso(r.published_at),
         scanlator: r.scanlator,
         groups: r.groups ?? [],

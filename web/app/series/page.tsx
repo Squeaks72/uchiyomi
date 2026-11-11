@@ -2140,18 +2140,26 @@ function SeriesInner() {
           the four fit one row in English, and `flex-wrap` (never nowrap) is the safety valve for German
           -- a nowrap row past the viewport is the 1-pixel horizontal scroll the layout check flags. */}
       <div className="mb-2 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-        <h2 className="font-display text-lg font-semibold">{tr('Chapters')}</h2>
+        {/* Fork: Chapters and Volumes are two views of the same chapters, so they are tabs beside the heading rather than a
+            button in the toolbar. Without volumes the heading is plain. */}
+        {volumesOffered ? (
+          <div role="tablist" aria-label={tr('Chapter views')} data-chapter-tabs className="flex items-end gap-5">
+            {([['chapters', tr('Chapters'), false], ['volumes', tr('Volumes'), true]] as const).map(([key, label, vol]) => (
+              <button key={key} type="button" role="tab" aria-selected={byVolume === vol} tabIndex={byVolume === vol ? 0 : -1}
+                {...(vol ? { 'data-by-volume': true } : { 'data-by-chapters': true })}
+                onClick={() => { if (byVolume !== vol) { setByVolume(vol); setVolumeView(id, vol); } }}
+                onKeyDown={(e) => { if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { e.preventDefault(); setByVolume(!vol); setVolumeView(id, !vol); } }}
+                className={`border-b-2 pb-1 font-display text-lg font-semibold transition-colors ${byVolume === vol ? 'border-accent text-fog-50' : 'border-transparent text-fog-500 hover:text-fog-200'}`}>
+                {label}
+              </button>
+            ))}
+          </div>
+        ) : <h2 className="font-display text-lg font-semibold">{tr('Chapters')}</h2>}
         {/* Keys, not chips (UI refresh, noPills.test.ts): these act on the list rather than filter it -- even Filter
             opens a sheet -- and they sat in a row of capsules right under the squared four keys. */}
         <div data-chapter-toolbar className="flex flex-wrap items-center gap-1.5">
           <button onClick={markAllRead} className="btn-key">{tr('Mark all read')}</button>
           <button onClick={flipOrder} className="btn-key">{asc ? tr('Oldest') : tr('Newest')}</button>
-          {volumesOffered && (
-            <button onClick={() => { const next = !byVolume; setByVolume(next); setVolumeView(id, next); }} aria-pressed={byVolume} data-by-volume
-              className={`btn-key whitespace-nowrap ${byVolume ? 'btn-key-accent' : ''}`}>
-              {tr('Volumes')}
-            </button>
-          )}
           {/* Hide what is finished: this device's choice, kept (lib/hideRead.ts). Only offered once something is read. */}
           {(hideRead || readCount.read > 0) && (
             <button onClick={() => { const next = !hideRead; setHideRead(next); setHideReadOn(next); }} aria-pressed={hideRead} data-hide-read

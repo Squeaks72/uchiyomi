@@ -62,3 +62,17 @@ test('a genre chip is also met by a tag of that name', () => {
   const out = scorePool(target, { genres: ['Shounen'], tags: [] }, [item(1, [], [['Shounen', 80]]), item(2, [], [['Ghost', 80]])], 1, 0);
   assert.deepEqual(out.map((s) => s.item.id), [1]);
 });
+
+test('a one-shot is recognised by AniList’s own format', async () => {
+  const { isOneShot } = await import('../src/lib/anilistRelated');
+  assert.equal(isOneShot({ format: 'ONE_SHOT' }), true);
+  assert.equal(isOneShot({ format: 'one_shot' }), true);
+  assert.equal(isOneShot({ format: 'MANGA' }), false);
+  assert.equal(isOneShot({ format: null }), false);
+});
+
+test('a chapter title that only says the number is generic, a real name or a locked one with a name is not', async () => {
+  const { isGenericName } = await import('../src/lib/naming');
+  for (const t of ['Ch. 4', 'Chapter 4', '🔒 Ch. 4', 'Vol.2 Ch. 4', '', null]) assert.equal(isGenericName(t, 4), true, String(t));
+  for (const t of ['Let’s Go to the John', 'Chapter 4: Let’s Go to the John', '🔒 The Return']) assert.equal(isGenericName(t, 4), false, t);
+});
