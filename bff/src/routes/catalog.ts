@@ -10,6 +10,10 @@ import { marksFor, marksJson, setMark } from '../lib/spreadMarks';
 import { komgaImage } from '../lib/komga';
 import { otherTitlesFor } from '../lib/otherTitles';
 import { similarFacets, similarFor, MAX_SELECTED } from '../lib/anilistSimilar';
+import { searchAniListPicks } from '../lib/anilist';
+import { adultOk } from '../lib/anilistRelated';
+import { linkSeriesWith } from '../lib/trackers';
+import { logAudit } from '../lib/audit';
 import { content as komga, NATIVE_PROGRESS, OWNED } from '../lib/backend';
 import { UnsupportedFilter, owned } from '../lib/ownedCatalog';
 import { cleanDescription } from '../lib/htmlText';
@@ -758,10 +762,10 @@ export default async function catalogRoutes(app: FastifyInstance) {
    */
   app.get('/api/series/:id/similar/facets', async (req, reply) => {
     const { id } = req.params as { id: string };
-    await komga.series(vc(req), id);
+    const s = (await komga.series(vc(req), id)) as any;
     if (!OWNED) return { lookups: false, genres: [], tags: [] };
     try {
-      const r = await similarFacets(id);
+      const r = await similarFacets(id, Array.isArray(s?.metadata?.genres) ? s.metadata.genres : []);
       return { lookups: r.lookups, genres: r.facets?.genres ?? [], tags: r.facets?.tags ?? [] };
     } catch { return reply.code(503).send({ error: 'AniList is busy; try again in a moment' }); }
   });
@@ -775,12 +779,13 @@ export default async function catalogRoutes(app: FastifyInstance) {
    */
   app.get('/api/series/:id/similar/search', async (req) => {
     const { id } = req.params as { id: string };
-    await komga.series(vc(req), id);
+    const s = (await komga.series(vc(req), id)) as any;
     if (!OWNED) return { lookups: false, total: 0, content: [] };
     const qs = req.query as Record<string, unknown>;
     const list = (v: unknown) => (typeof v === 'string' ? v.split(',').map((x) => x.trim()).filter((x) => x && x.length <= 60).slice(0, MAX_SELECTED) : []);
     const min = Math.max(1, Math.min(MAX_SELECTED * 2, parseInt(String(qs.min ?? '1'), 10) || 1));
-    const r = await similarFor(id, { genres: list(qs.genres), tags: list(qs.tags) }, min, vc(req));
+    const r = await similarFor(id, { genres: list(qs.genres), tags: list(qs.tags) }, min, vc(req),
+      Array.isArray(s?.metadata?.genres) ? s.metadata.genres : []);
     const heldIds = r.content.flatMap((e) => (e.seriesId ? [e.seriesId] : []));
     const found = (await Promise.all(heldIds.map((x) => komga.series(vc(req), x).catch(() => null)))).filter(Boolean) as any[];
     const byId = new Map((await enrichSeries(req, found)).map((x: any) => [x.id, x]));
@@ -790,6 +795,45 @@ export default async function catalogRoutes(app: FastifyInstance) {
       return series ? [{ ...e, series }] : [];
     });
     return { ...r, content };
+  });
+
+  /**
+   * Link a series to its AniList entry by hand (fork; admin). A series with no link has nothing to find similar series
+   * from (and no related works, scores or progress sync): automatic matching leaves a title it is not sure of alone.
+   * `GET .../anilist/search?q=` lists AniList manga for a name (default: the series' title), 18+ ones only for a viewer who
+   * may see them; `PUT .../anilist-link {anilistId, title?}` records the choice as a person's, which automatic matching
+   * never overwrites. 409 for a series in a library whose AniList lookups are off (the link would never be used).
+   */
+  app.get('/api/series/:id/anilist/search', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    if (!actsAsAdmin(req)) return reply.code(403).send({ error: 'forbidden' });
+    const s = (await komga.series(vc(req), id)) as any;
+    const text = String((req.query as any)?.q ?? '').trim().slice(0, 120) || String(s?.metadata?.title ?? s?.name ?? '').slice(0, 120);
+    if (!text) return { content: [] };
+    try {
+      const found = await searchAniListPicks(text);
+      return {
+        content: found.filter((m) => adultOk(m, vc(req))).map((m) => ({
+          anilistId: m.id, title: m.title, altTitle: m.titles.find((t) => t !== m.title) ?? null, cover: m.cover,
+          format: m.format, status: m.status, score: m.score,
+        })),
+      };
+    } catch { return reply.code(503).send({ error: 'AniList is busy; try again in a moment' }); }
+  });
+
+  app.put('/api/series/:id/anilist-link', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    if (!actsAsAdmin(req)) return reply.code(403).send({ error: 'forbidden' });
+    await komga.series(vc(req), id);
+    const body = z.object({ anilistId: z.number().int().positive().max(2_147_483_647), title: z.string().max(200).nullish() }).safeParse(req.body);
+    if (!body.success) return reply.code(400).send({ error: 'bad_request' });
+    const lib = await one<{ on: boolean }>(
+      'SELECT l.anilist_lookup AS "on" FROM lib_series s JOIN libraries l ON l.id = s.library_id WHERE s.id = $1', [id]);
+    if (!lib) return reply.code(404).send({ error: 'not_found' });
+    if (!lib.on) return reply.code(409).send({ error: 'lookups_off' });
+    await linkSeriesWith(q, id, body.data.anilistId, body.data.title ?? null, userIdOf(req));
+    await logAudit('series.anilist_link', { userId: userIdOf(req), detail: { seriesId: id, anilistId: body.data.anilistId }, req });
+    return { ok: true };
   });
 
   /**

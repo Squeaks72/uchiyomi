@@ -51,7 +51,7 @@ export interface Scored { item: FacetItem; matched: string[]; hits: number; scor
 
 /**
  * The pool's entries that share at least `min` of the chosen genres and tags with the series, best first. A genre counts
- * 1; a tag counts the weaker of the two ranks (a tag the series barely has, or the candidate barely has, is a weak match).
+ * 1 (and is also met by a tag of that name: the library's own genres are not always AniList's); a tag counts the weaker of the two ranks (a tag the series barely has, or the candidate barely has, is a weak match).
  * Each chip is weighted by how rare it is in the pool (a tag every candidate has says little), so a shared "Youkai" outranks
  * a shared "Male Protagonist". Most chips shared first, then score, then the community score. Pure.
  */
@@ -66,7 +66,7 @@ export function scorePool(target: AniListFacets, sel: Selection, pool: readonly 
   const df = new Map<string, number>();
   const hitsOf = (it: FacetItem) => {
     const out: Array<{ key: string; label: string; w: number }> = [];
-    const have = new Set(it.genres.map(norm));
+    const have = new Set([...it.genres, ...it.tags.map((t) => t.name)].map(norm));
     for (const [k, label] of genreKeys) if (have.has(k)) out.push({ key: `g:${k}`, label, w: 1 });
     const tags = new Map(it.tags.map((t) => [norm(t.name), t.rank]));
     for (const [k, label] of tagKeys) {
@@ -114,8 +114,15 @@ async function facetsOf(anilistId: number): Promise<AniListFacets | null> {
   return keep(facetCache, k, await fetchAniListFacets(anilistId));
 }
 
+/** AniList's genres, then the ones the library's own copy of the series carries that AniList does not name (any case). */
+export function withOwn(anilist: readonly string[], own: readonly string[]): string[] {
+  const seen = new Set(anilist.map(norm));
+  const extra = own.map((g) => g.trim()).filter((g) => g && g.length <= 40 && !seen.has(norm(g)) && seen.add(norm(g)));
+  return [...anilist, ...extra];
+}
+
 /** The chips a series page offers: its genres and its strongest tags that do not spoil the story. `lookups: false` as Related. */
-export async function similarFacets(seriesId: string): Promise<{ lookups: boolean; facets: FacetsAnswer | null }> {
+export async function similarFacets(seriesId: string, own: readonly string[] = []): Promise<{ lookups: boolean; facets: FacetsAnswer | null }> {
   const t = await similarTarget(seriesId);
   if (!t) return { lookups: false, facets: null };
   const f = await facetsOf(t.anilistId);
@@ -123,7 +130,7 @@ export async function similarFacets(seriesId: string): Promise<{ lookups: boolea
   return {
     lookups: true,
     facets: {
-      genres: f.genres,
+      genres: withOwn(f.genres, own),
       tags: f.tags.filter((x) => !x.spoiler).slice(0, OFFERED_TAGS).map(({ name, rank }) => ({ name, rank })),
     },
   };
@@ -136,13 +143,14 @@ export interface SimilarAnswer { lookups: boolean; busy?: boolean; partial?: boo
  * ignored (a request is checked against the series' own facets, never trusted). `busy` when AniList's quota had no room for
  * even one pool; `partial` when it ran out part-way and the answer is built from the pools that arrived.
  */
-export async function similarFor(seriesId: string, sel: Selection, min: number, ctx: ViewCtx): Promise<SimilarAnswer> {
+export async function similarFor(seriesId: string, sel: Selection, min: number, ctx: ViewCtx, own: readonly string[] = []): Promise<SimilarAnswer> {
   const t = await similarTarget(seriesId);
   if (!t) return { lookups: false, total: 0, content: [] };
   let facets: AniListFacets | null;
   try { facets = await facetsOf(t.anilistId); } catch { return { lookups: true, busy: true, total: 0, content: [] }; }
   if (!facets) return { lookups: true, total: 0, content: [] };
-  const genres = [...new Set(sel.genres.map(norm))].map((g) => facets!.genres.find((x) => norm(x) === g)).filter((x): x is string => !!x);
+  const offered = withOwn(facets.genres, own);
+  const genres = [...new Set(sel.genres.map(norm))].map((g) => offered.find((x) => norm(x) === g)).filter((x): x is string => !!x);
   const tags = [...new Set(sel.tags.map(norm))].map((n) => facets!.tags.find((x) => norm(x.name) === n && !x.spoiler)).filter((x): x is NonNullable<typeof x> => !!x);
   const chosen: Selection = { genres: genres.slice(0, MAX_SELECTED), tags: tags.map((x) => x.name).slice(0, MAX_SELECTED) };
   const total = chosen.genres.length + chosen.tags.length;
@@ -151,7 +159,9 @@ export async function similarFor(seriesId: string, sel: Selection, min: number, 
   const showAdult = adultOk({ adult: true }, ctx);
   const asks = tags.length
     ? [...tags].sort((a, b) => b.rank - a.rank).slice(0, MAX_POOLS).map((x) => ({ key: `t:${x.name}`, by: { tag: x.name } }))
-    : chosen.genres.slice(0, MAX_POOLS).map((g) => ({ key: `g:${g}`, by: { genre: g } }));
+    // A genre AniList does not list (the library's own, "Shounen") is asked as a tag of that name instead.
+    : chosen.genres.slice(0, MAX_POOLS).map((g) => (facets!.genres.some((x) => norm(x) === norm(g))
+      ? { key: `g:${g}`, by: { genre: g } } : { key: `t:${g}`, by: { tag: g } }));
   const pool: FacetItem[] = [];
   let got = 0;
   let partial = false;
