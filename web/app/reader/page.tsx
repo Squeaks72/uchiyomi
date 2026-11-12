@@ -1803,8 +1803,8 @@ function ReaderInner() {
     else setPref({ autoPage: Math.min(30, Math.max(2, prefs.autoPage - dir)) });
   };
   const autoStop = () => setPref(autoVertical ? { autoScroll: 0 } : { autoPage: 0 });
-  const autoRef = useRef({ on: autoOn, toggle: autoToggle, skip: autoSkip, faster: autoFaster });
-  autoRef.current = { on: autoOn, toggle: autoToggle, skip: autoSkip, faster: autoFaster };
+  const autoRef = useRef({ on: autoOn, toggle: autoToggle, skip: autoSkip, faster: autoFaster, rtl: false });
+  autoRef.current = { on: autoOn, toggle: autoToggle, skip: autoSkip, faster: autoFaster, rtl: !autoVertical && pagedRtl };
 
   // ---- keyboard (desktop) ----
   // The keys in force: this mode's defaults with this device's own bindings (lib/readerKeys.ts reproduces v0.60's).
@@ -1850,11 +1850,12 @@ function ReaderInner() {
       // (turning the page instead swallowed the click), a text field everything.
       const owned = !!t && (t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.tagName === 'TEXTAREA' || t.isContentEditable
         || !!t.closest('button, a, [role="button"], [role="dialog"]'));
-      // While auto-scroll is on, ← and → are its back and forward, like J and L (in reading order, not by side: a video's → is
-      // always forward). Off, they are what they were -- a page's side in paged mode, nothing in the column.
+      // While auto-scroll is on, ← and → are its back and forward. Paged, they keep their side, as the tap zones and the keys do
+      // with it off: on a right-to-left read → goes back and ← goes forward (J and L stay in reading order). The column has no
+      // sideways, so there → is forward. Off, they are what they were -- a page's side in paged mode, nothing in the column.
       if (autoRef.current.on && !owned && !e.shiftKey && /^Arrow(Left|Right)$/.test(e.key)) {
         e.preventDefault();
-        if (!e.repeat) autoRef.current.skip(e.key.endsWith('Right') ? 1 : -1);
+        if (!e.repeat) autoRef.current.skip((e.key.endsWith('Right') ? 1 : -1) * (autoRef.current.rtl ? -1 : 1) as 1 | -1);
         return;
       }
       // Auto-scroll's video keys, unless the reader bound the key to something of its own. Space is the video's play/pause, and
