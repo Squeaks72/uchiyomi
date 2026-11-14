@@ -17,6 +17,7 @@ import { useToast } from './Toast';
 import { ConfirmDialog, msgOf } from './ConfirmDialog';
 import { useArchiveEnqueue } from './ArchiveQueue';
 import { MoveToLibrary } from './MoveToLibrary';
+import { moveSeriesToLibrary } from '@/lib/moveLibrary';
 import { invalidateBrowsing } from '@/lib/browseKeys';
 import { CollectionPickerModal } from './CollectionPicker';
 import { FindStartDialog } from './FindSources';
@@ -185,11 +186,16 @@ export function useSeriesActions({ onDone, builtinList }: { onDone?: () => void;
   const element: ReactNode = (
     <>
       {dialog === 'list' && <CollectionPickerModal seriesIds={ids} onClose={close} onDone={() => { close(); settle(); }} />}
-      {dialog === 'move' && <MoveToLibrary n={n} busy={busy} onClose={close} onPick={async (libraryId) => {
-        setBusy(true); close();
-        await bulk(ids, '/api/admin/series/library', { libraryId }, updated);
-        qc.invalidateQueries({ queryKey: ['library-sources'] });
-        setBusy(false);
+      {dialog === 'move' && <MoveToLibrary n={n} busy={busy} onClose={close} onPick={async (libraryId, options) => {
+        // Upstream's filing picker (lib/moveLibrary.ts): it confirms a visibility change, reports what it skipped and
+        // closes itself on success.
+        setBusy(true);
+        try {
+          const result = await moveSeriesToLibrary(ids, libraryId, options);
+          for (const key of [['library-sources'], ['series-privacy'], ['content-privacy']]) qc.invalidateQueries({ queryKey: key });
+          if (!result.skipped.length) settle();
+          return result;
+        } finally { setBusy(false); }
       }} />}
       {dialog === 'find' && <FindStartDialog onClose={close} onStart={(review) => { close(); void find(ids, review); }} />}
       {dialog === 'remove' && (

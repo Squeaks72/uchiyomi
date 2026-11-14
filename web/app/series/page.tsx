@@ -23,9 +23,6 @@ import { MoveToLibrary } from '@/components/MoveToLibrary';
 import { moveSeriesToLibrary } from '@/lib/moveLibrary';
 import { requestFailure } from '@/lib/refusals';
 import { SeriesPrivacyControls } from '@/components/SeriesPrivacyControls';
-import { invalidateBrowsing } from '@/lib/browseKeys';
-import { adultShown } from '@/lib/adult';
-import { ConfirmDialog, Modal, msgOf } from '@/components/ConfirmDialog';
 import { seedMeta, metaBody } from '@/lib/seriesMeta';
 import { GenreTagInput } from '@/components/GenreTagInput';
 import { useAuth, canDownload } from '@/lib/auth';
@@ -1282,7 +1279,6 @@ function SeriesInner() {
   };
 
   // Filed into an 18+ library with Show 18+ off: the series is hidden from every listing now, so leave its page too.
-  const leaveIfHidden = (adult?: boolean) => { if (adult && !adultShown()) back(); };
   const back = () => (typeof window !== 'undefined' && window.history.length > 1 ? router.back() : router.push('/'));
 
   const toggleFav = async () => {
@@ -1590,7 +1586,7 @@ function SeriesInner() {
     setFetching((f) => new Set([...f, ...numbers]));
     if (!(await run())) setFetching((f) => new Set([...f].filter((n) => !numbers.includes(n))));
   };
-  const bulkFetch = () => trackFetch(fetchable.map((g) => g.number), async () => {
+  const bulkFetch = async () => trackFetch(fetchable.map((g) => g.number), async () => {
     const plan = fetchPlan(fetchable, versionsOf, allBooks);
     const requests: Array<{ path: string; body: Record<string, unknown> }> = [
       ...chunkNumbers(plan.numbers).map((numbers) => ({ path: '/api/sources/fetch', body: { seriesId: id, numbers } })),
@@ -2610,7 +2606,7 @@ function SeriesInner() {
       )}
       {editing && series && (
         // Keyed by the series: its fields are seeded once, from the series it opened on.
-        <SeriesEditor key={id} id={id} series={series} tab={editing} onClose={() => setEditing(null)} onFiled={(adult) => { invalidateBrowsing(qc); setEditing(null); leaveIfHidden(adult); }}
+        <SeriesEditor key={id} id={id} series={series} tab={editing} onClose={() => setEditing(null)}
           onSaved={() => { for (const k of [['series', id], ['series-books', id], ['home'], ['library']]) qc.invalidateQueries({ queryKey: k }); }}
           // Its Sources & translations link closes it first: one at a time, as the sheets above.
           onOpenSources={() => { setEditing(null); setSourcesOpen(true); }}
