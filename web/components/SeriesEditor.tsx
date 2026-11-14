@@ -134,7 +134,7 @@ function keepFocusIn(panel: HTMLElement, e: KeyboardEvent): void {
   else if (!e.shiftKey && at === last) { e.preventDefault(); first.focus(); }
 }
 
-export function SeriesEditor({ id, series, tab: opening = 'details', onClose, onSaved, onOpenSources, onNewBanner, onFiled }: {
+export function SeriesEditor({ id, series, tab: opening = 'details', onClose, onSaved, onOpenSources, onNewBanner }: {
   id: string;
   series: Series;
   /** The tab it opens on: Details from its key, Reading from the Sources sheet's language Change. */
@@ -143,7 +143,6 @@ export function SeriesEditor({ id, series, tab: opening = 'details', onClose, on
   /** After any save, so the page refetches what it shows. */
   onSaved: () => void;
   /** The series was filed into another library; `adult` says it is rated 18+. */
-  onFiled?: (adult: boolean) => void;
   /** Close this and open Sources & translations, where the page has that sheet. */
   onOpenSources?: () => void;
   /** The series page's New banner, the automatic banner's shuffle: one action, with its own notices. */
@@ -306,7 +305,7 @@ export function SeriesEditor({ id, series, tab: opening = 'details', onClose, on
                   <UpdatesPane id={id} series={series} onSaved={onSaved} onOpenSources={onOpenSources} />
                 </Pane>
                 <Pane id={paneId('files')} tab={tabId('files')} shown={fields === 'files'} name="files">
-                  <FilesPane id={id} series={series} onSaved={onSaved} onFiled={onFiled} />
+                  <FilesPane id={id} series={series} onSaved={onSaved} />
                 </Pane>
               </div>
             </div>
@@ -675,11 +674,11 @@ function UpdatesPane({ id, series, onSaved, onOpenSources }: { id: string; serie
 
 /* =============================== Files =============================== */
 
-function FilesPane({ id, series, onSaved, onFiled }: { id: string; series: Series; onSaved: () => void; onFiled?: (adult: boolean) => void }) {
+function FilesPane({ id, series, onSaved }: { id: string; series: Series; onSaved: () => void }) {
   const toast = useToast();
   return (
     <>
-      <LibraryRow id={id} series={series} onSaved={onSaved} onFiled={onFiled} />
+      <LibraryRow id={id} series={series} onSaved={onSaved} />
       {/* Where it is on disk (#136): the folder as full paths, one per root its chapters are under, each copied with
           one tap. LTR whatever the page's direction: a path is not a sentence. */}
       {!!series.paths?.length && (
