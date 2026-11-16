@@ -597,7 +597,7 @@ export const owned = {
     // `adult` rides along rather than being filtered out here: the web app needs to know an 18+ library
     // EXISTS in order to offer the button that reveals it, and it hides those tabs itself while the filter
     // is on. What must not leak is the CONTENT, and that is `browsable()`'s job, not this list's.
-    return allowed.map((r) => ({ id: r.id, name: r.name, adult: (r.age_rating ?? 0) >= ADULT_RATING, defaultVisible: r.id === 'lib' || r.default_visible }));
+    return allowed.map((r) => ({ id: r.id, name: r.name, adult: (r.age_rating ?? 0) >= ADULT_RATING, defaultVisible: r.id === 'lib' || r.default_visible, private: !!r.owner_user_id }));
   },
 
   /**
