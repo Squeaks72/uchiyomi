@@ -352,6 +352,10 @@ export function makeMangadex(code: string): SourceAdapter {
     lang: app,
     rateGroup: MANGADEX_GROUP,
     imageReferer: 'https://mangadex.org/', // CDN rejects image fetches without the mangadex referer
+    // And a non-browser User-Agent: the CDN (uploads.mangadex.org) now sends a browser-like one to a bot challenge (a 302 to
+    // mangadex.org/edge/challenge) and refuses its Sec-Fetch headers outright, so every cover the proxy asked for with the generic
+    // Chrome headers failed. The API's own identifying one is what the CDN has always served.
+    imageHeaders: HEADERS,
     preferredOrder: 10,
 
     async search(query) {
