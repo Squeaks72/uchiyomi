@@ -2,7 +2,7 @@
   "_meta": {
     "language": "ru",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 5874
+    "strings": 5880
   },
   "1 check found something": "1 проверка нашла проблему",
   "1 member": "1 участник",
@@ -5877,5 +5877,11 @@
   "Attach a BookOrbit series": "Прикрепить серию из BookOrbit",
   "Search BookOrbit by name": "Искать в BookOrbit по названию",
   "Attach": "Прикрепить",
-  "No ebook series found": "Серии электронных книг не найдены"
+  "No ebook series found": "Серии электронных книг не найдены",
+  "Also keep": "Тоже сохранить",
+  "Kept": "Сохранено",
+  "Keep this copy beside the endorsed one, so readers can choose it": "Хранить эту копию рядом с основной, чтобы читатели могли её выбрать",
+  "Keeping this copy…": "Сохранение копии…",
+  "Copy kept": "Копия сохранена",
+  "Could not keep this copy": "Не удалось сохранить копию"
 }

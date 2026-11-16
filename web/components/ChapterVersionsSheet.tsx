@@ -34,7 +34,7 @@ function ownCopy(ghost?: Ghost, book?: Book, sourceName?: string): VersionCopy {
            pages: book?.media.pagesCount ?? null, publishedAt: book?.metadata?.releaseDate ?? null, chosen: false, blocked: false, onDisk: true };
 }
 
-export function ChapterVersionsSheet({ number, ghost, book, copies, sourceNames, isAdmin, mayFetch, mayReplace, onFetch, onFetchRead, onReplace, onDelete, onRead, canRead, onNumbering, onClose }: {
+export function ChapterVersionsSheet({ number, ghost, book, copies, sourceNames, isAdmin, mayFetch, mayReplace, onKeep, keptSources, onFetch, onFetchRead, onReplace, onDelete, onRead, canRead, onNumbering, onClose }: {
   number: number;
   ghost?: Ghost;
   book?: Book;
@@ -52,6 +52,10 @@ export function ChapterVersionsSheet({ number, ghost, book, copies, sourceNames,
   /** Fetch the copy into the library, then open it in the reader. */
   onFetchRead?: (copy?: VersionCopy) => void;
   onReplace: (copy: VersionCopy) => void;
+  /** An admin's Also keep on a copy of a chapter the server has: that source's copy is stored beside the endorsed one (bff lib/bookVersions.ts). */
+  onKeep?: (copy: VersionCopy) => void;
+  /** The sources whose copies of this chapter are already kept. */
+  keptSources?: ReadonlySet<string>;
   /**
    * An admin's Delete file on the copy that is on the server (a file Uchiyomi downloaded): the page closes this sheet and opens
    * its confirm, like Replace. Absent when the chapter has no deletable file. Other copies are the source's own: nothing to delete.
@@ -148,6 +152,10 @@ export function ChapterVersionsSheet({ number, ghost, book, copies, sourceNames,
                 <button type="button" onClick={() => onReplace(c)} disabled={c.onDisk} aria-describedby={`${rowId}-${i}`} className="btn-key"
                   title={c.onDisk ? undefined : tr('Replace the file on the server with this version')}>{tr('Replace…')}</button>
               )}
+              {onKeep && !own && !c.onDisk && c.source && (keptSources?.has(c.source)
+                ? <span className="text-[11px] text-fog-500" data-version-kept>{tr('Kept')}</span>
+                : <button type="button" onClick={() => onKeep(c)} aria-describedby={`${rowId}-${i}`} data-keep-version className="btn-key"
+                    title={tr('Keep this copy beside the endorsed one, so readers can choose it')}>{tr('Also keep')}</button>)}
               {onDelete && c.onDisk && (
                 <button type="button" onClick={onDelete} aria-describedby={`${rowId}-${i}`} data-delete-version className="btn-key btn-key-danger"
                   title={tr('Delete the file on the server')}>{tr('Delete file')}</button>
