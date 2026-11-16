@@ -84,9 +84,9 @@ export async function refreshAniListRelated(
        LEFT JOIN (SELECT series_id, max(updated_at) AS at FROM read_progress GROUP BY series_id) rp ON rp.series_id = s.id
       WHERE t.provider = 'anilist' AND (t.linked_by IS NOT NULL OR t.checked_at IS NOT NULL)
         AND t.external_id ~ '^[0-9]{1,10}$'
-        AND (r.anilist_id IS NULL OR r.fetched_at < now() - ($1::bigint * interval '1 millisecond'))
+        AND (r.anilist_id IS NULL OR r.novels IS NULL OR r.fetched_at < now() - ($1::bigint * interval '1 millisecond'))
       GROUP BY t.external_id
-      ORDER BY bool_or(r.anilist_id IS NULL) DESC, max(rp.at) DESC NULLS LAST, t.external_id
+      ORDER BY bool_or(r.anilist_id IS NULL OR r.novels IS NULL) DESC, max(rp.at) DESC NULLS LAST, t.external_id
       LIMIT $2`,
     [maxAge, o.max ?? MAX_PER_ROUND],
   );
@@ -114,9 +114,9 @@ export async function refreshAniListRelated(
       if (r) out.stored++;
       else out.missing++;
       await q(
-        `INSERT INTO anilist_related (anilist_id, relations, recs, fetched_at) VALUES ($1, $2::jsonb, $3::jsonb, now())
-         ON CONFLICT (anilist_id) DO UPDATE SET relations = EXCLUDED.relations, recs = EXCLUDED.recs, fetched_at = now()`,
-        [id, JSON.stringify(r?.relations ?? []), JSON.stringify(r?.recs ?? [])],
+        `INSERT INTO anilist_related (anilist_id, relations, recs, novels, fetched_at) VALUES ($1, $2::jsonb, $3::jsonb, $4::jsonb, now())
+         ON CONFLICT (anilist_id) DO UPDATE SET relations = EXCLUDED.relations, recs = EXCLUDED.recs, novels = EXCLUDED.novels, fetched_at = now()`,
+        [id, JSON.stringify(r?.relations ?? []), JSON.stringify(r?.recs ?? []), JSON.stringify(r?.novels ?? [])],
       );
     }
   }
@@ -203,7 +203,7 @@ export async function similarTarget(seriesId: string): Promise<{ anilistId: numb
   return Number.isSafeInteger(n) && n > 0 && n <= 2_147_483_647 ? { anilistId: n, work: e.work } : null;
 }
 
-interface Entry { work: string; row: { relations: RelatedItem[]; recs: RelatedItem[] } | null }
+interface Entry { work: string; row: { relations: RelatedItem[]; recs: RelatedItem[]; novels: RelatedItem[] } | null }
 
 /**
  * A series' AniList entry as these reads may use it: null when its library's lookups are off or it has no checked link
@@ -211,9 +211,9 @@ interface Entry { work: string; row: { relations: RelatedItem[]; recs: RelatedIt
  * is the series' own `lib:` work, so neither it nor one of its language editions is listed as related to itself.
  */
 async function entryOf(seriesId: string): Promise<Entry | null> {
-  const r = await one<{ work: string; on: boolean; al: string | null; relations: unknown; recs: unknown; has: boolean }>(
+  const r = await one<{ work: string; on: boolean; al: string | null; relations: unknown; recs: unknown; novels: unknown; has: boolean }>(
     `SELECT COALESCE(s.work_id::text, s.id) AS work, l.anilist_lookup AS "on", t.external_id AS al,
-            a.relations, a.recs, (a.anilist_id IS NOT NULL) AS has
+            a.relations, a.recs, a.novels, (a.anilist_id IS NOT NULL) AS has
        FROM lib_series s
        JOIN libraries l ON l.id = s.library_id
        LEFT JOIN series_trackers t ON t.series_id = s.id AND t.provider = 'anilist'
@@ -223,7 +223,7 @@ async function entryOf(seriesId: string): Promise<Entry | null> {
     [seriesId],
   );
   if (!r || !r.on || !r.al) return null;
-  return { work: `lib:${r.work}`, row: r.has ? { relations: itemsOf(r.relations), recs: itemsOf(r.recs) } : null };
+  return { work: `lib:${r.work}`, row: r.has ? { relations: itemsOf(r.relations), recs: itemsOf(r.recs), novels: itemsOf(r.novels) } : null };
 }
 
 /**
@@ -368,4 +368,21 @@ export async function becauseYouRead(userId: string, ctx: ViewCtx): Promise<{
   }
   const named = lists.map((l) => l.seed).filter((sd) => content.some((c) => c.because.id === sd.id));
   return { seed: named[0] ?? null, seeds: named, content };
+}
+
+/** A light novel of a series' work, as the card shows it: AniList's cover and words, and the BookOrbit entry that holds it, if any. */
+export interface NovelWork { anilistId: number; title: string; titles: string[]; synonyms: string[]; cover: string | null; status: string | null; score: number | null; relation: string | null }
+
+/**
+ * The light novels AniList says are the same story as this series (the source novel, an adaptation of it), for this viewer: the
+ * stored entries, minus an 18+ one the viewer may not see. Table only. `lookups: false` under relatedFor's conditions. The
+ * caller has already checked the viewer may open the series.
+ */
+export async function novelsFor(seriesId: string, ctx: ViewCtx): Promise<{ lookups: boolean; content: NovelWork[] }> {
+  const e = await entryOf(seriesId);
+  if (!e) return { lookups: false, content: [] };
+  const content = (e.row?.novels ?? []).filter((it) => adultOk(it, ctx)).map((it): NovelWork => ({
+    anilistId: it.id, title: it.title, titles: it.titles, synonyms: it.synonyms, cover: it.cover, status: it.status, score: it.score, relation: it.rel ?? null,
+  }));
+  return { lookups: true, content };
 }

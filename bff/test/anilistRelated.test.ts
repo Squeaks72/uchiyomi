@@ -98,11 +98,11 @@ test('at most twelve relations and ten recommendations, the nearer kinds kept fi
 });
 
 test('an answer with nothing in it keeps nothing, and anything malformed is left out', () => {
-  assert.deepEqual(normaliseRelated({ id: 5 }), { relations: [], recs: [] });
-  assert.deepEqual(normaliseRelated(null), { relations: [], recs: [] });
+  assert.deepEqual(normaliseRelated({ id: 5 }), { relations: [], recs: [], novels: [] });
+  assert.deepEqual(normaliseRelated(null), { relations: [], recs: [], novels: [] });
   const r = normaliseRelated({ id: 5, relations: { edges: [edge('SEQUEL', { id: 'x' }), edge('SEQUEL', { ...node(6), id: -1 })] },
     recommendations: { nodes: [{ rating: 3 }] } });
-  assert.deepEqual(r, { relations: [], recs: [] });
+  assert.deepEqual(r, { relations: [], recs: [], novels: [] });
   const bare = normaliseRelated({ id: 5, relations: { edges: [edge('SEQUEL', { id: 7, type: 'MANGA', format: null, title: { romaji: 'Bare' } })] } });
   assert.deepEqual(bare.relations[0], {
     id: 7, rel: 'SEQUEL', title: 'Bare', titles: ['Bare'], synonyms: [], cover: null, format: null, status: null, adult: false,
@@ -167,4 +167,16 @@ test('which library series an entry is: its AniList entry first, then a title ex
   // Exact names only, never containment: "Tower" is not "Tower of God".
   assert.deepEqual(heldEntry(idx, { id: 504, titles: ['Tower of God'], synonyms: [] }), [], 'containment counted as the same work');
   assert.deepEqual(heldEntry(idx, { id: 505 }), [], 'an entry with no names');
+});
+
+test('a light novel is kept apart, the source novel first, and never listed as a manga to read', () => {
+  const novel = (id: number, title: string) => ({ ...node(id), id, type: 'MANGA', format: 'NOVEL', title: { romaji: title } });
+  const r = normaliseRelated({ id: 5, relations: { edges: [
+    edge('SIDE_STORY', novel(11, 'Side Novel')),
+    edge('SOURCE', novel(10, 'Source Novel')),
+    edge('SEQUEL', node(6)),
+    edge('ADAPTATION', { id: 12, type: 'ANIME', format: 'TV', title: { romaji: 'The Anime' } }),
+  ] } });
+  assert.deepEqual(r.novels.map((n) => [n.id, n.rel]), [[10, 'SOURCE'], [11, 'SIDE_STORY']]);
+  assert.deepEqual(r.relations.map((x) => x.id), [6], 'the novel is not a manga to read next, and the anime is neither');
 });

@@ -101,6 +101,7 @@ import { FavouriteKey, IcListAdd, MoreKey, SeriesKey, SeriesMoreSheet, moreMenuI
 import { ProgressRing } from '@/components/ProgressRing';
 import { SeriesEditor, copyPath, type EditTab } from '@/components/SeriesEditor';
 import { RelatedRail } from '@/components/RelatedRail';
+import { LightNovels } from '@/components/LightNovels';
 import { FindSimilar } from '@/components/FindSimilar';
 import { safeColor } from '@/lib/safeColor';
 
@@ -2842,6 +2843,7 @@ function SeriesInner() {
       )}
 
       {/* v0.61.0: what AniList relates this series to -- sequels, prequels, side stories -- just above More like this. */}
+      <LightNovels seriesId={id} />
       <RelatedRail seriesId={id} />
       {(similar?.content?.length ?? 0) > 0 && (
         <section className="mt-10">

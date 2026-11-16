@@ -2448,6 +2448,8 @@ CREATE TABLE IF NOT EXISTS volume_watch (
 -- Other sources' copies of a chapter, kept beside the endorsed one (the row in lib_books). A series that keeps every
 -- source's copy has one row per chapter per followed source here; the file sits in a hidden .versions folder the scanner
 -- skips. Reading progress stays on the lib_books row: the chapter number is the chapter, whichever copy was opened.
+-- The light novels AniList relates an entry to (the Light novel card). NULL on a row stored before they were kept: it is asked again.
+ALTER TABLE IF EXISTS anilist_related ADD COLUMN IF NOT EXISTS novels jsonb;
 CREATE TABLE IF NOT EXISTS lib_book_versions (
   book_id      text NOT NULL REFERENCES lib_books(id) ON DELETE CASCADE,
   source_id    text NOT NULL,

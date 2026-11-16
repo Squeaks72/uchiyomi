@@ -53,7 +53,8 @@ import { isOwnFile } from '../lib/chapterFile';
 import { DL_ROOT, LIBRARY_ROOT, lastScanFailure, lastScanReport, scanProgress, scanRunning } from '../lib/library';
 import { noticeBook, noticeListed, noticesShortOnly } from '../lib/noticeChapters';
 import { noticeTypes, hiddenCount } from '../lib/noticeSettings';
-import { heldRecs, relatedFor } from '../lib/anilistRelated';
+import { heldRecs, relatedFor, novelsFor } from '../lib/anilistRelated';
+import { findNovelSeries, novelKey } from '../lib/bookorbitSync';
 import { seriesGaps } from '../lib/seriesGaps';
 import { favoriteOrder } from '../lib/favorites';
 import { join } from 'node:path';
@@ -940,6 +941,34 @@ export default async function catalogRoutes(app: FastifyInstance) {
    * library does not look things up on AniList, or with no checked link. Reads the table only: a page open never asks
    * AniList. Resolved through the series' own visibility first, so a series this viewer may not open is a 404.
    */
+  // The light novels of this series' story (AniList's source novel and adaptations of it), and the BookOrbit series that holds each, when
+  // BookOrbit is linked (Admin -> BookOrbit sync) and has it as an ebook: the Light novel card on the series page. Matched by title, and
+  // answered for ten minutes -- the BookOrbit read is a database query.
+  const novelCache = new Map<string, { at: number; v: unknown }>();
+  app.get('/api/series/:id/novels', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    if (!(await seriesVisible(id, vc(req)))) return reply.code(404).send({ error: 'not_found' });
+    const ctx = vc(req);
+    const r = await novelsFor(id, ctx);
+    if (!r.lookups || !r.content.length) return { lookups: r.lookups, bookorbit: null, content: [] };
+    // Whether this viewer may be shown 18+ libraries of BookOrbit: no age cap, and 18+ surfacing on.
+    const adult = !ctx.hideAdultLibraries && ctx.maxAgeRating == null;
+    const names = r.content.flatMap((n) => [...n.titles, ...n.synonyms.filter((s) => s.length >= 6)]);
+    const ck = `${adult ? 1 : 0}|${[...new Set(names.map(novelKey))].sort().join(',')}`;
+    const hit = novelCache.get(ck);
+    let found = hit && Date.now() - hit.at < 600_000 ? (hit.v as Awaited<ReturnType<typeof findNovelSeries>>) : undefined;
+    if (found === undefined) { found = await findNovelSeries(names, adult); novelCache.set(ck, { at: Date.now(), v: found }); if (novelCache.size > 200) novelCache.clear(); }
+    return {
+      lookups: true,
+      bookorbit: found?.url ?? null,
+      content: r.content.map((n) => {
+        const keys = new Set([...n.titles, ...n.synonyms.filter((s) => s.length >= 6)].flatMap((t) => [novelKey(t), t.trim().toLowerCase()]));
+        const m = found?.series.find((s) => keys.has(s.key));
+        return { ...n, held: m ? { id: m.id, name: m.name, volumes: m.volumes, path: `/series/${m.id}` } : null };
+      }),
+    };
+  });
+
   app.get('/api/series/:id/related', async (req) => {
     const { id } = req.params as { id: string };
     await komga.series(vc(req), id);
