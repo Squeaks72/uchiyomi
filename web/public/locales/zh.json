@@ -2,7 +2,7 @@
   "_meta": {
     "language": "zh",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 5831
+    "strings": 5832
   },
   "1 check found something": "1 项检查发现问题",
   "1 member": "1 位成员",
@@ -5365,7 +5365,6 @@
   "Where {main} has the same chapter number, download its copy instead of leaving a gap.": "如果 {main} 有相同编号的章节，则下载其副本而不是留空。",
   "Look": "样式",
   "Goals": "目标",
-  "Advanced": "高级",
   "Chapter lists": "章节列表",
   "Compact chapter list (series pages)": "紧凑章节列表（系列页面）",
   "Chapters kept per series": "每个系列保留的章节数",
@@ -5834,5 +5833,7 @@
   "Teal": "青绿",
   "Slate": "石板灰",
   "White": "白色",
-  "Custom colour": "自定义颜色"
+  "Custom colour": "自定义颜色",
+  "About this setting": "关于此设置",
+  "Behaviour": "行为"
 }

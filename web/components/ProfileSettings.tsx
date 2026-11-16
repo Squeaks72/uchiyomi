@@ -168,6 +168,36 @@ function GeneralPane({ pointer }: { pointer: boolean }) {
 
   return (
     <>
+      {/* One group where there were three of one or two rows each (2026-11-16: "menus feel chaotic"). The duplicate
+          Notifications group was a merge leftover: the same switch and id drawn twice. */}
+      <RowGroup title={tr('Behaviour')}>
+        <SwitchRow id="show-all-chapters" label={tr('Show all chapters at once')}
+          help={tr('A series page lists every chapter, including those not here yet, on one page instead of a hundred at a time. Saved to your account.')}
+          on={showAllChapters} onChange={saveShowAllChapters} />
+        {/* This device only, and only a computer's rows change: lib/compactChapters.ts. Off by default -- the default
+            chapter row is the deliberate look, and taking part of it away is the reader's choice. Not drawn where there
+            is no pointer to point with. */}
+        {pointer && (
+          <SwitchRow id="compact-chapters" device label={tr('Compact chapter list')}
+            help={tr('On a computer, chapter rows without thumbnails, and their buttons appear when you point at a row. Phones and tablets are unchanged. This device only.')}
+            on={compactList} onChange={(next) => { setCompactChaptersOn(next); setCompactList(next); }} />
+        )}
+        <SwitchRow id="notify-only-next" label={tr('Only tell me about my next chapter')}
+          help={tr('A new chapter notifies you only when it is the one you would read next: you are caught up, with nothing older unread or half read. A chapter upgraded to a preferred group still tells you. Saved to your account.')}
+          on={notifyOnlyNext} onChange={saveNotifyOnlyNext} />
+        {/* This device only (lib/typeToSearch.ts says why): single-key shortcuts must be possible to switch off. */}
+        {pointer && (
+          <SwitchRow id="type-to-search" device label={tr('Type anywhere to search')}
+            help={tr('Start typing a title on any page to open search with it. This also switches the / shortcut, on this device only.')}
+            on={typeSearch} onChange={(next) => { setTypeToSearchOn(next); setTypeSearch(next); }} />
+        )}
+        {/* This device only (lib/contextMenus.ts, #100). On by default: the menus only take the right-click where the
+            browser's offers nothing worth keeping, and Shift+right-click still gets it. */}
+        <SwitchRow id="context-menus" device label={tr('Right-click menus')}
+          help={tr('Right-click a series or a chapter, or press and hold one on a touchscreen, for its actions. Shift+right-click still opens the browser’s own menu. This device only.')}
+          on={contextMenus} onChange={(next) => { setContextMenusOn(next); setContextMenus(next); }} />
+      </RowGroup>
+
       {/* Written to the server so it follows you to another device, and mirrored to localStorage so the login
           screen -- which nobody is signed in to -- is already translated. The note about machine assistance
           is shown rather than buried in a commit message: someone reading their own language deserves to
@@ -183,46 +213,6 @@ function GeneralPane({ pointer }: { pointer: boolean }) {
             </p>
           )}
         </RowBlock>
-      </RowGroup>
-
-      <RowGroup title={tr('Series pages')}>
-        <SwitchRow id="show-all-chapters" label={tr('Show all chapters at once')}
-          help={tr('A series page lists every chapter, including those not here yet, on one page instead of a hundred at a time. Saved to your account.')}
-          on={showAllChapters} onChange={saveShowAllChapters} />
-        {/* This device only, and only a computer's rows change: lib/compactChapters.ts. Off by default -- the default
-            chapter row is the deliberate look, and taking part of it away is the reader's choice. Not drawn where there
-            is no pointer to point with. */}
-        {pointer && (
-          <SwitchRow id="compact-chapters" device label={tr('Compact chapter list')}
-            help={tr('On a computer, chapter rows without thumbnails, and their buttons appear when you point at a row. Phones and tablets are unchanged. This device only.')}
-            on={compactList} onChange={(next) => { setCompactChaptersOn(next); setCompactList(next); }} />
-        )}
-      </RowGroup>
-
-      <RowGroup title={tr('Notifications')}>
-        <SwitchRow id="notify-only-next" label={tr('Only tell me about my next chapter')}
-          help={tr('A new chapter notifies you only when it is the one the series page would open for you: you are caught up, with nothing older unread or half read. Applies to push alerts and to messages sent to you. Saved to your account.')}
-          on={notifyOnlyNext} onChange={saveNotifyOnlyNext} />
-      </RowGroup>
-
-      <RowGroup title={tr('Shortcuts')}>
-        {/* This device only (lib/typeToSearch.ts says why): single-key shortcuts must be possible to switch off. */}
-        {pointer && (
-          <SwitchRow id="type-to-search" device label={tr('Type anywhere to search')}
-            help={tr('Start typing a title on any page to open search with it. This also switches the / shortcut, on this device only.')}
-            on={typeSearch} onChange={(next) => { setTypeToSearchOn(next); setTypeSearch(next); }} />
-        )}
-        {/* This device only (lib/contextMenus.ts, #100). On by default: the menus only take the right-click where the
-            browser's offers nothing worth keeping, and Shift+right-click still gets it. */}
-        <SwitchRow id="context-menus" device label={tr('Right-click menus')}
-          help={tr('Right-click a series or a chapter, or press and hold one on a touchscreen, for its actions. Shift+right-click still opens the browser’s own menu. This device only.')}
-          on={contextMenus} onChange={(next) => { setContextMenusOn(next); setContextMenus(next); }} />
-      </RowGroup>
-
-      <RowGroup title={tr('Notifications')}>
-        <SwitchRow id="notify-only-next" label={tr('Only tell me about my next chapter')}
-          help={tr('A new chapter notifies you only when it is the one you would read next: you are caught up, with nothing older unread or half read. A chapter upgraded to a preferred group still tells you. Saved to your account.')}
-          on={notifyOnlyNext} onChange={saveNotifyOnlyNext} />
       </RowGroup>
 
       <MoreOptions id="general-more">

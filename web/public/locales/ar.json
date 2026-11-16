@@ -2,7 +2,7 @@
   "_meta": {
     "language": "ar",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 5838
+    "strings": 5839
   },
   "1 check found something": "فحص واحد وجد شيئًا",
   "1 member": "عضو واحد",
@@ -5372,7 +5372,6 @@
   "1 series needs attention": "1 series needs attention",
   "Look": "الشكل",
   "Goals": "الأهداف",
-  "Advanced": "متقدم",
   "Chapter lists": "قوائم الفصول",
   "Compact chapter list (series pages)": "قائمة فصول مضغوطة (صفحات السلاسل)",
   "Chapters kept per series": "الفصول المحفوظة لكل سلسلة",
@@ -5841,5 +5840,7 @@
   "Teal": "أزرق مخضر",
   "Slate": "رمادي أردوازي",
   "White": "أبيض",
-  "Custom colour": "لون مخصص"
+  "Custom colour": "لون مخصص",
+  "About this setting": "حول هذا الإعداد",
+  "Behaviour": "السلوك"
 }
