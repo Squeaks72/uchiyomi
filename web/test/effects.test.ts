@@ -96,7 +96,7 @@ const PINNED: Record<string, string[]> = {
   ],
   '.fx-mesh': [
     'position: fixed', 'inset: -25%', 'z-index: 0', 'pointer-events: none',
-    'filter: blur(90px) saturate(1.25)', 'opacity: 0.55',
+    'opacity: 0.55',
     'background: radial-gradient(38% 40% at 18% 28%, rgb(var(--accent) / 0.20), transparent 70%), radial-gradient(40% 48% at 82% 18%, rgba(34, 211, 238, 0.10), transparent 70%), radial-gradient(52% 52% at 62% 92%, rgb(var(--accent) / 0.14), transparent 70%)',
     'animation: mesh-drift 26s ease-in-out infinite alternate',
   ],

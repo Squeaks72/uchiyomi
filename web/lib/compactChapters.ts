@@ -11,12 +11,12 @@
 
 const KEY = 'uchiyomi.compactChapters';
 
-/** Whether this device asked for the compact chapter list. Off unless it did; storage that throws reads as off. */
+/** Whether this device uses the compact chapter list: on unless it turned it off (the default since v0.110); storage that throws reads as on. */
 export function compactChaptersOn(): boolean {
-  try { return localStorage.getItem(KEY) === 'on'; } catch { return false; }
+  try { return localStorage.getItem(KEY) !== 'off'; } catch { return true; }
 }
 export function setCompactChaptersOn(on: boolean): void {
-  try { if (on) localStorage.setItem(KEY, 'on'); else localStorage.removeItem(KEY); } catch {}
+  try { if (on) localStorage.removeItem(KEY); else localStorage.setItem(KEY, 'off'); } catch {}
 }
 
 /** The row's own line: tighter on a pointer, and a hover group for the buttons. */

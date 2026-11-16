@@ -40,15 +40,16 @@ test('the series page uses them on both kinds of row, and adds no wrapper when o
   assert.match(src, /if \(!compact\) return <>\{children\}<\/>;/);
 });
 
-test('it is off until this device turns it on, and a storage that throws reads as off', () => {
+test('it is on until this device turns it off (v0.110), and a storage that throws reads as on', () => {
   const mem = new Map<string, string>();
   (globalThis as any).localStorage = { getItem: (k: string) => mem.get(k) ?? null, setItem: (k: string, v: string) => void mem.set(k, v), removeItem: (k: string) => void mem.delete(k) };
-  assert.equal(compactChaptersOn(), false);
-  setCompactChaptersOn(true);
   assert.equal(compactChaptersOn(), true);
   setCompactChaptersOn(false);
   assert.equal(compactChaptersOn(), false);
+  setCompactChaptersOn(true);
+  assert.equal(compactChaptersOn(), true);
+  assert.equal(mem.size, 0, 'on is the default, so it is stored as nothing at all');
   (globalThis as any).localStorage = { getItem() { throw new Error('blocked'); } };
-  assert.equal(compactChaptersOn(), false);
+  assert.equal(compactChaptersOn(), true);
   delete (globalThis as any).localStorage;
 });

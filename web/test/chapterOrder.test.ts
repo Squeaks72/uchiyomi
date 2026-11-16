@@ -7,13 +7,12 @@ import { chapterOrderAsc } from '../lib/chapterOrder';
 
 const read = (p: string) => readFileSync(join(__dirname, '..', p), 'utf8');
 
-test('oldest first unless the account chose newest', () => {
-  // Reintroduce `=== 'oldest'`: an account that never chose reads newest first, and every series opens the other way.
-  assert.equal(chapterOrderAsc(undefined), true, 'no account');
-  assert.equal(chapterOrderAsc({}), true, 'never chosen');
+test('newest first unless the account chose oldest (v0.110)', () => {
+  assert.equal(chapterOrderAsc(undefined), false, 'no account');
+  assert.equal(chapterOrderAsc({}), false, 'never chosen');
   assert.equal(chapterOrderAsc({ chapterOrder: 'oldest' }), true);
   assert.equal(chapterOrderAsc({ chapterOrder: 'newest' }), false);
-  assert.equal(chapterOrderAsc({ chapterOrder: 'sideways' }), true, 'junk reads as the default');
+  assert.equal(chapterOrderAsc({ chapterOrder: 'sideways' }), false, 'junk reads as the default');
 });
 
 test('the series page reads the order from the account and saves a tap for every series', () => {

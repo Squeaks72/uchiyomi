@@ -9,13 +9,13 @@ export const CHAPTER_VIEWS = ['columns', 'list'] as const;
 export type ChapterView = (typeof CHAPTER_VIEWS)[number];
 const KEY = 'uchiyomi.chapterView';
 
-/** This device's chapter layout. Columns unless it chose List; junk and storage that throws read as Columns. */
+/** This device's chapter layout. List (one column, titles read whole) unless it chose Columns -- the default since v0.110; junk and storage that throws read as List. */
 export function chapterViewOn(): ChapterView {
-  try { return localStorage.getItem(KEY) === 'list' ? 'list' : 'columns'; } catch { return 'columns'; }
+  try { return localStorage.getItem(KEY) === 'columns' ? 'columns' : 'list'; } catch { return 'list'; }
 }
-/** Remember `v` on this device. Columns is the default, so it is stored as nothing at all. */
+/** Remember `v` on this device. List is the default, so it is stored as nothing at all. */
 export function setChapterView(v: ChapterView): void {
-  try { if (v === 'list') localStorage.setItem(KEY, 'list'); else localStorage.removeItem(KEY); } catch { /* a private window */ }
+  try { if (v === 'columns') localStorage.setItem(KEY, 'columns'); else localStorage.removeItem(KEY); } catch { /* a private window */ }
 }
 /** The rows' container: columns from lg up, each at least 250 px, or one list. A phone stacks them either way. */
 export function chapterRowsClass(v: ChapterView): string {

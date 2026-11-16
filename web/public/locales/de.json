@@ -2,7 +2,7 @@
   "_meta": {
     "language": "de",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 5793
+    "strings": 5799
   },
   "1 check found something": "1 Prüfung hat etwas gefunden",
   "1 member": "1 Mitglied",
@@ -5796,5 +5796,11 @@
   "This series is numbered by posting order, so another source cannot name its chapters": "Diese Serie ist nach Veröffentlichungsreihenfolge nummeriert, daher kann keine andere Quelle ihre Kapitel benennen",
   "No names found": "Keine Namen gefunden",
   "Could not fetch chapter names": "Kapitelnamen konnten nicht abgerufen werden",
-  "Fetch names": "Namen holen"
+  "Fetch names": "Namen holen",
+  "Hide chapters not downloaded yet": "Noch nicht heruntergeladene Kapitel ausblenden",
+  "Not downloaded yet · {n}": "Noch nicht heruntergeladen · {n}",
+  "Hide read chapters": "Gelesene Kapitel ausblenden",
+  "Show {n} read chapters": "{n} gelesene Kapitel anzeigen",
+  "Jump to": "Springen zu",
+  "Jump to…": "Springen zu…"
 }
