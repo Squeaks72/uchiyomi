@@ -18,7 +18,11 @@ import { t as tr } from '@/lib/i18n';
 import type { Book, Ghost } from '@/lib/types';
 
 interface Offer { source: string; sourceId: string; label: string; names: Array<[number, string]> }
-interface Search { offers: Offer[]; asked: Array<{ id: string; name: string }>; why?: string }
+interface Search {
+  offers: Offer[]; asked: Array<{ id: string; name: string }>; why?: string;
+  available?: Array<{ id: string; name: string }>;
+  rejected?: Array<{ id: string; name: string; why: string }>;
+}
 interface Item { number: number; current: string; listedOnly: boolean }
 
 const GENERIC = /^(ch(apter)?\.?\s*)?[\d.]+$/i;
@@ -34,6 +38,10 @@ export function ChapterNamesDialog({ seriesId, books, ghosts, scope, onClose, on
   const [replace, setReplace] = useState(false);
   const [off, setOff] = useState<Set<number>>(new Set());
   const [saving, setSaving] = useState(false);
+  // Other sources the person ticked to ask by name, what is being asked, and the ones that turned out not to match (with why).
+  const [more, setMore] = useState<Set<string>>(new Set());
+  const [asking, setAsking] = useState(false);
+  const [declined, setDeclined] = useState<Array<{ id: string; name: string; why: string }>>([]);
 
   useEffect(() => {
     let dead = false;
@@ -57,6 +65,26 @@ export function ChapterNamesDialog({ seriesId, books, ghosts, scope, onClose, on
     }
     return [...out.values()].sort((a, b) => b.number - a.number);
   }, [books, ghosts, scope]);
+
+  const askMore = async () => {
+    if (!more.size || asking) return;
+    setAsking(true);
+    const ids = [...more];
+    try {
+      const r = await api<Search>(`/api/admin/series/${encodeURIComponent(seriesId)}/names/search`, { method: 'POST', json: { sources: ids } });
+      setSearch((prev) => {
+        if (!prev) return prev;
+        const fresh = r.offers.filter((o) => !prev.offers.some((p) => p.source === o.source));
+        if (fresh.length) setPick(prev.offers.length);
+        return { ...prev, offers: [...prev.offers, ...fresh], available: (prev.available ?? []).filter((a) => !ids.includes(a.id)), why: undefined };
+      });
+      setDeclined((d) => [...d, ...(r.rejected ?? [])]);
+      setMore(new Set());
+    } catch (e) { setError(msgOf(e, tr('Could not search for chapter names'))); }
+    finally { setAsking(false); }
+  };
+  const declinedWhy = (w: string) => (w === 'title_differs' ? tr('has a different title') : w === 'numbering_differs' ? tr('numbers the chapters differently')
+    : w === 'not_found' ? tr('does not have this series') : w === 'unreachable' ? tr('did not answer') : tr('not a match'));
 
   const offer = search?.offers[pick];
   const byNumber = useMemo(() => new Map(offer?.names ?? []), [offer]);
@@ -150,6 +178,31 @@ export function ChapterNamesDialog({ seriesId, books, ghosts, scope, onClose, on
               </>
             )}
           </>
+        )}
+        {search && (search.available?.length ?? 0) > 0 && (
+          <details data-names-more open={search.offers.length === 0} className="rounded-lg border border-ink-700 px-3 py-2">
+            <summary className="cursor-pointer text-fog-200">{tr('Ask other sources')}</summary>
+            <p className="mt-1 text-xs text-fog-500">{tr('Tick sources to ask whether they carry this series. Each is checked for a matching title and numbering before its names are offered.')}</p>
+            <ul data-lenis-prevent className="mt-2 max-h-40 space-y-1 overflow-y-auto">
+              {search.available!.map((a) => (
+                <li key={a.id}>
+                  <label className="flex cursor-pointer items-center gap-2 text-fog-200">
+                    <input type="checkbox" checked={more.has(a.id)} className="accent-[rgb(var(--accent))]"
+                      onChange={() => setMore((m) => { const x = new Set(m); if (x.has(a.id)) x.delete(a.id); else x.add(a.id); return x; })} />
+                    {a.name}
+                  </label>
+                </li>
+              ))}
+            </ul>
+            <button type="button" onClick={() => void askMore()} disabled={!more.size || asking} data-names-ask className="btn-key mt-2">
+              {asking ? '…' : more.size === 1 ? tr('Ask 1 source') : tr('Ask {n} sources', { n: more.size })}
+            </button>
+          </details>
+        )}
+        {declined.length > 0 && (
+          <ul data-names-declined className="space-y-0.5 text-xs text-fog-500">
+            {declined.map((d) => <li key={d.id}>{d.name} — {declinedWhy(d.why)}</li>)}
+          </ul>
         )}
         <div className="flex justify-end gap-2 pt-1">
           <button type="button" onClick={onClose} className="btn-key">{tr('Cancel')}</button>

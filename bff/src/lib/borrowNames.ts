@@ -234,7 +234,15 @@ export async function clearBorrowedNames(scope: { seriesId: string } | 'followin
 
 /** One source's names for this series, as the "Fetch names" dialog offers them. */
 export interface NameOffer { source: string; sourceId: string; label: string; names: Array<[number, string]> }
-export interface NameSearch { offers: NameOffer[]; asked: Array<{ id: string; name: string }>; why?: BorrowWhy }
+export interface NameSearch {
+  offers: NameOffer[];
+  asked: Array<{ id: string; name: string }>;
+  why?: BorrowWhy;
+  /** Sources that were asked (or searched) and did not qualify, with the judgement's reason (`title_differs`, `numbering_differs`, `unreachable`, `not_found`). */
+  rejected?: Array<{ id: string; name: string; why: string }>;
+  /** Other sources the person may ask by name: enabled, in the series' language, allowed for it, not already offered. */
+  available?: Array<{ id: string; name: string; lang?: string }>;
+}
 
 /**
  * Every source that passes the donor judgement for this series, with the names each would give -- for a PERSON to choose from
@@ -244,7 +252,7 @@ export interface NameSearch { offers: NameOffer[]; asked: Array<{ id: string; na
  * ANY enabled source in the series' language that has the work under its title and numbers it the same way, not only the ones
  * the series follows.
  */
-export async function findNameDonors(seriesId: string, opts: { max?: number; now?: number } = {}): Promise<NameSearch> {
+export async function findNameDonors(seriesId: string, opts: { max?: number; now?: number; only?: string[] } = {}): Promise<NameSearch> {
   const now = opts.now ?? Date.now();
   const max = opts.max ?? 4;
   const s = await one<{ id: string; title: string; source_id: string | null; name_donor: NameDonor | null; numbering: string | null }>(
@@ -271,26 +279,37 @@ export async function findNameDonors(seriesId: string, opts: { max?: number; now
     }
     offers.push({ source: j.source, sourceId: j.sourceSeriesId, label: src?.name ?? j.source, names: [...byNumber] });
   };
-  const remembered = s.name_donor?.source && s.name_donor.sourceId ? usable(s.name_donor.source) : null;
-  if (remembered) {
-    const j = await judgeCandidate(primary, { source: remembered.id, sourceId: s.name_donor!.sourceId! }, { prefs, health }).catch(() => null);
-    if (j?.why === 'ok') take(j);
+  const rejected: Array<{ id: string; name: string; why: string }> = [];
+  // `only`: the sources a person ticked in the dialog -- asked by name, whatever the automatic search skipped, judged the same way.
+  const only = opts.only?.length ? new Set(opts.only) : null;
+  if (!only) {
+    const remembered = s.name_donor?.source && s.name_donor.sourceId ? usable(s.name_donor.source) : null;
+    if (remembered) {
+      const j = await judgeCandidate(primary, { source: remembered.id, sourceId: s.name_donor!.sourceId! }, { prefs, health }).catch(() => null);
+      if (j?.why === 'ok') take(j);
+    }
   }
-  const order = scanOrder(listSources().filter((src) => !!usable(src.id)), { id: s.source_id ?? '', lang: want }).slice(0, HUNT_MAX_SOURCES);
+  const pool = listSources().filter((src) => !!usable(src.id) && (!only || only.has(src.id)));
+  const order = scanOrder(pool, { id: s.source_id ?? '', lang: want }).slice(0, only ? 12 : HUNT_MAX_SOURCES);
   const deadline = Date.now() + NAMES_WALL_MS;
   for (const id of order) {
-    if (offers.length >= max) break;
+    if (!only && offers.length >= max) break;
     const left = deadline - Date.now();
     if (left < MIN_TRY_MS) break;
     const src = getSource(id);
     if (!src || offers.some((o) => o.source === id)) continue;
     asked.push({ id, name: src.name });
     const hit = await bounded(src.search(s.title), Math.min(budgetFor(src, NAMES_SEARCH_MS), left)).then((results) => pickBest(results, s.title)).catch(() => null);
-    if (!hit?.sourceId) continue;
+    if (!hit?.sourceId) { if (only) rejected.push({ id, name: src.name, why: 'not_found' }); continue; }
     const j = await bounded(judgeCandidate(primary, { source: id, sourceId: hit.sourceId }, { prefs, health }), Math.max(MIN_TRY_MS, deadline - Date.now())).catch(() => null);
     if (j?.why === 'ok') take(j);
+    else if (only) rejected.push({ id, name: src.name, why: j?.why ?? 'unreachable' });
   }
-  return { offers, asked, ...(offers.length ? {} : { why: 'no_donor' as BorrowWhy }) };
+  const available = only ? undefined : listSources()
+    .filter((src) => !!usable(src.id) && !offers.some((o) => o.source === src.id))
+    .map((src) => ({ id: src.id, name: src.name, lang: src.lang }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  return { offers, asked, ...(rejected.length ? { rejected } : {}), ...(available ? { available } : {}), ...(offers.length ? {} : { why: 'no_donor' as BorrowWhy }) };
 }
 
 /**
