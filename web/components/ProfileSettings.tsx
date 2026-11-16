@@ -13,6 +13,7 @@ import { compactChaptersOn, setCompactChaptersOn } from '@/lib/compactChapters';
 import { setTitleIgnored } from '@/lib/ignoredTitles';
 import { keepAdultOn, setKeepAdultOn } from '@/lib/adult';
 import { useBanners } from '@/lib/bannerPref';
+import { useBlurAdult } from '@/lib/blurPref';
 import { showAllChaptersOn } from '@/lib/showAllChapters';
 import { notifyOnlyNextOn } from '@/lib/notifyOnlyNext';
 import { contextMenusOn, setContextMenusOn } from '@/lib/contextMenus';
@@ -294,6 +295,7 @@ function AppearanceSection() {
   const avatarSave = useAutosave();
   const frameSave = useAutosave();
   const accentSave = useAutosave();
+  const [blurAdult, setBlurAdult] = useBlurAdult();
   const avatarEditor = useEditor('avatar');
 
   const av: AvatarData = user?.avatar ?? {};
@@ -391,6 +393,10 @@ function AppearanceSection() {
         <SwitchRow id="reduce-effects" label={tr('Reduce effects')}
           help={tr('Turns off the animated background, blur, smooth scrolling and transitions. Try it if scrolling feels slow.')}
           on={reduceEffects} onChange={saveReduceEffects} />
+        {/* This device only (lib/blurPref.ts): an 18+ cover is blurred on its card until the card is pointed at or focused. */}
+        <SwitchRow id="blur-adult" device label={tr('Blur 18+ covers')}
+          help={tr('Covers of 18+ series are blurred on cards until you point at one. This device only.')}
+          on={blurAdult} onChange={setBlurAdult} />
       </RowGroup>
 
       <EditorSheet title={tr('Avatar')} open={avatarEditor.open} onClose={avatarEditor.close}>

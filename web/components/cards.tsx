@@ -27,6 +27,9 @@ import { useIsHiddenTitle } from '@/lib/ignoredTitles';
 import { publicCoverFallback } from '@/lib/coverFallback';
 import { anilistNumbers, type SortValue } from '@/lib/sortValue';
 import { coverProgress, seriesProgress } from '@/lib/seriesProgress';
+import { seriesTypeKey } from '@/lib/seriesTypes';
+import { BLURRED_COVER, useBlurAdult } from '@/lib/blurPref';
+import type { SeriesType } from '@/lib/types';
 
 /**
  * The unread count on a series' tag (v0.61.2, #202): the whole number, grouped the way the reader's language groups
@@ -127,6 +130,21 @@ const noteOf = (note: CardNote): { kind?: SortValue['kind']; text: string; hint:
  * long form is the line's hover, and the star names the score to a screen reader. In the interface's direction, not the
  * title's `auto`: it is the app's sentence about the series.
  */
+/**
+ * What kind of comic a card is -- Manga, Manhwa, Manhua, Webtoon, Comic -- from the server's own word for it (bff
+ * lib/seriesType.ts, the admin's override first). A small outlined tag under the title, as mangadot draws it. An unknown
+ * type draws nothing: a tag that says "unknown" on half the library is noise, not information.
+ */
+export function TypeTag({ type, className = '' }: { type?: SeriesType | null; className?: string }) {
+  if (!type || type === 'unknown') return null;
+  return (
+    <span data-type-tag={type}
+      className={`inline-block rounded-[4px] border border-ink-600/70 px-1.5 py-px text-[9px] font-semibold uppercase leading-snug tracking-wider text-fog-400 ${className}`}>
+      {tr(seriesTypeKey(type))}
+    </span>
+  );
+}
+
 function NoteLine({ note, attr, className }: { note: CardNote; attr: 'data-sort-value' | 'data-card-note'; className: string }) {
   const v = noteOf(note);
   if (!v) return null;
@@ -197,6 +215,8 @@ export function SeriesCard({ series, w = CARD_W, eager = false, note }: {
   const tint = useTileTint(series.color);
   // Right-click, press-and-hold or Shift+F10 (#100, components/SeriesMenu.tsx), and the ⋯ on a computer (v0.60.0).
   const menu = useSeriesMenu(series);
+  const [blurOn] = useBlurAdult();
+  const blurred = blurOn && series.adult === true;
   const title = series.metadata?.title || series.name;
   const isHidden = useIsHiddenTitle();
   if (isHidden(title, series.id)) return null;
@@ -209,7 +229,7 @@ export function SeriesCard({ series, w = CARD_W, eager = false, note }: {
         style={{ ...tilt.style, ...tint }}
         className="grad-border relative aspect-[2/3] overflow-hidden rounded-2xl border border-ink-700/60 shadow-lift transition-all duration-300 group-hover:-translate-y-1.5 group-hover:shadow-glow group-active:scale-[0.97]"
       >
-        <Img src={img.seriesThumb(series.id)} alt="" eager={eager} className="h-full w-full transition-transform duration-500 group-hover:scale-[1.07]" />
+        <Img src={img.seriesThumb(series.id)} alt="" eager={eager} className={blurred ? BLURRED_COVER : "h-full w-full transition-transform duration-500 group-hover:scale-[1.07]"} />
         <div aria-hidden className="pointer-events-none absolute inset-0 z-10" style={tilt.glare} />
         {series.yomi?.favorite && (
           <span className="absolute start-2 top-2 z-10 rounded-full bg-black/55 p-1.5 text-accent backdrop-blur">
@@ -244,6 +264,7 @@ export function SeriesCard({ series, w = CARD_W, eager = false, note }: {
       <p className="mt-2 line-clamp-2 px-0.5 text-[13px] font-medium leading-tight text-fog-200 transition group-hover:text-fog-50">
         {title}
       </p>
+      <TypeTag type={series.seriesType} className="mx-0.5 mt-1" />
       <NoteLine note={note} attr="data-card-note" className="mt-0.5 flex min-w-0 items-center gap-1 px-0.5 text-[11px] leading-tight text-fog-500 tabular-nums" />
     </Link>
     {/* The cover's box, lifted and tilted with it, so the ⋯ stays on its corner. */}
@@ -391,6 +412,8 @@ export function SeriesTile({ series, eager = false, selectable, selected, onTogg
   const tilts = !selectable;
   // Not in Select mode: there a press toggles the tile, and the Library's own bar holds the actions (#100).
   const menu = useSeriesMenu(series);
+  const [blurOn] = useBlurAdult();
+  const blurred = blurOn && series.adult === true;
   const title = series.metadata?.title || series.name;
   const isHidden = useIsHiddenTitle();
   if (isHidden(title, series.id)) return null;
@@ -400,7 +423,7 @@ export function SeriesTile({ series, eager = false, selectable, selected, onTogg
       <div style={{ ...(tilts ? tilt.style : undefined), ...tint }}
         onPointerMove={tilts ? tilt.onPointerMove : undefined} onPointerLeave={tilts ? tilt.onPointerLeave : undefined}
         className={`grad-border relative aspect-[2/3] overflow-hidden ${corner} border border-ink-700/60 transition-all duration-300 group-hover:-translate-y-1 group-hover:shadow-glow group-active:scale-[0.97]`}>
-        <Img src={img.seriesThumb(series.id)} alt={title} eager={eager} className="h-full w-full transition-transform duration-500 group-hover:scale-[1.07]" />
+        <Img src={img.seriesThumb(series.id)} alt={title} eager={eager} className={blurred ? BLURRED_COVER : "h-full w-full transition-transform duration-500 group-hover:scale-[1.07]"} />
         {tilts && <div aria-hidden className="pointer-events-none absolute inset-0 z-10" style={tilt.glare} />}
         {selectable && (
           <>
@@ -441,6 +464,7 @@ export function SeriesTile({ series, eager = false, selectable, selected, onTogg
       <p dir="auto" className={`${compact ? 'mt-1 truncate text-[11px]' : 'mt-1.5 line-clamp-2 text-xs'} font-medium leading-tight text-fog-300 transition group-hover:text-fog-100`}>
         {title}
       </p>
+      {!compact && <TypeTag type={series.seriesType} className="mt-1" />}
       <NoteLine note={note} attr="data-sort-value"
         className={`mt-0.5 flex min-w-0 items-center gap-1 ${compact ? 'text-[10px] pointer-coarse:text-[11px]' : 'text-[11px]'} leading-tight text-fog-500 tabular-nums`} />
       {/* The work's languages (v0.52.0, #72): the Library shows one card for every language edition the viewer may
@@ -481,6 +505,8 @@ export function SeriesRow({ series, eager = false, selectable, selected, onToggl
   const savedOffline = useOfflineSeries().has(series.id);
   const tint = useTileTint(series.color);
   const menu = useSeriesMenu(series);
+  const [blurOn] = useBlurAdult();
+  const blurred = blurOn && series.adult === true;
   const title = series.metadata?.title || series.name;
   const progress = seriesProgress(series);
   const sorted = noteOf(note);
@@ -491,7 +517,7 @@ export function SeriesRow({ series, eager = false, selectable, selected, onToggl
     <div className={`flex items-center gap-3 rounded-2xl border p-2 pe-3 transition-colors duration-200 lg:pointer-fine:pe-12 pointer-coarse:pe-14 ${
       selected ? 'border-accent/70 bg-accent/10' : 'border-ink-800/80 bg-ink-900/40 group-hover:border-ink-700 group-hover:bg-ink-850/70'}`}>
       <div style={tint} className="grad-border relative h-[4.5rem] w-12 shrink-0 overflow-hidden rounded-lg border border-ink-700/60">
-        <Img src={img.seriesThumb(series.id)} alt="" eager={eager} className="h-full w-full" />
+        <Img src={img.seriesThumb(series.id)} alt="" eager={eager} className={blurred ? BLURRED_COVER : "h-full w-full"} />
         {selectable && (
           <span className={`absolute start-1 top-1 z-20 grid h-5 w-5 place-items-center rounded-full border text-[10px] font-bold ${
             selected ? 'border-accent bg-accent text-black' : 'border-white/50 bg-black/50 text-transparent'}`}>✓</span>
@@ -505,6 +531,7 @@ export function SeriesRow({ series, eager = false, selectable, selected, onToggl
       </div>
       <div className="min-w-0 flex-1">
         <p dir="auto" className="truncate text-sm font-medium leading-snug text-fog-100">{title}</p>
+        <TypeTag type={series.seriesType} className="mt-0.5" />
         <EditionLangs series={series} className="truncate text-[10px] pointer-coarse:text-[11px] font-semibold tracking-wide text-fog-600" />
         {sorted
           ? <NoteLine note={note} attr="data-sort-value" className="mt-0.5 flex min-w-0 items-center gap-1 text-[11px] leading-tight text-fog-500 tabular-nums" />
@@ -640,6 +667,8 @@ export function SourceCard({ item, providers, onAdd, onSearch, eager }: {
   // Right-click, press-and-hold or Shift+F10, as on a library card (components/DiscoverMenu.tsx).
   const menu = useDiscoverMenu({ title: item.title, libraryHref, librarySeriesId: owned ? item.librarySeriesId : undefined, onAdd: !owned || item.moreEditions ? onAdd : undefined, addLabel: owned ? tr('Add another edition') : undefined, onSearch });
   const isHidden = useIsHiddenTitle();
+  const [blurOn] = useBlurAdult();
+  const blurred = blurOn && item.rating === 'adult';
   if (isHidden(item.title, owned ? item.librarySeriesId : undefined)) return null;
   // An owned title opens its entry in the library; adding it again would only say "already there".
   const rootCls = 'group block w-full text-start disabled:cursor-default';
@@ -650,7 +679,7 @@ export function SourceCard({ item, providers, onAdd, onSearch, eager }: {
         {/* alt="" on purpose: the title is right there as text, so naming the cover too makes a screen reader say it twice. */}
         <Img src={sourceCover(item.source, item.coverUrl)} alt="" eager={eager}
           fallbackSrc={publicCoverFallback(item.coverUrl)}
-          className="h-full w-full" imgClassName="transition-transform duration-500 group-hover:scale-[1.07]" />
+          className="h-full w-full" imgClassName={blurred ? 'blur-xl scale-110 transition duration-300 group-hover:blur-0 group-hover:scale-100 group-focus-within:blur-0 group-focus-within:scale-100' : 'transition-transform duration-500 group-hover:scale-[1.07]'} />
 
         {/* The icons overlap the way the source chip's do (SourcePicker), each ringed in the box's own ground so the
             overlap reads. One box, one row: with "+2" it is about 60 px on a 110-px phone tile. The "+2" is isolated left to
