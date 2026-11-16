@@ -302,6 +302,8 @@ export type Relation = (typeof RELATIONS)[number];
 /** The most relations and recommendations kept per entry: a long franchise lists dozens of side stories. */
 export const RELATIONS_MAX = 12;
 export const RECS_MAX = 10;
+/** The most light novels kept per entry. */
+export const NOVELS_MAX = 6;
 
 /**
  * One work AniList relates an entry to, as kept (anilist_related, lib/anilistRelated.ts). `rel` on a relation, `rating`
@@ -324,7 +326,7 @@ export interface RelatedItem {
   country: string | null;
   score: number | null;
 }
-export interface AniListRelated { relations: RelatedItem[]; recs: RelatedItem[] }
+export interface AniListRelated { relations: RelatedItem[]; recs: RelatedItem[]; /** The light novels of this work (the source novel, an adaptation of it), see normaliseRelated. */ novels: RelatedItem[] }
 
 const NODE = 'id type format status isAdult countryOfOrigin title{romaji english native} synonyms coverImage{large} genres averageScore';
 // Ten entries a request, not fifty: each brings up to ten recommendations and its relations, and AniList refuses a
@@ -336,10 +338,10 @@ const RELATED_CHUNK = 10;
 const str = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v.trim() : null);
 
 /** A related node as kept, or null for one that is not a manga to read: an anime, a light novel, no id or no name. */
-export function relatedNode(n: any): Omit<RelatedItem, 'rel' | 'rating'> | null {
+export function relatedNode(n: any, novel = false): Omit<RelatedItem, 'rel' | 'rating'> | null {
   if (!n || !Number.isSafeInteger(n.id) || n.id <= 0) return null;
-  // Light novels are type MANGA on AniList: format tells them apart.
-  if (n.type !== 'MANGA' || n.format === 'NOVEL') return null;
+  // Light novels are type MANGA on AniList: format tells them apart. A manga to read is never one; `novel` asks for exactly those.
+  if (n.type !== 'MANGA' || (n.format === 'NOVEL') !== novel) return null;
   const romaji = str(n.title?.romaji), english = str(n.title?.english), native = str(n.title?.native);
   const title = english || romaji || native;
   if (!title) return null;
@@ -379,6 +381,18 @@ export function normaliseRelated(m: any): AniListRelated {
     seen.add(n.id);
     relations.push({ ...n, rel });
   }
+  // The light novels, kept apart (the Light novel card): any relation names one -- the novel a manga was drawn from (SOURCE), an
+  // adaptation of it, an alternative version, a side story -- and what matters is that it is the same story. Its own kinds first.
+  const NOVEL_RANK = ['SOURCE', 'ADAPTATION', 'ALTERNATIVE', 'PARENT', 'PREQUEL', 'SEQUEL', 'SIDE_STORY', 'SPIN_OFF', 'OTHER'];
+  const novels: RelatedItem[] = [];
+  const seenNovel = new Set<number>();
+  const edges: any[] = Array.isArray(m?.relations?.edges) ? m.relations.edges : [];
+  for (const e of [...edges].sort((a, b) => (NOVEL_RANK.indexOf(a?.relationType) + 99) % 99 - (NOVEL_RANK.indexOf(b?.relationType) + 99) % 99)) {
+    const n = relatedNode(e?.node, true);
+    if (!n || n.id === self || seenNovel.has(n.id) || novels.length >= NOVELS_MAX) continue;
+    seenNovel.add(n.id);
+    novels.push({ ...n, ...(typeof e?.relationType === 'string' ? { rel: e.relationType as Relation } : {}) });
+  }
   // A stable sort: within a kind, AniList's own order.
   relations.sort((a, b) => RELATIONS.indexOf(a.rel!) - RELATIONS.indexOf(b.rel!));
   const recs: RelatedItem[] = [];
@@ -392,7 +406,7 @@ export function normaliseRelated(m: any): AniListRelated {
     seenRec.add(n.id);
     recs.push({ ...n, rating });
   }
-  return { relations: relations.slice(0, RELATIONS_MAX), recs };
+  return { relations: relations.slice(0, RELATIONS_MAX), recs, novels };
 }
 
 /**

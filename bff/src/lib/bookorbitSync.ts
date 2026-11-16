@@ -317,3 +317,40 @@ export async function testLink(link: Link): Promise<{ ok: boolean; message: stri
     return { ok: true, message: `Connected as BookOrbit user #${uid}; ${n} files under ${link.path_prefix}.` };
   } catch (e) { return { ok: false, message: `BookOrbit database: ${(e as Error).message}` }; }
 }
+
+
+// ---- Light novels held in BookOrbit (the series page's Light novel card) -----------------------------------------------------------
+
+/** A title as the lookup compares it: lower case, letters and digits only, without "light novel". Empty for a title with none (Japanese). */
+export const novelKey = (s: string): string => s.toLowerCase().replace(/[^a-z0-9]+/g, '').replace(/lightnovels?/g, '');
+
+export interface BoNovelSeries { id: number; name: string; volumes: number; key: string }
+
+/**
+ * The BookOrbit series whose name is one of `names` (compared by novelKey, or exactly for a name with no latin letters), that hold
+ * an ebook (epub, kepub, mobi, azw3 or pdf -- never the manga's CBZ or an audiobook). A library named like an 18+ one is left out
+ * unless `adult`. Read from BookOrbit's database through the read-only role the sync uses. null when no link is set up or it does not answer.
+ */
+export async function findNovelSeries(names: string[], adult: boolean): Promise<{ url: string; series: BoNovelSeries[] } | null> {
+  const link = await getLink();
+  if (!link?.url || !link.db_url) return null;
+  const keys = [...new Set(names.map(novelKey).filter((k) => k.length >= 3))];
+  const raw = [...new Set(names.map((n) => n.trim().toLowerCase()).filter((n) => n && !/[a-z]/.test(n)))];
+  if (!keys.length && !raw.length) return { url: link.url, series: [] };
+  try {
+    const r = await boDb(link.db_url).query<{ id: number; name: string; volumes: number; k: string }>(
+      `SELECT bs.id, bs.name, count(DISTINCT b.id)::int AS volumes,
+              regexp_replace(regexp_replace(lower(bs.name), '[^a-z0-9]+', '', 'g'), 'lightnovels?', '', 'g') AS k
+         FROM book_series bs
+         JOIN book_metadata m ON m.series_id = bs.id
+         JOIN books b ON b.id = m.book_id AND b.status <> 'missing'
+         JOIN libraries l ON l.id = b.library_id
+         JOIN book_files f ON f.book_id = b.id AND f.role = 'content' AND f.format IN ('epub', 'kepub', 'mobi', 'azw3', 'pdf')
+        WHERE (regexp_replace(regexp_replace(lower(bs.name), '[^a-z0-9]+', '', 'g'), 'lightnovels?', '', 'g') = ANY($1::text[]) OR lower(bs.name) = ANY($2::text[]))
+          AND ($3::boolean OR l.name !~* 'spicy|adult|nsfw')
+        GROUP BY bs.id, bs.name
+        ORDER BY volumes DESC LIMIT 20`,
+      [keys, raw, adult]);
+    return { url: link.url, series: r.rows.map((x) => ({ id: x.id, name: x.name, volumes: x.volumes, key: x.k || x.name.toLowerCase() })) };
+  } catch { return null; }
+}
