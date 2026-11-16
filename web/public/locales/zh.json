@@ -2,7 +2,7 @@
   "_meta": {
     "language": "zh",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 5799
+    "strings": 5824
   },
   "1 check found something": "1 项检查发现问题",
   "1 member": "1 位成员",
@@ -5802,5 +5802,30 @@
   "Hide read chapters": "隐藏已读章节",
   "Show {n} read chapters": "显示 {n} 个已读章节",
   "Jump to": "跳转到",
-  "Jump to…": "跳转到…"
+  "Jump to…": "跳转到…",
+  "Could not search for chapter names": "无法搜索章节名称",
+  "Could not save the chapter names": "无法保存章节名称",
+  "1 selected chapter": "已选 1 个章节",
+  "{n} selected chapters": "已选 {n} 个章节",
+  "Every chapter": "所有章节",
+  "Fetch chapter names": "获取章节名称",
+  "Asking other sources which of them carry this series… this can take up to a minute.": "正在询问其他来源是否收录此系列…最多需要一分钟。",
+  "No source carries this series with matching numbering.": "没有来源以相同编号收录此系列。",
+  "Asked: {names}": "已询问：{names}",
+  "Names from": "名称来源",
+  "names for 1 chapter": "1 个章节的名称",
+  "names for {n} chapters": "{n} 个章节的名称",
+  "These sources carry this series with the same numbering; they need not be ones it follows.": "这些来源以相同编号收录此系列，不一定是它所关注的来源。",
+  "Replace names I already have": "替换我已有的名称",
+  "Nothing to change: these chapters already have names. Turn on “Replace names I already have” to compare them.": "无需更改：这些章节已有名称。开启“替换我已有的名称”即可对比。",
+  "1 name will be saved": "将保存 1 个名称",
+  "{n} names will be saved": "将保存 {n} 个名称",
+  "{n} already named, left alone": "{n} 个已有名称，保持不变",
+  "Now": "当前",
+  "No name yet": "暂无名称",
+  "not downloaded": "未下载",
+  "Save 1 name": "保存 1 个名称",
+  "Save {n} names": "保存 {n} 个名称",
+  "Saved 1 chapter name": "已保存 1 个章节名称",
+  "Saved {n} chapter names": "已保存 {n} 个章节名称"
 }

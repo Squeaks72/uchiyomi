@@ -18,6 +18,7 @@ import { applyCover, clearCover } from '@/lib/theme';
 import { Img, Backdrop, SectionTitle, useWideViewport } from '@/components/ui';
 import { SeriesCard } from '@/components/cards';
 import { useToast } from '@/components/Toast';
+import { ChapterNamesDialog } from '@/components/ChapterNamesDialog';
 import { ConfirmDialog, Modal, actionFailure, listActionFailure, msgOf } from '@/components/ConfirmDialog';
 import { MoveToLibrary } from '@/components/MoveToLibrary';
 import { moveSeriesToLibrary } from '@/lib/moveLibrary';
@@ -1439,33 +1440,9 @@ function SeriesInner() {
     await setRead(todo, true);
     toast(todo.length === 1 ? tr('Marked 1 chapter read') : tr('Marked {n} chapters read', { n: todo.length }), 'success', { key: 'mark-read' });
   };
-  // "Fetch better chapter names" (admin): the nightly name-borrowing step (bff lib/borrowNames.ts) run now. A source that only says
-  // "Chapter 12" is named from another source that carries the same work and numbers it the same way; what it writes is marked as
-  // borrowed, and the series' Sources sheet takes it back. Answers within a minute with what it did, so there is nothing to poll.
-  const [fetchingNames, setFetchingNames] = useState(false);
-  const fetchNames = async () => {
-    if (fetchingNames) return;
-    setFetchingNames(true);
-    toast(tr('Looking for chapter names…'), 'info', { busy: true, key: 'fetch-names' });
-    try {
-      const r = await api<{ named: number; donor?: string; why?: string }>(`/api/admin/series/${encodeURIComponent(id)}/names/fetch`, { method: 'POST', json: {} });
-      const who = r.donor ? (sourceNames[r.donor] ?? r.donor) : '';
-      if (r.named > 0) {
-        toast(r.named === 1 ? tr('Named 1 chapter from {source}', { source: who }) : tr('Named {n} chapters from {source}', { n: r.named, source: who }), 'success', { key: 'fetch-names' });
-        qc.invalidateQueries({ queryKey: ['series-books', id] });
-        qc.invalidateQueries({ queryKey: ['series-listing', id] });
-      } else {
-        const why = r.why === 'nothing_to_do' ? tr('Every chapter already has a name')
-          : r.why === 'no_donor' ? tr('No other source carries this series with matching numbering')
-          : r.why === 'no_names' ? tr('{source} has no names for these chapters', { source: who })
-          : r.why === 'too_few' ? tr('Too few chapters to match another source safely')
-          : r.why === 'posting_order' ? tr('This series is numbered by posting order, so another source cannot name its chapters')
-          : tr('No names found');
-        toast(why, 'info', { key: 'fetch-names' });
-      }
-    } catch (e) { toast(msgOf(e, tr('Could not fetch chapter names')), 'error', { key: 'fetch-names' }); }
-    finally { setFetchingNames(false); }
-  };
+  // "Fetch names" (admin): the dialog (components/ChapterNamesDialog.tsx) -- which sources carry this series, a preview of the names
+  // each would give, and a tick per chapter. `false` is closed, `null` is the whole series, a list is the chapters selected.
+  const [namesFor, setNamesFor] = useState<number[] | null | false>(false);
   // "Mark all unread" (More, v0.60.0): the request a series card's menu makes (components/SeriesMenu.tsx), so the two say
   // the same. The route deletes this reader's progress on every chapter of the series, and the marks on its grey rows
   // with it -- unread means those too -- and tells no tracker: a tracker left ahead is the safe direction.
@@ -2309,7 +2286,7 @@ function SeriesInner() {
         <div data-chapter-toolbar className="flex flex-wrap items-center gap-1.5">
           <button onClick={markAllRead} className="btn-key">{tr('Mark all read')}</button>
           <button onClick={flipOrder} className="btn-key">{asc ? tr('Oldest') : tr('Newest')}</button>
-          {isAdmin && <button onClick={() => void fetchNames()} disabled={fetchingNames} data-fetch-names className="btn-key">{tr('Fetch names')}</button>}
+          {isAdmin && <button onClick={() => setNamesFor(null)} data-fetch-names className="btn-key">{tr('Fetch names')}</button>}
           {/* Hide what is finished: this device's choice, kept (lib/hideRead.ts). Only offered once something is read. */}
           {(hideRead || readCount.read > 0) && (
             <button onClick={() => { const next = !hideRead; setHideRead(next); setHideReadOn(next); }} aria-pressed={hideRead} data-hide-read
@@ -2416,6 +2393,7 @@ function SeriesInner() {
         {/* The fork's own two: a zip of the chosen chapters, and the stronger remove that also stops them being listed. */}
         {canDownload(user) && <button disabled={acting || !fetchable.length} onClick={bulkFetch} className="btn-key"><IcCloudDownload width={14} height={14} />{tr('Fetch')}</button>}
         {isAdmin && <button disabled={acting || !refetchable.length} onClick={() => setConfirming({ what: 'refetch', books: refetchable })} className="btn-key"><IcCloudDownload width={14} height={14} />{tr('Fetch again')}</button>}
+        {isAdmin && <button disabled={acting || !pickedCount} onClick={() => setNamesFor([...pickedBookList.map((b) => b.number), ...pickedGhostList.map((g) => g.number)])} data-fetch-names-selected className="btn-key">{tr('Fetch names')}</button>}
         {/* #240: hidden for everyone, nothing deleted -- beside the server keys, and never the red one, which deletes. */}
         {isAdmin && (
           <button disabled={acting || !hideable.length} onClick={() => setHiding(hideable)} data-hide-chapters className="btn-key">
@@ -2578,6 +2556,15 @@ function SeriesInner() {
       </div>
 
       {/* The sheets. One at a time (see the state above); each closes itself before anything else opens. */}
+      {isAdmin && namesFor !== false && (
+        <ChapterNamesDialog seriesId={id} books={books?.content ?? []} ghosts={ghosts} scope={namesFor} onClose={() => setNamesFor(false)}
+          onApplied={(n) => {
+            toast(n === 1 ? tr('Saved 1 chapter name') : tr('Saved {n} chapter names', { n }), 'success');
+            qc.invalidateQueries({ queryKey: ['series-books', id] });
+            qc.invalidateQueries({ queryKey: ['series-listing', id] });
+            if (selecting) leaveSelect();
+          }} />
+      )}
       {sourcesOpen && (
         <SourcesSheet id={id} title={title} series={series} groups={groups} admin={adminGroups} error={groupsError} isLoading={groupsLoading} haveNumbers={liveNumbers}
           checkedAt={supplyChecked}

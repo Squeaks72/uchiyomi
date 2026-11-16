@@ -2,7 +2,7 @@
   "_meta": {
     "language": "pt-BR",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 5799
+    "strings": 5824
   },
   "1 check found something": "1 verificação encontrou algo",
   "1 member": "1 membro",
@@ -5802,5 +5802,30 @@
   "Hide read chapters": "Ocultar capítulos lidos",
   "Show {n} read chapters": "Mostrar {n} capítulos lidos",
   "Jump to": "Ir para",
-  "Jump to…": "Ir para…"
+  "Jump to…": "Ir para…",
+  "Could not search for chapter names": "Não foi possível buscar nomes de capítulos",
+  "Could not save the chapter names": "Não foi possível salvar os nomes",
+  "1 selected chapter": "1 capítulo selecionado",
+  "{n} selected chapters": "{n} capítulos selecionados",
+  "Every chapter": "Todos os capítulos",
+  "Fetch chapter names": "Buscar nomes de capítulos",
+  "Asking other sources which of them carry this series… this can take up to a minute.": "Perguntando a outras fontes quais têm esta série… pode levar até um minuto.",
+  "No source carries this series with matching numbering.": "Nenhuma fonte tem esta série com a mesma numeração.",
+  "Asked: {names}": "Consultadas: {names}",
+  "Names from": "Nomes de",
+  "names for 1 chapter": "nomes para 1 capítulo",
+  "names for {n} chapters": "nomes para {n} capítulos",
+  "These sources carry this series with the same numbering; they need not be ones it follows.": "Estas fontes têm a série com a mesma numeração; não precisam ser as que ela segue.",
+  "Replace names I already have": "Substituir os nomes que já tenho",
+  "Nothing to change: these chapters already have names. Turn on “Replace names I already have” to compare them.": "Nada a mudar: estes capítulos já têm nome. Ative “Substituir os nomes que já tenho” para compará-los.",
+  "1 name will be saved": "1 nome será salvo",
+  "{n} names will be saved": "{n} nomes serão salvos",
+  "{n} already named, left alone": "{n} já com nome, não alterados",
+  "Now": "Agora",
+  "No name yet": "Ainda sem nome",
+  "not downloaded": "não baixado",
+  "Save 1 name": "Salvar 1 nome",
+  "Save {n} names": "Salvar {n} nomes",
+  "Saved 1 chapter name": "1 nome de capítulo salvo",
+  "Saved {n} chapter names": "{n} nomes de capítulos salvos"
 }
