@@ -8,7 +8,7 @@ import { judgeCandidate, bounded, MIN_TRY_MS, type Judgement } from './autoFollo
 import { effectivePrefsFor, readSeriesPrefs } from './scanlatorPrefs';
 import { MIN_HAVE } from './fill';
 import { chapterName } from './library';
-import { HEALED_NAME, isGenericName } from './naming';
+import { HEALED_NAME, MANUAL_NAME_PREFIX, isGenericName } from './naming';
 import { isRange } from './chapterRanges';
 import { HUNT_MAX_SOURCES, seriesIsAdult, sweepAllowedFor } from './sourceHunt';
 import { visibleToAll } from './visibility';
@@ -66,6 +66,35 @@ export async function borrowingOn(own: boolean | null): Promise<boolean> {
   return !!g?.borrow_names;
 }
 
+/** What judging a donor needs, from the series: its language, the names it goes by, the sources that may be asked at all. */
+async function donorSetup(seriesId: string, s: { title: string; source_id: string | null }, numbers: number[], now: number) {
+  // The series' own language (v0.52.0, lib/seriesLang.ts): stated, else its main source's, else the unstated one -- so
+  // a Spanish title that came in through an English adapter's fallback borrows Spanish names, and an edition its
+  // edition's. Exact codes when the work holds a same-base edition (es beside es-419). Reintroduce the main source's
+  // declared language as `want`: "names are borrowed in the series' own language" in languageGuard.int.test.ts names
+  // the Spanish series in English.
+  const lang = await seriesLanguage(seriesId);
+  const want = lang.lang;
+  const exact = { exact: lang.sameBaseSibling };
+  const allowed = await sweepAllowedFor(await seriesIsAdult(seriesId).catch(() => false));
+  const health = new Map((await healthAll().catch(() => [])).map((h) => [h.source_id, h] as const));
+  const prefs = await effectivePrefsFor(await readSeriesPrefs(seriesId).catch(() => null), 0);
+  // The other names the series goes by (v0.49.1, lib/altTitles.ts): a donor that files the work under one of them
+  // is this series by name -- exactly, never by containment, and then measured both ways (autoFollow.ts).
+  const primary = { title: s.title, altTitles: await altTitlesFor(seriesId), numbers, lang: want, exactLang: lang.sameBaseSibling };
+  // A donor is in the series' language: the follow guard's rule (lib/seriesLang.ts languageFits), except that a source
+  // in every language is no donor -- nothing says which language a name from it is in.
+  const usable = (id: string) => {
+    const src = getSource(id);
+    if (!src || id === s.source_id || !allowed(id) || !sameLanguage(want, src.lang, exact)) return null;
+    const h = health.get(id);
+    if (h?.disabled) return null;
+    if (h?.blocked_until && new Date(h.blocked_until).getTime() > now) return null;
+    return src;
+  };
+  return { want, exact, primary, prefs, health, usable };
+}
+
 /**
  * `manual`: an admin asked for the names from the series page ("Fetch better chapter names"). It is the nightly step run on demand,
  * so it skips only the switch: the same donor judgement, the same exact-number matching, the same language rule, and the names it
@@ -102,30 +131,7 @@ export async function borrowNamesFor(seriesId: string, opts: { now?: number; for
   // Coverage against a handful of numbers proves nothing, whatever the donor says (the hunt's MIN_HAVE).
   if (numbers.length < MIN_HAVE) return { named: 0, why: 'too_few' };
 
-  // The series' own language (v0.52.0, lib/seriesLang.ts): stated, else its main source's, else the unstated one -- so
-  // a Spanish title that came in through an English adapter's fallback borrows Spanish names, and an edition its
-  // edition's. Exact codes when the work holds a same-base edition (es beside es-419). Reintroduce the main source's
-  // declared language as `want`: "names are borrowed in the series' own language" in languageGuard.int.test.ts names
-  // the Spanish series in English.
-  const lang = await seriesLanguage(seriesId);
-  const want = lang.lang;
-  const exact = { exact: lang.sameBaseSibling };
-  const allowed = await sweepAllowedFor(await seriesIsAdult(seriesId).catch(() => false));
-  const health = new Map((await healthAll().catch(() => [])).map((h) => [h.source_id, h] as const));
-  const prefs = await effectivePrefsFor(await readSeriesPrefs(seriesId).catch(() => null), 0);
-  // The other names the series goes by (v0.49.1, lib/altTitles.ts): a donor that files the work under one of them
-  // is this series by name -- exactly, never by containment, and then measured both ways (autoFollow.ts).
-  const primary = { title: s.title, altTitles: await altTitlesFor(seriesId), numbers, lang: want, exactLang: lang.sameBaseSibling };
-  // A donor is in the series' language: the follow guard's rule (lib/seriesLang.ts languageFits), except that a source
-  // in every language is no donor -- nothing says which language a name from it is in.
-  const usable = (id: string) => {
-    const src = getSource(id);
-    if (!src || id === s.source_id || !allowed(id) || !sameLanguage(want, src.lang, exact)) return null;
-    const h = health.get(id);
-    if (h?.disabled) return null;
-    if (h?.blocked_until && new Date(h.blocked_until).getTime() > now) return null;
-    return src;
-  };
+  const { want, exact, primary, prefs, health, usable } = await donorSetup(seriesId, s, numbers, now);
 
   let donor: Judgement | null = null;
   // The donor remembered from last time first, re-judged: a source the admin has since disabled, or one whose
@@ -217,10 +223,110 @@ export async function clearBorrowedNames(scope: { seriesId: string } | 'followin
     ? await q<{ id: string }>(
       `UPDATE lib_books b SET chapter_name = NULL, chapter_name_source = NULL, updated_at = now()
          FROM lib_series s
-        WHERE s.id = b.series_id AND s.borrow_names IS NULL AND b.chapter_name_source IS NOT NULL AND b.chapter_name_source <> $1
+        WHERE s.id = b.series_id AND s.borrow_names IS NULL AND b.chapter_name_source IS NOT NULL AND b.chapter_name_source <> $1 AND b.chapter_name_source NOT LIKE 'manual:%'
         RETURNING b.id`, [HEALED_NAME])
     : await q<{ id: string }>(
       `UPDATE lib_books SET chapter_name = NULL, chapter_name_source = NULL, updated_at = now()
-        WHERE series_id = $1 AND chapter_name_source IS NOT NULL AND chapter_name_source <> $2 RETURNING id`, [scope.seriesId, HEALED_NAME]);
+        WHERE series_id = $1 AND chapter_name_source IS NOT NULL AND chapter_name_source <> $2 AND chapter_name_source NOT LIKE 'manual:%' RETURNING id`, [scope.seriesId, HEALED_NAME]);
   return rows.length;
+}
+
+
+/** One source's names for this series, as the "Fetch names" dialog offers them. */
+export interface NameOffer { source: string; sourceId: string; label: string; names: Array<[number, string]> }
+export interface NameSearch { offers: NameOffer[]; asked: Array<{ id: string; name: string }>; why?: BorrowWhy }
+
+/**
+ * Every source that passes the donor judgement for this series, with the names each would give -- for a PERSON to choose from
+ * (the series page's "Fetch names"), where borrowNamesFor takes the first one that passes. The same judgement, language rule and
+ * exact numbers, the same bounds, nothing reported to source health; it writes nothing, not even the "searched, nothing found"
+ * memory the nightly step keeps. `asked` lists the sources searched, so "nobody carries this" can say who was asked: a donor is
+ * ANY enabled source in the series' language that has the work under its title and numbers it the same way, not only the ones
+ * the series follows.
+ */
+export async function findNameDonors(seriesId: string, opts: { max?: number; now?: number } = {}): Promise<NameSearch> {
+  const now = opts.now ?? Date.now();
+  const max = opts.max ?? 4;
+  const s = await one<{ id: string; title: string; source_id: string | null; name_donor: NameDonor | null; numbering: string | null }>(
+    `SELECT s.id, s.title, s.source_id, s.name_donor, s.numbering FROM lib_series s WHERE s.id = $1 AND ${visibleToAll('s')}`,
+    [seriesId]).catch(() => null);
+  if (!s) return { offers: [], asked: [], why: 'nothing_to_do' };
+  if (s.numbering === 'posting_order') return { offers: [], asked: [], why: 'posting_order' };
+  const books = await q<{ number: number }>('SELECT number::float8 AS number FROM lib_books WHERE series_id = $1 AND pruned_at IS NULL', [seriesId]).catch(() => []);
+  const listedRows = await q<{ number: number }>('SELECT number::float8 AS number FROM series_listing WHERE series_id = $1', [seriesId]).catch(() => []);
+  const numbers = [...new Set([...books.map((b) => Number(b.number)), ...listedRows.map((r) => Number(r.number))])].filter((n) => Number.isFinite(n));
+  if (numbers.length < MIN_HAVE) return { offers: [], asked: [], why: 'too_few' };
+  const { want, exact, primary, prefs, health, usable } = await donorSetup(seriesId, s, numbers, now);
+
+  const offers: NameOffer[] = [];
+  const asked: Array<{ id: string; name: string }> = [];
+  const take = (j: Judgement) => {
+    const src = getSource(j.source) as SourceAdapter | undefined;
+    const byNumber = new Map<number, string>();
+    for (const c of (j.chapters ?? []) as SourceChapter[]) {
+      if (!Number.isFinite(c.number) || byNumber.has(c.number)) continue;
+      if (!sameLanguage(want, c.lang ?? src?.lang, exact)) continue;
+      const name = chapterName(c.title, c.number);
+      if (name) byNumber.set(c.number, name);
+    }
+    offers.push({ source: j.source, sourceId: j.sourceSeriesId, label: src?.name ?? j.source, names: [...byNumber] });
+  };
+  const remembered = s.name_donor?.source && s.name_donor.sourceId ? usable(s.name_donor.source) : null;
+  if (remembered) {
+    const j = await judgeCandidate(primary, { source: remembered.id, sourceId: s.name_donor!.sourceId! }, { prefs, health }).catch(() => null);
+    if (j?.why === 'ok') take(j);
+  }
+  const order = scanOrder(listSources().filter((src) => !!usable(src.id)), { id: s.source_id ?? '', lang: want }).slice(0, HUNT_MAX_SOURCES);
+  const deadline = Date.now() + NAMES_WALL_MS;
+  for (const id of order) {
+    if (offers.length >= max) break;
+    const left = deadline - Date.now();
+    if (left < MIN_TRY_MS) break;
+    const src = getSource(id);
+    if (!src || offers.some((o) => o.source === id)) continue;
+    asked.push({ id, name: src.name });
+    const hit = await bounded(src.search(s.title), Math.min(budgetFor(src, NAMES_SEARCH_MS), left)).then((results) => pickBest(results, s.title)).catch(() => null);
+    if (!hit?.sourceId) continue;
+    const j = await bounded(judgeCandidate(primary, { source: id, sourceId: hit.sourceId }, { prefs, health }), Math.max(MIN_TRY_MS, deadline - Date.now())).catch(() => null);
+    if (j?.why === 'ok') take(j);
+  }
+  return { offers, asked, ...(offers.length ? {} : { why: 'no_donor' as BorrowWhy }) };
+}
+
+/**
+ * Write the names a person approved from the preview. Chapters on disk get `chapter_name` marked `manual:<source>` (see
+ * MANUAL_NAME_PREFIX: kept over a later check and over switching borrowing off); chapters only LISTED get the overlay row the
+ * listing shows. Exact numbers, live non-range chapters only, never `title`. Names are trimmed and capped; the caller is an admin.
+ */
+export async function applyNames(seriesId: string, source: string, names: Array<{ number: number; name: string }>): Promise<{ books: number; listed: number }> {
+  const clean = names
+    .map((n) => ({ number: Number(n.number), name: String(n.name ?? '').replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200) }))
+    .filter((n) => Number.isFinite(n.number) && n.name);
+  let books = 0;
+  let listed = 0;
+  const marker = `${MANUAL_NAME_PREFIX}${source}`.slice(0, 120);
+  for (let i = 0; i < clean.length; i += 500) {
+    const chunk = clean.slice(i, i + 500);
+    const params: unknown[] = [seriesId, marker];
+    const tuples = chunk.map((n) => { params.push(n.number, n.name); return `($${params.length - 1}::float8, $${params.length}::text)`; });
+    const done = await q<{ id: string }>(
+      `UPDATE lib_books b SET chapter_name = v.name, chapter_name_source = $2, updated_at = now()
+         FROM (VALUES ${tuples.join(',')}) AS v(n, name)
+        WHERE b.series_id = $1 AND b.pruned_at IS NULL AND NOT ${isRange('b')} AND abs(b.number::float8 - v.n) < 0.0005
+        RETURNING b.id`, params).catch(() => []);
+    books += done.length;
+    // The numbers no live chapter holds: the listing's rows, named in the overlay.
+    const held = new Set((await q<{ number: number }>('SELECT number::float8 AS number FROM lib_books WHERE series_id = $1 AND pruned_at IS NULL', [seriesId]).catch(() => [])).map((r) => Number(r.number)));
+    for (const n of chunk) {
+      if ([...held].some((h) => Math.abs(h - n.number) < 0.0005)) continue;
+      const r = await q<{ number: number }>('SELECT number FROM series_listing WHERE series_id = $1 AND abs(number::float8 - $2) < 0.0005 LIMIT 1', [seriesId, n.number]).catch(() => []);
+      if (!r.length) continue;
+      await q(
+        `INSERT INTO series_borrowed_names (series_id, number, name, donor) VALUES ($1, $2, $3, $4)
+         ON CONFLICT (series_id, number) DO UPDATE SET name = EXCLUDED.name, donor = EXCLUDED.donor, updated_at = now()`,
+        [seriesId, r[0].number, n.name, source]).catch(() => {});
+      listed++;
+    }
+  }
+  return { books, listed };
 }

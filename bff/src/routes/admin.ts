@@ -88,7 +88,7 @@ import { NO_LIBRARIES, SHARED_CTX, visibleToAll, sanitiseAdultList, sanitiseSour
 import { cleanSourceOrder, invalidateSourcePrefs } from '../lib/sourcePrefs';
 import { keepRestricted, memberDefaults, memberDefaultsShape, permsShape, saveMemberDefaults } from '../lib/memberDefaults';
 import { FOLLOW_LIMIT_MAX, followerLimit, forgetFollowerLimit } from '../lib/followLimit';
-import { borrowNamesFor, clearBorrowedNames } from '../lib/borrowNames';
+import { borrowNamesFor, clearBorrowedNames, findNameDonors, applyNames } from '../lib/borrowNames';
 import { clearAutoDetails, fillDetailsFromSources, fillDetailsOn } from '../lib/autoDetails';
 import { NIGHTLY_BUDGET_MS, panelSettings, panelState, panelsRemaining, runPanelBackfill } from '../lib/panelJob';
 import { lookupsChanged, libraryChanged, libraryRevision } from '../lib/discoverIdentity';
@@ -2308,6 +2308,26 @@ export default async function adminRoutes(app: FastifyInstance) {
     if (jobBusy(row.folder)) return reply.code(409).send({ error: 'busy', message: 'Another task is changing that series.' });
     const r = await borrowNamesFor(id, { force: true, manual: true });
     return r;
+  });
+  // The "Fetch names" dialog: every source that could name this series' chapters (search), then the names a person approved (apply).
+  // Search is bounded (a minute); apply is a plain write. See lib/borrowNames.ts findNameDonors / applyNames.
+  app.post('/api/admin/series/:id/names/search', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const row = await getSeriesRow(id);
+    if (!row) return reply.code(404).send({ error: 'not_found' });
+    return findNameDonors(id);
+  });
+  app.post('/api/admin/series/:id/names/apply', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const b = z.object({
+      source: z.string().min(1).max(120),
+      names: z.array(z.object({ number: z.number().finite(), name: z.string().max(400) })).max(5000),
+    }).safeParse(req.body);
+    if (!b.success) return reply.code(400).send({ error: 'bad_request' });
+    const row = await getSeriesRow(id);
+    if (!row) return reply.code(404).send({ error: 'not_found' });
+    if (jobBusy(row.folder)) return reply.code(409).send({ error: 'busy', message: 'Another task is changing that series.' });
+    return applyNames(id, b.data.source, b.data.names);
   });
   app.post('/api/admin/series/:id/check', async (req, reply) => {
     const { id } = req.params as { id: string };

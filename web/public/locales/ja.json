@@ -2,7 +2,7 @@
   "_meta": {
     "language": "ja",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 5787
+    "strings": 5812
   },
   "1 check found something": "1 件のチェックで問題を検出",
   "1 member": "メンバー 1 人",
@@ -5790,5 +5790,30 @@
   "Hide read chapters": "既読の章を隠す",
   "Show {n} read chapters": "既読の{n}章を表示",
   "Jump to": "移動",
-  "Jump to…": "移動…"
+  "Jump to…": "移動…",
+  "Could not search for chapter names": "章タイトルを検索できませんでした",
+  "Could not save the chapter names": "章タイトルを保存できませんでした",
+  "1 selected chapter": "選択した1章",
+  "{n} selected chapters": "選択した{n}章",
+  "Every chapter": "すべての章",
+  "Fetch chapter names": "章タイトルを取得",
+  "Asking other sources which of them carry this series… this can take up to a minute.": "他のソースにこの作品があるか確認中…最大1分かかります。",
+  "No source carries this series with matching numbering.": "番号が一致するソースにこの作品はありません。",
+  "Asked: {names}": "確認したソース: {names}",
+  "Names from": "名前の取得元",
+  "names for 1 chapter": "1章分の名前",
+  "names for {n} chapters": "{n}章分の名前",
+  "These sources carry this series with the same numbering; they need not be ones it follows.": "これらのソースは同じ番号でこの作品を扱っています。フォロー中のソースとは限りません。",
+  "Replace names I already have": "すでにある名前を置き換える",
+  "Nothing to change: these chapters already have names. Turn on “Replace names I already have” to compare them.": "変更なし：これらの章にはすでに名前があります。「すでにある名前を置き換える」をオンにすると比較できます。",
+  "1 name will be saved": "1件の名前を保存します",
+  "{n} names will be saved": "{n}件の名前を保存します",
+  "{n} already named, left alone": "{n}件は名前あり・変更なし",
+  "Now": "現在",
+  "No name yet": "名前はまだありません",
+  "not downloaded": "未ダウンロード",
+  "Save 1 name": "1件の名前を保存",
+  "Save {n} names": "{n}件の名前を保存",
+  "Saved 1 chapter name": "章タイトルを1件保存しました",
+  "Saved {n} chapter names": "章タイトルを{n}件保存しました"
 }

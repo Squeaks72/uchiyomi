@@ -260,3 +260,10 @@ export function chapterName(title: string | undefined | null, number: number): s
   const rest = t.slice(m[0].length).trim();
   return rest || null;
 }
+
+/**
+ * lib_books.chapter_name_source of a name a PERSON chose from the series page's "Fetch names" preview (lib/borrowNames.ts
+ * applyNames): `manual:<source id>`. Unlike a borrowed name, the chapter's own source does not replace it at the next check
+ * and switching name borrowing off does not take it back -- someone looked at the old and the new side by side and picked.
+ */
+export const MANUAL_NAME_PREFIX = 'manual:';

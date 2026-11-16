@@ -2,7 +2,7 @@
   "_meta": {
     "language": "fr",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 5787
+    "strings": 5812
   },
   "1 check found something": "1 vérification a trouvé quelque chose",
   "1 member": "1 membre",
@@ -5790,5 +5790,30 @@
   "Hide read chapters": "Masquer les chapitres lus",
   "Show {n} read chapters": "Afficher {n} chapitres lus",
   "Jump to": "Aller à",
-  "Jump to…": "Aller à…"
+  "Jump to…": "Aller à…",
+  "Could not search for chapter names": "La recherche de titres a échoué",
+  "Could not save the chapter names": "Impossible d'enregistrer les titres",
+  "1 selected chapter": "1 chapitre sélectionné",
+  "{n} selected chapters": "{n} chapitres sélectionnés",
+  "Every chapter": "Tous les chapitres",
+  "Fetch chapter names": "Récupérer les titres de chapitres",
+  "Asking other sources which of them carry this series… this can take up to a minute.": "Interrogation des autres sources sur cette série… cela peut prendre jusqu'à une minute.",
+  "No source carries this series with matching numbering.": "Aucune source ne propose cette série avec la même numérotation.",
+  "Asked: {names}": "Interrogées : {names}",
+  "Names from": "Titres depuis",
+  "names for 1 chapter": "titres pour 1 chapitre",
+  "names for {n} chapters": "titres pour {n} chapitres",
+  "These sources carry this series with the same numbering; they need not be ones it follows.": "Ces sources proposent la série avec la même numérotation ; ce ne sont pas forcément celles qu'elle suit.",
+  "Replace names I already have": "Remplacer les titres que j'ai déjà",
+  "Nothing to change: these chapters already have names. Turn on “Replace names I already have” to compare them.": "Rien à changer : ces chapitres ont déjà un titre. Activez « Remplacer les titres que j'ai déjà » pour les comparer.",
+  "1 name will be saved": "1 titre sera enregistré",
+  "{n} names will be saved": "{n} titres seront enregistrés",
+  "{n} already named, left alone": "{n} déjà nommés, laissés tels quels",
+  "Now": "Actuel",
+  "No name yet": "Pas encore de titre",
+  "not downloaded": "non téléchargé",
+  "Save 1 name": "Enregistrer 1 titre",
+  "Save {n} names": "Enregistrer {n} titres",
+  "Saved 1 chapter name": "1 titre de chapitre enregistré",
+  "Saved {n} chapter names": "{n} titres de chapitres enregistrés"
 }

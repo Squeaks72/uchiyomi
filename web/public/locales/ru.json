@@ -2,7 +2,7 @@
   "_meta": {
     "language": "ru",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 5787
+    "strings": 5812
   },
   "1 check found something": "1 проверка нашла проблему",
   "1 member": "1 участник",
@@ -5790,5 +5790,30 @@
   "Hide read chapters": "Скрыть прочитанные главы",
   "Show {n} read chapters": "Показать прочитанные главы: {n}",
   "Jump to": "Перейти к",
-  "Jump to…": "Перейти к…"
+  "Jump to…": "Перейти к…",
+  "Could not search for chapter names": "Не удалось найти названия глав",
+  "Could not save the chapter names": "Не удалось сохранить названия",
+  "1 selected chapter": "1 выбранная глава",
+  "{n} selected chapters": "Выбрано глав: {n}",
+  "Every chapter": "Все главы",
+  "Fetch chapter names": "Получить названия глав",
+  "Asking other sources which of them carry this series… this can take up to a minute.": "Опрашиваем другие источники, есть ли у них эта серия… это может занять до минуты.",
+  "No source carries this series with matching numbering.": "Ни один источник не содержит эту серию с совпадающей нумерацией.",
+  "Asked: {names}": "Опрошены: {names}",
+  "Names from": "Названия из",
+  "names for 1 chapter": "названия для 1 главы",
+  "names for {n} chapters": "названия для глав: {n}",
+  "These sources carry this series with the same numbering; they need not be ones it follows.": "Эти источники содержат серию с той же нумерацией; не обязательно те, за которыми она следит.",
+  "Replace names I already have": "Заменить уже имеющиеся названия",
+  "Nothing to change: these chapters already have names. Turn on “Replace names I already have” to compare them.": "Менять нечего: у этих глав уже есть названия. Включите «Заменить уже имеющиеся названия», чтобы сравнить.",
+  "1 name will be saved": "Будет сохранено 1 название",
+  "{n} names will be saved": "Будет сохранено названий: {n}",
+  "{n} already named, left alone": "{n} уже с названиями, не тронуты",
+  "Now": "Сейчас",
+  "No name yet": "Названия пока нет",
+  "not downloaded": "не скачано",
+  "Save 1 name": "Сохранить 1 название",
+  "Save {n} names": "Сохранить названий: {n}",
+  "Saved 1 chapter name": "Сохранено 1 название главы",
+  "Saved {n} chapter names": "Сохранено названий глав: {n}"
 }

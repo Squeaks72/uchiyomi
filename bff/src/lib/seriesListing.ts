@@ -422,7 +422,7 @@ export async function replaceListing(seriesId: string, rows: ListingRow[]): Prom
             -- A file holding a range (lib/chapterRanges.ts) is not the chapter its start lists: no name of one
             -- (chapterRanges.int.test.ts: "a range file took the name of the chapter its start lists").
             AND NOT ${isRange('b')}
-            AND (b.chapter_name IS NULL OR (b.chapter_name_source IS NOT NULL AND b.chapter_name_source <> $2))
+            AND (b.chapter_name IS NULL OR (b.chapter_name_source IS NOT NULL AND b.chapter_name_source <> $2 AND b.chapter_name_source NOT LIKE 'manual:%'))
             AND s.numbering_pending IS NULL AND s.renumber_plan IS NULL`,
         params,
       );
