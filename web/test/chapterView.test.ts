@@ -41,7 +41,7 @@ test('Columns is exactly the grid that shipped; List is one list, on every width
 
 test('the series page lays its rows out by the device\'s choice, and the toolbar offers it from lg up', () => {
   const src = read('app/series/page.tsx');
-  assert.match(src, /<div className=\{`\$\{chapterRowsClass\(view\)\}\$\{pageRows\.length > 120 \? ' chapter-rows-long' : ''\}`\} data-chapter-rows=\{view\} style=\{[^\n]*\}>\s*\{listReady && pageRows\.map\(renderRow\)\}/, 'the rows ignore the layout');
+  assert.match(src, /<div className=\{`\$\{chapterRowsClass\(view\)\}\$\{pageRows\.length > 120 \? ' chapter-rows-long' : ''\}`\} data-chapter-rows=\{view\} style=\{[^\n]*\}>\s*\{listReady && shownRows\.map\(renderRow\)\}/, 'the rows ignore the layout');
   // Read after mount, like the compact list: the static export renders without storage.
   assert.match(src, /const \[view, setView\] = useState<ChapterView>\('list'\);\s*useEffect\(\(\) => \{ setView\(chapterViewOn\(\)\); \}, \[\]\);/);
   const bar = src.slice(src.indexOf('<div data-chapter-toolbar'), src.indexOf('{group !== ALL_GROUPS && ('));
