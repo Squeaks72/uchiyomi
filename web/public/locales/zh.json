@@ -2,7 +2,7 @@
   "_meta": {
     "language": "zh",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 5771
+    "strings": 5781
   },
   "1 check found something": "1 项检查发现问题",
   "1 member": "1 位成员",
@@ -5774,5 +5774,15 @@
   "{n} MB": "{n} MB",
   "1 rejected": "已拒绝 1",
   "1 panel": "1 个分格",
-  "Working on {name}": "正在处理 {name}"
+  "Working on {name}": "正在处理 {name}",
+  "Named 1 chapter from {source}": "已从 {source} 获取 1 个章节名称",
+  "Named {n} chapters from {source}": "已从 {source} 获取 {n} 个章节名称",
+  "Every chapter already has a name": "所有章节都已有名称",
+  "No other source carries this series with matching numbering": "没有其他来源以相同编号收录此系列",
+  "{source} has no names for these chapters": "{source} 没有这些章节的名称",
+  "Too few chapters to match another source safely": "章节太少，无法与其他来源安全匹配",
+  "This series is numbered by posting order, so another source cannot name its chapters": "此系列按发布顺序编号，因此其他来源无法为其章节命名",
+  "No names found": "未找到名称",
+  "Could not fetch chapter names": "无法获取章节名称",
+  "Fetch names": "获取名称"
 }
