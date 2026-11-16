@@ -79,11 +79,12 @@ const CSS = () => cssRules(read('app/globals.css'));
 
 // Exactly the v0.42.0 declarations. A change here is a change to how the app looks for everyone, and #71's
 // answer to a slow machine is the switch, not this.
-const GRAIN_URL = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`;
+const GRAIN_URL = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n' color-interpolation-filters='sRGB'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch' result='t'/%3E%3CfeColorMatrix in='t' type='matrix' values='1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0'/%3E%3CfeComponentTransfer%3E%3CfeFuncR type='discrete' tableValues='0 1'/%3E%3CfeFuncG type='discrete' tableValues='0 1'/%3E%3CfeFuncB type='discrete' tableValues='0 1'/%3E%3CfeFuncA type='table' tableValues='1 0 1'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`;
 const PINNED: Record<string, string[]> = {
   '.fx-grain': [
     'position: fixed', 'inset: 0', 'z-index: 2', 'pointer-events: none',
-    'opacity: 0.05', 'mix-blend-mode: overlay',
+    // v0.109: ordinary alpha, not `mix-blend-mode: overlay` -- see the comment above .fx-grain in globals.css and the test below.
+    'opacity: 0.02',
     `background-image: ${GRAIN_URL}`,
     'background-size: 180px 180px',
     // v0.67.3: the fade back in after a scroll (the pause is pinned in "the grain steps aside while the page moves").
@@ -103,9 +104,9 @@ const PINNED: Record<string, string[]> = {
 const MESH_DRIFT = '0% { transform: translate3d(0, 0, 0) scale(1); } 100% { transform: translate3d(2%, -3%, 0) scale(1.14); }';
 
 test('the cinematic layers keep their v0.42.0 look by default', () => {
-  // Reintroduce by the "cheap default" #71 was first going to ship -- `mix-blend-mode: normal` on the grain,
-  // `filter: none` on the mesh, `z-index: 0` on the vignette: "the default .fx-grain changed" (or the mesh,
-  // or the vignette) fails.
+  // Reintroduce the overlay blend on the grain (it redraws everything under it every frame anything moves: see
+  // "the grain never blends with what is under it"), a `filter: none` on the mesh or a `z-index: 0` on the vignette:
+  // "the default .fx-grain changed" (or the mesh, or the vignette) fails.
   const rules = CSS();
   for (const [sel, want] of Object.entries(PINNED)) {
     const found = rules.filter((r) => r.sel === sel && r.ctx.length === 0);
@@ -540,4 +541,16 @@ test('the grain steps aside while the page moves, and only then', async () => {
   const out = await minify(`.fx-grain{opacity:.05;transition:opacity .3s ease-out}${block}`);
   assert.match(out, /html\.lenis-scrolling \.fx-grain\{display:none\}/, `the minifier dropped the pause: ${out}`);
   assert.match(out, /@starting-style\{\.fx-grain\{opacity:0\}\}/, `the minifier dropped the fade back in: ${out}`);
+});
+
+test('the grain never blends with what is under it', () => {
+  // v0.109. An overlay blend forces the compositor to read back and re-blend everything beneath the layer on every frame
+  // anything moves (navigation 54.8 -> 60 fps, fast scroll 48 -> 60 on a 200-series library, CPU 4x). Any mix-blend-mode on
+  // the grain -- here or in a later rule -- brings that back. Reintroduce by adding `mix-blend-mode: overlay` to .fx-grain: fails.
+  const css = read('app/globals.css');
+  for (const r of CSS()) {
+    if (!/\.fx-grain\b/.test(r.sel)) continue;
+    assert.doesNotMatch(r.body, /mix-blend-mode/, `${r.sel} blends with what is under it`);
+  }
+  assert.doesNotMatch(css.slice(css.indexOf('.fx-grain {'), css.indexOf('.fx-vignette {')).replace(/\/\*[\s\S]*?\*\//g, ''), /mix-blend-mode/);
 });
