@@ -243,3 +243,32 @@ Lenis's `lenis-scrolling`, back over 0.3 s from `@starting-style` (Home 53–58,
   IntersectionObserver). `idleWork.test.ts` holds every window scroll listener to that.
 - Compare builds with a warmed server and alternate their order: the first run makes the cover thumbnails, so a later run
   has more covers arriving mid-scroll, and the build that always went second looked worse than it was.
+
+## The grain stops blending (v0.109): `nav.mjs`-style A/B, `fast.mjs`
+
+"Very jagged, choppy performance when navigating without Reduce effects" (2026-11-16). The owner's rule is still that the
+look stays; what changed is that its cost was measured per effect on a 200-series library with real, colourful covers
+(a seeded library: flat-colour covers hide the blend), headless Chrome 156, home <-> library through the top nav ×4, CPU 4x:
+
+| take away one thing | fps | frames over 33 ms |
+| --- | --- | --- |
+| nothing (as shipped) | 54.8-57.1 | 5-8 % |
+| the mesh | 59.2 | 1 % |
+| the vignette | 57.3 | 4 % |
+| the glass blur | 59.2 | 1 % |
+| **the grain** | **60** | **0 %** |
+| all three layers | 60 | 0 % |
+
+The grain's overlay blend forces a read-back of everything under it on every frame anything under it moves, and the mesh is
+always drifting under it. Its footprint is tiny (a frozen frame with it vs without: RMS 1.0 level of 255, max 5), so v0.109
+draws grain of the same strength as ordinary alpha (white/black specks, no net tint; `mix-blend-mode` is now forbidden on
+`.fx-grain` by effects.test.ts). Navigation: 56.5 -> 60 fps, 5 % -> 0 % of frames over 33 ms; fast Library scroll 48-55 -> 54-60;
+home 60. Against the overlay look at rest: mean brightness within 0.9 of a level, RMS 1.2-1.3 (two different speckle patterns).
+
+- ⚠️ **Rejected: the mesh at a quarter of the size, scaled back up** (cheaper raster and blur on paper): RMS 4.9 and up to 21
+  levels away from the shipped mesh, so it is a visible change, not an invisible optimisation. `filter: none` on the mesh was
+  RMS 0.7 but bought ~2 fps; left alone.
+- ⚠️ **An A/B of a look needs the frame frozen:** `animation-play-state: paused` + `transition: none` on everything, or the
+  drifting mesh makes every pixel "differ". `frame-diff.mjs` does this; `nav.mjs` is the navigation A/B.
+- ⚠️ **Puppeteer's own Chrome may be missing on a box with a download policy:** `PUPPETEER_EXECUTABLE_PATH` can point at any
+  Chromium (Playwright's works).
