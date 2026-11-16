@@ -308,6 +308,10 @@ const refusedByCloudflare = (r: Response): boolean =>
  * than a restatement of it. Reintroduce by calling fetchCoverImage without `callerSupplied`: that test's route
  * case sees the solver asked.
  */
+/** MangaDex's 512 px copy of a cover upload, for a request of 512 px or less; null for any other URL or size. */
+export const mangadexThumb = (u: string, width: number): string | null =>
+  width <= 512 && /^https:\/\/uploads\.mangadex\.org\/covers\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.(?:jpe?g|png|webp|gif)$/i.test(u) ? `${u}.512.jpg` : null;
+
 export const sourceCoverInput = (u: string, source?: string): Promise<Buffer> =>
   fetchCoverImage(u, source, { callerSupplied: true });
 
@@ -1241,7 +1245,11 @@ export default async function imageRoutes(app: FastifyInstance) {
     return serveImage(req, reply, `srccover2:${width}:${u}`, async () => {
       let input: Buffer;
       try {
-        input = await sourceCoverInput(u, source);
+        // MangaDex serves each cover as the upload (often 2-3 MB) and as 256 and 512 px copies of it. A card is 400 px, so it asks
+        // for the 512 copy -- some fifty times fewer bytes, which is what made a Discover page of them load at all. The original
+        // is the fallback, for a title whose copy is not made (yet) and for any other size.
+        const small = mangadexThumb(u, width);
+        input = small ? await sourceCoverInput(small, source).catch(() => sourceCoverInput(u, source)) : await sourceCoverInput(u, source);
       } catch (e) {
         // A value that is not a URL is a caller's mistake, not a bad minute on someone's CDN: it cannot be
         // retried into working, and every affected tile answered 500 with a TypeError in the log. Serve the
