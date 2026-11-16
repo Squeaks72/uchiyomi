@@ -783,12 +783,18 @@ interface SourceJob { folder: string; status: string; reason?: string; reasonSai
  */
 /** Rows from which the list offers "Jump to": a long series is one page now, and this is how to get around it. */
 const JUMP_AFTER = 100;
+/** A list longer than FOLD_AFTER rows shows FOLD_SHOW of them until the reader asks for the rest. */
+const FOLD_AFTER = 60;
+const FOLD_SHOW = 30;
 /** Jump to a stretch of the list: the range labels the pager used to show, now scrolling the one page instead of turning it. */
-function ChapterJump({ rows, asc }: { rows: readonly Row[]; asc: boolean }) {
+function ChapterJump({ rows, asc, onOpen }: { rows: readonly Row[]; asc: boolean; onOpen: () => void }) {
   const stops = pageCount(rows.length);
   const go = (p: number) => {
     const n = rowNumbers(rows[p * CHAPTER_PAGE], asc)[0];
-    if (n !== undefined) document.getElementById(`ch-${n}`)?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    if (n === undefined) return;
+    onOpen();
+    // Two frames: the rest of the list renders first, then the row exists to scroll to.
+    requestAnimationFrame(() => requestAnimationFrame(() => document.getElementById(`ch-${n}`)?.scrollIntoView({ block: 'start', behavior: 'smooth' })));
   };
   return (
     <div data-chapter-jump className="my-2 flex justify-end">
@@ -1224,6 +1230,10 @@ function SeriesInner() {
   const [view, setView] = useState<ChapterView>('list');
   useEffect(() => { setView(chapterViewOn()); }, []);
   const [chapterPage, setChapterPage] = useState<number | null>(null);
+  // A long list shows its first FOLD_SHOW rows and a "Show N more" key; anything that needs a row further down (Jump to, a link to a
+  // chapter, a chip in Sources) opens it first. Per visit: a series opens folded again.
+  const [listOpen, setListOpen] = useState(false);
+  useEffect(() => { setListOpen(false); }, [id]);
   useEffect(() => { setChapterPage(null); }, [id, asc, group, showGhosts, hideRead]);
   // Every row on one page when the account asked for the whole list (pageSizeFor): the pager then has one page and
   // is not drawn, and every turn-to-a-page below lands on page 0.
@@ -1252,6 +1262,7 @@ function SeriesInner() {
     const i = n === null ? -1 : rows.findIndex((r) => r.kind === 'book' && r.book.number === n);
     if (n === null || i < 0) return;
     setChapterPage(Math.floor(i / pageSize));
+    setListOpen(true);
     setLitCh(n);
     const still = effectsReduced() || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     // Two frames: the page switch renders first, then the row exists to scroll to. getElementById, not a
@@ -1303,7 +1314,7 @@ function SeriesInner() {
   // first. A number with no row (folded into a run, or filtered out) leaves the page as it is.
   const showChapter = (n: number) => {
     const i = rows.findIndex((r) => (r.kind === 'book' && r.book.number === n) || (r.kind === 'ghost' && r.ghost.number === n));
-    if (i >= 0) setChapterPage(Math.floor(i / pageSize));
+    if (i >= 0) { setChapterPage(Math.floor(i / pageSize)); setListOpen(true); }
     else if (ghostRows.some((r) => r.kind === 'ghost' && r.ghost.number === n)) setGhostsOpen(true);
   };
   const chaptersTop = useRef<HTMLDivElement>(null);
@@ -2246,6 +2257,9 @@ function SeriesInner() {
   };
   // Open when there is nothing else to show (a series with no chapter yet), while choosing chapters, or when asked.
   const ghostsShown = ghostsOpen || rows.length === 0 || selecting;
+  // Folded while the list is long, not while choosing chapters (Select all must mean all of them) and not once opened.
+  const foldList = !listOpen && !selecting && pageRows.length > FOLD_AFTER;
+  const shownRows = foldList ? pageRows.slice(0, FOLD_SHOW) : pageRows;
   const ReadFold = canFoldRead && (
     <div data-read-fold className="my-2 flex justify-center">
       <button type="button" onClick={() => setReadOpen((o) => !o)} aria-expanded={readOpen} className="chip text-xs">
@@ -2341,12 +2355,22 @@ function SeriesInner() {
           }} />
       ) : (<>
       {pages > 1 && <ChapterPager page={shownPage} pages={pages} rows={rows} asc={asc} onPage={(p) => goPage(p, false)} />}
-      {pages <= 1 && rows.length > JUMP_AFTER && <ChapterJump rows={rows} asc={asc} />}
+      {pages <= 1 && rows.length > JUMP_AFTER && <ChapterJump rows={rows} asc={asc} onOpen={() => setListOpen(true)} />}
       {asc && ReadFold}
       <div className={`${chapterRowsClass(view)}${pageRows.length > 120 ? ' chapter-rows-long' : ''}`} data-chapter-rows={view} style={colW && colW > CHAPTER_COL_MIN ? ({ '--chap-col': `${colW}px`, ...(colW > CHAPTER_COL_STRETCH ? { '--chap-max': `${Math.round(colW * 1.15)}px` } : {}) } as React.CSSProperties) : undefined}>
-        {listReady && pageRows.map(renderRow)}
+        {listReady && shownRows.map(renderRow)}
         {!listReady && Array.from({ length: 8 }).map((_, i) => <div key={i} className="skeleton my-3 h-6 rounded" />)}
       </div>
+      {listReady && foldList && (
+        <div data-list-fold className="relative -mt-20 flex justify-center bg-gradient-to-t from-ink-950 via-ink-950/90 to-transparent pb-3 pt-20">
+          <button type="button" onClick={() => setListOpen(true)} className="chip text-xs">{tr('Show {n} more', { n: pageRows.length - FOLD_SHOW })}</button>
+        </div>
+      )}
+      {listReady && listOpen && pageRows.length > FOLD_AFTER && (
+        <div className="my-2 flex justify-center">
+          <button type="button" onClick={() => { setListOpen(false); chaptersTop.current?.scrollIntoView({ block: 'start', behavior: 'smooth' }); }} className="chip text-xs">{tr('Show fewer')}</button>
+        </div>
+      )}
       {pages > 1 && <ChapterPager page={shownPage} pages={pages} rows={rows} asc={asc} onPage={(p) => goPage(p, true)} />}
       {!asc && ReadFold}
       {listReady && ghostRows.length > 0 && (
