@@ -27,7 +27,7 @@ function page<T>(content: T[], total: number, p: number, size: number): Page<T> 
 // ⚠️ Every name here must ALSO be produced by the inner SELECT of `seriesSrcWith` below, which enumerates
 // its columns explicitly. Adding one to only one of the two makes EVERY series read fail with "column does
 // not exist" -- the series page, the library grid, search, the home rails, OPDS, all of it.
-const SERIES_COLS = 'id, title, summary, status, genres, author, age_rating, reading_direction, books_count, cover_book_id, web, created_at, latest_mtime, auto_update, library_id, library_pinned, is_private, source_chapters, source_missing, source_checked_at, source_id, lang, work_id';
+const SERIES_COLS = 'id, title, summary, status, genres, author, age_rating, reading_direction, books_count, cover_book_id, web, created_at, latest_mtime, auto_update, library_id, library_pinned, is_private, source_chapters, source_missing, source_checked_at, source_id, lang, work_id, series_type, adult';
 
 /**
  * The one place a series is read from.
@@ -62,7 +62,11 @@ const seriesSrcWith = (gate: Gate, ctx: ViewCtx, p: Params, alias: string) => `(
          s.source_chapters, s.source_missing, s.source_checked_at,
          -- v0.52.0: the language a series is in (stated, else its main source's -- lib/seriesLang.ts) and the work
          -- it is an edition of (lib/editions.ts), which the Library collapses to one card.
-         s.source_id, s.lang, s.work_id
+         s.source_id, s.lang, s.work_id,
+         -- manga / manhwa / manhua / webtoon / comic, the admin's word over what was learned (lib/seriesType.ts); the card's type badge.
+         COALESCE(o.series_type, s.series_type) AS series_type,
+         -- 18+ the way browsable() judges it: its library is rated 18+, or the series is. The cover blur (web Appearance) goes by it.
+         (COALESCE(o.age_rating, s.age_rating) >= 18 OR EXISTS (SELECT 1 FROM libraries l_nb WHERE l_nb.id = s.library_id AND l_nb.age_rating >= 18)) AS adult
     FROM lib_series s LEFT JOIN series_overrides o ON o.series_id = s.id
     LEFT JOIN ${AUTO_DETAILS} sad ON sad.series_id = s.id
    WHERE ${gate('s', ctx, p)}
@@ -127,6 +131,9 @@ function seriesDto(r: any) {
     id: r.id,
     libraryId: r.library_id ?? 'lib',
     isPrivate: r.is_private === true,
+    // Every viewer (the card's type badge): NULL reads as unknown, which the card draws nothing for.
+    seriesType: r.series_type ?? 'unknown',
+    adult: r.adult === true,
     // Whether an admin filed this series into that library by hand. Shown so the edit modal can say
     // "automatic" honestly rather than implying every placement was a decision someone made.
     libraryPinned: r.library_pinned === true,

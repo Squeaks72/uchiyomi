@@ -57,6 +57,9 @@ export const PROFILE_SETTINGS: SettingsIndex = {
     { id: 'reduce-effects', cat: 'appearance', label: 'Reduce effects', keywords: ['motion', 'animations', 'blur', 'performance', 'slow', 'battery'],
       help: 'Turns off the animated background, blur, smooth scrolling and transitions. Try it if scrolling feels slow.' },
 
+    { id: 'blur-adult', cat: 'appearance', label: 'Blur 18+ covers', keywords: ['nsfw', 'adult', 'censor', 'hide covers', 'privacy', 'blur'],
+      help: 'Covers of 18+ series are blurred on cards until you point at one. This device only.' },
+
     // ---- Reading ----
     { id: 'reader-mode', cat: 'reading', label: 'Mode', keywords: ['webtoon', 'paged', 'scroll', 'swipe', 'reading mode', 'reader'] },
     { id: 'auto-mode', cat: 'reading', label: 'Pick the mode for each series', keywords: ['automatic', 'long strip', 'manga'] },

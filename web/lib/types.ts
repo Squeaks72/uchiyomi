@@ -293,6 +293,8 @@ export interface Series {
    * v0.61.0 (the reader's automatic mode reads it); admins only before, so an older server sends members nothing.
    */
   seriesType?: SeriesType;
+  /** 18+ as the server judges it: its library, or the series, is rated 18+. Cards blur its cover (lib/blurPref.ts). */
+  adult?: boolean;
   /** Admins only: what the evidence alone says the series is, and which evidence. null when nothing has said. */
   detectedType?: { type: Exclude<SeriesType, 'unknown'>; from: 'genre' | 'source' | 'anilist' | 'webtoon' | null } | null;
   /** Admins only: this series' own notice-chapter switch; null follows its type's. */
