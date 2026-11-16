@@ -2,7 +2,7 @@
   "_meta": {
     "language": "es",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 5886
+    "strings": 5892
   },
   "1 check found something": "1 comprobación encontró algo",
   "1 member": "1 miembro",
@@ -5889,5 +5889,11 @@
   "Attach a BookOrbit series": "Adjuntar una serie de BookOrbit",
   "Search BookOrbit by name": "Buscar en BookOrbit por nombre",
   "Attach": "Adjuntar",
-  "No ebook series found": "No se encontró ninguna serie de ebooks"
+  "No ebook series found": "No se encontró ninguna serie de ebooks",
+  "Also keep": "Conservar también",
+  "Kept": "Guardada",
+  "Keep this copy beside the endorsed one, so readers can choose it": "Conservar esta copia junto a la recomendada para que los lectores puedan elegirla",
+  "Keeping this copy…": "Guardando esta copia…",
+  "Copy kept": "Copia guardada",
+  "Could not keep this copy": "No se pudo guardar la copia"
 }

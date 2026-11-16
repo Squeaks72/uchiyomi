@@ -16,10 +16,12 @@ interface Kept {
   keepVersions: boolean;
   keeping: boolean;
   coloredSource: string | null;
+  /** Per chapter number: the sources whose copies are kept beside the endorsed one. */
+  held: Record<string, { sourceId: string; pages: number }[]>;
   sources: { sourceId: string; name: string; primary: boolean; kept: number }[];
 }
 
-function useKept(id: string) {
+export function useKept(id: string) {
   // Refreshed while a pass is running, so the counts climb on screen.
   return useQuery({ queryKey: ['kept', id], queryFn: () => api<Kept>(`/api/series/${encodeURIComponent(id)}/kept`), staleTime: 15_000,
     refetchInterval: (q) => (q.state.data?.keeping ? 8_000 : false) });

@@ -63,7 +63,7 @@ import { fetchAllBooks } from '@/lib/seriesBooks';
 import { fetchingToast } from '@/lib/jobs';
 import { ALL_GROUPS, copySourceId, groupsOfRow, matchesGroup } from '@/lib/groupFilter';
 import { SourcesSheet, useCheckNow, useSeriesGroups } from '@/components/SourcesSheet';
-import { ColorToggle } from '@/components/KeptVersions';
+import { ColorToggle, useKept } from '@/components/KeptVersions';
 import { SourcesExplainer } from '@/components/SourcesExplainer';
 import { SupplyLine } from '@/components/SupplyLine';
 import { ChapterFilterSheet } from '@/components/ChapterFilterSheet';
@@ -1027,6 +1027,8 @@ function SeriesInner() {
   // The groups behind the supply line, the Sources & translations sheet and the group filter: one hook,
   // the route for the viewer's role (SourcesSheet.tsx says which), fetched once for all three.
   const { groups, admin: adminGroups, error: groupsError, isLoading: groupsLoading, checkedAt: groupsCheckedAt } = useSeriesGroups(id, isAdmin);
+  // The copies kept beside the endorsed ones (the Versions sheet's Also keep, the Read from chooser): one cached answer for the page.
+  const { data: keptData } = useKept(id);
   // Every copy of every listed number, for the `{n} versions` captions and the chapter sheet. Fetched once
   // per page as soon as there is a row to caption -- the caption needs the count before anyone opens
   // anything -- and cached for a minute, because it is one request for the whole list and the sweep that
@@ -2638,6 +2640,17 @@ function SeriesInner() {
             void (copy ? pickGhost(n, copy) : ghost?.bookId ? fetchDeleted(ghost.bookId) : fetchOne(n));
           }}
           onFetchRead={(copy) => { const n = chapterSheet.number; setChapterSheet(null); void fetchAndRead(n, copy); }}
+          // An admin keeps another source's copy beside the endorsed one (bff lib/bookVersions.ts): fetched in the background, so the
+          // sheet stays open and the row says Kept once it has landed.
+          onKeep={isAdmin && chapterSheet.book ? async (copy) => {
+            try {
+              toast(tr('Keeping this copy…'), 'info', { busy: true, key: 'keep-copy' });
+              const r = await api<{ result: string }>(`/api/admin/series/${encodeURIComponent(id)}/versions/keep`, { method: 'POST', json: { number: chapterSheet.number, sourceId: copy.source } });
+              void qc.invalidateQueries({ queryKey: ['kept', id] });
+              toast(r.result === 'kept' || r.result === 'already' ? tr('Copy kept') : tr('Could not keep this copy'), r.result === 'kept' || r.result === 'already' ? 'success' : 'error', { key: 'keep-copy' });
+            } catch (e) { toast(actionFailure(e, tr('Could not keep this copy')), 'error'); }
+          } : undefined}
+          keptSources={new Set((keptData?.held?.[String(chapterSheet.number)] ?? []).map((v) => v.sourceId))}
           // ⚠️ The sheet closes FIRST, then the confirm opens: a Modal under a Sheet cannot be tapped.
           onReplace={(copy) => { const b = chapterSheet.book!; setChapterSheet(null); setReplacing({ book: b, copy }); }}
           // Delete the server's file for this chapter: the same confirm as the row menu's, opened after the sheet closes.
