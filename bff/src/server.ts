@@ -3,6 +3,8 @@
 // reading anything, but that order is an accident this line stops relying on. A no-op on a server.
 import './lib/desktop';
 import { uploadSeriesRoutes } from './routes/upload';
+import versionRoutes from './routes/versions';
+import { scheduleVersionKeeper } from './lib/versionKeeper';
 import Fastify from 'fastify';
 import { APP_ROUTER_OPTIONS } from './lib/httpLimits';
 import cookie from '@fastify/cookie';
@@ -312,6 +314,7 @@ async function main() {
   await app.register(downloadRoutes);
   await app.register(uploadSeriesRoutes);
   await app.register(sourceRoutes);
+  await app.register(versionRoutes);
   // Translated pages (v0.85.0): answers "off" until an admin downloads the engine and turns it on. Hidden on desktop
   // (DESKTOP_HIDDEN_ROUTES), whose server runs inside the app, where the engine's processes cannot (docs/DESKTOP.md).
   await app.register(translateRoutes);
@@ -576,6 +579,8 @@ async function main() {
   scheduleAniListScores(app.log);
   // Fork: each series' volume list (lib/volumes), read a few minutes after boot and then every six hours.
   scheduleVolumes(app.log);
+  // Series that keep every source's copy of a chapter (lib/versionKeeper.ts): a pass every half hour.
+  if (OWNED) scheduleVersionKeeper(app.log);
 
   // Opt-in discovery continues across the whole library and after restart, without needing page views.
   const stopTitleLogoScan = startTitleLogoScan(app.log);

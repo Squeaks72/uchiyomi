@@ -508,14 +508,14 @@ export default async function opdsRoutes(app: FastifyInstance) {
     if (readingSize(maxWidth)) (req as { opdsRead?: OpdsRead }).opdsRead = { book: { id, seriesId: row.series_id, pages: row.pages }, page: pageNo + 1 };
     const w = Number(maxWidth);
     if (w && Number.isInteger(w) && w >= 64 && w <= 2000) {
-      return serveImage(req, reply, `pse-page:${id}:${pageNo + 1}:w${w}`, async () => {
+      return serveImage(req, reply, `pse-page:${id}:${pageNo + 1}:w${w}${row.version ? `:v${row.version}` : ''}`, async () => {
         const page = await cbzPageAt(abs, pageNo);
         if (!page) throw Object.assign(new Error('no page'), { statusCode: 404 });
         const buffer = await sharp(page.bytes).resize({ width: w, withoutEnlargement: true }).jpeg({ quality: 82 }).toBuffer();
         return { buffer, contentType: 'image/jpeg' };
       });
     }
-    return serveImage(req, reply, `lib-page:${id}:${pageNo + 1}`, async () => {
+    return serveImage(req, reply, `lib-page:${id}:${pageNo + 1}${row.version ? `:v${row.version}` : ''}`, async () => {
       const page = await cbzPageAt(abs, pageNo);
       if (!page) throw Object.assign(new Error('no page'), { statusCode: 404 });
       q('UPDATE lib_books SET pages=$1 WHERE id=$2 AND pages<>$1', [page.total, id]).catch(() => {});

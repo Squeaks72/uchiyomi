@@ -2445,6 +2445,32 @@ CREATE TABLE IF NOT EXISTS volume_watch (
   created_at timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (user_id, series_id)
 );
+-- Other sources' copies of a chapter, kept beside the endorsed one (the row in lib_books). A series that keeps every
+-- source's copy has one row per chapter per followed source here; the file sits in a hidden .versions folder the scanner
+-- skips. Reading progress stays on the lib_books row: the chapter number is the chapter, whichever copy was opened.
+CREATE TABLE IF NOT EXISTS lib_book_versions (
+  book_id      text NOT NULL REFERENCES lib_books(id) ON DELETE CASCADE,
+  source_id    text NOT NULL,
+  file         text NOT NULL,
+  root         text NOT NULL,
+  pages        int  NOT NULL DEFAULT 0,
+  scanlator    text,
+  published_at timestamptz,
+  size         bigint,
+  created_at   timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (book_id, source_id)
+);
+-- An account's own choice of source for a series: its reader, OPDS and Mihon are served that source's copy of a chapter
+-- where one is kept, and the endorsed copy otherwise.
+CREATE TABLE IF NOT EXISTS user_series_source (
+  user_id    uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  series_id  text NOT NULL REFERENCES lib_series(id) ON DELETE CASCADE,
+  source_id  text NOT NULL,
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, series_id)
+);
+-- Opt-in per series: keep every followed source's copy of each chapter, not only the endorsed one.
+ALTER TABLE lib_series ADD COLUMN IF NOT EXISTS keep_versions boolean NOT NULL DEFAULT false;
 `;
 
 // Serialises migrate() across processes. CREATE TABLE IF NOT EXISTS is not safe to run concurrently:
