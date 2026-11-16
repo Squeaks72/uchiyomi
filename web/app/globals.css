@@ -603,8 +603,10 @@ html.reduce-effects .cta-glow,
 html.reduce-effects .cta-glow:hover { box-shadow: 0 8px 30px -10px rgb(var(--accent) / 0.7); }
 
 /* A long chapter list is one page: rows off the screen are skipped (content-visibility) until they scroll near, so 1,000 chapters
-   cost what the visible 20 do. 56px is the row's height until it has been drawn once. */
-.chapter-rows-long > * { content-visibility: auto; contain-intrinsic-size: auto 56px; }
+   cost what the visible 20 do. The sizes are a row's height (touch / mouse) until it has been drawn once: a Jump to lands on the row
+   only if the rows above it were guessed about right. */
+.chapter-rows-long > * { content-visibility: auto; contain-intrinsic-size: auto 78px; }
+@media (pointer: fine) { .chapter-rows-long > * { contain-intrinsic-size: auto 50px; } }
 
 /* Lenis momentum scroll */
 html.lenis, html.lenis body { height: auto; }
