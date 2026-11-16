@@ -1,5 +1,6 @@
 'use client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { followAccentFavicon } from '@/lib/favicon';
 import { useEffect, useLayoutEffect, useState, ReactNode } from 'react';
 import Lenis from 'lenis';
 import { effectsReduced, restoreReduceEffects, useReduceEffects } from '@/lib/effects';
@@ -27,6 +28,8 @@ export function Providers({ children }: { children: ReactNode }) {
 
   // A verified native UI generation is confirmed only after React has mounted.
   useEffect(() => { nativeHost()?.ready?.(); }, []);
+  // The tab icon follows the accent, as the logo mark does (lib/favicon.ts).
+  useEffect(() => followAccentFavicon(), []);
 
   // Real viewport height for the immersive reader (mobile URL-bar proof).
   useEffect(() => {
