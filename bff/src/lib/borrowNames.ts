@@ -66,7 +66,13 @@ export async function borrowingOn(own: boolean | null): Promise<boolean> {
   return !!g?.borrow_names;
 }
 
-export async function borrowNamesFor(seriesId: string, opts: { now?: number; force?: boolean } = {}): Promise<BorrowResult> {
+/**
+ * `manual`: an admin asked for the names from the series page ("Fetch better chapter names"). It is the nightly step run on demand,
+ * so it skips only the switch: the same donor judgement, the same exact-number matching, the same language rule, and the names it
+ * writes are marked as borrowed like any other, so the series' Sources sheet can still take them back. `force` rides with it: the
+ * "nobody else carries this" memory is for the nightly step, not for a person who is standing at the button.
+ */
+export async function borrowNamesFor(seriesId: string, opts: { now?: number; force?: boolean; manual?: boolean } = {}): Promise<BorrowResult> {
   const now = opts.now ?? Date.now();
   const s = await one<{ id: string; title: string; source_id: string | null; borrow_names: boolean | null; name_donor: NameDonor | null; numbering: string | null }>(
     `SELECT s.id, s.title, s.source_id, s.borrow_names, s.name_donor, s.numbering FROM lib_series s WHERE s.id = $1 AND ${visibleToAll('s')}`,
@@ -75,7 +81,7 @@ export async function borrowNamesFor(seriesId: string, opts: { now?: number; for
   // A donor lends a name by NUMBER, and under posting order no other site's chapter 20 is our chapter 20. The
   // series' own source names every post anyway: posting order is exactly the case where each has its own title.
   if (s.numbering === 'posting_order') return { named: 0, why: 'posting_order' };
-  if (!(await borrowingOn(s.borrow_names))) return { named: 0, why: 'off' };
+  if (!opts.manual && !(await borrowingOn(s.borrow_names))) return { named: 0, why: 'off' };
 
   // Only LIVE chapters with no name at all. A borrowed name counts as a name: re-deciding it every night would
   // let two donors fight over one row, and the chapter's own source replacing it is the heal's job. Never a file

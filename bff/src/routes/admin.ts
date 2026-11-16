@@ -2330,6 +2330,16 @@ export default async function adminRoutes(app: FastifyInstance) {
 
   // "Check for new chapters" for one series. updateSeries downloads synchronously and can run for minutes,
   // so this starts it and returns; the UI polls the status below rather than holding a request open.
+  // "Fetch better chapter names" on the series page: lib/borrowNames.ts run now, switch or no switch. Bounded (one minute), so it
+  // answers with what it did rather than a job to poll: { named, donor?, why? }.
+  app.post('/api/admin/series/:id/names/fetch', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const row = await getSeriesRow(id);
+    if (!row) return reply.code(404).send({ error: 'not_found' });
+    if (jobBusy(row.folder)) return reply.code(409).send({ error: 'busy', message: 'Another task is changing that series.' });
+    const r = await borrowNamesFor(id, { force: true, manual: true });
+    return r;
+  });
   app.post('/api/admin/series/:id/check', async (req, reply) => {
     const { id } = req.params as { id: string };
     if (seriesChecks.get(id)?.running) return reply.code(409).send({ error: 'busy', message: 'Already checking that series.' });
