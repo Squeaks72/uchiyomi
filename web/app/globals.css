@@ -412,9 +412,12 @@ html.lenis-scrolling .fx-grain { display: none; }
   position: fixed; inset: 0; z-index: 2; pointer-events: none;
   background: radial-gradient(125% 100% at 50% 0%, transparent 52%, rgba(0,0,0,0.5) 100%);
 }
+/* No `filter: blur(90px) saturate(1.25)` any more (v0.110): the blur re-filtered a 2,000 px layer on every frame it drifted, which a
+   Firefox on a 1080p work PC could not keep up with (turning the mesh off was the whole difference). The radial gradients already fade
+   to transparent, so the blur changed almost nothing: against the filtered mesh the page differs by RMS 0.7 of 255, at most 5 levels. */
 .fx-mesh {
   position: fixed; inset: -25%; z-index: 0; pointer-events: none;
-  filter: blur(90px) saturate(1.25); opacity: 0.55;
+  opacity: 0.55;
   background:
     radial-gradient(38% 40% at 18% 28%, rgb(var(--accent) / 0.20), transparent 70%),
     radial-gradient(40% 48% at 82% 18%, rgba(34, 211, 238, 0.10), transparent 70%),
@@ -598,6 +601,10 @@ html.reduce-effects .grad-border::before { display: none; }
 /* The reading button's cover-coloured glow (v0.60.0) goes back to the plain accent shadow every `.btn-accent` wears. */
 html.reduce-effects .cta-glow,
 html.reduce-effects .cta-glow:hover { box-shadow: 0 8px 30px -10px rgb(var(--accent) / 0.7); }
+
+/* A long chapter list is one page: rows off the screen are skipped (content-visibility) until they scroll near, so 1,000 chapters
+   cost what the visible 20 do. 56px is the row's height until it has been drawn once. */
+.chapter-rows-long > * { content-visibility: auto; contain-intrinsic-size: auto 56px; }
 
 /* Lenis momentum scroll */
 html.lenis, html.lenis body { height: auto; }

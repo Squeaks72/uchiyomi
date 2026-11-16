@@ -3,9 +3,9 @@
 // PUT /api/settings), like Reduce effects, so it follows the reader to every device they sign in on. Off by
 // default: a 1,000-chapter series a hundred rows at a time is the deliberate look.
 
-/** Whether the account asked for the whole chapter list at once. Anything but `true` reads as off. */
+/** Whether the chapter list is one page: yes unless the account turned it off (the default since v0.110, with "Jump to" for a long one). */
 export function showAllChaptersOn(settings: Record<string, unknown> | null | undefined): boolean {
-  return settings?.showAllChapters === true;
+  return settings?.showAllChapters !== false;
 }
 
 /**

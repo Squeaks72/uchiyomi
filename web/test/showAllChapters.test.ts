@@ -14,10 +14,10 @@ const book = (number: number): Book =>
 const ghost = (number: number, why: Ghost['why'] = 'missing'): Ghost =>
   ({ number, title: null, publishedAt: null, scanlator: null, groups: [], sourceId: 'src', sourceName: 'Src', why });
 
-test('only an account that says true has it on', () => {
-  assert.equal(showAllChaptersOn({ showAllChapters: true }), true);
-  for (const s of [undefined, null, {}, { showAllChapters: 'true' }, { showAllChapters: 1 }, { showAllChapters: false }]) {
-    assert.equal(showAllChaptersOn(s as any), false, JSON.stringify(s));
+test('on unless the account says false (v0.110: one page, with Jump to)', () => {
+  assert.equal(showAllChaptersOn({ showAllChapters: false }), false);
+  for (const s of [undefined, null, {}, { showAllChapters: 'false' }, { showAllChapters: 0 }, { showAllChapters: true }]) {
+    assert.equal(showAllChaptersOn(s as any), true, JSON.stringify(s));
   }
 });
 
@@ -58,7 +58,7 @@ test('the series page reads the account switch and pages by its size', () => {
   const src = readFileSync(join(__dirname, '..', 'app/series/page.tsx'), 'utf8');
   assert.match(src, /showAllChaptersOn\(user\?\.settings\)/);
   assert.match(src, /pageSizeFor\(everything, rows\.length\)/);
-  assert.match(src, /mergeRows\(filteredBooks, filteredGhosts, asc, showAll \|\| everything, runsOpen\)/);
+  assert.match(src, /mergeRows\(filteredBooks, \[\], asc, showAll \|\| everything, runsOpen\)/);
   assert.doesNotMatch(src, /\/ CHAPTER_PAGE\)/, 'every turn-to-a-page divides by the page size in use');
   const settings = readFileSync(join(__dirname, '..', 'components/ProfileSettings.tsx'), 'utf8');
   assert.match(settings, /json: \{ showAllChapters: next \}/, 'saved to the account, not this device');

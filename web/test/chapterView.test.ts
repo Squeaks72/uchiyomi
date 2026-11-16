@@ -17,19 +17,19 @@ function storage(throws = false) {
   return m;
 }
 
-test('Columns unless this device chose List; junk and a storage that throws read as Columns', () => {
+test('List unless this device chose Columns; junk and a storage that throws read as List', () => {
   const m = storage();
   assert.deepEqual([...CHAPTER_VIEWS], ['columns', 'list']);
-  assert.equal(chapterViewOn(), 'columns');
-  setChapterView('list');
   assert.equal(chapterViewOn(), 'list');
   setChapterView('columns');
-  assert.equal(m.size, 0, 'Columns is the default, so it is stored as nothing at all');
+  assert.equal(chapterViewOn(), 'columns');
+  setChapterView('list');
+  assert.equal(m.size, 0, 'List is the default (v0.110), so it is stored as nothing at all');
   m.set('uchiyomi.chapterView', 'grid');
-  assert.equal(chapterViewOn(), 'columns');
+  assert.equal(chapterViewOn(), 'list');
   storage(true);
-  assert.equal(chapterViewOn(), 'columns');
-  assert.doesNotThrow(() => setChapterView('list'));
+  assert.equal(chapterViewOn(), 'list');
+  assert.doesNotThrow(() => setChapterView('columns'));
   delete (globalThis as any).localStorage;
 });
 
@@ -41,9 +41,9 @@ test('Columns is exactly the grid that shipped; List is one list, on every width
 
 test('the series page lays its rows out by the device\'s choice, and the toolbar offers it from lg up', () => {
   const src = read('app/series/page.tsx');
-  assert.match(src, /<div className=\{chapterRowsClass\(view\)\} data-chapter-rows=\{view\} style=\{[^\n]*\}>\s*\{pageRows\.map/, 'the rows ignore the layout');
+  assert.match(src, /<div className=\{`\$\{chapterRowsClass\(view\)\}\$\{pageRows\.length > 120 \? ' chapter-rows-long' : ''\}`\} data-chapter-rows=\{view\} style=\{[^\n]*\}>\s*\{listReady && pageRows\.map\(renderRow\)\}/, 'the rows ignore the layout');
   // Read after mount, like the compact list: the static export renders without storage.
-  assert.match(src, /const \[view, setView\] = useState<ChapterView>\('columns'\);\s*useEffect\(\(\) => \{ setView\(chapterViewOn\(\)\); \}, \[\]\);/);
+  assert.match(src, /const \[view, setView\] = useState<ChapterView>\('list'\);\s*useEffect\(\(\) => \{ setView\(chapterViewOn\(\)\); \}, \[\]\);/);
   const bar = src.slice(src.indexOf('<div data-chapter-toolbar'), src.indexOf('{group !== ALL_GROUPS && ('));
   assert.match(bar, /<div className="ms-auto hidden lg:block" data-chapter-view=\{view\}>/, 'the control is not in the chapter toolbar, or shows on a phone');
   assert.match(bar, /<Segmented square label=\{tr\('Layout'\)\} value=\{view\} onChange=\{\(v\) => \{ setView\(v\); setChapterView\(v\); \}\}/, 'a choice is not remembered');

@@ -5,7 +5,7 @@
 
 export type ChapterOrder = 'oldest' | 'newest';
 
-/** Whether the account's chapter lists run oldest first. Anything but 'newest' reads as oldest. */
+/** Whether the account's chapter lists run oldest first. Newest first unless the account chose Oldest (the default since v0.110). */
 export function chapterOrderAsc(settings: Record<string, unknown> | null | undefined): boolean {
-  return settings?.chapterOrder !== 'newest';
+  return settings?.chapterOrder === 'oldest';
 }
