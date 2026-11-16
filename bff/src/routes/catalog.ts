@@ -1,4 +1,5 @@
 import { sharedActivitySql } from '../lib/contentScope';
+import { chosenVersion } from '../lib/bookVersionsRead';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { q, one } from '../lib/db';
@@ -1298,6 +1299,9 @@ export default async function catalogRoutes(app: FastifyInstance) {
   app.get('/api/books/:id/pages', async (req, reply) => {
     const { id } = req.params as { id: string };
     const pages = await komga.bookPages(vc(req), id);
+    // Another source's copy (lib/bookVersionsRead.ts) is plain pages: junk marks, spread marks and joins, and panel boxes are the
+    // endorsed file's, and a copy with a different page count would take them on the wrong image.
+    if (await chosenVersion(userIdOf(req), id)) return pages;
     // `junk` rides along on the page list rather than being its own request, so the reader and the offline
     // download manifest -- which both read this route -- get it without either knowing the feature exists.
     // A chapter whose pages have not been hashed yet simply comes back with nothing flagged.

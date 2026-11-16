@@ -1,5 +1,6 @@
 // Owned catalog backend: a drop-in for the `komga` client, returning Komga-shaped series/book DTOs from
 // the lib_* tables. enrichSeries/booksForUser in catalog.ts then add per-user state exactly as before.
+import { chosenVersion } from './bookVersionsRead';
 import { q, one } from './db';
 import { cbzPageDims, DL_ROOT, LIBRARY_ROOT, pagesInNameOrder, persistScan } from './library';
 import { ViewCtx, Params, visible, browsable, ADULT_RATING } from './visibility';
@@ -904,6 +905,17 @@ export const owned = {
       p.values as any[],
     );
     if (!r) return [];
+    // The source this account chose for the series, when its copy of this chapter is kept (lib/bookVersionsRead.ts): that
+    // file's own pages, measured here and cached nowhere -- page_dims, the cleanup marks and the placeholder marks all belong
+    // to the endorsed file, and a copy from another source can have a different number of pages. Only the content version
+    // rides along, which the page route checks against its own file.
+    const chosen = await chosenVersion(ctx.userId, id);
+    if (chosen) {
+      const abs = path.join(chosen.root || LIBRARY_ROOT, chosen.file);
+      const cv = await pageFileVersion(abs).catch(() => undefined);
+      const own = await cbzPageDims(abs).catch(() => [] as Array<{ name: string; width: number | null; height: number | null }>);
+      return own.map((pd, i) => ({ number: i + 1, fileName: pd.name, mediaType: mediaType(pd.name), width: pd.width, height: pd.height, sizeBytes: null, ...(cv ? { contentVersion: cv } : {}) }));
+    }
     // The read-chapter cleanup deleted the file. page_dims is a CACHE and it outlives the pages it describes,
     // so without this the reader would open a pruned chapter, lay out the right number of pages, and 404
     // every single one of them. No pages is the truth.

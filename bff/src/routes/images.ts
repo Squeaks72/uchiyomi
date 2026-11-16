@@ -312,9 +312,14 @@ export const sourceCoverInput = (u: string, source?: string): Promise<Buffer> =>
   fetchCoverImage(u, source, { callerSupplied: true });
 
 // ---- series backdrop recipes (module-level so the pre-warmer can build them without a request) ----
-const bookFileAbs = async (id: string, ctx: ViewCtx): Promise<string | null> => {
-  const r = await visibleBookFile(id, ctx);
+const bookFileAbs = async (id: string, ctx: ViewCtx, opts: { canonical?: boolean } = {}): Promise<string | null> => {
+  const r = await visibleBookFile(id, ctx, opts);
   return r ? join(r.root || LIBRARY_ROOT, r.file) : null;
+};
+/** The file and, when it is another source's kept copy (lib/bookVersionsRead.ts), the source: the suffix every chapter-keyed cache entry needs. */
+const bookFileVersioned = async (id: string, ctx: ViewCtx): Promise<{ abs: string; tag: string } | null> => {
+  const r = await visibleBookFile(id, ctx);
+  return r ? { abs: join(r.root || LIBRARY_ROOT, r.file), tag: r.version ? `:v${r.version}` : '' } : null;
 };
 // Bytes of a series' first downloaded page — the universal fallback when a remote cover/backdrop URL can't be
 // fetched (hotlink-protected CDN, dead link, timeout, unparsed cover). Guarantees art for any downloaded series.
@@ -331,7 +336,7 @@ const firstPageInput = async (id: string, ctx: ViewCtx): Promise<Buffer> => {
     `SELECT s.id, ${firstPageBookOf('s')} AS cover_book_id FROM lib_series s WHERE s.id = $1`, [id]);
   const kept = s ? await readFile(artFile(s.id, 'page')).catch(() => null) : null;
   if (kept) return kept;
-  const abs = s?.cover_book_id ? await bookFileAbs(s.cover_book_id, ctx) : null;
+  const abs = s?.cover_book_id ? await bookFileAbs(s.cover_book_id, ctx, { canonical: true }) : null;
   if (!abs) throw Object.assign(new Error('no cover'), { statusCode: 404 });
   // A cover chapter whose file is gone -- deleted or moved by hand, which is what Rescan everything finds (v0.55.4), or a
   // library folder not mounted right now -- is a 404, as a chapter's own thumbnail is (pageOrGone, below): the admin
@@ -843,9 +848,10 @@ export const serveLibBookThumb = async (req: FastifyRequest, reply: FastifyReply
   // the bytes by the cache. The series thumb and the page route already checked first; this one did not.
   // Reintroduce by moving the bookFileAbs call back inside the producer: "a capped member gets 404 on a
   // warmed book thumbnail" in komgaCompat.int.test.ts sees 200.
-  const abs = await bookFileAbs(id, vc(req));
-  if (!abs) return reply.code(404).send({ error: 'not_found' });
-  return serveImage(req, reply, `lib-bthumb:${id}`, async () => {
+  const file = await bookFileVersioned(id, vc(req));
+  if (!file) return reply.code(404).send({ error: 'not_found' });
+  const abs = file.abs;
+  return serveImage(req, reply, `lib-bthumb:${id}${file.tag}`, async () => {
     const first = await pageOrGone(abs, 0);
     if (!first) throw Object.assign(new Error('empty'), { statusCode: 404 });
     q('UPDATE lib_books SET pages=$1 WHERE id=$2 AND pages<>$1', [first.total, id]).catch(() => {});
@@ -863,8 +869,11 @@ export const serveLibBookThumb = async (req: FastifyRequest, reply: FastifyReply
  * translated page's, and must not keep the original once the translation is there.
  */
 export const serveLibBookPage = async (req: FastifyRequest, reply: FastifyReply, id: string, pageNo: number, w: number, fit = 0, tl: string | null = null) => {
-  const abs = await bookFileAbs(id, vc(req));
-  if (!abs) return reply.code(404).send({ error: 'no_book' });
+  const file = await bookFileVersioned(id, vc(req));
+  if (!file) return reply.code(404).send({ error: 'no_book' });
+  const abs = file.abs;
+  // A translation is stored against the endorsed file's pages; another source's copy is served as plain pages (lib/bookVersionsRead.ts).
+  if (file.tag) tl = null;
   // The reader changes ?cv= after reversible page edits. The disk cache must identify the new bytes too,
   // otherwise a fresh browser URL would still be answered with the old cached page.
   const fileStat = await stat(abs).catch(() => null);

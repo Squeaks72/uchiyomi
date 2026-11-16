@@ -9,6 +9,7 @@
 //
 // That duplication is the measure of the risk. Per-library access does not get to become a 24th copy: it is
 // one more clause on `visible()`, and every caller inherits it because they all go through here.
+import { chosenVersion } from './bookVersionsRead';
 import { q, one } from './db';
 import { noticeBook } from './noticeChapters';
 
@@ -554,10 +555,10 @@ export async function viewCtxFor(
  * the two: "no such chapter" and "not yours" should look identical from outside. The page count and series come along
  * for OPDS page streaming, which records where a reader got to (routes/opds.ts).
  */
-export async function visibleBookFile(bookId: string, ctx: ViewCtx): Promise<{ file: string; root: string; pages: number; series_id: string } | null> {
+export async function visibleBookFile(bookId: string, ctx: ViewCtx, opts: { canonical?: boolean } = {}): Promise<{ file: string; root: string; pages: number; series_id: string; version?: string } | null> {
   const p = new Params();
   const id = p.add(bookId);
-  return (await one<{ file: string; root: string; pages: number; series_id: string }>(
+  const row = (await one<{ file: string; root: string; pages: number; series_id: string }>(
     `SELECT b.file, b.root, b.pages, b.series_id FROM lib_books b
        JOIN lib_series s ON s.id = b.series_id
       WHERE b.id = ${id} AND ${visible('s', ctx, p)}
@@ -565,6 +566,13 @@ export async function visibleBookFile(bookId: string, ctx: ViewCtx): Promise<{ f
         AND NOT ${noticeBook('b.id')}`,
     p.values as any[],
   )) ?? null;
+  if (!row) return null;
+  // The source this account chose for the series (lib/bookVersions.ts): its copy of this chapter, when one is kept. Every
+  // page, file and thumbnail route resolves a chapter here, so the choice reaches the reader, OPDS and Mihon at once.
+  // `version` names the copy, for the caches that are keyed by chapter and would otherwise hand back the endorsed pages.
+  // `canonical`: the caller makes something shared from the file (a series cover), which must never be made from one account's copy.
+  const chosen = opts.canonical ? null : await chosenVersion(ctx.userId, bookId);
+  return chosen ? { ...row, file: chosen.file, root: chosen.root, pages: chosen.pages || row.pages, version: chosen.sourceId } : row;
 }
 
 /** The same question for a series id: may this viewer see it at all? */
