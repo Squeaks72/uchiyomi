@@ -9,6 +9,7 @@
 // the footer. Nothing here is a draft: every Prefer, Block and rank tap is one PATCH, applied at once, because
 // a sheet is dismissed by a tap outside or Escape and a draft would go with it.
 import { useEffect, useMemo, useState } from 'react';
+import { KeptVersions } from '@/components/KeptVersions';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
@@ -946,6 +947,7 @@ export function SourcesSheet({ id, title: seriesTitle, series, groups, admin, er
             </div>
           </div>
         )}
+        <KeptVersions id={id} />
         {isAdmin && (
           <div className="mt-2 flex flex-wrap gap-1.5">
             {sources.length > 0 && (
