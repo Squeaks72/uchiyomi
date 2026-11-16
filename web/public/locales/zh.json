@@ -2,7 +2,7 @@
   "_meta": {
     "language": "zh",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 5835
+    "strings": 5853
   },
   "1 check found something": "1 项检查发现问题",
   "1 member": "1 位成员",
@@ -5838,5 +5838,23 @@
   "Behaviour": "行为",
   "Blur 18+ covers": "模糊 18+ 封面",
   "Covers of 18+ series are blurred on cards until you point at one. This device only.": "18+ 系列的封面在卡片上会被模糊，指向它时才会清晰。仅限此设备。",
-  "Advanced": "高级"
+  "Advanced": "高级",
+  "New chapters of what you read": "你常读作品的新章节",
+  "Daily picks": "每日精选",
+  "The next chapter of a series you read a lot, released in the last three weeks.": "你常读系列在过去三周内发布的下一章。",
+  "A chapter you are part-way through.": "你读到一半的章节。",
+  "Series chosen for your taste, new each day.": "根据你的口味挑选，每日更新。",
+  "Series that just arrived in the library.": "刚加入资料库的系列。",
+  "Customize banner": "自定义横幅",
+  "Choose what the banner advertises, and in what order.": "选择横幅展示的内容及顺序。",
+  "Slides": "幻灯片",
+  "Speed": "速度",
+  "Normal": "正常",
+  "Slow": "慢",
+  "Turn the banner off": "关闭横幅",
+  "You can turn it back on in Settings → General → Big banners.": "可在 设置 → 通用 → 大横幅 中重新开启。",
+  "New chapter": "新章节",
+  "New in the library": "资料库新增",
+  "Read chapter {n}": "阅读第 {n} 章",
+  "Continue chapter {n}": "继续阅读第 {n} 章"
 }

@@ -20,6 +20,11 @@ import { t as tr } from '@/lib/i18n';
 import { statusText } from '@/lib/activity';
 import { applyFavorite } from '@/lib/favoriteCache';
 import { withCoverBust } from '@/lib/coverBust';
+import { HeroGear } from './HeroSettings';
+import type { HeroKind } from '@/lib/heroBanner';
+
+/** What a slide is, beyond its series (/api/hero): the kind, and for a chapter slide the chapter -- its button opens that. */
+export interface HeroMeta { kind: HeroKind; chapter: { id: string; number: number; label: string; name: string | null; releasedAt: string | null; page: number; pages: number } | null }
 
 function FavButton({ series }: { series: Series }) {
   const qc = useQueryClient();
@@ -46,10 +51,11 @@ function FavButton({ series }: { series: Series }) {
 /** The hero's round-cornered keys over art: glass, so they read on any picture. */
 const HERO_KEY = 'h-10 w-10 place-items-center rounded-xl border border-white/15 bg-black/40 text-white backdrop-blur transition hover:bg-black/60 active:scale-95';
 
-/** How long a slide shows before the next, while nothing holds it. */
+/** How long a slide shows before the next, while nothing holds it, unless the reader's gear says otherwise. */
 const SLIDE_MS = 6500;
 
-export function HeroCarousel({ slides }: { slides: Series[] }) {
+export function HeroCarousel({ slides, meta, seconds }: { slides: Series[]; meta?: Record<string, HeroMeta>; seconds?: number }) {
+  const slideMs = Math.round((seconds ?? SLIDE_MS / 1000) * 1000);
   const [i, setI] = useState(0);
   // Held while the pointer is over the hero; `held` is the Pause key's (WCAG 2.2.2: a moving picture can be stopped).
   const [paused, setPaused] = useState(false);
@@ -66,9 +72,9 @@ export function HeroCarousel({ slides }: { slides: Series[] }) {
   useEffect(() => { if (i >= n) setI(0); }, [n, i]);
   useEffect(() => {
     if (!n || stopped) return;
-    const t = setTimeout(() => setI((v) => (v + 1) % n), SLIDE_MS);
+    const t = setTimeout(() => setI((v) => (v + 1) % n), slideMs);
     return () => clearTimeout(t);
-  }, [i, n, stopped]);
+  }, [i, n, stopped, slideMs]);
   useEffect(() => { if (cur?.color) applyCover(cur.color); }, [cur?.color]);
 
   // preload the NEXT slide's backdrop while the current one shows → rotation never waits on the network
@@ -88,6 +94,10 @@ export function HeroCarousel({ slides }: { slides: Series[] }) {
   if (!n || !cur) return null;
   const go = (d: number) => setI((v) => (v + d + n) % n);
   const summary = cur.metadata?.summary || cur.booksMetadata?.summary;
+  const m = meta?.[cur.id];
+  const ch = m?.chapter ?? null;
+  const readHref = ch ? `/reader/?book=${encodeURIComponent(ch.id)}` : `/series/?id=${cur.id}`;
+  const badge = m?.kind === 'new' ? tr('New chapter') : m?.kind === 'continue' ? tr('Keep reading') : m?.kind === 'recent' ? tr('New in the library') : tr('Daily pick');
 
   return (
     <div
@@ -125,17 +135,18 @@ export function HeroCarousel({ slides }: { slides: Series[] }) {
             <img src={withCoverBust(img.seriesThumb(cur.id, undefined, 800))} alt={cur.metadata?.title || cur.name} className="h-full w-full object-cover" />
           </Link>
           <div data-home-hero-copy className="min-w-0 flex-1 max-w-2xl">
-            <span data-home-hero-badge className="mb-2 inline-flex items-center gap-1.5 rounded-md bg-white/10 px-2.5 py-1 text-2xs font-semibold uppercase tracking-wider text-fog-100 backdrop-blur rtl:tracking-normal">★ {tr('Daily pick')}</span>
+            <span data-home-hero-badge className="mb-2 inline-flex items-center gap-1.5 rounded-md bg-white/10 px-2.5 py-1 text-2xs font-semibold uppercase tracking-wider text-fog-100 backdrop-blur rtl:tracking-normal">{m?.kind === 'new' || m?.kind === 'continue' ? '▶' : '★'} {badge}</span>
             {/* A phone's hero is the cover, lettering and all: the title logo is a computer's (HeroTitle `logo`). */}
             <HeroTitle series={cur} logo={wide} />
             <div data-home-hero-meta className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-fog-300 lg:text-sm">
               {cur.metadata?.status && <span className="capitalize text-fog-200">{statusText(cur.metadata.status)}</span>}
+              {ch?.name ? <span className="text-fog-100">· {ch.name}</span> : null}
               <span>· {tr('{n} ch', { n: cur.booksCount })}</span>
               {(cur.metadata?.genres ?? []).slice(0, 3).map((g) => <span key={g} className="capitalize">· {g}</span>)}
             </div>
             {summary && <p data-home-hero-summary className="mt-3 line-clamp-2 max-w-lg text-sm text-fog-300">{summary}</p>}
             <div data-home-hero-actions className="mt-4 flex items-center gap-3">
-              <Link href={`/series/?id=${cur.id}`} className="btn-accent cta-glow px-7 py-3.5"><IcPlay width={18} height={18} />{tr('Read')}</Link>
+              <Link href={readHref} className="btn-accent cta-glow px-7 py-3.5" data-hero-read={ch ? 'chapter' : 'series'}><IcPlay width={18} height={18} />{ch ? (m?.kind === 'continue' ? tr('Continue chapter {n}', { n: ch.label }) : tr('Read chapter {n}', { n: ch.label })) : tr('Read')}</Link>
               <FavButton series={cur} />
             </div>
             {/* Where the slides are: one segment each, the current one filling while it shows (still under Reduce effects
@@ -148,7 +159,7 @@ export function HeroCarousel({ slides }: { slides: Series[] }) {
                     <span className={`relative h-1 overflow-hidden rounded-[2px] transition-[width,background-color] duration-300 ${k === i ? 'w-10 bg-white/25' : 'w-5 bg-white/25 group-hover:bg-white/45'}`}>
                       {k === i && (
                         <span key={`${i}:${stopped}`} aria-hidden className="absolute inset-0 origin-left bg-accent rtl:origin-right"
-                          style={reduced || stopped ? undefined : { animation: `hero-progress ${SLIDE_MS}ms linear forwards` }} />
+                          style={reduced || stopped ? undefined : { animation: `hero-progress ${slideMs}ms linear forwards` }} />
                       )}
                     </span>
                   </button>
@@ -161,15 +172,16 @@ export function HeroCarousel({ slides }: { slides: Series[] }) {
 
       {/* Hold, and step: the Pause key on every screen (a phone swipes between slides); the arrows from lg up, together at
           the bottom end, clear of the sidebar and of the text. */}
-      {n > 1 && (
         <div data-home-hero-controls className="absolute bottom-5 end-4 z-10 flex items-center gap-2 lg:bottom-8 lg:end-8">
+          <HeroGear />
+          {n > 1 && <>
           <button type="button" onClick={() => go(-1)} aria-label={tr('Previous')} className={`hidden lg:grid ${HERO_KEY}`}><IcChevronLeft width={18} height={18} className="rtl:-scale-x-100" /></button>
           <button type="button" onClick={() => setHeld((v) => !v)} aria-label={held ? tr('Resume') : tr('Pause')} aria-pressed={held} className={`grid ${HERO_KEY}`}>
             {held ? <IcPlay width={15} height={15} /> : <span aria-hidden className="flex gap-[3px]"><span className="h-3.5 w-[3px] rounded-[1px] bg-current" /><span className="h-3.5 w-[3px] rounded-[1px] bg-current" /></span>}
           </button>
           <button type="button" onClick={() => go(1)} aria-label={tr('Next')} className={`hidden lg:grid ${HERO_KEY}`}><IcChevronRight width={18} height={18} className="rtl:-scale-x-100" /></button>
+        </>}
         </div>
-      )}
     </div>
   );
 }

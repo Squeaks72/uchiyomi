@@ -88,5 +88,5 @@ test('a phone shows the styled title over its cover, never the logo, and does no
   assert.match(carousel, /<HeroTitle series=\{cur\} logo=\{wide\} \/>/);
   assert.match(page, /useTitleArtPolling\(id, series \? \[series\] : \[\], refetchTitleArt, authStatus !== 'offline' && wide\);/);
   const home = readFileSync(join(__dirname, '..', 'app/page.tsx'), 'utf8');
-  assert.match(home, /useTitleArtPolling\('featured', featured\?\.content \?\? \[\], refetchTitleArt, authStatus !== 'offline' && wideHero\);/);
+  assert.match(home, /useTitleArtPolling\(`hero:\$\{heroKey\}`, featured\?\.content \?\? \[\], refetchTitleArt, authStatus !== 'offline' && wideHero\);/);
 });
