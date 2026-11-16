@@ -2,7 +2,7 @@
   "_meta": {
     "language": "zh",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 5861
+    "strings": 5864
   },
   "1 check found something": "1 项检查发现问题",
   "1 member": "1 位成员",
@@ -5864,5 +5864,8 @@
   "Downloads each followed source’s copy of every chapter beside the endorsed one, so readers can choose their source. Uses more disk.": "将每个已关注来源的每章副本下载到推荐副本旁，供读者选择来源。会占用更多磁盘。",
   "Fetching copies…": "正在获取副本…",
   "{n} copies kept": "已保留 {n} 个副本",
-  "1 copy kept": "已保留 1 个副本"
+  "1 copy kept": "已保留 1 个副本",
+  "Colored": "彩色版",
+  "Colored edition": "彩色版",
+  "The source that carries the colored version. Its copies of every chapter are always downloaded, and readers can switch between the original and the colored one on the series page.": "提供彩色版的来源。其每章副本始终会下载，读者可在系列页面在原版与彩色版之间切换。"
 }
