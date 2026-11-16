@@ -295,6 +295,82 @@ export default async function catalogRoutes(app: FastifyInstance) {
     return { content: await enrichSeries(req, picks) };
   });
 
+  // The Home banner, built to the reader's own settings (web lib/heroSlides.ts, the gear on the banner). Four kinds of slide,
+  // in the order asked for: `new` -- the next chapter of a series they read a lot, released lately and not yet started (the
+  // banner that says "Chapter 1198 is out"); `continue` -- a chapter part-way through; `picks` -- the daily taste picks
+  // (/api/featured); `recent` -- newly added to the library. `new` is ranked by how many chapters the reader has finished in the
+  // series, so what they read most speaks first. A chapter slide carries the chapter, so the button opens it, not the series.
+  app.get('/api/hero', async (req) => {
+    const uid = userIdOf(req);
+    const KINDS = ['new', 'continue', 'picks', 'recent'] as const;
+    type Kind = (typeof KINDS)[number];
+    const qs = (req.query ?? {}) as { sources?: string; count?: string };
+    const asked = String(qs.sources ?? 'new,continue,picks').split(',').map((k) => k.trim());
+    const kinds = [...new Set(asked)].filter((k): k is Kind => (KINDS as readonly string[]).includes(k)).slice(0, KINDS.length);
+    if (!kinds.length) kinds.push('picks');
+    const count = Math.max(2, Math.min(12, Math.round(Number(qs.count)) || 7));
+    const FRESH_MS = 21 * 86_400_000;
+    const chapterOf = (b: any) => ({
+      id: b.id as string, number: b.number as number, label: (b.metadata?.number ?? String(b.number)) as string,
+      name: (b.chapterName ?? null) as string | null, releasedAt: (b.metadata?.releaseDate ?? null) as string | null,
+      page: (b.readProgress?.page ?? 0) as number, pages: (b.media?.pagesCount ?? 0) as number,
+    });
+
+    let deck: any[] = [];
+    if (kinds.includes('new') || kinds.includes('continue')) {
+      const picks = await onDeckPicks(uid, vc(req), { window: 'recent', limit: 40 }).catch(() => [] as DeckPick[]);
+      const books = (await Promise.all(picks.map((r) => komga.book(vc(req), r.bookId).catch(() => null)))).filter((b) => b && !b.pruned) as any[];
+      deck = overlay(books, await userProgress(uid, books.map((b) => b.id)));
+    }
+    const resolveSeries = async (ids: string[]) => new Map(
+      (await Promise.all(ids.map((id) => komga.series(vc(req), id).catch(() => null)))).filter(Boolean).map((s: any) => [s.id as string, s]));
+
+    const cand: Record<Kind, { id: string; chapter?: ReturnType<typeof chapterOf> }[]> = { new: [], continue: [], picks: [], recent: [] };
+    if (kinds.includes('new')) {
+      const ids = [...new Set(deck.map((b) => b.seriesId as string))];
+      const reads = ids.length ? await q<{ series_id: string; n: number }>(
+        'SELECT series_id, count(*)::int AS n FROM read_progress WHERE user_id = $1 AND completed AND series_id = ANY($2) GROUP BY series_id', [uid, ids]).catch(() => []) : [];
+      const readN = new Map(reads.map((r) => [r.series_id, r.n]));
+      const now = Date.now();
+      cand.new = deck
+        .filter((b) => !(b.readProgress?.page > 0) && b.metadata?.releaseDate && now - Date.parse(b.metadata.releaseDate) < FRESH_MS)
+        .sort((a, b) => (readN.get(b.seriesId) ?? 0) - (readN.get(a.seriesId) ?? 0) || Date.parse(b.metadata.releaseDate) - Date.parse(a.metadata.releaseDate))
+        .map((b) => ({ id: b.seriesId as string, chapter: chapterOf(b) }));
+    }
+    if (kinds.includes('continue')) {
+      cand.continue = deck.filter((b) => b.readProgress?.page > 0 && !b.readProgress?.completed).map((b) => ({ id: b.seriesId as string, chapter: chapterOf(b) }));
+    }
+    if (kinds.includes('picks')) {
+      const today = new Date().toISOString().slice(0, 10);
+      const [taste, updated] = await Promise.all([tasteRecs(req), komga.seriesUpdated(vc(req), 0, 20).catch(() => ({ content: [] as any[] }))]);
+      const seen = new Set<string>(); const merged: any[] = [];
+      for (const s of [...taste, ...((updated as any).content ?? [])]) if (s && !seen.has(s.id)) { seen.add(s.id); merged.push(s); }
+      const h = (str: string) => { let x = 0; for (let i = 0; i < str.length; i++) x = (x * 131 + str.charCodeAt(i)) >>> 0; return x; };
+      merged.sort((a, b) => h(a.id + today) - h(b.id + today));
+      cand.picks = merged.map((s) => ({ id: s.id as string }));
+    }
+    if (kinds.includes('recent')) {
+      cand.recent = (((await komga.seriesNew(vc(req), 0, 12).catch(() => ({ content: [] }))) as any).content ?? []).map((s: any) => ({ id: s.id as string }));
+    }
+
+    // Each kind gets an equal share, in the order asked; what a kind cannot fill is made up from the others, in that order.
+    const quota = Math.ceil(count / kinds.length);
+    const taken = new Set<string>();
+    const out: { kind: Kind; id: string; chapter?: ReturnType<typeof chapterOf> }[] = [];
+    const take = (k: Kind, limit: number) => {
+      for (const c of cand[k]) { if (out.length >= count || limit <= 0) break; if (taken.has(c.id)) continue; taken.add(c.id); out.push({ kind: k, id: c.id, chapter: c.chapter }); limit--; }
+    };
+    for (const k of kinds) take(k, quota);
+    for (const k of kinds) take(k, count);
+
+    const bySeries = await resolveSeries(out.map((o) => o.id));
+    const rows = out.filter((o) => bySeries.has(o.id));
+    const enriched = await enrichSeries(req, rows.map((o) => bySeries.get(o.id)));
+    void warmHeroBackdrops(rows.map((o) => o.id));
+    await queueTitleLogos(rows.map((o) => o.id));
+    return { content: rows.map((o, i) => ({ kind: o.kind, series: enriched[i], chapter: o.chapter ?? null })) };
+  });
+
   app.post('/api/refresh', async (req) => {
     const now = Date.now();
     if (now - runtime.lastScan < 60_000) return { scanned: false, reason: 'rate_limited' };

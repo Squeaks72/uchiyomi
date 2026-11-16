@@ -2,7 +2,7 @@
   "_meta": {
     "language": "pt-BR",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 5847
+    "strings": 5865
   },
   "1 check found something": "1 verificação encontrou algo",
   "1 member": "1 membro",
@@ -5850,5 +5850,23 @@
   "About this setting": "Sobre esta configuração",
   "Behaviour": "Comportamento",
   "Blur 18+ covers": "Desfocar capas 18+",
-  "Covers of 18+ series are blurred on cards until you point at one. This device only.": "As capas de séries 18+ ficam desfocadas nos cartões até você apontar para uma. Apenas este dispositivo."
+  "Covers of 18+ series are blurred on cards until you point at one. This device only.": "As capas de séries 18+ ficam desfocadas nos cartões até você apontar para uma. Apenas este dispositivo.",
+  "New chapters of what you read": "Novos capítulos do que você lê",
+  "Daily picks": "Seleção do dia",
+  "The next chapter of a series you read a lot, released in the last three weeks.": "O próximo capítulo de uma série que você lê muito, lançado nas últimas três semanas.",
+  "A chapter you are part-way through.": "Um capítulo que você está lendo.",
+  "Series chosen for your taste, new each day.": "Séries escolhidas para o seu gosto, novas a cada dia.",
+  "Series that just arrived in the library.": "Séries que acabaram de chegar à biblioteca.",
+  "Customize banner": "Personalizar o banner",
+  "Choose what the banner advertises, and in what order.": "Escolha o que o banner mostra e em que ordem.",
+  "Slides": "Slides",
+  "Speed": "Velocidade",
+  "Normal": "Normal",
+  "Slow": "Lenta",
+  "Turn the banner off": "Desativar o banner",
+  "You can turn it back on in Settings → General → Big banners.": "Você pode reativá-lo em Configurações → Geral → Banners grandes.",
+  "New chapter": "Novo capítulo",
+  "New in the library": "Novo na biblioteca",
+  "Read chapter {n}": "Ler capítulo {n}",
+  "Continue chapter {n}": "Continuar capítulo {n}"
 }

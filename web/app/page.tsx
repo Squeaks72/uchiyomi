@@ -1,7 +1,7 @@
 'use client';
 import { ScrollRail, CARD_RAIL } from '@/components/ScrollRail';
 import Link from 'next/link';
-import { Fragment, ReactNode, useCallback, useEffect, useState } from 'react';
+import { Fragment, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, img } from '@/lib/api';
 import { HomePayload, Series } from '@/lib/types';
@@ -16,6 +16,8 @@ import { KeepReadingHidden } from '@/components/KeepReadingHidden';
 import { HeroCarousel } from '@/components/HeroCarousel';
 import { useTitleArtPolling } from '@/lib/useTitleArtPolling';
 import { useBanners } from '@/lib/bannerPref';
+import { heroQuery, heroSetting, type HeroKind } from '@/lib/heroBanner';
+import type { HeroMeta } from '@/components/HeroCarousel';
 import { useArtUnderChrome } from '@/lib/overArt';
 import { IcPlay, IcSparkle, IcRefresh, IcBell, IcSliders } from '@/components/icons';
 import { PullToRefresh } from '@/components/PullToRefresh';
@@ -106,11 +108,17 @@ export default function HomePage() {
   const { data, isLoading } = useQuery({ queryKey: ['home'], queryFn: () => api<HomePayload>('/api/home') });
   const { data: foryou } = useQuery({ queryKey: ['foryou'], queryFn: () => api<{ genres: string[]; content: Series[] }>('/api/foryou'), staleTime: 600000, enabled: on('forYou') });
   const { data: trending } = useQuery({ queryKey: ['trending'], queryFn: () => api<{ content: Series[] }>('/api/trending'), staleTime: 300000, enabled: on('top10') });
-  const { data: featured, isPending: featuredPending } = useQuery({ queryKey: ['featured'], queryFn: () => api<{ content: Series[] }>('/api/featured'), staleTime: 600000 });
-  const refetchTitleArt = useCallback(() => qc.refetchQueries({ queryKey: ['featured'], exact: true }), [qc]);
+  // The banner is the reader's own (the gear on it, lib/heroBanner.ts): which kinds of slide, in what order, how many. The key
+  // carries the choice, so a change refetches; the answer's slides are the series, with what each one is (`heroMeta`).
+  const heroCfg = heroSetting(user?.settings?.heroBanner);
+  const heroKey = heroQuery(heroCfg);
+  const { data: hero, isPending: featuredPending } = useQuery({ queryKey: ['hero', heroKey], queryFn: () => api<{ content: { kind: HeroKind; series: Series; chapter: HeroMeta['chapter'] }[] }>(`/api/hero?${heroKey}`), staleTime: 300000 });
+  const featured = useMemo(() => (hero ? { content: hero.content.map((h) => h.series) } : undefined), [hero]);
+  const heroMeta = useMemo(() => Object.fromEntries((hero?.content ?? []).map((h) => [h.series.id, { kind: h.kind, chapter: h.chapter } as HeroMeta])), [hero]);
+  const refetchTitleArt = useCallback(() => qc.refetchQueries({ queryKey: ['hero', heroKey], exact: true }), [qc, heroKey]);
   // The hero's title logo is a computer's (v0.102.2, components/HeroTitle.tsx `logo`): a phone has none to wait for.
   const wideHero = useWideViewport();
-  useTitleArtPolling('featured', featured?.content ?? [], refetchTitleArt, authStatus !== 'offline' && wideHero);
+  useTitleArtPolling(`hero:${heroKey}`, featured?.content ?? [], refetchTitleArt, authStatus !== 'offline' && wideHero);
 
   // "Because you read X" — seed a named recommendation rail from what you're currently reading (else a top favorite)
   const seed = data?.onDeck?.[0]
@@ -300,7 +308,7 @@ export default function HomePage() {
           the carousel and its skeleton give way to a screen-reader-only "Home". The welcome is not a banner -- it
           is what an empty library shows, and stays. */}
       {(featured?.content?.length ?? 0) > 0 ? (
-        banners ? <HeroCarousel slides={featured!.content} /> : <h1 className="sr-only" data-no-banner>{tr('Home')}</h1>
+        banners ? <HeroCarousel slides={featured!.content} meta={heroMeta} seconds={heroCfg.seconds} /> : <h1 className="sr-only" data-no-banner>{tr('Home')}</h1>
       ) : isLoading || featuredPending ? (
         <div data-home-hero-skeleton className="skeleton bleed-lg under-topbar under-phone-header h-[min(150vw,82svh)] lg:h-[72vh]" />
       ) : (
