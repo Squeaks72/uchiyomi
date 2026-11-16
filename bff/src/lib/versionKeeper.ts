@@ -5,7 +5,7 @@
 // each source, so a pass is as polite as any download; a pass also stops after `budget` fetches, so a long series is a few
 // passes, not one afternoon of requests. A source that does not list a chapter, or fails, is skipped and tried at the next
 // pass. Never throws.
-import { q } from './db';
+import { q, one } from './db';
 import { runtime } from './runtime';
 import { seriesSourcesFor } from './seriesSources';
 import { keepVersion } from './bookVersions';
@@ -21,8 +21,10 @@ export async function keepAllVersions(seriesId: string, log: Log, budget = 25): 
   running.add(seriesId);
   let kept = 0, failed = 0, left = false;
   try {
-    const sources = (await seriesSourcesFor(seriesId)).filter((s) => s.registered);
-    if (sources.length < 2) return { kept, failed, left };
+    const flags = await one<{ keep_versions: boolean; colored_source: string | null }>('SELECT keep_versions, colored_source FROM lib_series WHERE id = $1', [seriesId]);
+    // Every followed source's copy for a series that keeps them all; otherwise only the colored edition's, which is always kept.
+    const sources = (await seriesSourcesFor(seriesId)).filter((s) => s.registered && (flags?.keep_versions || s.sourceId === flags?.colored_source));
+    if (!sources.length || (await seriesSourcesFor(seriesId)).length < 2) return { kept, failed, left };
     const books = await q<{ number: number; source_id: string | null }>(
       `SELECT number::float8 AS number, source_id FROM lib_books WHERE series_id = $1 AND pruned_at IS NULL ORDER BY number`, [seriesId]);
     const have = new Set((await q<{ number: number; source_id: string }>(
@@ -54,11 +56,11 @@ export async function keepAllVersions(seriesId: string, log: Log, budget = 25): 
   }
 }
 
-/** Every 30 minutes, one pass over each series that keeps every copy. Off for a server with none. */
+/** Every 30 minutes, one pass over each series that keeps every copy or has a colored edition. Idle for a server with none. */
 export function scheduleVersionKeeper(log: Log, delayMs = 10 * 60_000, everyMs = 30 * 60_000): void {
   const tick = async () => {
     if (!runtime.stopping) {
-      const ids = await q<{ id: string }>('SELECT id FROM lib_series WHERE keep_versions').catch(() => []);
+      const ids = await q<{ id: string }>('SELECT id FROM lib_series WHERE keep_versions OR colored_source IS NOT NULL').catch(() => []);
       for (const { id } of ids) {
         if (runtime.stopping) break;
         const r = await keepAllVersions(id, log);

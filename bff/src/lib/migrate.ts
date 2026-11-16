@@ -2471,6 +2471,9 @@ CREATE TABLE IF NOT EXISTS user_series_source (
 );
 -- Opt-in per series: keep every followed source's copy of each chapter, not only the endorsed one.
 ALTER TABLE lib_series ADD COLUMN IF NOT EXISTS keep_versions boolean NOT NULL DEFAULT false;
+-- The followed source that carries the colored edition of the series. Its copies of every chapter are always kept, whether or
+-- not the series keeps every source's copy; a reader switches between the original and the colored one (user_series_source).
+ALTER TABLE lib_series ADD COLUMN IF NOT EXISTS colored_source text;
 `;
 
 // Serialises migrate() across processes. CREATE TABLE IF NOT EXISTS is not safe to run concurrently:

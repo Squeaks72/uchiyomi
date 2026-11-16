@@ -30,13 +30,14 @@ export default async function versionRoutes(app: FastifyInstance) {
       seriesSourcesFor(id),
       heldBySeries(id),
       mySource(userIdOf(req), id),
-      one<{ keep_versions: boolean }>('SELECT keep_versions FROM lib_series WHERE id = $1', [id]),
+      one<{ keep_versions: boolean; colored_source: string | null }>('SELECT keep_versions, colored_source FROM lib_series WHERE id = $1', [id]),
     ]);
     const counts = new Map<string, number>();
     for (const l of held.values()) for (const v of l) counts.set(v.sourceId, (counts.get(v.sourceId) ?? 0) + 1);
     return {
       mySource: mine,
       keepVersions: flag?.keep_versions === true,
+      coloredSource: flag?.colored_source ?? null,
       keeping: keepingNow(id),
       sources: sources.filter((s) => s.registered).map((s) => ({ sourceId: s.sourceId, name: s.name, primary: s.primary, kept: counts.get(s.sourceId) ?? 0 })),
       held: Object.fromEntries([...held.entries()].map(([n, l]) => [String(n), l])),
@@ -64,6 +65,19 @@ export default async function versionRoutes(app: FastifyInstance) {
     void logAudit('series.keep_versions', { userId: userIdOf(req), req, detail: { id, on: b.data.on } }).catch(() => {});
     if (b.data.on) void keepAllVersions(id, app.log);
     return { keepVersions: b.data.on };
+  });
+
+  /** Admin: which followed source carries the colored edition (or none). Its copies are always kept; readers switch to it themselves. */
+  app.put('/api/admin/series/:id/colored-source', { preHandler: requireAdmin }, async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const b = z.object({ sourceId: z.string().min(1).max(200).nullable() }).safeParse(req.body);
+    if (!b.success) return reply.code(400).send({ error: 'bad_request' });
+    if (b.data.sourceId && !(await seriesSourcesFor(id)).some((s) => s.sourceId === b.data.sourceId)) return reply.code(400).send({ error: 'not_followed' });
+    const r = await q('UPDATE lib_series SET colored_source = $2 WHERE id = $1 RETURNING id', [id, b.data.sourceId]);
+    if (!r.length) return reply.code(404).send({ error: 'not_found' });
+    void logAudit('series.colored_source', { userId: userIdOf(req), req, detail: { id, source: b.data.sourceId } }).catch(() => {});
+    if (b.data.sourceId) void keepAllVersions(id, app.log);
+    return { coloredSource: b.data.sourceId };
   });
 
   /** Admin: keep one chapter's copy from one source. Answers when it is kept (or why it was not). */

@@ -63,6 +63,7 @@ import { fetchAllBooks } from '@/lib/seriesBooks';
 import { fetchingToast } from '@/lib/jobs';
 import { ALL_GROUPS, copySourceId, groupsOfRow, matchesGroup } from '@/lib/groupFilter';
 import { SourcesSheet, useCheckNow, useSeriesGroups } from '@/components/SourcesSheet';
+import { ColorToggle } from '@/components/KeptVersions';
 import { SourcesExplainer } from '@/components/SourcesExplainer';
 import { SupplyLine } from '@/components/SupplyLine';
 import { ChapterFilterSheet } from '@/components/ChapterFilterSheet';
@@ -2564,6 +2565,7 @@ function SeriesInner() {
           {/* The supply line, phone form. The desktop form is the first row of the right column (the title block over the
               banner is `pointer-events-none`, so a button cannot live there). */}
           <div className="mt-3 lg:hidden pointer-coarse:[&>button]:min-h-10"><SupplyLine parts={supplyPhone} loaded={supplyLoaded} wide={false} onOpen={() => setSourcesOpen(true)} /></div>
+          <ColorToggle id={id} className="mt-3 lg:hidden" />
         </div>
 
         {/* info + chapters */}
@@ -2572,6 +2574,7 @@ function SeriesInner() {
               no wider than its two tiles need. */}
           {series && <div className="hidden lg:block"><RatingsPanel anilist={series.yomi?.anilist} rating={rating} onRate={rate} className="max-w-[440px]" /></div>}
           <div className="hidden lg:block"><SupplyLine parts={supplyWide} loaded={supplyLoaded} wide onOpen={() => setSourcesOpen(true)} /></div>
+          <ColorToggle id={id} className="hidden lg:block" />
           {Genres}
           {series && <OtherTitles seriesId={id} shown={title} />}
           {Summary}
