@@ -2315,7 +2315,8 @@ export default async function adminRoutes(app: FastifyInstance) {
     const { id } = req.params as { id: string };
     const row = await getSeriesRow(id);
     if (!row) return reply.code(404).send({ error: 'not_found' });
-    return findNameDonors(id);
+    const only = z.object({ sources: z.array(z.string().max(120)).max(12).optional() }).safeParse(req.body ?? {});
+    return findNameDonors(id, { only: only.success ? only.data.sources : undefined });
   });
   app.post('/api/admin/series/:id/names/apply', async (req, reply) => {
     const { id } = req.params as { id: string };

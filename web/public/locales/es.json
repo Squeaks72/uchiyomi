@@ -2,7 +2,7 @@
   "_meta": {
     "language": "es",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 5812
+    "strings": 5820
   },
   "1 check found something": "1 comprobación encontró algo",
   "1 member": "1 miembro",
@@ -5815,5 +5815,13 @@
   "Save 1 name": "Guardar 1 nombre",
   "Save {n} names": "Guardar {n} nombres",
   "Saved 1 chapter name": "1 nombre de capítulo guardado",
-  "Saved {n} chapter names": "{n} nombres de capítulo guardados"
+  "Saved {n} chapter names": "{n} nombres de capítulo guardados",
+  "Ask other sources": "Preguntar a otras fuentes",
+  "Tick sources to ask whether they carry this series. Each is checked for a matching title and numbering before its names are offered.": "Marca las fuentes para preguntar si tienen esta serie. Cada una se comprueba por título y numeración antes de ofrecer sus nombres.",
+  "Ask 1 source": "Preguntar a 1 fuente",
+  "Ask {n} sources": "Preguntar a {n} fuentes",
+  "has a different title": "tiene otro título",
+  "numbers the chapters differently": "numera los capítulos de otra forma",
+  "does not have this series": "no tiene esta serie",
+  "not a match": "no coincide"
 }
