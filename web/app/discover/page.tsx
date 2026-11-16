@@ -11,7 +11,7 @@ import { t as tr } from '@/lib/i18n';
 import { reasonText } from '@/lib/said';
 import { EmptyState } from '@/components/EmptyState';
 import { ProgressBar } from '@/components/ui';
-import { SourceCard, SourceItem, StillLoadingCard } from '@/components/cards';
+import { SourceCard, SourceItem, StillLoadingCard, sourceCover } from '@/components/cards';
 import { heroPoll, type Trending } from '@/components/DiscoverHero';
 import { DiscoveryHub, DiscoveryTabLoading } from '@/components/DiscoveryHub';
 import { discoveryView, openingDiscoveryTab, type DiscoveryState, type DiscoveryTab } from '@/lib/discoveryHub';
@@ -461,6 +461,10 @@ function DiscoverInner() {
   // Each card's icons: every provider behind it, with the extension it came out of, so MangaDex's languages are one
   // icon (lib/sourceGroups.ts iconStack). A row the fold passed through untouched is its one source.
   const extOf = useMemo(() => new Map<string, SrcExtension | null>(sources.map((s) => [s.id, s.extension ?? null])), [sources]);
+  // The covers the card's other providers have, through the cover proxy: a MangaDex tile whose cover is missing or will not load
+  // shows another source's, so a search result always has a picture where any source has one.
+  const altCoversOf = (it: SourceItem): string[] =>
+    (wall.groups[workKey(it)] ?? []).filter((p) => p.source !== it.source && !!p.coverUrl).map((p) => sourceCover(p.source, p.coverUrl));
   const stackOf = (it: SourceItem): StackSource[] =>
     (wall.groups[workKey(it)] ?? [{ source: it.source, name: nameOf(it.source) ?? it.source }])
       .map((p) => ({ source: p.source, name: p.name, extension: extOf.get(p.source) ?? null }));
@@ -612,7 +616,7 @@ function DiscoverInner() {
   const cardsOf = (from: number, to: number) => wall.items.slice(from, to).map((it, k) => (
     <SourceCard key={`${it.source}:${it.sourceId}`} item={{ ...it, inLibrary: it.inLibrary || shownAdded.has(workKey(it)) }}
       providers={stackOf(it)}
-      onAdd={() => open(it)} eager={from + k < 12} />
+      onAdd={() => open(it)} altCovers={altCoversOf(it)} eager={from + k < 12} />
   ));
   // Keep mixed-direction seed names intact inside translated recommendation reasons.
   const whyOf = (pk: Pick) => {

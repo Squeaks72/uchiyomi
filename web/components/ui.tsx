@@ -293,6 +293,7 @@ export function Img({
   className = '',
   imgClassName = '',
   fallbackSrc,
+  altSrcs,
   eager = false,
 }: {
   src: string;
@@ -313,20 +314,30 @@ export function Img({
    * this component at all.
    */
   fallbackSrc?: string;
+  /**
+   * Other covers of the same work, tried one after another when this one is missing or fails (Discover: a MangaDex card whose
+   * cover will not load shows the one another source of the same title has). After `fallbackSrc`, which is the same cover direct.
+   */
+  altSrcs?: string[];
   eager?: boolean;
 }) {
+  // -1: the main cover; 0..n-1: the n-th other cover. A card with no cover of its own starts on the first other one.
+  const [altIdx, setAltIdx] = useState(src || !altSrcs?.length ? -1 : 0);
   const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
   const [fellBack, setFellBack] = useState(false);
   const reduced = useReduceEffects();
-  const error = failed || !src; // no src at all is the same broken tile as a src that 404s
+  const error = failed || (!src && !altSrcs?.length); // no src at all is the same broken tile as a src that 404s
   // A cover changed on this device (#242, lib/coverBust.ts) is fetched again, not read from the browser's day-long copy.
   // Read as the card renders, never subscribed to: a card drawn after the change has it, and the series page and the
   // editor follow the art version. A store subscription in every Img of a Library grid was the price of re-drawing the
   // few cards on screen at the moment of a change.
-  const shown = withCoverBust(fellBack && fallbackSrc ? fallbackSrc : src);
+  const mainShown = withCoverBust(fellBack && fallbackSrc ? fallbackSrc : src);
+  const shown = altIdx >= 0 && altSrcs?.[altIdx] ? withCoverBust(altSrcs[altIdx]) : mainShown;
   const setError = () => {
-    if (fallbackSrc && !fellBack && fallbackSrc !== src) { setFellBack(true); return; }
+    if (altIdx < 0 && fallbackSrc && !fellBack && fallbackSrc !== src) { setFellBack(true); return; }
+    // The next of the work's other covers, if there is one; the broken tile only once every cover has failed.
+    if (altSrcs && altIdx + 1 < altSrcs.length) { setAltIdx(altIdx + 1); setLoaded(false); return; }
     setFailed(true);
   };
   // `relative` is only applied when the caller has not chosen a position of their own.

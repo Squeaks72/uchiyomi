@@ -644,8 +644,10 @@ export interface SourceItem {
  * Chrome is `SeriesTile`'s, deliberately, so the things you own and the things you could own read as one
  * system rather than as two grids that happen to be adjacent.
  */
-export function SourceCard({ item, providers, onAdd, onSearch, eager }: {
+export function SourceCard({ item, providers, altCovers, onAdd, onSearch, eager }: {
   item: SourceItem;
+  /** The covers other sources have of this work, already through the cover proxy: tried when this source's own will not load. */
+  altCovers?: string[];
   /**
    * Every place the card can be added from (v0.56.0), drawn as up to three overlapping favicons in a corner box and a
    * "+2" for the rest -- one per extension (`iconStack`), so MangaDex's languages are one icon. A wall merged from
@@ -678,7 +680,7 @@ export function SourceCard({ item, providers, onAdd, onSearch, eager }: {
                        ${owned ? 'opacity-55' : 'group-hover:-translate-y-1 group-hover:shadow-glow group-active:scale-[0.97]'}`}>
         {/* alt="" on purpose: the title is right there as text, so naming the cover too makes a screen reader say it twice. */}
         <Img src={sourceCover(item.source, item.coverUrl)} alt="" eager={eager}
-          fallbackSrc={publicCoverFallback(item.coverUrl)}
+          fallbackSrc={publicCoverFallback(item.coverUrl)} altSrcs={altCovers}
           className="h-full w-full" imgClassName={blurred ? 'blur-xl scale-110 transition duration-300 group-hover:blur-0 group-hover:scale-100 group-focus-within:blur-0 group-focus-within:scale-100' : 'transition-transform duration-500 group-hover:scale-[1.07]'} />
 
         {/* The icons overlap the way the source chip's do (SourcePicker), each ringed in the box's own ground so the
