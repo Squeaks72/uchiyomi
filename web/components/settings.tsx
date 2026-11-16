@@ -18,7 +18,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { Switch } from './Switch';
 import { msgOf } from './ConfirmDialog';
 import { OnBody, Sheet, useRtl } from './ui';
-import { IcCheck, IcChevronRight } from './icons';
+import { IcCheck, IcChevronRight, IcInfo } from './icons';
 import { useReduceEffects } from '@/lib/effects';
 import { arrival } from '@/lib/destinations';
 import { openInConsole } from '@/lib/consoleOnScreen';
@@ -253,9 +253,11 @@ export function Section({ title, description, icon, action, id, className, ref, 
  *
  * The padding is the place's (`RowPad`): the loose rhythm down a card, an inset row in a `RowGroup`, none in a `RowBlock`.
  */
-export function Row({ label, help, htmlFor, stacked, status, id, device, className, children }: {
+export function Row({ label, help, keepHelp, htmlFor, stacked, status, id, device, className, children }: {
   label: ReactNode;
   help?: ReactNode;
+  /** Keep the help sentence in view in a grouped list, where it otherwise sits behind a small ⓘ (a row whose wrong choice costs something). */
+  keepHelp?: boolean;
   htmlFor?: string;
   stacked?: boolean;
   status?: SaveStatus;
@@ -273,12 +275,30 @@ export function Row({ label, help, htmlFor, stacked, status, id, device, classNa
   const labelEl = htmlFor
     ? <label htmlFor={htmlFor} className="text-sm text-fog-100">{name}</label>
     : <p className="text-sm text-fog-100">{name}</p>;
-  const helpEl = help != null && help !== false ? <Help>{help}</Help> : null;
+  // In a grouped list the sentence waits behind an (i) beside the label (2026-11-16: "menus feel verbose"). It stays in
+  // the DOM, visually hidden while closed, so a screen reader reads it and the settings search still matches it.
+  const folded = useContext(Folded);
+  const [helpOpen, setHelpOpen] = useState(false);
+  const hasHelp = help != null && help !== false;
+  const behind = folded && hasHelp && !keepHelp;
+  const helpEl = !hasHelp ? null : behind
+    ? <p className={`max-w-prose text-[11px] leading-relaxed text-fog-500 ${helpOpen ? '' : 'sr-only'}`}>{help}</p>
+    : <Help>{help}</Help>;
+  const nameEl = behind ? (
+    <div className="flex items-center gap-1.5">
+      {labelEl}
+      <button type="button" onClick={() => setHelpOpen((o) => !o)} aria-expanded={helpOpen} data-help-toggle
+        aria-label={tr('About this setting')} title={tr('About this setting')}
+        className={`grid h-6 w-6 shrink-0 place-items-center rounded-full transition hover:text-fog-100 ${helpOpen ? 'text-accent' : 'text-fog-500'}`}>
+        <IcInfo width={14} height={14} />
+      </button>
+    </div>
+  ) : labelEl;
   if (stacked) {
     return (
       <div id={id} className={`${pad} ${className ?? ''}`}>
         <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">{labelEl}{helpEl}</div>
+          <div className="min-w-0">{nameEl}{helpEl}</div>
           {!scoped && <SaveState status={status ?? IDLE} />}
         </div>
         <div className="mt-2">{children}</div>
@@ -287,7 +307,7 @@ export function Row({ label, help, htmlFor, stacked, status, id, device, classNa
   }
   return (
     <div id={id} className={`flex flex-wrap items-center gap-x-4 gap-y-2 ${pad} ${className ?? ''}`}>
-      <div className="min-w-0 flex-1 basis-32">{labelEl}{helpEl}</div>
+      <div className="min-w-0 flex-1 basis-32">{nameEl}{helpEl}</div>
       <div className="ms-auto flex max-w-full flex-wrap items-center justify-end gap-2">
         {children}
         {!scoped && <SaveState status={status ?? IDLE} />}
@@ -305,9 +325,10 @@ export function Row({ label, help, htmlFor, stacked, status, id, device, classNa
  * server refused. It is NOT disabled while saving -- a disabled button drops focus, and keyboard users
  * would lose their place on every flip.
  */
-export function SwitchRow({ label, help, on, disabled, id, device, onChange }: {
+export function SwitchRow({ label, help, keepHelp, on, disabled, id, device, onChange }: {
   label: string;
   help?: ReactNode;
+  keepHelp?: boolean;
   on: boolean;
   disabled?: boolean;
   id?: string;
@@ -328,7 +349,7 @@ export function SwitchRow({ label, help, on, disabled, id, device, onChange }: {
   };
   return (
     // The row's words press the switch too (phone fix): `htmlFor` makes the label one.
-    <Row id={id} label={label} htmlFor={swId} help={help} status={status} device={device}>
+    <Row id={id} label={label} htmlFor={swId} help={help} keepHelp={keepHelp} status={status} device={device}>
       <Switch id={swId} on={local} onChange={(next) => { void flip(next); }} disabled={disabled} label={label} />
     </Row>
   );

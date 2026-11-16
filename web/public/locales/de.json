@@ -2,7 +2,7 @@
   "_meta": {
     "language": "de",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 5843
+    "strings": 5845
   },
   "1 check found something": "1 Prüfung hat etwas gefunden",
   "1 member": "1 Mitglied",
@@ -5846,5 +5846,7 @@
   "Teal": "Petrol",
   "Slate": "Schiefer",
   "White": "Weiß",
-  "Custom colour": "Eigene Farbe"
+  "Custom colour": "Eigene Farbe",
+  "About this setting": "Über diese Einstellung",
+  "Behaviour": "Verhalten"
 }

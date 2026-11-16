@@ -186,7 +186,7 @@ function NoticeChaptersSection({ data, save }: { data: any; save: Save }) {
 function AdultHidingRow({ data, save }: { data: any; save: Save }) {
   const qc = useQueryClient();
   return (
-    <SwitchRow id="adult-hiding" label={tr('Hide 18+ until someone shows it')} on={data.adult_hiding !== false}
+    <SwitchRow id="adult-hiding" keepHelp label={tr('Hide 18+ until someone shows it')} on={data.adult_hiding !== false}
       help={tr('18+ titles, libraries and sources stay out of sight until someone taps Show 18+. Turn this off if only adults use this server: nothing is hidden, and Show 18+ goes away. Age limits on accounts still apply.')}
       onChange={(next) => save({ adultHiding: next }).then(() => qc.invalidateQueries())} />
   );
@@ -448,7 +448,7 @@ function ServerSection({ data, save }: { data: any; save: Save }) {
             onSave={(v) => save({ serverName: v })} />
         </RowBlock>
         {!desktop && !ssoOnly(authConfig) && (
-          <SwitchRow id="registration" label={tr('Open registration')} help={tr('Let anyone create their own account')}
+          <SwitchRow id="registration" label={tr('Open registration')} keepHelp help={tr('Let anyone create their own account')}
             on={!!data.allow_registration} onChange={(next) => save({ allowRegistration: next })} />
         )}
         {/* "Who is reading?" on the sign-in screen (bff /auth/pick): at home only. */}
@@ -466,6 +466,8 @@ function ServerSection({ data, save }: { data: any; save: Save }) {
           Not on desktop: its server is reached from its own computer alone, always at home. */}
       {!desktop && <NetworkSettings />}
 
+      {/* Basics first (2026-11-16): name, sign-up and the home profile list stay in view; update checks and the install count are set once. */}
+      <MoreOptions id="server-more">
       <RowGroup title={tr('Updates and privacy')}>
         <SwitchWithMore id="update-check" label={tr('Check for updates')} help={tr('Asks GitHub once a day; nothing about this server is sent.')}
           on={data.update_check !== false} onChange={(next) => save({ updateCheck: next })}
@@ -510,6 +512,7 @@ function ServerSection({ data, save }: { data: any; save: Save }) {
             </Disclosure>
           )} />}
       </RowGroup>
+      </MoreOptions>
 
       {/* v0.85.0: the opt-in translation engine -- a download, then one switch. Not on desktop (the engine's processes do
           not run inside the app); the row and its group hide themselves where the server says it cannot run. */}
@@ -718,6 +721,8 @@ function MaintenanceSection({ data, save }: { data: any; save: Save }) {
         )}
       </RowGroup>
 
+      {/* Set once and forgotten: the bin's length, BookOrbit's sync and the extension checks. */}
+      <MoreOptions id="maintenance-advanced">
       <RowGroup title={tr('Unmapped files')}>
         <RowBlock id="unmapped-recycle-days">
           <NumberRow label={tr('Keep deleted files for (days)')} min={1} max={365} value={data.unmapped_recycle_days ?? 14}
@@ -740,6 +745,7 @@ function MaintenanceSection({ data, save }: { data: any; save: Save }) {
             onChange={(v) => save({ extensionHours: Number(v) })} />
         </RowGroup>
       )}
+      </MoreOptions>
     </>
   );
 }
