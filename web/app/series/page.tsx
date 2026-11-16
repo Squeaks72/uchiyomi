@@ -794,7 +794,7 @@ function ChapterJump({ rows, asc, onOpen }: { rows: readonly Row[]; asc: boolean
     if (n === undefined) return;
     onOpen();
     // Two frames: the rest of the list renders first, then the row exists to scroll to.
-    requestAnimationFrame(() => requestAnimationFrame(() => document.getElementById(`ch-${n}`)?.scrollIntoView({ block: 'start', behavior: 'smooth' })));
+    requestAnimationFrame(() => requestAnimationFrame(() => document.getElementById(`ch-${n}`)?.scrollIntoView({ block: 'start', behavior: 'auto' })));
   };
   return (
     <div data-chapter-jump className="my-2 flex justify-end">
