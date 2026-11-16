@@ -2447,6 +2447,15 @@ CREATE TABLE IF NOT EXISTS volume_watch (
 -- skips. Reading progress stays on the lib_books row: the chapter number is the chapter, whichever copy was opened.
 -- The light novels AniList relates an entry to (the Light novel card). NULL on a row stored before they were kept: it is asked again.
 ALTER TABLE IF EXISTS anilist_related ADD COLUMN IF NOT EXISTS novels jsonb;
+-- A BookOrbit series an admin attached to a series by hand as its light novel (the Light novel card), for the one the title match
+-- misses. bo_series_id is BookOrbit's book_series.id; the name and volumes are read from BookOrbit when the card is drawn.
+CREATE TABLE IF NOT EXISTS series_novel_links (
+  series_id    text NOT NULL REFERENCES lib_series(id) ON DELETE CASCADE,
+  bo_series_id int  NOT NULL,
+  created_by   uuid,
+  created_at   timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (series_id, bo_series_id)
+);
 CREATE TABLE IF NOT EXISTS lib_book_versions (
   book_id      text NOT NULL REFERENCES lib_books(id) ON DELETE CASCADE,
   source_id    text NOT NULL,

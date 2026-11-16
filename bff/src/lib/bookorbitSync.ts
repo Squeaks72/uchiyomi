@@ -354,3 +354,28 @@ export async function findNovelSeries(names: string[], adult: boolean): Promise<
     return { url: link.url, series: r.rows.map((x) => ({ id: x.id, name: x.name, volumes: x.volumes, key: x.k || x.name.toLowerCase() })) };
   } catch { return null; }
 }
+
+const NOVEL_FILES = "('epub', 'kepub', 'mobi', 'azw3', 'pdf')";
+
+/** BookOrbit ebook series by name search (`q`, case-insensitive substring) or by id, for the manual attach: the same rules as findNovelSeries. */
+export async function searchNovelSeries(o: { q?: string; ids?: number[]; adult: boolean; limit?: number }): Promise<{ url: string; series: { id: number; name: string; volumes: number }[] } | null> {
+  const link = await getLink();
+  if (!link?.url || !link.db_url) return null;
+  const byIds = !!o.ids;
+  if (byIds && !o.ids!.length) return { url: link.url, series: [] };
+  try {
+    const r = await boDb(link.db_url).query<{ id: number; name: string; volumes: number }>(
+      `SELECT bs.id, bs.name, count(DISTINCT b.id)::int AS volumes
+         FROM book_series bs
+         JOIN book_metadata m ON m.series_id = bs.id
+         JOIN books b ON b.id = m.book_id AND b.status <> 'missing'
+         JOIN libraries l ON l.id = b.library_id
+         JOIN book_files f ON f.book_id = b.id AND f.role = 'content' AND f.format IN ${NOVEL_FILES}
+        WHERE ${byIds ? 'bs.id = ANY($1::int[])' : "bs.name ILIKE '%' || $1 || '%'"}
+          AND ($2::boolean OR l.name !~* 'spicy|adult|nsfw')
+        GROUP BY bs.id, bs.name
+        ORDER BY volumes DESC, bs.name LIMIT ${Math.max(1, Math.min(50, o.limit ?? 12))}`,
+      [byIds ? o.ids : (o.q ?? '').replace(/[%_\\]/g, ' ').trim().slice(0, 80), o.adult]);
+    return { url: link.url, series: r.rows };
+  } catch { return null; }
+}

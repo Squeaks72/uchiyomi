@@ -54,7 +54,7 @@ import { DL_ROOT, LIBRARY_ROOT, lastScanFailure, lastScanReport, scanProgress, s
 import { noticeBook, noticeListed, noticesShortOnly } from '../lib/noticeChapters';
 import { noticeTypes, hiddenCount } from '../lib/noticeSettings';
 import { heldRecs, relatedFor, novelsFor } from '../lib/anilistRelated';
-import { findNovelSeries, novelKey } from '../lib/bookorbitSync';
+import { findNovelSeries, novelKey, searchNovelSeries } from '../lib/bookorbitSync';
 import { seriesGaps } from '../lib/seriesGaps';
 import { favoriteOrder } from '../lib/favorites';
 import { join } from 'node:path';
@@ -948,23 +948,36 @@ export default async function catalogRoutes(app: FastifyInstance) {
     if (!(await seriesVisible(id, vc(req)))) return reply.code(404).send({ error: 'not_found' });
     const ctx = vc(req);
     const r = await novelsFor(id, ctx);
-    if (!r.lookups || !r.content.length) return { lookups: r.lookups, bookorbit: null, content: [] };
     // Whether this viewer may be shown 18+ libraries of BookOrbit: no age cap, and 18+ surfacing on.
     const adult = !ctx.hideAdultLibraries && ctx.maxAgeRating == null;
+    // What an admin attached by hand (series_novel_links): drawn whether or not AniList names a novel for this series.
+    const manualIds = (await q<{ bo_series_id: number }>('SELECT bo_series_id FROM series_novel_links WHERE series_id = $1 ORDER BY created_at', [id]).catch(() => [])).map((x) => x.bo_series_id);
+    const canEdit = actsAsAdmin(req);
+    if ((!r.lookups || !r.content.length) && !manualIds.length) {
+      // An admin may still attach one: say whether BookOrbit is linked at all.
+      return { lookups: r.lookups, bookorbit: canEdit ? (await searchNovelSeries({ ids: [], adult }))?.url ?? null : null, canEdit, content: [] };
+    }
     const names = r.content.flatMap((n) => [...n.titles, ...n.synonyms.filter((s) => s.length >= 6)]);
     const ck = `${adult ? 1 : 0}|${[...new Set(names.map(novelKey))].sort().join(',')}`;
     const hit = novelCache.get(ck);
     let found = hit && Date.now() - hit.at < 600_000 ? (hit.v as Awaited<ReturnType<typeof findNovelSeries>>) : undefined;
     if (found === undefined) { found = await findNovelSeries(names, adult); novelCache.set(ck, { at: Date.now(), v: found }); if (novelCache.size > 200) novelCache.clear(); }
-    return {
-      lookups: true,
-      bookorbit: found?.url ?? null,
-      content: r.content.map((n) => {
-        const keys = new Set([...n.titles, ...n.synonyms.filter((s) => s.length >= 6)].flatMap((t) => [novelKey(t), t.trim().toLowerCase()]));
-        const m = found?.series.find((s) => keys.has(s.key));
-        return { ...n, held: m ? { id: m.id, name: m.name, volumes: m.volumes, path: `/series/${m.id}` } : null };
-      }),
-    };
+    const manual = manualIds.length ? await searchNovelSeries({ ids: manualIds, adult }) : null;
+    const heldOf = (m: { id: number; name: string; volumes: number }) => ({ id: m.id, name: m.name, volumes: m.volumes, path: `/series/${m.id}` });
+    const usedManual = new Set<number>();
+    const content: Record<string, unknown>[] = r.content.map((n) => {
+      const keys = new Set([...n.titles, ...n.synonyms.filter((s) => s.length >= 6)].flatMap((t) => [novelKey(t), t.trim().toLowerCase()]));
+      const m = found?.series.find((s) => keys.has(s.key));
+      return { ...n, held: m ? heldOf(m) : null, manual: false };
+    });
+    // A hand-attached series is drawn as its own entry unless the title match found the same series already.
+    const autoHeld = new Set(content.map((c) => (c.held as { id: number } | null)?.id));
+    for (const m of manual?.series ?? []) {
+      if (autoHeld.has(m.id)) { const c = content.find((x) => (x.held as { id: number } | null)?.id === m.id); if (c) c.manual = true; continue; }
+      usedManual.add(m.id);
+      content.push({ anilistId: null, title: m.name, titles: [m.name], synonyms: [], cover: null, status: null, score: null, relation: null, held: heldOf(m), manual: true });
+    }
+    return { lookups: true, bookorbit: found?.url ?? manual?.url ?? null, canEdit, content };
   });
 
   app.get('/api/series/:id/related', async (req) => {
