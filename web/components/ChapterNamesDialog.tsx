@@ -14,7 +14,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { api } from '@/lib/api';
 import { Modal, msgOf } from '@/components/ConfirmDialog';
 import { chapterLabel, chapterName } from '@/lib/format';
-import { tr } from '@/lib/i18n';
+import { t as tr } from '@/lib/i18n';
 import type { Book, Ghost } from '@/lib/types';
 
 interface Offer { source: string; sourceId: string; label: string; names: Array<[number, string]> }
