@@ -8,6 +8,7 @@ import { heldBySeries, mySource, setMySource } from '../lib/bookVersionsRead';
 import { keepVersion } from '../lib/bookVersions';
 import { keepAllVersions, keepingNow } from '../lib/versionKeeper';
 import { logAudit } from '../lib/audit';
+import { searchNovelSeries } from '../lib/bookorbitSync';
 
 /**
  * Every source's copy of a chapter (lib/bookVersionsRead.ts). A member chooses which source they read a series from -- their
@@ -78,6 +79,31 @@ export default async function versionRoutes(app: FastifyInstance) {
     void logAudit('series.colored_source', { userId: userIdOf(req), req, detail: { id, source: b.data.sourceId } }).catch(() => {});
     if (b.data.sourceId) void keepAllVersions(id, app.log);
     return { coloredSource: b.data.sourceId };
+  });
+
+  /** Admin: BookOrbit's ebook series whose name contains `q`, to attach one to a series as its light novel. */
+  app.get('/api/admin/bookorbit/novels', { preHandler: requireAdmin }, async (req) => {
+    const q = String((req.query as { q?: string }).q ?? '');
+    if (q.trim().length < 2) return { url: null, content: [] };
+    // An admin sees every BookOrbit library: attaching is theirs to decide.
+    const r = await searchNovelSeries({ q, adult: true });
+    return { url: r?.url ?? null, content: r?.series ?? [] };
+  });
+
+  /** Admin: attach a BookOrbit series to this series as its light novel, or take it off. */
+  app.put('/api/admin/series/:id/novel-links', { preHandler: requireAdmin }, async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const b = z.object({ boSeriesId: z.number().int().positive(), on: z.boolean() }).safeParse(req.body);
+    if (!b.success) return reply.code(400).send({ error: 'bad_request' });
+    if (!(await one('SELECT 1 FROM lib_series WHERE id = $1', [id]))) return reply.code(404).send({ error: 'not_found' });
+    if (b.data.on) {
+      if (!(await searchNovelSeries({ ids: [b.data.boSeriesId], adult: true }))?.series.length) return reply.code(404).send({ error: 'not_in_bookorbit' });
+      await q('INSERT INTO series_novel_links (series_id, bo_series_id, created_by) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING', [id, b.data.boSeriesId, userIdOf(req)]);
+    } else {
+      await q('DELETE FROM series_novel_links WHERE series_id = $1 AND bo_series_id = $2', [id, b.data.boSeriesId]);
+    }
+    void logAudit('series.novel_link', { userId: userIdOf(req), req, detail: { id, bo: b.data.boSeriesId, on: b.data.on } }).catch(() => {});
+    return { ok: true };
   });
 
   /** Admin: keep one chapter's copy from one source. Answers when it is kept (or why it was not). */
