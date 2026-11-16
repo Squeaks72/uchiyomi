@@ -2,7 +2,7 @@
   "_meta": {
     "language": "de",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 5865
+    "strings": 5873
   },
   "1 check found something": "1 Prüfung hat etwas gefunden",
   "1 member": "1 Mitglied",
@@ -5868,5 +5868,13 @@
   "New chapter": "Neues Kapitel",
   "New in the library": "Neu in der Bibliothek",
   "Read chapter {n}": "Kapitel {n} lesen",
-  "Continue chapter {n}": "Kapitel {n} fortsetzen"
+  "Continue chapter {n}": "Kapitel {n} fortsetzen",
+  "Read from": "Lesen von",
+  "Endorsed copy": "Empfohlene Kopie",
+  "Chapters kept from a source are served from it to you, in the reader, OPDS and Mihon. Any other chapter comes from the endorsed copy.": "Kapitel, die von einer Quelle aufbewahrt werden, bekommst du von ihr – im Reader, in OPDS und in Mihon. Alle anderen Kapitel kommen aus der empfohlenen Kopie.",
+  "Keep every source’s copy": "Kopie jeder Quelle aufbewahren",
+  "Downloads each followed source’s copy of every chapter beside the endorsed one, so readers can choose their source. Uses more disk.": "Lädt von jeder verfolgten Quelle die Kopie jedes Kapitels neben der empfohlenen herunter, damit Leser ihre Quelle wählen können. Braucht mehr Speicher.",
+  "Fetching copies…": "Kopien werden geladen …",
+  "{n} copies kept": "{n} Kopien aufbewahrt",
+  "1 copy kept": "1 Kopie aufbewahrt"
 }
