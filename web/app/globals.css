@@ -130,7 +130,7 @@
 }
 
 :root {
-  --accent: 145 118 255; /* electric violet, #7c5cff lifted to 5:1 on ink-700 (4.5:1 on the soft tint) (lib/theme.ts readableAccent) — themeable from Settings */
+  --accent: 74 163 255; /* bright azure, #4aa3ff (default since 2026-11; was violet #7c5cff) — passes 5:1 on ink-700 unlifted; themeable from Settings (lib/theme.ts readableAccent) */
   --vh: 1vh;
 
   /* The page gutter, owned in ONE place.

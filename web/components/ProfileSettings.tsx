@@ -83,7 +83,7 @@ export function useProfileSettingsViews(): { views: Record<string, PageView>; po
     },
     appearance: {
       icon: <IcSparkle width={18} height={18} />, tint: 'bg-violet-500/15 text-violet-300',
-      summary: `${tr(TONES.find((t) => t.key === toneOf(user?.settings?.tone))!.label)} · ${colorName(user?.settings?.accent || '#7c5cff')}`,
+      summary: `${tr(TONES.find((t) => t.key === toneOf(user?.settings?.tone))!.label)} · ${colorName(user?.settings?.accent || DEFAULT_ACCENT)}`,
       pane: <AppearanceSection />,
     },
     reading: {
@@ -277,9 +277,17 @@ function IgnoredTitles() {
 
 // Rendered as `tr(name)`, so the names are declared rather than inline. See lib/i18n.ts. The first six are
 // the accent palette; the avatar palette adds two more.
-const ACCENT_NAMES = keys('Violet', 'Cyan', 'Emerald', 'Rose', 'Amber', 'Azure');
-const ACCENTS = ['#7c5cff', '#22d3ee', '#34d399', '#fb7185', '#f59e0b', '#60a5fa']
-  .map((hex, i) => ({ name: ACCENT_NAMES[i], hex }));
+const ACCENT_NAMES = keys(
+  'Sky', 'Azure', 'Cobalt', 'Indigo', 'Violet', 'Purple', 'Fuchsia', 'Pink', 'Rose', 'Red', 'Orange', 'Amber',
+  'Lime', 'Emerald', 'Teal', 'Cyan', 'Slate', 'White',
+);
+// Bright by design: accent is used as text and as fills on near-black, and lib/theme.ts readableAccent lifts any
+// pick that would fall under 5:1, so even the deep ones stay legible. The default (first) is a bright azure.
+const ACCENTS = [
+  '#4aa3ff', '#60a5fa', '#2f6bff', '#6366f1', '#7c5cff', '#a855f7', '#e879f9', '#ff5cb8', '#fb7185', '#ef4444',
+  '#fb923c', '#f59e0b', '#a3e635', '#34d399', '#2dd4bf', '#22d3ee', '#94a3b8', '#f1f5f9',
+].map((hex, i) => ({ name: ACCENT_NAMES[i], hex }));
+const DEFAULT_ACCENT = ACCENTS[0].hex;
 const EXTRA_COLOR_NAMES = keys('Purple', 'Red');
 // Keyed by hex rather than by position: `AVATAR_COLORS` is Avatar.tsx's list, and an index into a parallel
 // array here would silently mislabel every dot the day someone reorders it. An unknown hex reads as itself.
@@ -326,7 +334,7 @@ function AppearanceSection() {
       : `${frameName(fr)} · ${tr('Unlocks with {badge}', { badge: tr(badge.label) })}${stats ? ` · ${badgeCaption(badge, stats)}` : ''}`;
   };
 
-  const [accent, setAccent] = useState<string>(user?.settings?.accent || '#7c5cff');
+  const [accent, setAccent] = useState<string>(user?.settings?.accent || DEFAULT_ACCENT);
   const pickAccent = (hex: string) => {
     // The same optimistic-then-revert as the switches: `--accent` is applied at once through the auth
     // context, so a refused colour would otherwise stay applied and pressed until a reload.
@@ -374,6 +382,15 @@ function AppearanceSection() {
                 )}
               </button>
             ))}
+            {/* Any colour: the swatches are a shortcut, not a limit. Pressed when the pick is not one of them. */}
+            <label className="relative grid h-11 w-11 cursor-pointer place-items-center overflow-hidden rounded-full border border-white/20"
+              style={{ background: 'conic-gradient(red, yellow, lime, cyan, blue, magenta, red)' }} title={tr('Custom colour')}>
+              <input type="color" value={/^#[0-9a-f]{6}$/i.test(accent) ? accent : DEFAULT_ACCENT} onChange={(e) => pickAccent(e.target.value)}
+                aria-label={tr('Custom colour')} className="absolute inset-0 h-full w-full cursor-pointer opacity-0" />
+              {!ACCENTS.some((a) => a.hex.toLowerCase() === accent.toLowerCase()) && (
+                <span className="grid h-6 w-6 place-items-center rounded-full text-black" style={{ background: accent }}><IcCheck width={14} height={14} /></span>
+              )}
+            </label>
           </div>
         </Row>
       </RowGroup>
