@@ -137,7 +137,8 @@ export function HeroCarousel({ slides, meta, seconds }: { slides: Series[]; meta
           <div data-home-hero-copy className="min-w-0 flex-1 max-w-2xl">
             <span data-home-hero-badge className="mb-2 inline-flex items-center gap-1.5 rounded-md bg-white/10 px-2.5 py-1 text-2xs font-semibold uppercase tracking-wider text-fog-100 backdrop-blur rtl:tracking-normal">{m?.kind === 'new' || m?.kind === 'continue' ? '▶' : '★'} {badge}</span>
             {/* A phone's hero is the cover, lettering and all: the title logo is a computer's (HeroTitle `logo`). */}
-            <HeroTitle series={cur} logo={wide} />
+            {/* The title opens the series page (the Read button of a chapter slide opens the chapter). */}
+            <Link href={`/series/?id=${cur.id}`} className="block w-fit max-w-full transition hover:opacity-85 focus-visible:rounded-md" data-hero-title-link><HeroTitle series={cur} logo={wide} /></Link>
             <div data-home-hero-meta className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-fog-300 lg:text-sm">
               {cur.metadata?.status && <span className="capitalize text-fog-200">{statusText(cur.metadata.status)}</span>}
               {ch?.name ? <span className="text-fog-100">· {ch.name}</span> : null}
