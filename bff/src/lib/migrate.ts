@@ -2482,6 +2482,11 @@ ALTER TABLE lib_series ADD COLUMN IF NOT EXISTS keep_versions boolean NOT NULL D
 -- The followed source that carries the colored edition of the series. Its copies of every chapter are always kept, whether or
 -- not the series keeps every source's copy; a reader switches between the original and the colored one (user_series_source).
 ALTER TABLE lib_series ADD COLUMN IF NOT EXISTS colored_source text;
+-- A colored edition that is its own title on a source, which the series may already follow: that source and the colored title's id
+-- there, and its name for display. colored_source is then the reserved key @colored, and the copies are kept under that key.
+ALTER TABLE lib_series ADD COLUMN IF NOT EXISTS colored_ref_source text;
+ALTER TABLE lib_series ADD COLUMN IF NOT EXISTS colored_ref_series text;
+ALTER TABLE lib_series ADD COLUMN IF NOT EXISTS colored_ref_title  text;
 `;
 
 // Serialises migrate() across processes. CREATE TABLE IF NOT EXISTS is not safe to run concurrently:

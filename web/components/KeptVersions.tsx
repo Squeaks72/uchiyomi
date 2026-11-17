@@ -10,12 +10,15 @@ import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { t as tr } from '@/lib/i18n';
 import { useToast } from './Toast';
+import { MigrateSourceSheet } from './MigrateSourceSheet';
 
 interface Kept {
   mySource: string | null;
   keepVersions: boolean;
   keeping: boolean;
   coloredSource: string | null;
+  /** The colored edition when it is its own title on a source: that source's name and the title. */
+  coloredRef?: { source: string; sourceName: string; title: string } | null;
   /** Per chapter number: the sources whose copies are kept beside the endorsed one. */
   held: Record<string, { sourceId: string; pages: number }[]>;
   sources: { sourceId: string; name: string; primary: boolean; kept: number }[];
@@ -61,7 +64,8 @@ export function ColorToggle({ id, className = '' }: { id: string; className?: st
   );
 }
 
-export function KeptVersions({ id }: { id: string }) {
+export function KeptVersions({ id, title }: { id: string; title?: string }) {
+  const [picking, setPicking] = useState(false);
   const { isAdmin } = useAuth();
   const qc = useQueryClient();
   const toast = useToast();
@@ -106,7 +110,7 @@ export function KeptVersions({ id }: { id: string }) {
         {data.sources.map((s) => (
           <button key={s.sourceId} type="button" disabled={busy} onClick={() => void choose(s.sourceId)} aria-pressed={data.mySource === s.sourceId}
             className={`chip text-xs disabled:opacity-50 ${data.mySource === s.sourceId ? 'chip-active' : ''}`}>
-            {s.name}{s.kept > 0 ? <span className="ms-1 text-fog-500">· {s.kept}</span> : null}
+            {s.sourceId === '@colored' ? tr('Colored') : s.name}{s.kept > 0 ? <span className="ms-1 text-fog-500">· {s.kept}</span> : null}
           </button>
         ))}
       </div>
@@ -132,12 +136,21 @@ export function KeptVersions({ id }: { id: string }) {
           <div className="flex flex-wrap gap-1.5">
             <button type="button" disabled={busy} onClick={() => void setColored(null)} aria-pressed={!data.coloredSource}
               className={`chip text-xs disabled:opacity-50 ${!data.coloredSource ? 'chip-active' : ''}`}>{tr('None')}</button>
-            {data.sources.map((s) => (
+            {data.sources.filter((s) => s.sourceId !== '@colored').map((s) => (
               <button key={s.sourceId} type="button" disabled={busy} onClick={() => void setColored(s.sourceId)} aria-pressed={data.coloredSource === s.sourceId}
                 className={`chip text-xs disabled:opacity-50 ${data.coloredSource === s.sourceId ? 'chip-active' : ''}`}>{s.name}</button>
             ))}
+            {/* The edition that is its own title, on any source -- one the series follows included. */}
+            <button type="button" disabled={busy} onClick={() => setPicking(true)} aria-pressed={data.coloredSource === '@colored'} data-colored-pick
+              className={`chip text-xs disabled:opacity-50 ${data.coloredSource === '@colored' ? 'chip-active' : ''}`}>
+              {data.coloredRef ? `${data.coloredRef.title || tr('Colored')} · ${data.coloredRef.sourceName}` : tr('Pick a title from a source…')}
+            </button>
           </div>
         </div>
+      )}
+      {picking && (
+        <MigrateSourceSheet id={id} title={title ?? ''} attached={[]} mainId={null} listed={null} colored
+          onDone={() => { setPicking(false); void qc.invalidateQueries({ queryKey: key }); }} onClose={() => setPicking(false)} />
       )}
     </section>
   );

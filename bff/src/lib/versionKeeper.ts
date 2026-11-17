@@ -9,6 +9,7 @@ import { q, one } from './db';
 import { runtime } from './runtime';
 import { seriesSourcesFor } from './seriesSources';
 import { keepVersion } from './bookVersions';
+import { COLORED_KEY } from './bookVersionsRead';
 
 type Log = { info: (m: string) => void; warn: (m: string) => void };
 
@@ -21,10 +22,14 @@ export async function keepAllVersions(seriesId: string, log: Log, budget = 25): 
   running.add(seriesId);
   let kept = 0, failed = 0, left = false;
   try {
-    const flags = await one<{ keep_versions: boolean; colored_source: string | null }>('SELECT keep_versions, colored_source FROM lib_series WHERE id = $1', [seriesId]);
-    // Every followed source's copy for a series that keeps them all; otherwise only the colored edition's, which is always kept.
-    const sources = (await seriesSourcesFor(seriesId)).filter((s) => s.registered && (flags?.keep_versions || s.sourceId === flags?.colored_source));
-    if (!sources.length || (await seriesSourcesFor(seriesId)).length < 2) return { kept, failed, left };
+    const flags = await one<{ keep_versions: boolean; colored_source: string | null; colored_ref_source: string | null }>(
+      'SELECT keep_versions, colored_source, colored_ref_source FROM lib_series WHERE id = $1', [seriesId]);
+    // Every followed source's copy for a series that keeps them all; otherwise only a followed colored source's. A colored edition that is
+    // its own title on a source (lib_series.colored_ref_*) is a target of its own, under the reserved key, whatever the series follows.
+    const targets: string[] = (await seriesSourcesFor(seriesId))
+      .filter((s) => s.registered && (flags?.keep_versions || s.sourceId === flags?.colored_source)).map((s) => s.sourceId);
+    if (flags?.colored_source === COLORED_KEY && flags.colored_ref_source) targets.push(COLORED_KEY);
+    if (!targets.length) return { kept, failed, left };
     const books = await q<{ number: number; source_id: string | null }>(
       `SELECT number::float8 AS number, source_id FROM lib_books WHERE series_id = $1 AND pruned_at IS NULL ORDER BY number`, [seriesId]);
     const have = new Set((await q<{ number: number; source_id: string }>(
@@ -32,18 +37,18 @@ export async function keepAllVersions(seriesId: string, log: Log, budget = 25): 
       .map((r) => `${r.number}|${r.source_id}`));
     const failedOnce = new Set<string>();
     for (const b of books) {
-      for (const s of sources) {
+      for (const target of targets) {
         if (runtime.stopping) return { kept, failed, left: true };
-        const key = `${b.number}|${s.sourceId}`;
-        if (b.source_id === s.sourceId || have.has(key) || failedOnce.has(s.sourceId + '|' + b.number)) continue;
+        const key = `${b.number}|${target}`;
+        if (b.source_id === target || have.has(key) || failedOnce.has(target + '|' + b.number)) continue;
         if (kept + failed >= budget) { left = true; return { kept, failed, left }; }
         try {
-          const r = await keepVersion(seriesId, b.number, s.sourceId);
+          const r = await keepVersion(seriesId, b.number, target);
           if (r === 'kept') kept++;
         } catch (e) {
           failed++;
-          failedOnce.add(s.sourceId + '|' + b.number);
-          log.warn(`versions: ${seriesId} ch ${b.number} from ${s.sourceId}: ${(e as Error)?.message || e}`);
+          failedOnce.add(target + '|' + b.number);
+          log.warn(`versions: ${seriesId} ch ${b.number} from ${target}: ${(e as Error)?.message || e}`);
         }
       }
     }
