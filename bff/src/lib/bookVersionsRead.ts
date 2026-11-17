@@ -15,6 +15,9 @@
 import { posix } from 'node:path';
 import { q, one } from './db';
 
+/** The reserved source key under which a series' colored edition is kept when it is its own title on a source (lib_series.colored_ref_*). */
+export const COLORED_KEY = '@colored';
+
 export interface ChosenVersion { file: string; root: string; pages: number; sourceId: string }
 export interface HeldVersion { sourceId: string; pages: number; scanlator: string | null; publishedAt: string | null; size: number | null }
 

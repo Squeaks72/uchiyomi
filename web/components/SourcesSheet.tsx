@@ -950,7 +950,7 @@ export function SourcesSheet({ id, title: seriesTitle, series, groups, admin, er
             </div>
           </div>
         )}
-        <KeptVersions id={id} />
+        <KeptVersions id={id} title={seriesTitle} />
         {isAdmin && (
           <div className="mt-2 flex flex-wrap gap-1.5">
             {sources.length > 0 && (

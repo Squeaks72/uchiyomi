@@ -45,7 +45,7 @@ function useDebounced<T>(value: T, ms: number) {
   return v;
 }
 
-export function MigrateSourceSheet({ id, title, attached, mainId, listed, onDone, onClose }: {
+export function MigrateSourceSheet({ id, title, attached, mainId, listed, colored = false, onDone, onClose }: {
   id: string;
   title: string;
   /** Source ids the series already uses (main first): marked in the rails, and the main decides which buttons show. */
@@ -53,6 +53,12 @@ export function MigrateSourceSheet({ id, title, attached, mainId, listed, onDone
   mainId: string | null;
   /** How many chapters the series lists now, for the comparison. */
   listed: number | null;
+  /**
+   * Pick the series' COLORED EDITION instead of a source to attach: any title on any source, the ones the series already follows included
+   * (the colored edition is its own entry, often on the same site as the original). The pick is saved as the edition's pointer, not as a
+   * followed source (PUT /api/admin/series/:id/colored-source).
+   */
+  colored?: boolean;
   /** The attach went through: the page refetches. */
   onDone: () => void;
   onClose: () => void;
@@ -93,7 +99,7 @@ export function MigrateSourceSheet({ id, title, attached, mainId, listed, onDone
   );
   const allIds = allSources.map((s) => s.id);
   // Sources the series already uses are left out until asked for: they are the ones it cannot gain a new entry from.
-  const fresh = allIds.filter((x) => !attached.includes(x));
+  const fresh = colored ? allIds : allIds.filter((x) => !attached.includes(x));
   const pickedIds = selected ?? (fresh.length ? fresh : allIds);
   const only = sourcesParam(selected ?? pickedIds, allIds);
   const toggleSource = (sid: string) => {
@@ -127,6 +133,17 @@ export function MigrateSourceSheet({ id, title, attached, mainId, listed, onDone
     setBusy(true);
     setRefusal(null);
     setDiffers(null);
+    if (colored) {
+      // The colored edition's own name is stored for display only (the attach route below is never sent one: it asks the source).
+      const shownName = pick.title;
+      try {
+        await api(`/api/admin/series/${encodeURIComponent(id)}/colored-source`, { method: 'PUT', json: { ref: { source: pick.source, sourceSeriesId: pick.sourceId, title: shownName } } });
+        toast(tr('Colored edition set'), 'success');
+        onDone();
+      } catch (e) { setRefusal(msgOf(e, tr('Could not set the colored edition'))); }
+      setBusy(false);
+      return;
+    }
     try {
       await api(`/api/admin/series/${encodeURIComponent(id)}/attach-source`, {
         json: { source: pick.source, sourceSeriesId: pick.sourceId, as, ...(as === 'main' ? { old: keepOld ? 'keep' : 'drop' } : {}), ...(force ? { force: true } : {}) },
@@ -141,6 +158,7 @@ export function MigrateSourceSheet({ id, title, attached, mainId, listed, onDone
   };
 
   const buttons = attachButtons(mainId);
+  // In colored mode nothing is 'attached' or 'main': every source's rail is a candidate, with no marker.
   const groups = data?.content ?? [];
   const delta = detail.data && listed != null ? detail.data.count - listed : null;
   const preview = matchPreview(detail.data);
@@ -173,7 +191,7 @@ export function MigrateSourceSheet({ id, title, attached, mainId, listed, onDone
           {tr('Attach anyway')}
         </button>
       )}
-      {buttons.main && mainId && (
+      {!colored && buttons.main && mainId && (
         <label className="flex items-center gap-2 text-[11px] text-fog-400">
           <input type="checkbox" checked={keepOld} onChange={(e) => setKeepOld(e.target.checked)} className="pointer-coarse:size-5 pointer-coarse:shrink-0 accent-[rgb(var(--accent))]" />
           {tr('Keep the current main source as a backup')}
@@ -183,6 +201,11 @@ export function MigrateSourceSheet({ id, title, attached, mainId, listed, onDone
           "Cancel"), never spill out of a fixed-height key. */}
       <div className="flex gap-2">
         <button type="button" onClick={() => { setPick(null); setRefusal(null); setDiffers(null); }} disabled={busy} className={`btn-key ${GROW}`}>{tr('Cancel')}</button>
+        {colored ? (
+          <button type="button" onClick={() => act('follower')} disabled={busy} className={`btn-key btn-key-primary ${GROW}`} data-migrate-colored>
+            {busy ? tr('Working…') : tr('Use as the colored edition')}
+          </button>
+        ) : <>
         {buttons.follower && (
           <button type="button" onClick={() => act('follower')} disabled={busy} className={`btn-key ${GROW}`} data-migrate-follow>
             {tr('Add as extra source')}
@@ -191,12 +214,13 @@ export function MigrateSourceSheet({ id, title, attached, mainId, listed, onDone
         <button type="button" onClick={() => act('main')} disabled={busy} className={`btn-key btn-key-primary ${GROW}`} data-migrate-main>
           {busy ? tr('Working…') : buttons.follower ? tr('Move here') : tr('Use this source')}
         </button>
+        </>}
       </div>
     </div>
   ) : undefined;
 
   return (
-    <Sheet title={tr('Add or move source')} onClose={onClose} overBottomNav footer={footer}>
+    <Sheet title={colored ? tr('Colored edition') : tr('Add or move source')} onClose={onClose} overBottomNav footer={footer}>
       <div className="sticky top-0 z-10 -mx-4 mb-3 bg-ink-950/90 px-4 pb-2 pt-1 backdrop-blur-xs">
         <div className="flex items-center gap-2 rounded-xl border border-ink-700 bg-ink-900/60 px-3 py-2 focus-within:border-accent">
           <IcSearch aria-hidden width={17} height={17} className="text-fog-500" />

@@ -7,7 +7,7 @@ import { getSource } from './sources';
 import { downloadChapter } from './downloader';
 import { seriesSourcesFor } from './seriesSources';
 import { numKey } from './postingOrder';
-import { versionsFolder } from './bookVersionsRead';
+import { versionsFolder, COLORED_KEY } from './bookVersionsRead';
 export * from './bookVersionsRead';
 
 export type KeepResult = 'kept' | 'already' | 'is_endorsed' | 'no_book' | 'not_followed' | 'not_listed';
@@ -18,22 +18,27 @@ export type KeepResult = 'kept' | 'already' | 'is_endorsed' | 'no_book' | 'not_f
  * endorsed chapter came from -- is not stored twice. Throws what the downloader throws.
  */
 export async function keepVersion(seriesId: string, number: number, sourceId: string): Promise<KeepResult> {
-  const s = await one<{ folder: string; title: string }>('SELECT folder, title FROM lib_series WHERE id = $1', [seriesId]);
+  const s = await one<{ folder: string; title: string; colored_ref_source: string | null; colored_ref_series: string | null }>(
+    'SELECT folder, title, colored_ref_source, colored_ref_series FROM lib_series WHERE id = $1', [seriesId]);
   if (!s) return 'no_book';
   const book = await one<{ id: string; source_id: string | null }>(
     `SELECT id, source_id FROM lib_books WHERE series_id = $1 AND number = $2 AND pruned_at IS NULL ORDER BY file LIMIT 1`, [seriesId, number]);
   if (!book) return 'no_book';
-  if (book.source_id === sourceId) return 'is_endorsed';
+  // The colored edition may be a title on a source the series already follows: it is fetched from that source's own id for it, and kept
+  // under the reserved key, so it is never "the endorsed copy" and never collides with the source's own copy of the original.
+  const colored = sourceId === COLORED_KEY;
+  if (!colored && book.source_id === sourceId) return 'is_endorsed';
   if (await one('SELECT 1 FROM lib_book_versions WHERE book_id = $1 AND source_id = $2', [book.id, sourceId])) return 'already';
-  const follow = (await seriesSourcesFor(seriesId)).find((x) => x.sourceId === sourceId);
-  const sourceSeriesId = follow?.sourceSeriesId;
-  const adapter = getSource(sourceId);
-  if (!follow || !sourceSeriesId || !adapter) return 'not_followed';
+  const follow = colored ? undefined : (await seriesSourcesFor(seriesId)).find((x) => x.sourceId === sourceId);
+  const fetchFrom = colored ? s.colored_ref_source : sourceId;
+  const sourceSeriesId = colored ? s.colored_ref_series : follow?.sourceSeriesId;
+  const adapter = fetchFrom ? getSource(fetchFrom) : null;
+  if ((!colored && !follow) || !sourceSeriesId || !adapter || !fetchFrom) return 'not_followed';
   const listed = (await adapter.listChapters(sourceSeriesId)).filter((c) => numKey(c.number) === numKey(number));
   const chapter = listed[0];
   if (!chapter) return 'not_listed';
   const folder = versionsFolder(s.folder, sourceId);
-  const got = await downloadChapter({ sourceId, seriesFolder: folder, chapter, meta: { series: s.title } }, { replace: true });
+  const got = await downloadChapter({ sourceId: fetchFrom, seriesFolder: folder, chapter, meta: { series: s.title } }, { replace: true });
   if (!got) return 'already';
   const abs = join(DL_ROOT, got.file);
   const st = await stat(abs).catch(() => null);

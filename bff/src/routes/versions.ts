@@ -4,7 +4,8 @@ import { authenticate, requireAdmin, roleOf, userIdOf } from '../lib/auth';
 import { one, q } from '../lib/db';
 import { viewCtxFor, hideAdult, seriesVisible, type ViewCtx } from '../lib/visibility';
 import { seriesSourcesFor } from '../lib/seriesSources';
-import { heldBySeries, mySource, setMySource } from '../lib/bookVersionsRead';
+import { heldBySeries, mySource, setMySource, COLORED_KEY } from '../lib/bookVersionsRead';
+import { getSource } from '../lib/sources';
 import { keepVersion } from '../lib/bookVersions';
 import { keepAllVersions, keepingNow } from '../lib/versionKeeper';
 import { logAudit } from '../lib/audit';
@@ -31,7 +32,7 @@ export default async function versionRoutes(app: FastifyInstance) {
       seriesSourcesFor(id),
       heldBySeries(id),
       mySource(userIdOf(req), id),
-      one<{ keep_versions: boolean; colored_source: string | null }>('SELECT keep_versions, colored_source FROM lib_series WHERE id = $1', [id]),
+      one<{ keep_versions: boolean; colored_source: string | null; colored_ref_source: string | null; colored_ref_title: string | null }>('SELECT keep_versions, colored_source, colored_ref_source, colored_ref_title FROM lib_series WHERE id = $1', [id]),
     ]);
     const counts = new Map<string, number>();
     for (const l of held.values()) for (const v of l) counts.set(v.sourceId, (counts.get(v.sourceId) ?? 0) + 1);
@@ -40,7 +41,14 @@ export default async function versionRoutes(app: FastifyInstance) {
       keepVersions: flag?.keep_versions === true,
       coloredSource: flag?.colored_source ?? null,
       keeping: keepingNow(id),
-      sources: sources.filter((s) => s.registered).map((s) => ({ sourceId: s.sourceId, name: s.name, primary: s.primary, kept: counts.get(s.sourceId) ?? 0 })),
+      // A colored edition that is its own title on a source is a source of copies under the reserved key, listed after the followed ones.
+      sources: [
+        ...sources.filter((s) => s.registered).map((s) => ({ sourceId: s.sourceId, name: s.name, primary: s.primary, kept: counts.get(s.sourceId) ?? 0 })),
+        ...(flag?.colored_source === COLORED_KEY && flag.colored_ref_source
+          ? [{ sourceId: COLORED_KEY, name: 'Colored', primary: false, kept: counts.get(COLORED_KEY) ?? 0 }] : []),
+      ],
+      coloredRef: flag?.colored_source === COLORED_KEY && flag.colored_ref_source
+        ? { source: flag.colored_ref_source, sourceName: getSource(flag.colored_ref_source)?.name ?? flag.colored_ref_source, title: flag.colored_ref_title ?? '' } : null,
       held: Object.fromEntries([...held.entries()].map(([n, l]) => [String(n), l])),
     };
   });
@@ -51,7 +59,9 @@ export default async function versionRoutes(app: FastifyInstance) {
     const b = z.object({ sourceId: z.string().min(1).max(200).nullable() }).safeParse(req.body);
     if (!b.success) return reply.code(400).send({ error: 'bad_request' });
     if (!(await seriesVisible(id, vc(req)))) return reply.code(404).send({ error: 'not_found' });
-    if (b.data.sourceId && !(await seriesSourcesFor(id)).some((s) => s.sourceId === b.data.sourceId)) return reply.code(400).send({ error: 'not_followed' });
+    if (b.data.sourceId === COLORED_KEY) {
+      if (!(await one('SELECT 1 FROM lib_series WHERE id = $1 AND colored_source = $2', [id, COLORED_KEY]))) return reply.code(400).send({ error: 'not_followed' });
+    } else if (b.data.sourceId && !(await seriesSourcesFor(id)).some((s) => s.sourceId === b.data.sourceId)) return reply.code(400).send({ error: 'not_followed' });
     await setMySource(userIdOf(req), id, b.data.sourceId);
     return { mySource: b.data.sourceId };
   });
@@ -68,42 +78,37 @@ export default async function versionRoutes(app: FastifyInstance) {
     return { keepVersions: b.data.on };
   });
 
-  /** Admin: which followed source carries the colored edition (or none). Its copies are always kept; readers switch to it themselves. */
+  /**
+   * Admin: where the colored edition comes from, or none. Either a source the series follows (`sourceId`), or a title on any source -- one
+   * the series already follows included -- as `{ ref: { source, sourceSeriesId, title } }`: the edition that is its own entry (MangaDex's
+   * "Official Colored"). Its copies are always kept; readers switch to it themselves.
+   */
   app.put('/api/admin/series/:id/colored-source', { preHandler: requireAdmin }, async (req, reply) => {
     const { id } = req.params as { id: string };
-    const b = z.object({ sourceId: z.string().min(1).max(200).nullable() }).safeParse(req.body);
+    const b = z.object({
+      sourceId: z.string().min(1).max(200).nullable().optional(),
+      ref: z.object({ source: z.string().min(1).max(200), sourceSeriesId: z.string().min(1).max(500), title: z.string().max(300).optional() }).optional(),
+    }).refine((v) => v.sourceId !== undefined || v.ref !== undefined, { message: 'nothing named' }).safeParse(req.body);
     if (!b.success) return reply.code(400).send({ error: 'bad_request' });
-    if (b.data.sourceId && !(await seriesSourcesFor(id)).some((s) => s.sourceId === b.data.sourceId)) return reply.code(400).send({ error: 'not_followed' });
-    const r = await q('UPDATE lib_series SET colored_source = $2 WHERE id = $1 RETURNING id', [id, b.data.sourceId]);
-    if (!r.length) return reply.code(404).send({ error: 'not_found' });
-    void logAudit('series.colored_source', { userId: userIdOf(req), req, detail: { id, source: b.data.sourceId } }).catch(() => {});
-    if (b.data.sourceId) void keepAllVersions(id, app.log);
-    return { coloredSource: b.data.sourceId };
-  });
-
-  /** Admin: BookOrbit's ebook series whose name contains `q`, to attach one to a series as its light novel. */
-  app.get('/api/admin/bookorbit/novels', { preHandler: requireAdmin }, async (req) => {
-    const q = String((req.query as { q?: string }).q ?? '');
-    if (q.trim().length < 2) return { url: null, content: [] };
-    // An admin sees every BookOrbit library: attaching is theirs to decide.
-    const r = await searchNovelSeries({ q, adult: true });
-    return { url: r?.url ?? null, content: r?.series ?? [] };
-  });
-
-  /** Admin: attach a BookOrbit series to this series as its light novel, or take it off. */
-  app.put('/api/admin/series/:id/novel-links', { preHandler: requireAdmin }, async (req, reply) => {
-    const { id } = req.params as { id: string };
-    const b = z.object({ boSeriesId: z.number().int().positive(), on: z.boolean() }).safeParse(req.body);
-    if (!b.success) return reply.code(400).send({ error: 'bad_request' });
-    if (!(await one('SELECT 1 FROM lib_series WHERE id = $1', [id]))) return reply.code(404).send({ error: 'not_found' });
-    if (b.data.on) {
-      if (!(await searchNovelSeries({ ids: [b.data.boSeriesId], adult: true }))?.series.length) return reply.code(404).send({ error: 'not_in_bookorbit' });
-      await q('INSERT INTO series_novel_links (series_id, bo_series_id, created_by) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING', [id, b.data.boSeriesId, userIdOf(req)]);
+    let set: { source: string | null; refSource: string | null; refSeries: string | null; refTitle: string | null };
+    if (b.data.ref) {
+      const adapter = getSource(b.data.ref.source);
+      if (!adapter) return reply.code(400).send({ error: 'unknown_source' });
+      // The pick is read once before it is saved: a title the source does not list, or lists with no chapters, is no edition.
+      const listed = await adapter.listChapters(b.data.ref.sourceSeriesId).catch(() => null);
+      if (!listed?.length) return reply.code(400).send({ error: 'nothing_listed', message: 'That title lists no chapters on its source.' });
+      set = { source: COLORED_KEY, refSource: b.data.ref.source, refSeries: b.data.ref.sourceSeriesId, refTitle: b.data.ref.title ?? null };
     } else {
-      await q('DELETE FROM series_novel_links WHERE series_id = $1 AND bo_series_id = $2', [id, b.data.boSeriesId]);
+      const sourceId = b.data.sourceId ?? null;
+      if (sourceId && !(await seriesSourcesFor(id)).some((s) => s.sourceId === sourceId)) return reply.code(400).send({ error: 'not_followed' });
+      set = { source: sourceId, refSource: null, refSeries: null, refTitle: null };
     }
-    void logAudit('series.novel_link', { userId: userIdOf(req), req, detail: { id, bo: b.data.boSeriesId, on: b.data.on } }).catch(() => {});
-    return { ok: true };
+    const r = await q('UPDATE lib_series SET colored_source = $2, colored_ref_source = $3, colored_ref_series = $4, colored_ref_title = $5 WHERE id = $1 RETURNING id',
+      [id, set.source, set.refSource, set.refSeries, set.refTitle]);
+    if (!r.length) return reply.code(404).send({ error: 'not_found' });
+    void logAudit('series.colored_source', { userId: userIdOf(req), req, detail: { id, source: set.source, ref: set.refSource ? `${set.refSource}:${set.refSeries}` : null } }).catch(() => {});
+    if (set.source) void keepAllVersions(id, app.log);
+    return { coloredSource: set.source };
   });
 
   /** Admin: keep one chapter's copy from one source. Answers when it is kept (or why it was not). */
