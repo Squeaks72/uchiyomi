@@ -252,7 +252,7 @@ const SLICES: [string, string, string, string][] = [
   // the Sources sheet, the main source's detach question and the row of keys that opens it all.
   ['components/MigrateSourceSheet.tsx', 'Add or move source: the footer', 'const footer = pick ? (', 'return ('],
   ['components/MigrateSourceSheet.tsx', 'Add or move source: the markers', 'function Marker(', ''],
-  ['components/SourcesSheet.tsx', 'Sources sheet: detaching the main source', '{isAdmin && detachAsk && main?.primary && (', '{isAdmin && sources.length > 1 && ('],
+  ['components/SourcesSheet.tsx', 'Sources sheet: detaching the main source', '{isAdmin && detachAsk && main?.primary && (', '<KeptVersions id={id} title={seriesTitle} />'],
   ['components/SourcesSheet.tsx', 'Sources sheet: Check now and the ways to add a source', 'onClick={checkNow}', '{isAdmin && series?.borrowNamesEffective'],
   // v0.75.0 (#267): the badges are keys that say what they take, squared (they were capsules), and Show locked is a key --
   // beside the Reading studio's range chips (All time among them), filters that stay.

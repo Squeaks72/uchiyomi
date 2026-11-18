@@ -88,13 +88,14 @@ export async function effectiveSourcePriority(seriesPrefs: unknown): Promise<Sou
  * it does not; two sources it does not name keep their follow order between them. With no order at all this
  * IS the follow order, unchanged -- so nothing moves until an admin sets one.
  */
-export function rankSources(priority: SourcePriority | null, follow: readonly string[]): (id?: string) => number {
+export function rankSources(priority: SourcePriority | null, follow: readonly string[], main?: string | null): (id?: string) => number {
   const f = new Map(follow.map((s, i) => [s, i] as const));
   const byFollow = (id?: string) => f.get(id ?? '') ?? follow.length;
-  if (!priority?.order.length) return byFollow;
-  const n = priority.order.length;
-  return (id) => {
-    const p = priority.rank(id);
-    return p < n ? p : n + byFollow(id);
-  };
+  const n = priority?.order.length ?? 0;
+  const ranked = n ? (id?: string) => { const p = priority!.rank(id); return p < n ? p : n + byFollow(id); } : byFollow;
+  // The series' main source is its endorsed one (lib/endorse.ts, 2026-11-18): it goes ahead of every order, or a new chapter would be
+  // downloaded from the preferred source and then again from the main one. `main` is passed only while it can be asked (the sweep
+  // leaves out a main source that did not answer this run).
+  if (!main) return ranked;
+  return (id) => (id === main ? -1 : ranked(id));
 }

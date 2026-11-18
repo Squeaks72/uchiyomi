@@ -474,10 +474,15 @@ function ButtonsWrap({ compact, menuOpen, children }: { compact: boolean; menuOp
 /** Shift+click in select mode picks a range; without this the browser also paints a text selection across it. */
 const keepSelection = (e: { shiftKey: boolean; preventDefault: () => void }) => { if (e.shiftKey) e.preventDefault(); };
 
-function ChapterRow({ book, downloaded, sourceNames, primarySource, versions, group, expanded, onToggleCopies, below, onReader, onToggleDownload, onMark, onEdit, onVersions, onCopyPath, onHide, onRefetch, onDelete, fresh, selectable, selected, onToggle, compact, lit, talk, onTalk }: {
+function ChapterRow({ book, downloaded, sourceNames, primarySource, versions, group, thumbKey, expanded, onToggleCopies, below, onReader, onToggleDownload, onMark, onEdit, onVersions, onCopyPath, onHide, onRefetch, onDelete, fresh, selectable, selected, onToggle, compact, lit, talk, onTalk }: {
   book: Book;
   /** The group the file on disk came from (lib/chapterCopies.ts endorsedOrigin): the tag beside the title. Null when nobody said. */
   group?: string | null;
+  /**
+   * Which copy the thumbnail is of -- the endorsed file's source and the copy this account reads. In the thumbnail's URL, so a browser
+   * that kept yesterday's thumbnail asks again once an endorse or a pick changes the copy (the server's own cache follows the file).
+   */
+  thumbKey?: string;
   /**
    * A chapter with two or more copies (held, or listed by a source): `{n} versions` at the row's end folds or unfolds them (`below`),
    * each copy reading its own. The row itself still opens the reader. Undefined for a chapter with one copy.
@@ -577,7 +582,7 @@ function ChapterRow({ book, downloaded, sourceNames, primarySource, versions, gr
         <div className={`relative h-14 w-10 shrink-0${thumbHide(!!compact, !!selectable)} overflow-hidden rounded-lg border ${state === 'read' ? 'border-ink-800 opacity-45' : 'border-ink-700'} ${book.pruned && !downloaded ? 'border-dashed border-ink-600' : ''}`}>
           {/* A tombstone has no file to draw a thumbnail from; asking would be a 404 per row on every visit.
               The dashed empty box is the ghost row's, so "no pages here" reads the same in both places. */}
-          {!(book.pruned && !downloaded) && <Img src={img.bookThumb(book.id)} alt="" className="h-full w-full" />}
+          {!(book.pruned && !downloaded) && <Img src={img.bookThumb(book.id, thumbKey)} alt="" className="h-full w-full" />}
           {state === 'reading' && <span className="absolute inset-x-0 bottom-0 h-0.5 bg-accent" />}
           {selectable && <SelectBubble selected={!!selected} />}
         </div>
@@ -665,25 +670,30 @@ function GroupTag({ name }: { name: string }) {
  * The copies of one chapter the server holds, under its row (lib/chapterCopies.ts): each says its source, the group that released it,
  * its pages, and whether it is the endorsed copy, the colored edition, and the one this account reads. A press reads that copy.
  */
-function CopyRows({ copies, fetching, onRead, menuFor }: {
+function CopyRows({ copies, fetching, onRead, onReadNewTab, menuFor }: {
   copies: ChapterCopy[];
   fetching?: string | null;
   onRead: (c: ChapterCopy) => void;
+  /** A middle click: the copy in the reader in a new tab. */
+  onReadNewTab: (c: ChapterCopy) => void;
   /** The copy's own menu (right-click, a press-and-hold, or its ⋯ key): read, download, endorse, read the series from it, filter, delete. */
   menuFor: (c: ChapterCopy) => MenuItem[];
 }) {
   return (
     <ul data-chapter-copies className="-mt-1 pb-2 ps-3">
-      {copies.map((c) => <CopyRow key={c.sourceId ?? 'endorsed'} copy={c} fetching={fetching} onRead={onRead} items={() => menuFor(c)} />)}
+      {copies.map((c) => <CopyRow key={c.sourceId ?? 'endorsed'} copy={c} fetching={fetching} onRead={onRead} onReadNewTab={onReadNewTab} items={() => menuFor(c)} />)}
     </ul>
   );
 }
 
-function CopyRow({ copy: c, fetching, onRead, items }: { copy: ChapterCopy; fetching?: string | null; onRead: (c: ChapterCopy) => void; items: () => MenuItem[] }) {
+function CopyRow({ copy: c, fetching, onRead, onReadNewTab, items }: { copy: ChapterCopy; fetching?: string | null; onRead: (c: ChapterCopy) => void; onReadNewTab: (c: ChapterCopy) => void; items: () => MenuItem[] }) {
   const menu = useContextMenu(items, { label: tr('Version actions') });
   return (
     <li className="flex min-w-0 items-center gap-1" {...menu.bind}>
       <button type="button" onClick={() => onRead(c)} data-chapter-copy={c.sourceId ?? 'endorsed'} data-held={c.held ? '' : undefined}
+        // Middle click: this copy in the reader, in a new tab. The middle button's press is taken so the browser does not start autoscroll.
+        onMouseDown={(e) => { if (e.button === 1) e.preventDefault(); }}
+        onAuxClick={(e) => { if (e.button === 1 && !fetching) { e.preventDefault(); onReadNewTab(c); } }}
         aria-current={c.reading ? 'true' : undefined} disabled={!!fetching}
         title={c.held ? undefined : tr('Not on the server yet: download it and read')}
         className={`flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-start text-xs transition-colors hover:bg-white/[0.05] disabled:cursor-wait pointer-coarse:py-2.5 ${c.reading ? 'bg-accent/[0.07]' : ''} ${c.held ? '' : 'opacity-70 hover:opacity-100'}`}>
@@ -691,6 +701,8 @@ function CopyRow({ copy: c, fetching, onRead, items }: { copy: ChapterCopy; fetc
         <span dir="auto" className={`min-w-0 truncate font-medium ${c.reading ? 'text-accent' : c.held ? 'text-fog-100' : 'text-fog-300'}`}>{c.sourceName ?? tr('This server')}</span>
         {c.endorsed && <span data-copy-endorsed className="shrink-0 rounded-[4px] border border-accent/50 px-1 text-[10px] font-semibold uppercase tracking-wide text-accent">{tr('Endorsed')}</span>}
         {c.colored && <span data-copy-colored className="shrink-0 rounded-[4px] border border-amber-300/50 px-1 text-[10px] font-semibold uppercase tracking-wide text-amber-300">{tr('Colored')}</span>}
+        {/* The chapter's title as this copy's source lists it: sources name the same chapter differently. */}
+        {c.title && <span dir="auto" data-copy-title className="min-w-0 truncate text-fog-300">{c.title}</span>}
         {c.group && (
           <span className="flex min-w-0 items-center gap-1 text-fog-400">
             <span aria-hidden className="text-fog-600">·</span>
@@ -1259,6 +1271,7 @@ function SeriesInner() {
       c.held
         ? { label: tr('Read this version'), onSelect: () => void readCopy(b, c) }
         : { label: tr('Download and read'), onSelect: () => void readCopy(b, c) },
+      { label: tr('Open in a new tab'), onSelect: () => void readCopy(b, c, { newTab: true }) },
       ...(!c.held && c.sourceId ? [{ label: tr('Download only'), onSelect: () => void readCopy(b, c, { read: false }) }] : []),
       ...(isAdmin && !c.endorsed && followedSource(c.sourceId) && (series?.sources ?? []).some((x) => x.sourceId === c.sourceId)
         ? [{ label: tr('Endorse this version'), divider: true, hook: 'endorse', title: tr('Make this copy the chapter’s file: what everyone reads unless they picked another'), onSelect: () => void endorse(b.number, c.sourceId) }] : []),
@@ -1324,22 +1337,7 @@ function SeriesInner() {
     ...Object.fromEntries((series?.sources ?? []).map((s) => [s.sourceId, s.name])),
   }), [series, allSources]);
   const primarySource = series?.sources?.find((s) => s.primary)?.sourceId;
-  // Chapters (downloaded, not imports) whose file is not the main source's copy though the main source lists it, and no admin endorsed
-  // another: what "Endorse main source" would change (bff lib/endorse.ts endorsePlan, the same rule).
-  const offMain = useMemo(() => {
-    if (!primarySource) return 0;
-    const manual = keptData?.endorsements ?? {};
-    return allBooks.filter((b) => !b.pruned && b.sourceId && b.sourceId !== primarySource && !manual[String(b.number)]
-      && (versionsOf.get(b.number) ?? []).some((c) => c.source === primarySource)).length;
-  }, [allBooks, primarySource, keptData, versionsOf]);
-  const endorseMain = async () => {
-    try {
-      const r = await api<{ started: number; remaining: number }>(`/api/admin/series/${encodeURIComponent(id)}/endorse-main`, { method: 'POST' });
-      const n = r.started + r.remaining;
-      toast(r.started ? (n === 1 ? tr('Downloading the main source’s copy of 1 chapter') : tr('Downloading the main source’s copy of {n} chapters', { n })) : tr('Every chapter is already the main source’s copy'), 'success');
-      if (r.started) invalidateChapters();
-    } catch (e) { toast(actionFailure(e, tr('Could not start')), 'error'); }
-  };
+
   // The copies of each chapter (lib/chapterCopies.ts) -- held, and listed by a source but not here yet -- drawn as an accordion under a
   // chapter with two or more. Folded by default, so the list stays one line a chapter; `{n} versions` at the row's end unfolds it.
   // Per visit, by book id. `fetchingCopy`: the listed copy being downloaded to read, `${bookId}|${sourceId}`.
@@ -1353,7 +1351,13 @@ function SeriesInner() {
   }, versionsOf.get(b.number));
   // Read one copy: this account's pick for the chapter is saved first (PUT /api/books/:id/my-version), so the reader -- and OPDS and
   // Mihon after it -- are served that copy; then the reader opens.
-  const readCopy = async (b: Book, c: ChapterCopy, opts: { read?: boolean } = {}) => {
+  const readCopy = async (b: Book, c: ChapterCopy, opts: { read?: boolean; newTab?: boolean } = {}) => {
+    // A new tab is opened now, on the click itself, so a popup blocker lets it through; it is pointed at the reader once the pick is saved.
+    const tab = opts.newTab ? window.open('about:blank', '_blank') : null;
+    const sent = { to: false };
+    try { await readCopyIn(b, c, opts, tab, sent); } finally { if (tab && !sent.to) tab.close(); }
+  };
+  const readCopyIn = async (b: Book, c: ChapterCopy, opts: { read?: boolean }, tab: Window | null, sent: { to: boolean }) => {
     const kept = (keptData?.held?.[String(b.number)] ?? []).map((v) => v.sourceId);
     // A copy a source lists and the server does not hold: download it beside the endorsed one first (POST versions/fetch), then read it.
     if (!c.held && c.sourceId) {
@@ -1377,6 +1381,7 @@ function SeriesInner() {
         void qc.invalidateQueries({ queryKey: ['kept', id] });
       } catch (e) { toast(actionFailure(e, tr('Could not open this copy')), 'error'); return; }
     }
+    if (tab) { tab.opener = null; tab.location.href = `/reader/?book=${b.id}`; sent.to = true; return; }
     router.push(`/reader/?book=${b.id}`);
   };
   // The supply line's facts. `checkedAt`: the groups route's, or the listing's when the route did not send
@@ -2385,9 +2390,10 @@ function SeriesInner() {
             return (
               <ChapterRow key={b.id} book={b} compact={compact} lit={litCh === b.number} downloaded={downloaded.has(b.id)} sourceNames={sourceNames} primarySource={primarySource}
                 group={endorsedOrigin(b, versionsOf.get(b.number)).group}
+                thumbKey={`${b.sourceId ?? ''}~${all.find((c) => c.reading)?.sourceId ?? ''}`}
                 expanded={accordion ? open : undefined}
                 onToggleCopies={accordion ? () => setOpenCopies((prev) => { const next = new Set(prev); if (next.has(b.id)) next.delete(b.id); else next.add(b.id); return next; }) : undefined}
-                below={accordion ? <CopyRows copies={copies} fetching={fetchingCopy?.startsWith(`${b.id}|`) ? fetchingCopy.slice(b.id.length + 1) : null} onRead={(c) => void readCopy(b, c)} menuFor={(c) => copyMenu(b, c)} /> : undefined}
+                below={accordion ? <CopyRows copies={copies} fetching={fetchingCopy?.startsWith(`${b.id}|`) ? fetchingCopy.slice(b.id.length + 1) : null} onRead={(c) => void readCopy(b, c)} onReadNewTab={(c) => void readCopy(b, c, { newTab: true })} menuFor={(c) => copyMenu(b, c)} /> : undefined}
                 onReader={() => router.push(`/reader/?book=${b.id}`)}
                 onToggleDownload={() => toggleDownload(b.id)}
                 onMark={(mode) => markChapter(b, mode)}
@@ -2511,13 +2517,6 @@ function SeriesInner() {
           <button onClick={markAllRead} className="btn-key">{tr('Mark all read')}</button>
           <button onClick={flipOrder} className="btn-key">{asc ? tr('Oldest') : tr('Newest')}</button>
           {isAdmin && <button onClick={() => setNamesFor(null)} data-fetch-names className="btn-key">{tr('Fetch names')}</button>}
-          {/* Admin: chapters whose file came from another source though the main source has them (bff lib/endorse.ts). */}
-          {isAdmin && offMain > 0 && (
-            <button onClick={() => void endorseMain()} data-endorse-main className="btn-key whitespace-nowrap"
-              title={tr('Make the main source’s copy the endorsed one on every chapter, except chapters you endorsed by hand. The current copies are kept as versions.')}>
-              {tr('Endorse main source · {n}', { n: offMain })}
-            </button>
-          )}
           {/* Hide what is finished: this device's choice, kept (lib/hideRead.ts). Only offered once something is read. */}
           {(hideRead || readCount.read > 0) && (
             <button onClick={() => { const next = !hideRead; setHideRead(next); setHideReadOn(next); }} aria-pressed={hideRead} data-hide-read

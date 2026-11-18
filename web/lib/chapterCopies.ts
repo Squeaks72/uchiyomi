@@ -29,6 +29,8 @@ export interface ChapterCopy {
   sourceName: string | null;
   /** The group that released this copy, as its source said; null when it did not. */
   group: string | null;
+  /** The chapter's title as this copy's source lists it ("Spell 34: The Return"); null when the listing has none. */
+  title: string | null;
   pages: number;
   /** The lib_books file: the copy Uchiyomi endorses. */
   endorsed: boolean;
@@ -83,12 +85,17 @@ export function endorsedOrigin(
  * series' (one the server would never take).
  */
 export function copiesOf(
-  book: { sourceId?: string | null; scanlator?: string | null; media: { pagesCount: number } },
+  book: { sourceId?: string | null; scanlator?: string | null; chapterName?: string | null; media: { pagesCount: number } },
   kept: ReadonlyArray<KeptCopy> | undefined,
   ctx: CopyContext,
   listed?: ReadonlyArray<VersionCopy>,
 ): ChapterCopy[] {
   const origin = endorsedOrigin(book, listed);
+  // A copy's title is its source's listing entry's: the endorsed file's is the copy it was matched to, a kept copy's its source's.
+  const titleBy = new Map<string, string>();
+  for (const c of listed ?? []) { const t = (c.title ?? '').trim(); if (c.source && t && !titleBy.has(c.source)) titleBy.set(c.source, t); }
+  const disk = (listed ?? []).find((c) => c.onDisk);
+  const titleOf = (sid: string | null) => (sid ? titleBy.get(sid) ?? null : null);
   const others = (kept ?? []).filter((k) => k.sourceId && k.sourceId !== origin.sourceId);
   const want = ctx.pick ?? ctx.mySource;
   const servedKept = want && want !== ENDORSED_PICK ? others.find((k) => k.sourceId === want)?.sourceId ?? null : null;
@@ -98,6 +105,7 @@ export function copiesOf(
     held: true,
     sourceName: origin.sourceId ? nameOf(origin.sourceId) : null,
     group: origin.group,
+    title: (disk?.title ?? '').trim() || titleOf(origin.sourceId) || book.chapterName?.trim() || null,
     pages: book.media.pagesCount,
     endorsed: true,
     colored: !!ctx.coloredSource && ctx.coloredSource !== COLORED_SOURCE && origin.sourceId === ctx.coloredSource,
@@ -109,6 +117,7 @@ export function copiesOf(
       held: true,
       sourceName: nameOf(k.sourceId),
       group: cleanGroup(k.scanlator),
+      title: titleOf(k.sourceId),
       pages: k.pages,
       endorsed: false,
       colored: k.sourceId === ctx.coloredSource,
@@ -120,7 +129,7 @@ export function copiesOf(
     if (c.onDisk || !c.source || taken.has(c.source) || c.otherLanguage) continue;
     taken.add(c.source);
     offered.push({
-      sourceId: c.source, held: false, sourceName: c.sourceName || nameOf(c.source), group: groupOfCopy(c), pages: c.pages ?? 0,
+      sourceId: c.source, held: false, sourceName: c.sourceName || nameOf(c.source), group: groupOfCopy(c), title: (c.title ?? '').trim() || null, pages: c.pages ?? 0,
       endorsed: false, colored: c.source === ctx.coloredSource, reading: false,
     });
   }
