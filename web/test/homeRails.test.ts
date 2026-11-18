@@ -130,7 +130,8 @@ test('the Customize sheet: one place for rails, the Lists page still the one pla
   assert.match(src, /q\.next = \{ v \};\s*if \(q\.busy\) return;/, 'a second change starts a second request beside the first');
   assert.match(src, /catch \{\s*q\.next = undefined;\s*setSettings\(\{ homeRails: q\.good \}\);\s*toast\(tr\('Could not save'\), 'error'\);/);
   // Reset stores nothing, the default.
-  assert.match(src, /onClick=\{\(\) => change\(orderRails\(null, HOME_RAIL_KEYS\)\)\} disabled=\{plain\}/);
+  assert.match(src, /const reset = \(\) => \{\s*change\(orderRails\(null, HOME_RAIL_KEYS\)\);/);
+  assert.match(src, /onClick=\{reset\} disabled=\{plain\}/);
 });
 
 test('the account keeps homeRails: the settings PUT stores any key a newer client writes', () => {

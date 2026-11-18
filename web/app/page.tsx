@@ -30,7 +30,7 @@ import { sortValue } from '@/lib/sortValue';
 import { relativeTime } from '@/lib/format';
 import { homeIdsOf, type ListRow } from '@/lib/lists';
 import { useListsAll } from '@/components/SaveListDialog';
-import { HOME_RAIL_KEYS, shownRails, type HomeRailKey } from '@/lib/homeRails';
+import { HOME_RAIL_KEYS, keepReadingCards, keepReadingLimit, shownRails, type HomeRailKey } from '@/lib/homeRails';
 import { HomeCustomize } from '@/components/HomeCustomize';
 import { FavoritesManage } from '@/components/FavoritesSheet';
 import { safeColor } from '@/lib/safeColor';
@@ -105,6 +105,8 @@ export default function HomePage() {
   // three that have a request of their own do not ask it.
   const shown = shownRails(user?.settings?.homeRails, HOME_RAIL_KEYS);
   const on = (k: HomeRailKey) => shown.includes(k);
+  // Keep reading's length is the reader's (Customize, lib/homeRails.ts keepReadingLimit): 8 unless they chose otherwise.
+  const deckLimit = keepReadingLimit(user?.settings?.keepReadingLimit);
   const { data, isLoading } = useQuery({ queryKey: ['home'], queryFn: () => api<HomePayload>('/api/home') });
   const { data: foryou } = useQuery({ queryKey: ['foryou'], queryFn: () => api<{ genres: string[]; content: Series[] }>('/api/foryou'), staleTime: 600000, enabled: on('forYou') });
   const { data: trending } = useQuery({ queryKey: ['trending'], queryFn: () => api<{ content: Series[] }>('/api/trending'), staleTime: 300000, enabled: on('top10') });
@@ -161,7 +163,7 @@ export default function HomePage() {
             <SectionTitle action={<KeepReadingHidden count={data?.keepReadingHidden ?? 0} />}>{tr('Keep reading')}</SectionTitle>
             {(data?.onDeck?.length ?? 0) > 0 && (
               <ScrollRail label={tr('Keep reading')} className={CARD_RAIL}>
-                {data!.onDeck.map((b, i) => <ContinueCard key={b.id} book={b} eager={i < 4} keepReading />)}
+                {keepReadingCards(data!.onDeck, deckLimit).map((b, i) => <ContinueCard key={b.id} book={b} eager={i < 4} keepReading />)}
               </ScrollRail>
             )}
           </section>
