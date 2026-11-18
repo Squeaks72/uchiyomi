@@ -15,7 +15,8 @@ import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { t as tr } from '@/lib/i18n';
 import {
-  HOME_RAILS, HOME_RAIL_KEYS, LISTS_RAIL, moveRail, orderRails, railsSetting, setRailHidden,
+  HOME_RAILS, HOME_RAIL_KEYS, KEEP_READING_CHOICES, KEEP_READING_DEFAULT, LISTS_RAIL, keepReadingLimit, moveRail, orderRails,
+  railsSetting, setRailHidden,
   type HomeRailKey, type HomeRailsSetting, type RailSlot,
 } from '@/lib/homeRails';
 import { homeIdsOf } from '@/lib/lists';
@@ -83,7 +84,24 @@ function CustomizeSheet({ onClose }: { onClose: () => void }) {
     setSettings({ homeRails: v });
     save(v);
   };
-  const plain = railsSetting(slots, HOME_RAIL_KEYS) === null;
+  // Keep reading's length (lib/homeRails.ts keepReadingLimit). One value, so a plain PUT; a refusal puts the old one back.
+  // The default is stored as nothing, like an untouched arrangement.
+  const deckLimit = keepReadingLimit(user?.settings?.keepReadingLimit);
+  const setDeckLimit = (n: number) => {
+    const before = user?.settings?.keepReadingLimit ?? null;
+    const v = n === KEEP_READING_DEFAULT ? null : n;
+    setSettings({ keepReadingLimit: v });
+    api('/api/settings', { method: 'PUT', json: { keepReadingLimit: v } }).catch(() => {
+      setSettings({ keepReadingLimit: before });
+      toast(tr('Could not save'), 'error');
+    });
+  };
+  const plain = railsSetting(slots, HOME_RAIL_KEYS) === null && deckLimit === KEEP_READING_DEFAULT;
+  // Reset puts back the owner's rails and Keep reading's default length.
+  const reset = () => {
+    change(orderRails(null, HOME_RAIL_KEYS));
+    if (deckLimit !== KEEP_READING_DEFAULT) setDeckLimit(KEEP_READING_DEFAULT);
+  };
   // Drag a row to where it belongs; the arrows move it a place at a time.
   const drag = useDragReorder({ count: slots.length, layout: 'column', onMove: (from, to) => change(moveTo(slots, from, to)) });
 
@@ -92,7 +110,7 @@ function CustomizeSheet({ onClose }: { onClose: () => void }) {
       footer={
         // `pb-2`: the sheet's nav clearance is 4 px short of the nav's measured height (the Library's More sheet says so).
         <div className="flex items-center justify-between gap-3 pb-2">
-          <button type="button" onClick={() => change(orderRails(null, HOME_RAIL_KEYS))} disabled={plain} className="btn-key" data-home-rails-reset>
+          <button type="button" onClick={reset} disabled={plain} className="btn-key" data-home-rails-reset>
             {tr('Reset')}
           </button>
           <button type="button" onClick={onClose} className="btn-key btn-key-primary">{tr('Done')}</button>
@@ -104,14 +122,15 @@ function CustomizeSheet({ onClose }: { onClose: () => void }) {
           <RailRow key={s.key} slot={s} first={i === 0} last={i === slots.length - 1} dragProps={drag.item(i)}
             onMove={(by) => change(moveRail(slots, s.key, by))}
             onShow={(show) => change(setRailHidden(slots, s.key, !show))}
-            listNames={s.key === LISTS_RAIL ? listNames : undefined} onClose={onClose} />
+            listNames={s.key === LISTS_RAIL ? listNames : undefined} onClose={onClose}
+            deck={s.key === 'continue' ? { limit: deckLimit, onLimit: setDeckLimit } : undefined} />
         ))}
       </ul>
     </Sheet>
   );
 }
 
-function RailRow({ slot, first, last, onMove, onShow, listNames, onClose, dragProps }: {
+function RailRow({ slot, first, last, onMove, onShow, listNames, onClose, dragProps, deck }: {
   slot: RailSlot;
   /** The row's handle for drag to reorder (lib/dragReorder.ts), spread onto the row. */
   dragProps?: object;
@@ -122,6 +141,8 @@ function RailRow({ slot, first, last, onMove, onShow, listNames, onClose, dragPr
   /** The lists rail only: the names of the lists Home shows, once they are known. */
   listNames?: ReadonlyArray<string | undefined>;
   onClose: () => void;
+  /** Keep reading only: how many cards it draws, and the way to change that. */
+  deck?: { limit: number; onLimit: (n: number) => void };
 }) {
   // The move keys say which rail they move: "Move up" eleven times over says nothing to a screen reader on its own.
   const id = useId();
@@ -132,6 +153,16 @@ function RailRow({ slot, first, last, onMove, onShow, listNames, onClose, dragPr
       className="flex items-center gap-2 border-b border-ink-800/70 py-2.5 last:border-b-0">
       <div className="min-w-0 flex-1">
         <p id={id} className={`text-sm transition-colors ${slot.hidden ? 'text-fog-500' : 'text-fog-100'}`}>{label}</p>
+        {deck && (
+          <label className="mt-1 flex min-w-0 items-center gap-2 text-xs text-fog-500" data-home-keep-reading-limit>
+            {tr('Show up to')}
+            <select value={deck.limit} onChange={(e) => deck.onLimit(Number(e.target.value))} className="field py-1 text-xs">
+              {KEEP_READING_CHOICES.map((n) => (
+                <option key={n} value={n}>{n === 0 ? tr('All') : tr('{n} series', { n })}</option>
+              ))}
+            </select>
+          </label>
+        )}
         {lists && (
           <p className="flex min-w-0 items-center gap-2 text-xs" data-home-rails-lists-line>
             {listNames && (

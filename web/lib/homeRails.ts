@@ -105,3 +105,20 @@ export function railsSetting<K extends string>(slots: ReadonlyArray<RailSlot<K>>
   if (plain) return null;
   return { order: slots.map((s) => s.key), hidden: slots.filter((s) => s.hidden).map((s) => s.key) };
 }
+
+// How many cards Keep reading draws (`settings.keepReadingLimit` on the account). The server answers with up to 60
+// part-read series, newest first; a row that long is a scroll nobody finishes, so Home shows the first few and the reader
+// chooses how many. 0 means every one the server sends. Anything else stored (a number from a newer client, a string, a
+// negative) falls back to the default rather than to "all", so a bad value never brings the long row back.
+export const KEEP_READING_DEFAULT = 8;
+export const KEEP_READING_CHOICES = [4, 6, 8, 12, 20, 0] as const;
+
+/** The reader's Keep reading size: one of KEEP_READING_CHOICES, KEEP_READING_DEFAULT when unset or unreadable. */
+export function keepReadingLimit(saved: unknown): number {
+  return typeof saved === 'number' && (KEEP_READING_CHOICES as ReadonlyArray<number>).includes(saved) ? saved : KEEP_READING_DEFAULT;
+}
+
+/** The cards Keep reading draws: the first `limit` of them, or all when `limit` is 0. */
+export function keepReadingCards<T>(cards: ReadonlyArray<T>, limit: number): T[] {
+  return limit > 0 ? cards.slice(0, limit) : [...cards];
+}
