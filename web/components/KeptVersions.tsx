@@ -20,7 +20,9 @@ interface Kept {
   /** The colored edition when it is its own title on a source: that source's name and the title. */
   coloredRef?: { source: string; sourceName: string; title: string } | null;
   /** Per chapter number: the sources whose copies are kept beside the endorsed one. */
-  held: Record<string, { sourceId: string; pages: number }[]>;
+  held: Record<string, { sourceId: string; pages: number; scanlator?: string | null }[]>;
+  /** This account's pick of one chapter's copy, by book id ('@endorsed': the endorsed file). Absent from an older server. */
+  picks?: Record<string, string>;
   sources: { sourceId: string; name: string; primary: boolean; kept: number }[];
 }
 

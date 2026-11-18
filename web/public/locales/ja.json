@@ -2,7 +2,7 @@
   "_meta": {
     "language": "ja",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 5900
+    "strings": 5905
   },
   "1 check found something": "1 件のチェックで問題を検出",
   "1 member": "メンバー 1 人",
@@ -5903,5 +5903,10 @@
   "Show up to": "表示する数",
   "AniList names no light novel for this series.": "AniList にはこのシリーズのライトノベルがありません。",
   "AniList lookups are off for this series’ library.": "このシリーズのライブラリでは AniList の照会がオフです。",
-  "The novels AniList relates to this series. The series page shows one only when BookOrbit has it.": "AniList がこのシリーズに関連付けている小説です。シリーズページには BookOrbit にあるものだけが表示されます。"
+  "The novels AniList relates to this series. The series page shows one only when BookOrbit has it.": "AniList がこのシリーズに関連付けている小説です。シリーズページには BookOrbit にあるものだけが表示されます。",
+  "Endorsed": "推奨",
+  "This server": "このサーバー",
+  "Could not open this copy": "このコピーを開けませんでした",
+  "Group": "グループ",
+  "All groups": "すべてのグループ"
 }

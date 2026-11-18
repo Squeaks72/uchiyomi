@@ -4,7 +4,8 @@ import { authenticate, requireAdmin, roleOf, userIdOf } from '../lib/auth';
 import { one, q } from '../lib/db';
 import { viewCtxFor, hideAdult, seriesVisible, type ViewCtx } from '../lib/visibility';
 import { seriesSourcesFor } from '../lib/seriesSources';
-import { heldBySeries, mySource, setMySource, COLORED_KEY } from '../lib/bookVersionsRead';
+import { heldBySeries, mySource, setMySource, myBookPicks, setBookPick, COLORED_KEY, ENDORSED_KEY } from '../lib/bookVersionsRead';
+import { visibleBookFile } from '../lib/visibility';
 import { getSource } from '../lib/sources';
 import { keepVersion } from '../lib/bookVersions';
 import { keepAllVersions, keepingNow } from '../lib/versionKeeper';
@@ -28,16 +29,19 @@ export default async function versionRoutes(app: FastifyInstance) {
   app.get('/api/series/:id/kept', async (req, reply) => {
     const { id } = req.params as { id: string };
     if (!(await seriesVisible(id, vc(req)))) return reply.code(404).send({ error: 'not_found' });
-    const [sources, held, mine, flag] = await Promise.all([
+    const [sources, held, mine, picks, flag] = await Promise.all([
       seriesSourcesFor(id),
       heldBySeries(id),
       mySource(userIdOf(req), id),
+      myBookPicks(userIdOf(req), id),
       one<{ keep_versions: boolean; colored_source: string | null; colored_ref_source: string | null; colored_ref_title: string | null }>('SELECT keep_versions, colored_source, colored_ref_source, colored_ref_title FROM lib_series WHERE id = $1', [id]),
     ]);
     const counts = new Map<string, number>();
     for (const l of held.values()) for (const v of l) counts.set(v.sourceId, (counts.get(v.sourceId) ?? 0) + 1);
     return {
       mySource: mine,
+      // This account's pick of one chapter's copy, by book id (ENDORSED_KEY: the endorsed file): the version rows' "Reading".
+      picks,
       keepVersions: flag?.keep_versions === true,
       coloredSource: flag?.colored_source ?? null,
       keeping: keepingNow(id),
@@ -64,6 +68,23 @@ export default async function versionRoutes(app: FastifyInstance) {
     } else if (b.data.sourceId && !(await seriesSourcesFor(id)).some((s) => s.sourceId === b.data.sourceId)) return reply.code(400).send({ error: 'not_followed' });
     await setMySource(userIdOf(req), id, b.data.sourceId);
     return { mySource: b.data.sourceId };
+  });
+
+  /**
+   * This account's copy of one chapter (the series page's version rows): a kept copy's source, ENDORSED_KEY for the endorsed file,
+   * or null to follow the series' choice again. The reader, OPDS and Mihon then serve it (lib/bookVersionsRead.ts chosenVersion).
+   */
+  app.put('/api/books/:id/my-version', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const b = z.object({ sourceId: z.string().min(1).max(200).nullable() }).safeParse(req.body);
+    if (!b.success) return reply.code(400).send({ error: 'bad_request' });
+    if (!(await visibleBookFile(id, vc(req), { canonical: true }))) return reply.code(404).send({ error: 'not_found' });
+    const pick = b.data.sourceId;
+    if (pick && pick !== ENDORSED_KEY && !(await one('SELECT 1 FROM lib_book_versions WHERE book_id = $1 AND source_id = $2', [id, pick]))) {
+      return reply.code(400).send({ error: 'not_kept' });
+    }
+    await setBookPick(userIdOf(req), id, pick);
+    return { sourceId: pick };
   });
 
   /** Admin: keep every followed source's copy of this series' chapters (or stop). Turning it on starts the first pass. */

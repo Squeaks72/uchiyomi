@@ -25,16 +25,41 @@ export interface HeldVersion { sourceId: string; pages: number; scanlator: strin
 export const versionsFolder = (seriesFolder: string, sourceId: string): string =>
   posix.join(seriesFolder, '.versions', sourceId.replace(/[^A-Za-z0-9._-]+/g, '_').slice(0, 80) || 'source');
 
-/** The copy of this chapter the account chose a source for, when that copy is kept; null means "serve the endorsed file". */
+/** The per-chapter pick that means "the endorsed file", even when the account reads the series from another source. */
+export const ENDORSED_KEY = '@endorsed';
+
+/**
+ * The copy of this chapter the account reads, when it is not the endorsed file; null means "serve the endorsed file".
+ * The account's pick for this one chapter (user_book_version, the series page's version rows) wins; without one, its
+ * source for the series (user_series_source). A pick of ENDORSED_KEY, of the endorsed copy's own source, or of a copy no
+ * longer kept finds no lib_book_versions row, so the endorsed file is served.
+ */
 export async function chosenVersion(userId: string | null | undefined, bookId: string): Promise<ChosenVersion | null> {
   if (!userId) return null;
   const r = await one<{ file: string; root: string; pages: number; source_id: string }>(
     `SELECT v.file, v.root, v.pages, v.source_id
-       FROM lib_book_versions v
-       JOIN lib_books b ON b.id = v.book_id
-       JOIN user_series_source u ON u.series_id = b.series_id AND u.user_id = $1 AND u.source_id = v.source_id
-      WHERE v.book_id = $2`, [userId, bookId]).catch(() => null);
+       FROM lib_books b
+       JOIN lib_book_versions v ON v.book_id = b.id
+      WHERE b.id = $2
+        AND v.source_id = COALESCE(
+          (SELECT p.source_id FROM user_book_version p WHERE p.user_id = $1 AND p.book_id = b.id),
+          (SELECT u.source_id FROM user_series_source u WHERE u.user_id = $1 AND u.series_id = b.series_id))`, [userId, bookId]).catch(() => null);
   return r ? { file: r.file, root: r.root, pages: r.pages, sourceId: r.source_id } : null;
+}
+
+/** An account's per-chapter picks across a series: book id -> source id (ENDORSED_KEY for the endorsed file). */
+export async function myBookPicks(userId: string, seriesId: string): Promise<Record<string, string>> {
+  const rows = await q<{ book_id: string; source_id: string }>(
+    `SELECT p.book_id, p.source_id FROM user_book_version p JOIN lib_books b ON b.id = p.book_id
+      WHERE p.user_id = $1 AND b.series_id = $2`, [userId, seriesId]).catch(() => []);
+  return Object.fromEntries(rows.map((r) => [r.book_id, r.source_id]));
+}
+
+/** Set (or clear, with null) the account's pick of one chapter's copy. */
+export async function setBookPick(userId: string, bookId: string, sourceId: string | null): Promise<void> {
+  if (!sourceId) { await q('DELETE FROM user_book_version WHERE user_id = $1 AND book_id = $2', [userId, bookId]); return; }
+  await q(`INSERT INTO user_book_version (user_id, book_id, source_id) VALUES ($1, $2, $3)
+           ON CONFLICT (user_id, book_id) DO UPDATE SET source_id = EXCLUDED.source_id, updated_at = now()`, [userId, bookId, sourceId]);
 }
 
 /** An account's source for a series, or null for none (the endorsed copies). */
