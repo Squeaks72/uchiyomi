@@ -35,7 +35,7 @@ import { useLayer } from '@/lib/layers';
  * Back, Escape and the Chapters button all step out through history, so they cannot disagree. The entries
  * carry Next's own history state, which is what keeps its router treating them as this same page.
  */
-export function PreviewReader({ source, sourceName, sourceId, title, initialNumber, onClose, onAdd, canAdd }: {
+export function PreviewReader({ source, sourceName, sourceId, title, initialNumber, firstOnly, onClose, onAdd, canAdd }: {
   source: string;
   sourceName: string;
   /** The series' id ON THE SOURCE, as search returned it: nothing here has a library id. */
@@ -43,6 +43,11 @@ export function PreviewReader({ source, sourceName, sourceId, title, initialNumb
   title: string;
   /** Open straight on this chapter (the Versions sheet's Read); Back then lands on the list. */
   initialNumber?: number;
+  /**
+   * The add dialog's "Read a chapter first" (2026-11-18): chapter 1 only -- the earliest the source lists when it has no chapter 1 -- with
+   * no chapter list and no Next, so deciding whether to add a series never shows its later chapters' titles or pages.
+   */
+  firstOnly?: boolean;
   onClose: () => void;
   /** The add dialog's own Add, so a decision made here goes through the same checks. */
   onAdd?: () => void;
@@ -122,8 +127,20 @@ export function PreviewReader({ source, sourceName, sourceId, title, initialNumb
     retry: false,
   });
   const chapters = useMemo(() => inOrder(list.data?.content ?? []), [list.data]);
+  const first = useMemo(() => {
+    const ns = chapters.map((c) => c.number).filter((n) => Number.isFinite(n));
+    return ns.includes(1) ? 1 : ns.filter((n) => n >= 1).sort((a, b) => a - b)[0] ?? ns.sort((a, b) => a - b)[0] ?? null;
+  }, [chapters]);
+  // Straight onto the first chapter, at the list's level: Back closes the preview, there is no list to land on.
+  useEffect(() => { if (firstOnly && first !== null && number === null) setNumber(first); }, [firstOnly, first, number]);
 
-  const body = number === null ? (
+  const body = firstOnly && number === null ? (
+    <>
+      {list.isPending && <p className="py-8 text-center text-sm text-fog-500">{tr('Loading…')}</p>}
+      {list.isError && <p className="py-8 text-center text-sm text-rose-400">{msgOf(list.error, tr('That source would not answer.'))}</p>}
+      {list.isSuccess && chapters.length === 0 && <p className="py-8 text-center text-sm text-fog-500">{tr('No chapters listed.')}</p>}
+    </>
+  ) : number === null ? (
     <>
       <p className="mb-3 text-xs text-fog-500">
         {tr('Reading from {source}. Nothing is added to your library and no progress is kept.', { source: sourceName })}
@@ -143,7 +160,7 @@ export function PreviewReader({ source, sourceName, sourceId, title, initialNumb
       </div>
     </>
   ) : (
-    <PreviewPages source={source} sourceId={sourceId} number={number} {...neighbours(chapters, number)} onPick={setNumber} />
+    <PreviewPages source={source} sourceId={sourceId} number={number} {...(firstOnly ? {} : neighbours(chapters, number))} nav={!firstOnly} onPick={setNumber} />
   );
 
   return createPortal(
@@ -183,8 +200,10 @@ export function PreviewReader({ source, sourceName, sourceId, title, initialNumb
  * no per-series reader memory to consult. Each image reserves most of a screen until it has loaded, so the
  * scroll position does not jump as pages arrive, and a page that fails says which one it was.
  */
-function PreviewPages({ source, sourceId, number, prev, next, onPick }: {
+function PreviewPages({ source, sourceId, number, prev, next, onPick, nav = true }: {
   source: string; sourceId: string; number: number; prev?: number; next?: number; onPick: (n: number) => void;
+  /** Previous / Next chapter keys; off for a first-chapter-only preview. */
+  nav?: boolean;
 }) {
   const count = useQuery({
     queryKey: ['preview-count', source, sourceId, number],
@@ -203,12 +222,12 @@ function PreviewPages({ source, sourceId, number, prev, next, onPick }: {
       {Array.from({ length: count.data?.count ?? 0 }, (_, i) => (
         <PreviewPage key={`${number}:${i}`} src={previewPageUrl(source, sourceId, number, i)} index={i} />
       ))}
-      <div className="flex gap-2 px-2 py-6">
+      {nav && <div className="flex gap-2 px-2 py-6">
         <button type="button" disabled={prev === undefined} onClick={() => prev !== undefined && onPick(prev)}
           className="flex-1 rounded-full border border-ink-700 py-2.5 text-sm text-fog-300 disabled:opacity-40">{tr('Previous chapter')}</button>
         <button type="button" disabled={next === undefined} onClick={() => next !== undefined && onPick(next)}
           className="flex-1 rounded-full border border-ink-700 py-2.5 text-sm text-fog-300 disabled:opacity-40">{tr('Next chapter')}</button>
-      </div>
+      </div>}
     </div>
   );
 }
