@@ -157,6 +157,10 @@ export async function notifyAdmins(title: string, body: string, url = '/admin/',
   // install without push" in notifyTargets.int.test.ts never sees it arrive.
   void notifyTargetsOfHealth(title, body).catch(() => {});
   if (!enabled) return;
-  const users = await q<{ id: string }>("SELECT id FROM users WHERE role = 'admin'").catch(() => []);
-  await Promise.all(users.map((u) => sendToUser(u.id, { title, body, url, tag })));
+  // Each admin's own "Health alerts" switches (2026-11-18, app_settings.data.healthPushOff: the tags they turned off -- sources, solver,
+  // extensions, autofix, notify). Only this push: the notification targets above keep their own event choices.
+  const users = await q<{ id: string; off: unknown }>(
+    `SELECT u.id, s.data -> 'healthPushOff' AS off FROM users u LEFT JOIN app_settings s ON s.user_id = u.id WHERE u.role = 'admin'`).catch(() => []);
+  const wants = (off: unknown) => !(Array.isArray(off) && off.includes(tag));
+  await Promise.all(users.filter((u) => wants(u.off)).map((u) => sendToUser(u.id, { title, body, url, tag })));
 }

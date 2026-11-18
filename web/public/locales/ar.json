@@ -2,7 +2,7 @@
   "_meta": {
     "language": "ar",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 6028
+    "strings": 6038
   },
   "1 check found something": "فحص واحد وجد شيئًا",
   "1 member": "عضو واحد",
@@ -6031,5 +6031,15 @@
   "Moved {n} series.": "نُقلت {n} سلاسل.",
   "1 series could not be moved: see above.": "تعذّر نقل سلسلة واحدة: انظر أعلاه.",
   "{n} series could not be moved: see above.": "تعذّر نقل {n} سلاسل: انظر أعلاه.",
-  "Save and close": "احفظ وأغلق"
+  "Save and close": "احفظ وأغلق",
+  "Health alerts on your devices": "تنبيهات الحالة على أجهزتك",
+  "Sources that stop working": "المصادر التي تتوقف عن العمل",
+  "A source failing its checks: searching, listing chapters, or downloading pages.": "مصدر يفشل في فحوصه: البحث أو سرد الفصول أو تنزيل الصفحات.",
+  "Extension problems": "مشكلات الإضافات",
+  "Extensions that could not update, are no longer offered, or whose repositories could not be read.": "إضافات تعذّر تحديثها أو لم تعد متاحة أو تعذّرت قراءة مستودعاتها.",
+  "The solver needing attention, and recovering.": "حين يحتاج الحلّال إلى انتباه، وحين يتعافى.",
+  "Nightly fixes that need you": "إصلاحات ليلية تحتاجك",
+  "The nightly Fix everything left cards only you can decide.": "ترك \"إصلاح الكل\" الليلي بطاقات لا يقرّرها سواك.",
+  "Notification targets switched off": "وجهات إشعار أُوقفت",
+  "A webhook or email target turned off after failing.": "وجهة Webhook أو بريد أُوقفت بعد فشلها."
 }

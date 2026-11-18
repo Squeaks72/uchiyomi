@@ -2,7 +2,7 @@
   "_meta": {
     "language": "de",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 6021
+    "strings": 6031
   },
   "1 check found something": "1 Prüfung hat etwas gefunden",
   "1 member": "1 Mitglied",
@@ -6024,5 +6024,15 @@
   "Moved {n} series.": "{n} Serien verschoben.",
   "1 series could not be moved: see above.": "1 Serie konnte nicht verschoben werden: siehe oben.",
   "{n} series could not be moved: see above.": "{n} Serien konnten nicht verschoben werden: siehe oben.",
-  "Save and close": "Speichern und schließen"
+  "Save and close": "Speichern und schließen",
+  "Health alerts on your devices": "Gesundheitswarnungen auf deinen Geräten",
+  "Sources that stop working": "Quellen, die nicht mehr funktionieren",
+  "A source failing its checks: searching, listing chapters, or downloading pages.": "Eine Quelle besteht ihre Prüfungen nicht: Suchen, Kapitel auflisten oder Seiten laden.",
+  "Extension problems": "Probleme mit Erweiterungen",
+  "Extensions that could not update, are no longer offered, or whose repositories could not be read.": "Erweiterungen, die sich nicht aktualisieren ließen, nicht mehr angeboten werden oder deren Repositories nicht lesbar waren.",
+  "The solver needing attention, and recovering.": "Wenn der Löser Aufmerksamkeit braucht und wenn er sich erholt.",
+  "Nightly fixes that need you": "Nächtliche Korrekturen, die dich brauchen",
+  "The nightly Fix everything left cards only you can decide.": "Das nächtliche „Alles reparieren“ hat Karten hinterlassen, über die nur du entscheiden kannst.",
+  "Notification targets switched off": "Abgeschaltete Benachrichtigungsziele",
+  "A webhook or email target turned off after failing.": "Ein Webhook- oder E-Mail-Ziel wurde nach Fehlern abgeschaltet."
 }
