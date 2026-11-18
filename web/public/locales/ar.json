@@ -2,7 +2,7 @@
   "_meta": {
     "language": "ar",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 5892
+    "strings": 5895
   },
   "1 check found something": "فحص واحد وجد شيئًا",
   "1 member": "عضو واحد",
@@ -5895,5 +5895,8 @@
   "Could not set the colored edition": "تعذّر تعيين النسخة الملوّنة",
   "Use as the colored edition": "استخدمها كنسخة ملوّنة",
   "Pick a title from a source…": "اختر عنوانًا من مصدر…",
-  "Show up to": "اعرض حتى"
+  "Show up to": "اعرض حتى",
+  "AniList names no light novel for this series.": "لا يذكر AniList أي رواية خفيفة لهذه السلسلة.",
+  "AniList lookups are off for this series’ library.": "عمليات البحث في AniList متوقفة لمكتبة هذه السلسلة.",
+  "The novels AniList relates to this series. The series page shows one only when BookOrbit has it.": "الروايات التي يربطها AniList بهذه السلسلة. لا تعرض صفحة السلسلة رواية إلا إذا كانت في BookOrbit."
 }
