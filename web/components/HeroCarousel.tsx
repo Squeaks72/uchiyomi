@@ -92,7 +92,10 @@ export function HeroCarousel({ slides, meta, seconds }: { slides: Series[]; meta
   }, [i, n, slides, wide]);
 
   if (!n || !cur) return null;
-  const go = (d: number) => setI((v) => (v + d + n) % n);
+  // A move made by hand -- a side tapped, a swipe, an arrow, a slide's segment -- stops the automatic turning (2026-11-18): the reader has
+  // taken over. The Pause key then reads Resume, which is how it starts again.
+  const go = (d: number) => { setHeld(true); setI((v) => (v + d + n) % n); };
+  const goTo = (k: number) => { setHeld(true); setI(k); };
   const summary = cur.metadata?.summary || cur.booksMetadata?.summary;
   const m = meta?.[cur.id];
   const ch = m?.chapter ?? null;
@@ -128,8 +131,18 @@ export function HeroCarousel({ slides, meta, seconds }: { slides: Series[]; meta
           keys legible. */}
       <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 z-[1] h-28 bg-linear-to-b from-ink-950/70 to-transparent lg:h-32" />
 
-      <div data-home-hero-content className="relative z-10 flex h-full items-end px-5 pb-12 lg:pb-14 lg:pe-14 lg:ps-[calc(var(--rail-w)+3.5rem)]">
-        <div className="flex w-full min-w-0 items-end gap-7">
+      {/* Tap a side to step (2026-11-18): the start edge back, the end edge on. Under the text and keys (z-10), so those still take their
+          own taps; out of the tab order -- the arrows and segments are the keyboard's way. From lg up they start past the sidebar. */}
+      {n > 1 && <>
+        <button type="button" tabIndex={-1} aria-hidden onClick={() => go(-1)} data-hero-side="prev"
+          className="absolute inset-y-0 start-0 z-[5] w-[22%] cursor-w-resize lg:start-[var(--rail-w)] lg:w-[12%] rtl:cursor-e-resize" />
+        <button type="button" tabIndex={-1} aria-hidden onClick={() => go(1)} data-hero-side="next"
+          className="absolute inset-y-0 end-0 z-[5] w-[22%] cursor-e-resize lg:w-[12%] rtl:cursor-w-resize" />
+      </>}
+
+      {/* Click-through above the text (pointer-events-none), so the side zones below take a tap anywhere but on the text and keys. */}
+      <div data-home-hero-content className="pointer-events-none relative z-10 flex h-full items-end px-5 pb-12 lg:pb-14 lg:pe-14 lg:ps-[calc(var(--rail-w)+3.5rem)]">
+        <div className="pointer-events-auto flex w-full min-w-0 items-end gap-7">
           <Link href={`/series/?id=${cur.id}`} className="hidden h-72 w-48 shrink-0 overflow-hidden rounded-2xl border border-white/10 shadow-lift transition hover:-translate-y-1 lg:block">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={withCoverBust(img.seriesThumb(cur.id, undefined, 800))} alt={cur.metadata?.title || cur.name} className="h-full w-full object-cover" />
@@ -155,7 +168,7 @@ export function HeroCarousel({ slides, meta, seconds }: { slides: Series[]; meta
             {n > 1 && (
               <div className="mt-4 flex items-center gap-1.5" data-hero-slides>
                 {slides.map((_, k) => (
-                  <button key={k} type="button" aria-label={tr('Slide {n}', { n: k + 1 })} aria-current={k === i || undefined} onClick={() => setI(k)}
+                  <button key={k} type="button" aria-label={tr('Slide {n}', { n: k + 1 })} aria-current={k === i || undefined} onClick={() => goTo(k)}
                     className="group grid h-5 place-items-center">
                     <span className={`relative h-1 overflow-hidden rounded-[2px] transition-[width,background-color] duration-300 ${k === i ? 'w-10 bg-white/25' : 'w-5 bg-white/25 group-hover:bg-white/45'}`}>
                       {k === i && (

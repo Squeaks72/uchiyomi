@@ -366,6 +366,12 @@ export default async function catalogRoutes(app: FastifyInstance) {
     for (const k of kinds) take(k, quota);
     for (const k of kinds) take(k, count);
 
+    // The slides in the order this account last read each series, newest first (2026-11-18): the series being read now leads, whatever
+    // kind of slide it is. Never-read series keep their place after them.
+    const lastRead = new Map((await q<{ series_id: string; at: Date }>(
+      'SELECT series_id, max(updated_at) AS at FROM read_progress WHERE user_id = $1 AND series_id = ANY($2) GROUP BY series_id',
+      [uid, out.map((o) => o.id)]).catch(() => [])).map((r) => [r.series_id, new Date(r.at).getTime()]));
+    out.sort((a, b) => (lastRead.get(b.id) ?? -1) - (lastRead.get(a.id) ?? -1));
     const bySeries = await resolveSeries(out.map((o) => o.id));
     const rows = out.filter((o) => bySeries.has(o.id));
     const enriched = await enrichSeries(req, rows.map((o) => bySeries.get(o.id)));
