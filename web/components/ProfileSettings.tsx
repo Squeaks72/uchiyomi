@@ -128,7 +128,7 @@ const THEME_LABEL = { amoled: 'AMOLED', paper: 'Paper', sepia: 'Sepia', gray: 'G
 
 /** The language, how series pages list chapters, the shortcuts, and Incognito. */
 function GeneralPane({ pointer }: { pointer: boolean }) {
-  const { user, setSettings } = useAuth();
+  const { user, setSettings, isAdmin } = useAuth();
   const { lang, setLang } = useT();
   const incognito = useIncognito();
   // Read after mount: localStorage is not there during the static export's render.
@@ -151,6 +151,15 @@ function GeneralPane({ pointer }: { pointer: boolean }) {
     setSettings({ notifyOnlyNext: next });
     try { await api('/api/settings', { method: 'PUT', json: { notifyOnlyNext: next } }); }
     catch (e) { setSettings({ notifyOnlyNext: prev }); throw e; }
+  };
+  // Health alerts on this admin's devices (2026-11-18, bff lib/push.ts notifyAdmins): the kinds turned off, by tag, on the account.
+  const healthOff: string[] = Array.isArray(user?.settings?.healthPushOff) ? user!.settings.healthPushOff : [];
+  const saveHealthPush = (tag: string) => async (on: boolean) => {
+    const prev = healthOff;
+    const next = on ? prev.filter((t) => t !== tag) : [...new Set([...prev, tag])];
+    setSettings({ healthPushOff: next });
+    try { await api('/api/settings', { method: 'PUT', json: { healthPushOff: next } }); }
+    catch (e) { setSettings({ healthPushOff: prev }); throw e; }
   };
   const showAllChapters = showAllChaptersOn(user?.settings);
   const saveShowAllChapters = async (next: boolean) => {
@@ -186,6 +195,20 @@ function GeneralPane({ pointer }: { pointer: boolean }) {
         <SwitchRow id="notify-only-next" label={tr('Only tell me about my next chapter')}
           help={tr('A new chapter notifies you only when it is the one you would read next: you are caught up, with nothing older unread or half read. A chapter upgraded to a preferred group still tells you. Saved to your account.')}
           on={notifyOnlyNext} onChange={saveNotifyOnlyNext} />
+        {/* Admins only: which server-health pushes reach this account's devices. Webhook and email targets keep their own choices. */}
+        {isAdmin && (
+          <RowSubgroup title={tr('Health alerts on your devices')} data-health-push>
+            {([
+              ['sources', tr('Sources that stop working'), tr('A source failing its checks: searching, listing chapters, or downloading pages.')],
+              ['extensions', tr('Extension problems'), tr('Extensions that could not update, are no longer offered, or whose repositories could not be read.')],
+              ['solver', tr('Cloudflare solver'), tr('The solver needing attention, and recovering.')],
+              ['autofix', tr('Nightly fixes that need you'), tr('The nightly Fix everything left cards only you can decide.')],
+              ['notify', tr('Notification targets switched off'), tr('A webhook or email target turned off after failing.')],
+            ] as const).map(([tag, label, help]) => (
+              <SwitchRow key={tag} id={`health-push-${tag}`} label={label} help={help} on={!healthOff.includes(tag)} onChange={saveHealthPush(tag)} />
+            ))}
+          </RowSubgroup>
+        )}
         {/* This device only (lib/typeToSearch.ts says why): single-key shortcuts must be possible to switch off. */}
         {pointer && (
           <SwitchRow id="type-to-search" device label={tr('Type anywhere to search')}

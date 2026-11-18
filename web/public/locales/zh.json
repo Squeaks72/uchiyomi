@@ -2,7 +2,7 @@
   "_meta": {
     "language": "zh",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 6009
+    "strings": 6019
   },
   "1 check found something": "1 项检查发现问题",
   "1 member": "1 位成员",
@@ -6012,5 +6012,15 @@
   "Moved {n} series.": "已移动 {n} 个系列。",
   "1 series could not be moved: see above.": "有 1 个系列无法移动：见上文。",
   "{n} series could not be moved: see above.": "有 {n} 个系列无法移动：见上文。",
-  "Save and close": "保存并关闭"
+  "Save and close": "保存并关闭",
+  "Health alerts on your devices": "设备上的健康提醒",
+  "Sources that stop working": "停止工作的来源",
+  "A source failing its checks: searching, listing chapters, or downloading pages.": "来源检查失败：搜索、列出章节或下载页面。",
+  "Extension problems": "扩展问题",
+  "Extensions that could not update, are no longer offered, or whose repositories could not be read.": "无法更新、不再提供或仓库无法读取的扩展。",
+  "The solver needing attention, and recovering.": "求解器需要处理及恢复时。",
+  "Nightly fixes that need you": "需要你处理的夜间修复",
+  "The nightly Fix everything left cards only you can decide.": "夜间“全部修复”留下了只有你能决定的卡片。",
+  "Notification targets switched off": "已关闭的通知目标",
+  "A webhook or email target turned off after failing.": "失败后被关闭的 Webhook 或邮件目标。"
 }

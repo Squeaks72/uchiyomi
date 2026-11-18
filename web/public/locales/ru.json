@@ -2,7 +2,7 @@
   "_meta": {
     "language": "ru",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 6009
+    "strings": 6019
   },
   "1 check found something": "1 проверка нашла проблему",
   "1 member": "1 участник",
@@ -6012,5 +6012,15 @@
   "Moved {n} series.": "Перемещено серий: {n}.",
   "1 series could not be moved: see above.": "1 серию переместить не удалось: см. выше.",
   "{n} series could not be moved: see above.": "Не удалось переместить серий: {n}, см. выше.",
-  "Save and close": "Сохранить и закрыть"
+  "Save and close": "Сохранить и закрыть",
+  "Health alerts on your devices": "Оповещения о состоянии на ваших устройствах",
+  "Sources that stop working": "Источники, которые перестали работать",
+  "A source failing its checks: searching, listing chapters, or downloading pages.": "Источник не проходит проверки: поиск, список глав или загрузка страниц.",
+  "Extension problems": "Проблемы с расширениями",
+  "Extensions that could not update, are no longer offered, or whose repositories could not be read.": "Расширения, которые не удалось обновить, больше не предлагаются или чьи репозитории не читаются.",
+  "The solver needing attention, and recovering.": "Когда решателю нужно внимание и когда он восстановился.",
+  "Nightly fixes that need you": "Ночные исправления, требующие вас",
+  "The nightly Fix everything left cards only you can decide.": "Ночное «Исправить всё» оставило карточки, решить которые можете только вы.",
+  "Notification targets switched off": "Отключённые получатели уведомлений",
+  "A webhook or email target turned off after failing.": "Webhook или почтовый получатель отключён после сбоев."
 }
