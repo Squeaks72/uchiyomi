@@ -199,5 +199,6 @@ test('the service worker precaches the offline surface', () => {
     assert.ok(s.includes(`'${p}'`), `${p} is not precached, so a cold boot cannot open it`);
   }
   // v12: evict pre-privacy runtime entries before private libraries can be added.
-  assert.match(s, /const VERSION = 'v12'/, 'the cache keys changed shape; VERSION must move with them');
+  // v13: the icons were recoloured on 2026-11-16 without a bump; /icons is cache-first, so devices kept the purple favicon.
+  assert.match(s, /const VERSION = 'v13'/, 'the cache keys changed shape; VERSION must move with them');
 });

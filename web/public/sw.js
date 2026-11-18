@@ -31,7 +31,9 @@
 //   those entries any more, so they would sit there, crowding out a reader's cached re-reads, until a bump.
 // v12: drop legacy implicit caches before private libraries become available. Private responses only
 // belong in the explicit, owner-bound offline store, never the URL-keyed runtime caches.
-const VERSION = 'v12';
+// v13 (2026-11-18): the icons were recoloured from purple to the azure default on 2026-11-16 without a bump, so every device
+// that had the app kept the purple favicon.png cache-first -- the icon a tab fell back to whenever the page's links were reset.
+const VERSION = 'v13';
 const SHELL = `yomi-shell-${VERSION}`;
 const STATIC = `yomi-static-${VERSION}`;
 const IMG = `yomi-img-${VERSION}`;

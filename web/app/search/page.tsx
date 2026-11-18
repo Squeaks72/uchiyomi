@@ -2,10 +2,11 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
+import { chapterHrefs, useChapterHit } from '@/lib/chapterHit';
 import { api } from '@/lib/api';
 import { Page, Series } from '@/lib/types';
 import { SeriesTile } from '@/components/cards';
-import { IcSearch, IcSparkle, IcX } from '@/components/icons';
+import { IcPlay, IcRows, IcSearch, IcSparkle, IcX } from '@/components/icons';
 import Link from 'next/link';
 import { PlaceRow, usePaletteActions } from '@/components/CommandPalette';
 import { openPalette } from '@/lib/palette';
@@ -52,6 +53,8 @@ function SearchInner() {
   const adultOn = useAdultShown();
   const hasAdultLibrary = (useLibraries().data ?? []).some((l) => l.adult);
   const places = useMemo(() => findDestinations(debounced, { admin: isAdmin, desktop: isDesktop(), limit: 8 }), [debounced, isAdmin]);
+  // "dandadan 213" (lib/chapterHit.ts): that chapter, above the series.
+  const { data: chapterHit } = useChapterHit(debounced);
 
   // The palette's actions (Surprise me, Updates, Moments, Server fetching ...), which a phone could not reach: all of them
   // before a query, those the query names after it.
@@ -132,12 +135,34 @@ function SearchInner() {
 
       {debounced.length >= 2 && (
         <div className="px-4 pt-4 lg:px-0">
+          {chapterHit && (() => {
+            const to = chapterHrefs(chapterHit);
+            const title = chapterHit.series.metadata?.title || chapterHit.series.name;
+            return (
+              <section data-search-chapter aria-label={tr('Chapter')} className="mb-5 lg:max-w-xl">
+                <p className="mb-2 text-xs font-medium uppercase tracking-wider text-fog-400">{tr('Chapter')}</p>
+                <div className="card divide-y divide-ink-800/70 overflow-hidden rounded-2xl">
+                  {to.read && (
+                    <Link href={to.read} data-search-chapter-read className="flex items-center gap-3 px-4 py-3 text-sm text-fog-100 hover:bg-white/[0.04]">
+                      <IcPlay aria-hidden width={16} height={16} className="shrink-0 text-accent" />
+                      <span className="min-w-0 truncate">{tr('Read {series} · Ch. {n}', { series: `\u2068${title}\u2069`, n: chapterHit.number })}
+                        {chapterHit.name && <span className="text-fog-500"> · {chapterHit.name}</span>}</span>
+                    </Link>
+                  )}
+                  <Link href={to.show} data-search-chapter-show className="flex items-center gap-3 px-4 py-3 text-sm text-fog-100 hover:bg-white/[0.04]">
+                    <IcRows aria-hidden width={16} height={16} className="shrink-0 text-fog-400" />
+                    <span className="min-w-0 truncate">{tr('Show Ch. {n} in {series}', { series: `\u2068${title}\u2069`, n: chapterHit.number })}</span>
+                  </Link>
+                </div>
+              </section>
+            );
+          })()}
           {isFetching && !data ? (
             <div role="status" aria-busy="true" className="grid grid-cols-3 gap-x-3 gap-y-5 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 xl:grid-cols-8 2xl:grid-cols-9 3xl:grid-cols-10">
               <span className="sr-only">{tr('Searching…')}</span>
               {Array.from({ length: 12 }).map((_, i) => <div key={i} className="skeleton aspect-[2/3] rounded-2xl" />)}
             </div>
-          ) : (data?.content.length ?? 0) === 0 ? (
+          ) : (data?.content.length ?? 0) === 0 && !chapterHit ? (
             <p role="status" className={`${places.length ? 'py-6' : 'py-20'} text-center text-sm text-fog-400`}>
               {tr('No series match “{query}”.', { query: `\u2068${debounced}\u2069` })}
             </p>

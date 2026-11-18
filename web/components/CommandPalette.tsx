@@ -12,7 +12,8 @@ import { triggerRefresh } from '@/lib/refresh';
 import { useToast } from './Toast';
 import { Img, trapTab, BACKDROP_CLS } from './ui';
 import { IcSearch, IcSparkle, IcRefresh, IcBell, IcDownload, IcCloudDownload, IcGrid, IcMoments, IcSettings, IcUser, IcImport, IcBookmark, IcHeart, IcClock, IcPlay, IcRows } from './icons';
-import { parseChapterQuery, titleIsWholeQuery } from '@/lib/chapterQuery';
+import { titleIsWholeQuery } from '@/lib/chapterQuery';
+import { fetchChapterHit, type ChapterHit } from '@/lib/chapterHit';
 import { t as tr } from '@/lib/i18n';
 import { hiddenOnDesktop, isDesktop, DESKTOP_HIDDEN } from '@/lib/desktop';
 import { effectsReduced, useReduceEffects } from '@/lib/effects';
@@ -76,7 +77,7 @@ export function CommandPalette({ open, seed = '', onClose }: { open: boolean; se
   const [q, setQ] = useState('');
   const [results, setResults] = useState<Series[]>([]);
   // "dandadan 213" (lib/chapterQuery.ts): the series the text before the number finds, and that chapter on the server if it is there.
-  const [chapterHit, setChapterHit] = useState<{ series: Series; number: number; bookId: string | null; name: string | null } | null>(null);
+  const [chapterHit, setChapterHit] = useState<ChapterHit | null>(null);
   const [searching, setSearching] = useState(false);
   const [sel, setSel] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -137,16 +138,8 @@ export function CommandPalette({ open, seed = '', onClose }: { open: boolean; se
     setSearching(true);
     const my = ++seq.current;
     const t = setTimeout(async () => {
-      const asked = parseChapterQuery(query);
-      // The chapter: the best series for the text before the number, then that number of it. Beside the normal search, never instead.
-      const chapter = asked ? (async () => {
-        const found = await api<Page<Series>>('/api/series/search', { json: { query: asked.title, size: 1 } }).catch(() => null);
-        const s = found?.content?.[0];
-        if (!s) return null;
-        const r = await api<{ book: { id: string; number: number; chapterName: string | null } | null; listed: boolean }>(
-          `/api/series/${encodeURIComponent(s.id)}/chapter?n=${asked.number}`).catch(() => null);
-        return r && (r.book || r.listed) ? { series: s, number: r.book?.number ?? asked.number, bookId: r.book?.id ?? null, name: r.book?.chapterName ?? null } : null;
-      })() : Promise.resolve(null);
+      // The chapter (lib/chapterHit.ts): beside the normal search, never instead.
+      const chapter = fetchChapterHit(query).catch(() => null);
       try {
         const [r, hit] = await Promise.all([api<Page<Series>>('/api/series/search', { json: { query, size: 12 } }), chapter]);
         if (seq.current === my) { setResults(r.content ?? []); setChapterHit(hit); }

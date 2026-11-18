@@ -28,8 +28,9 @@ test('a title that ends in a number is still a candidate, and the whole-title ch
 
 test('the palette offers the chapter rows and opens them where they belong', () => {
   const src = readFileSync(join(__dirname, '..', 'components/CommandPalette.tsx'), 'utf8');
-  assert.match(src, /parseChapterQuery\(query\)/);
-  assert.match(src, /\/api\/series\/\$\{encodeURIComponent\(s\.id\)\}\/chapter\?n=/);
+  assert.match(src, /fetchChapterHit\(query\)/);
+  assert.match(readFileSync(join(__dirname, '..', 'lib/chapterHit.ts'), 'utf8'), /\/api\/series\/\$\{encodeURIComponent\(s\.id\)\}\/chapter\?n=/);
+  assert.match(readFileSync(join(__dirname, '..', 'app/search/page.tsx'), 'utf8'), /useChapterHit\(debounced\)/, 'the Search page does not find chapters');
   assert.match(src, /go\(`\/reader\/\?book=\$\{r\.bookId\}`\)/);
   assert.match(src, /go\(`\/series\/\?id=\$\{r\.series\.id\}&ch=\$\{r\.number\}`\)/);
 });
