@@ -30,7 +30,6 @@ import { moveTo, useDragReorder } from '@/lib/dragReorder';
 import { cadenceLine, cadenceText } from '@/lib/cadence';
 import { activityStatus, weeksOf } from '@/lib/activity';
 import { namesGroups } from '@/lib/supplyLine';
-import { preferFirst } from '@/lib/sourceOrder';
 import { seriesTypeKey } from '@/lib/seriesTypes';
 import { ActionKeys, ActionStatus, type ActionSpec } from '@/components/ActionList';
 import type { ActionState } from '@/lib/actionState';
@@ -601,7 +600,6 @@ export function SourcesSheet({ id, title: seriesTitle, series, groups, admin, er
   const toast = useToast();
   const qc = useQueryClient();
   const [busy, setBusy] = useState(false);
-  const [savingPref, setSavingPref] = useState(false);
   const isAdmin = !!admin;
   // The other names and Find more sources ask routes of their own, so they follow the account, not the scanlators
   // payload: an admin whose groups route failed still has them.
@@ -814,24 +812,6 @@ export function SourcesSheet({ id, title: seriesTitle, series, groups, admin, er
   };
 
   const serverDefault = admin?.global.patienceDays ?? 2;
-  /** The series' own first choice of source (lib/sourceOrder.ts), or null when the server-wide order applies. */
-  const preferredId: string | null = series?.sourcePrefs?.priority?.[0] ?? null;
-  /** Put one source at the head of this series' order, or clear the series' order (null). From #93. */
-  const setPreferred = async (sourceId: string | null) => {
-    setSavingPref(true);
-    try {
-      await api(`/api/admin/series/${encodeURIComponent(id)}`, {
-        method: 'PATCH', json: { sourcePrefs: sourceId ? { priority: preferFirst(sourceId, sources.map((x) => x.sourceId)) } : null },
-      });
-      onSaved();
-      toast(sourceId
-        ? tr('Preferring {name}', { name: sources.find((x) => x.sourceId === sourceId)?.name ?? '' })
-        : tr('Back to the server default'), 'success');
-    } catch (e) {
-      toast(msgOf(e, tr('Could not save that')), 'error');
-    }
-    setSavingPref(false);
-  };
   const main = sources.find((s) => s.primary) ?? sources[0];
   // A site read by the built-in engine cannot say who translated a chapter; an extension or MangaDex series
   // with no groups yet simply has not been checked (or nothing on it is tagged).
@@ -922,31 +902,8 @@ export function SourcesSheet({ id, title: seriesTitle, series, groups, admin, er
 
           </div>
         )}
-        {/* Which source a NEW chapter is taken from when more than one has it (bff lib/sourcePrefs.ts). It
-            replaces the server-wide source order for this series, and never touches a chapter already here. */}
-        {isAdmin && sources.length > 1 && (
-          <div className="mt-3">
-            <p className="mb-1.5 max-w-prose text-[11px] leading-relaxed text-fog-500">
-              {tr('Preferred source for this series: new chapters come from it when it has them, after your group preferences. Chapters already here stay as they are.')}
-            </p>
-            <div className="flex flex-wrap gap-1.5">
-              {sources.map((x) => (
-                <button key={x.sourceId} type="button" disabled={savingPref}
-                  onClick={() => setPreferred(preferredId === x.sourceId ? null : x.sourceId)}
-                  aria-pressed={preferredId === x.sourceId}
-                  className={`chip text-xs disabled:opacity-50 ${preferredId === x.sourceId ? 'chip-active' : ''}`}>
-                  {x.name}
-                </button>
-              ))}
-              {preferredId && (
-                <button type="button" disabled={savingPref} onClick={() => setPreferred(null)}
-                  className="chip text-xs text-fog-500 disabled:opacity-50">
-                  {tr('Use the server default')}
-                </button>
-              )}
-            </div>
-          </div>
-        )}
+        {/* The per-series preferred source is gone (2026-11-18): the main source is the endorsed one and goes first for a new
+            chapter (bff lib/sourcePrefs.ts rankSources); Make main is how a series changes it. */}
         <KeptVersions id={id} title={seriesTitle} />
         {isAdmin && (
           <div className="mt-2 flex flex-wrap gap-1.5">

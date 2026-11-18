@@ -540,7 +540,7 @@ async function visitSeries(seriesId: string, maxNew: number, opts: UpdateOpts): 
   // explicit source order still wins (rankSources puts it first), and the fallback helper then takes the number from
   // another source anyway, the stale one being in `refusing`.
   const followOrder = [...followed.filter((f) => !stale.has(f.source)), ...followed.filter((f) => stale.has(f.source))].map((f) => f.source);
-  const chooseOpts = { sourceRank: rankSources(priority, followOrder), ...language };
+  const chooseOpts = { sourceRank: rankSources(priority, followOrder, s.source_id && !stale.has(s.source_id) ? s.source_id : null), ...language };
   // Chapter parts that sources number or split differently (lib/partAlias.ts): another site's N.1 / N.6 for the N /
   // N.5 on disk is renumbered onto them (R1), and another site's split of a chapter already here (R2), or of a new one
   // whose first-ranked source splits it another way (R3), is `covered` --

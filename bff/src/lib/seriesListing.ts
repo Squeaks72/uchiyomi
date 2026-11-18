@@ -246,7 +246,7 @@ async function decisionAfterSeries(qq: ListingQuery, seriesId: string, series: D
         ? null
         : storedPrefs(series.scanlator_prefs, { priority: [], blocked: [], patienceDays: null }),
     ),
-    opts: { sourceRank: rankSources(priorityFrom(ownSources.length ? ownSources : globalSources), followOrder), ...language },
+    opts: { sourceRank: rankSources(priorityFrom(ownSources.length ? ownSources : globalSources), followOrder, series.source_id), ...language },
   };
 }
 

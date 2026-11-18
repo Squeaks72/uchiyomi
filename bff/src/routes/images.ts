@@ -855,7 +855,11 @@ export const serveLibBookThumb = async (req: FastifyRequest, reply: FastifyReply
   const file = await bookFileVersioned(id, vc(req));
   if (!file) return reply.code(404).send({ error: 'not_found' });
   const abs = file.abs;
-  return serveImage(req, reply, `lib-bthumb:${id}${file.tag}`, async () => {
+  // Keyed by the file's own version too (2026-11-18): an endorse or a refetch replaces the file on the same row, and a key of the
+  // row alone kept answering the old file's first page -- a thumbnail that matched no copy anyone could open.
+  const st = await stat(abs).catch(() => null);
+  const fv = st ? `:${pageFileVersionOf(st)}` : '';
+  return serveImage(req, reply, `lib-bthumb:${id}${file.tag}${fv}`, async () => {
     const first = await pageOrGone(abs, 0);
     if (!first) throw Object.assign(new Error('empty'), { statusCode: 404 });
     q('UPDATE lib_books SET pages=$1 WHERE id=$2 AND pages<>$1', [first.total, id]).catch(() => {});

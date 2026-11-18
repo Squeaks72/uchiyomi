@@ -92,3 +92,21 @@ test('the series page draws the copies under the chapter, and the bar has the gr
   assert.match(src, /aria-expanded=\{!!expanded\} data-copies-toggle/);
   assert.match(src, /group=\{endorsedOrigin\(b, versionsOf\.get\(b\.number\)\)\.group\}/);
 });
+
+test('each copy carries its own source’s title for the chapter', () => {
+  const b = { sourceId: 'mp', scanlator: null, chapterName: 'From the file', media: { pagesCount: 19 } };
+  const c = copiesOf(b, [{ sourceId: 'viz', pages: 18 }], ctx, [
+    listed('mp', { onDisk: true, title: 'Ch. 34: Lock' }), listed('viz', { title: 'Chapter 34' }), listed('new', { title: '  The Island  ' }), listed('bare'),
+  ]);
+  assert.deepEqual(c.map((x) => [x.sourceId, x.title]), [[null, 'Ch. 34: Lock'], ['viz', 'Chapter 34'], ['bare', null], ['new', 'The Island']]);
+  // No listed title for the file: the chapter name it carries.
+  assert.equal(copiesOf(b, [], ctx, [])[0].title, 'From the file');
+});
+
+test('a version opens in a new tab on a middle click, and the thumbnail URL follows the copy (2026-11-18)', () => {
+  const src = readFileSync(join(__dirname, '..', 'app/series/page.tsx'), 'utf8');
+  assert.match(src, /onAuxClick=\{\(e\) => \{ if \(e\.button === 1 && !fetching\) \{ e\.preventDefault\(\); onReadNewTab\(c\); \} \}\}/);
+  assert.match(src, /img\.bookThumb\(book\.id, thumbKey\)/);
+  assert.match(src, /thumbKey=\{`\$\{b\.sourceId \?\? ''\}~\$\{all\.find\(\(c\) => c\.reading\)\?\.sourceId \?\? ''\}`\}/);
+  assert.doesNotMatch(src, /data-endorse-main/, 'the Endorse main source key is gone');
+});
