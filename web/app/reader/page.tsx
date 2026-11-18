@@ -940,11 +940,19 @@ function ReaderInner() {
     return w;
   };
   /**
+   * The page theme drawn into the pages by the server (2026-11-18, bff lib/pageTone.ts), when every chapter open is this server's own
+   * and online: a CSS filter over the whole column made Firefox re-filter the screen on every frame of a scroll. Otherwise -- a
+   * downloaded chapter, another library's -- the column keeps the filter, as before.
+   */
+  const serverTone = prefs.theme !== 'amoled' && chapters.length > 0 && chapters.every((c) => !c.offline && c.id.startsWith('b_')) ? prefs.theme : null;
+  const themeFilter = serverTone ? undefined : THEME_FILTER[prefs.theme];
+  /**
    * An online page's address: as scanned -- the reader as it always was -- or under Fit pages to my screen, as wide as it
    * is drawn; translated once the server has the page in the reader's language (v0.85.0), the original until then.
    */
   const onlineSrc = (ch: Chapter, i: number): string => {
-    const src = (device.fitPages ? img.pageFit(ch.id, flat[i].number, fitFor(i), flat[i].contentVersion) : img.page(ch.id, flat[i].number, undefined, flat[i].contentVersion));
+    let src = (device.fitPages ? img.pageFit(ch.id, flat[i].number, fitFor(i), flat[i].contentVersion) : img.page(ch.id, flat[i].number, undefined, flat[i].contentVersion));
+    if (serverTone) src += `${src.includes('?') ? '&' : '?'}tone=${serverTone}`;
     return translatedSrc(src, trLang, trOn ? trStatus[ch.id]?.pages[flat[i].number] : undefined);
   };
 
@@ -2487,7 +2495,7 @@ function ReaderInner() {
       {prefs.mode === 'vertical' ? (
         <div ref={scrollRef} data-lenis-prevent style={{ overflowAnchor: 'none' }} onScroll={onScroll} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerEnd} onPointerCancel={onPointerEnd} onDoubleClick={onTrackDoubleClick} {...menuBind}
           className={`h-screen-d overflow-y-auto overscroll-contain ${zoom > 1 ? 'touch-pan-x touch-pan-y overflow-x-auto' : 'touch-pan-y overflow-x-hidden'}`}>
-          <div className="mx-auto" style={{ width: colW || '100%', filter: THEME_FILTER[prefs.theme] }}>
+          <div className="mx-auto" style={{ width: colW || '100%', filter: themeFilter }}>
             <div className="h-2" />
             {flat.map((p, i) => (
               <ReaderPageRow key={p.key} item={p} height={heights[i]} gap={prefs.gap}
@@ -2513,7 +2521,7 @@ function ReaderInner() {
       ) : (
         <div ref={scrollRef} data-lenis-prevent onScroll={onScroll} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerEnd} onPointerCancel={onPointerEnd} onDoubleClick={onTrackDoubleClick} {...menuBind}
           dir={pagedRtl ? 'rtl' : 'ltr'}
-          className={`hide-scrollbar flex h-screen-d snap-x snap-mandatory overflow-y-hidden overscroll-x-contain ${zoom > 1 ? 'touch-none overflow-x-hidden' : prefs.pagedFitWidth ? 'touch-pan-x touch-pan-y overflow-x-auto' : 'touch-pan-x overflow-x-auto'}`} style={{ filter: THEME_FILTER[prefs.theme] }}>
+          className={`hide-scrollbar flex h-screen-d snap-x snap-mandatory overflow-y-hidden overscroll-x-contain ${zoom > 1 ? 'touch-none overflow-x-hidden' : prefs.pagedFitWidth ? 'touch-pan-x touch-pan-y overflow-x-auto' : 'touch-pan-x overflow-x-auto'}`} style={{ filter: themeFilter }}>
           {slides.map((slideIdxs, s) => {
             // One page of the pair brought into frame (#232/#261, `focus`): the slide holds just it, and everything below
             // lays it out as a single page.
