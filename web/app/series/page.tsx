@@ -702,6 +702,8 @@ function CopyRow({ copy: c, fetching, onRead, onReadNewTab, items }: { copy: Cha
         <span dir="auto" className={`min-w-0 truncate font-medium ${c.reading ? 'text-accent' : c.held ? 'text-fog-100' : 'text-fog-300'}`}>{c.sourceName ?? tr('This server')}</span>
         {c.endorsed && <span data-copy-endorsed className="shrink-0 rounded-[4px] border border-accent/50 px-1 text-[10px] font-semibold uppercase tracking-wide text-accent">{tr('Endorsed')}</span>}
         {c.colored && <span data-copy-colored className="shrink-0 rounded-[4px] border border-amber-300/50 px-1 text-[10px] font-semibold uppercase tracking-wide text-amber-300">{tr('Colored')}</span>}
+        {/* The source stamped its banner or logo on this copy's pages (Admin → Health → Source stamps). */}
+        {c.stamped && <span data-copy-stamped title={tr('This source put its banner or logo on the pages')} className="shrink-0 rounded-[4px] border border-fog-500/50 px-1 text-[10px] font-semibold uppercase tracking-wide text-fog-400">{tr('Stamped')}</span>}
         {/* The chapter's title as this copy's source lists it: sources name the same chapter differently. */}
         {c.title && <span dir="auto" data-copy-title className="min-w-0 truncate text-fog-300">{c.title}</span>}
         {c.group && (
@@ -1353,9 +1355,10 @@ function SeriesInner() {
   useEffect(() => { setOpenCopies(new Set()); }, [id]);
   const [fetchingCopy, setFetchingCopy] = useState<string | null>(null);
   const copyNames = useMemo((): Record<string, string> => ({ '@imported': tr('Imported file'), ...Object.fromEntries((keptData?.sources ?? []).map((x) => [x.sourceId, x.name])), ...sourceNames }), [keptData, sourceNames]);
+  const stampedSet = useMemo(() => new Set(keptData?.stampedEndorsed ?? []), [keptData]);
   const copiesFor = (b: Book): ChapterCopy[] => copiesOf(b, keptData?.held?.[String(b.number)], {
     names: copyNames, coloredSource: keptData?.coloredSource ?? null, coloredName: keptData?.coloredRef?.sourceName ?? null,
-    mySource: keptData?.mySource ?? null, pick: keptData?.picks?.[b.id] ?? null,
+    mySource: keptData?.mySource ?? null, pick: keptData?.picks?.[b.id] ?? null, stampedEndorsed: stampedSet.has(b.number),
   }, versionsOf.get(b.number));
   // Read one copy: this account's pick for the chapter is saved first (PUT /api/books/:id/my-version), so the reader -- and OPDS and
   // Mihon after it -- are served that copy; then the reader opens.

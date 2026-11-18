@@ -15,7 +15,7 @@ export const ENDORSED_PICK = '@endorsed';
 /** The reserved source key of a colored edition that is its own title on a source (bff COLORED_KEY). */
 export const COLORED_SOURCE = '@colored';
 
-export interface KeptCopy { sourceId: string; pages: number; scanlator?: string | null }
+export interface KeptCopy { sourceId: string; pages: number; scanlator?: string | null; stamped?: boolean }
 
 export interface ChapterCopy {
   /** The kept or listed copy's source, or null for the endorsed copy. */
@@ -38,6 +38,8 @@ export interface ChapterCopy {
   colored: boolean;
   /** The copy this account is served for the chapter. Exactly one per chapter. */
   reading: boolean;
+  /** Its source stamped a banner or logo on its pages (bff lib/edgeMarks.ts). Unknown, and false, for a copy not on the server. */
+  stamped?: boolean;
 }
 
 export interface CopyContext {
@@ -49,6 +51,8 @@ export interface CopyContext {
   mySource: string | null;
   /** This account's pick for this chapter, if any. */
   pick?: string | null;
+  /** The endorsed file carries a source's stamp. */
+  stampedEndorsed?: boolean;
 }
 
 /**
@@ -110,6 +114,7 @@ export function copiesOf(
     endorsed: true,
     colored: !!ctx.coloredSource && ctx.coloredSource !== COLORED_SOURCE && origin.sourceId === ctx.coloredSource,
     reading: servedKept === null,
+    stamped: !!ctx.stampedEndorsed,
   };
   const rest = others
     .map((k): ChapterCopy => ({
@@ -122,6 +127,7 @@ export function copiesOf(
       endorsed: false,
       colored: k.sourceId === ctx.coloredSource,
       reading: k.sourceId === servedKept,
+      stamped: !!k.stamped,
     }));
   const taken = new Set<string>([...(origin.sourceId ? [origin.sourceId] : []), ...others.map((k) => k.sourceId)]);
   const offered: ChapterCopy[] = [];

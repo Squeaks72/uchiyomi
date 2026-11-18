@@ -1,5 +1,5 @@
 import { q } from './db';
-import { junkHashes } from './pageHash';
+import { carriesIdentity, junkHashes } from './pageHash';
 import { sourceGifPages } from './sourcePageRules';
 
 /**
@@ -16,8 +16,34 @@ import { sourceGifPages } from './sourcePageRules';
  * tap. Reintroduce by applying the heuristic after the override instead of before, and a page you
  * un-flagged is silently re-flagged on the next run of the hash job.
  */
+/**
+ * A source's own inserted pages (2026-11-18): the same page, exactly, among the first or last two pages of chapters of at least
+ * SOURCE_SERIES different series of one source -- "Reading on toonily.com? Join our Discord", "read at mgeko.cc". The one exception
+ * to judging a page by its own series (pageHash.ts junkHashes): a source's advert appears once per series as often as not, so the
+ * series rule can never see it. Kept narrow on purpose: an exact hash, at a chapter's edge only, and in several series of the SAME
+ * source -- a page of the story is not identical across three different series. Cached per source for half an hour.
+ */
+const SOURCE_SERIES = 3;
+const sourceAds = new Map<string, { at: number; hashes: Set<string> }>();
+export async function sourceAdHashes(sourceId: string): Promise<Set<string>> {
+  const hit = sourceAds.get(sourceId);
+  if (hit && Date.now() - hit.at < 30 * 60_000) return hit.hashes;
+  const rows = await q<{ hash: string }>(
+    `SELECT ph.hash FROM page_hashes ph JOIN lib_books b ON b.id = ph.book_id
+      WHERE b.source_id = $1 AND b.pruned_at IS NULL AND ph.hash IS NOT NULL AND ph.page > 0 AND (ph.page <= 2 OR ph.page >= b.pages - 1)
+      GROUP BY ph.hash HAVING count(DISTINCT b.series_id) >= $2`, [sourceId, SOURCE_SERIES]).catch(() => []);
+  const hashes = new Set(rows.map((r) => r.hash).filter((h) => carriesIdentity(h)));
+  sourceAds.set(sourceId, { at: Date.now(), hashes });
+  return hashes;
+}
+
 export async function junkPagesFor(bookId: string): Promise<Set<number>> {
   const bySource = await sourceGifPages(bookId);
+  const me = await q<{ source_id: string | null; pages: number }>('SELECT source_id, pages FROM lib_books WHERE id = $1', [bookId]).catch(() => []);
+  const ads = me[0]?.source_id ? await sourceAdHashes(me[0].source_id) : new Set<string>();
+  // A chapter whose page count is not stored yet (0) has its last page from its own hashed rows.
+  let total = me[0]?.pages ?? 0;
+  const edge = (page: number) => page <= 2 || (total > 4 && page >= total - 1);
   const rows = await q<{ book_id: string; page: number; hash: string | null; override: boolean | null }>(
     `SELECT p.book_id, p.page, p.hash, p.override
        FROM page_hashes p
@@ -26,6 +52,7 @@ export async function junkPagesFor(bookId: string): Promise<Set<number>> {
     [bookId],
   ).catch(() => []);
   if (!rows.length) return bySource;
+  if (!total) total = rows.reduce((m, r) => (r.book_id === bookId && r.page > m ? r.page : m), 0);
 
   const junk = junkHashes(
     rows.filter((r) => r.hash).map((r) => ({ bookId: r.book_id, page: r.page, hash: r.hash as string })),
@@ -40,7 +67,7 @@ export async function junkPagesFor(bookId: string): Promise<Set<number>> {
     if (r.page > 0) pages++;                          // page 0 is the job's "looked at it" mark, not a page
     if (r.override === false) { rescued.add(r.page); continue; } // rescued by hand: never skip
     if (r.override === true) byHand.add(r.page);
-    else if (r.hash && junk.has(r.hash)) byRule.add(r.page);
+    else if (r.hash && (junk.has(r.hash) || (ads.has(r.hash) && edge(r.page)))) byRule.add(r.page);
   }
 
   /**

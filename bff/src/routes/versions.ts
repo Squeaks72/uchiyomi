@@ -38,6 +38,10 @@ export default async function versionRoutes(app: FastifyInstance) {
       one<{ keep_versions: boolean; colored_source: string | null; colored_ref_source: string | null; colored_ref_title: string | null }>('SELECT keep_versions, colored_source, colored_ref_source, colored_ref_title FROM lib_series WHERE id = $1', [id]),
       q<{ number: number; source_id: string }>('SELECT number::float8 AS number, source_id FROM series_chapter_endorse WHERE series_id = $1', [id]).catch(() => []),
     ]);
+    // The chapters whose endorsed file carries a source's stamp (lib/edgeMarks.ts): the endorsed row's tag.
+    const stamped = await q<{ number: number }>(
+      `SELECT DISTINCT b.number::float8 AS number FROM lib_books b JOIN edge_marks e ON e.book_id = b.id AND NOT e.is_version
+        WHERE b.series_id = $1 AND b.pruned_at IS NULL AND e.marks <> '[]'::jsonb`, [id]).catch(() => []);
     const counts = new Map<string, number>();
     for (const l of held.values()) for (const v of l) counts.set(v.sourceId, (counts.get(v.sourceId) ?? 0) + 1);
     return {
@@ -58,6 +62,7 @@ export default async function versionRoutes(app: FastifyInstance) {
       coloredRef: flag?.colored_source === COLORED_KEY && flag.colored_ref_source
         ? { source: flag.colored_ref_source, sourceName: getSource(flag.colored_ref_source)?.name ?? flag.colored_ref_source, title: flag.colored_ref_title ?? '' } : null,
       held: Object.fromEntries([...held.entries()].map(([n, l]) => [String(n), l])),
+      stampedEndorsed: stamped.map((r) => Number(r.number)),
     };
   });
 

@@ -2,7 +2,7 @@
   "_meta": {
     "language": "ru",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 6105
+    "strings": 6107
   },
   "1 check found something": "1 проверка нашла проблему",
   "1 member": "1 участник",
@@ -6108,5 +6108,7 @@
   "Could not endorse": "Не удалось одобрить",
   "Looked at: {n} · waiting: {m}": "Проверено: {n} · в очереди: {m}",
   "Chapters looked at: {n}": "Проверено глав: {n}",
-  "Stamped on {n} of {m}": "С меткой: {n} из {m}"
+  "Stamped on {n} of {m}": "С меткой: {n} из {m}",
+  "Stamped": "С меткой",
+  "This source put its banner or logo on the pages": "Этот источник поставил свой баннер или логотип на страницы"
 }
