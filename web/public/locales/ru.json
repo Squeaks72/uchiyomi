@@ -2,7 +2,7 @@
   "_meta": {
     "language": "ru",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 5949
+    "strings": 5960
   },
   "1 check found something": "1 проверка нашла проблему",
   "1 member": "1 участник",
@@ -5952,5 +5952,16 @@
   "The endorsed copy is downloading": "Одобренная копия загружается",
   "The extra copies in {what} are deleted from the server. Endorsed chapters stay, and so does everyone’s progress. {spared}": "Дополнительные копии в {what} удаляются с сервера. Одобренные главы остаются, как и прогресс всех. {spared}",
   "Version actions": "Действия с версией",
-  "every series": "всех сериях"
+  "every series": "всех сериях",
+  "1 chapter picked": "Выбрана 1 глава",
+  "{n} chapters picked": "Выбрано глав: {n}",
+  "Chapters this source has no copy of are read from the endorsed copy": "Главы без копии из этого источника читаются из одобренной копии",
+  "Endorsed copies": "Одобренные копии",
+  "Every chapter follows your choice again": "Все главы снова следуют вашему выбору",
+  "Reading from": "Чтение из",
+  "The copy this server endorses for each chapter": "Копия, которую этот сервер одобряет для каждой главы",
+  "Put back 1 chapter picked by hand": "Сбросить 1 главу, выбранную вручную",
+  "Put back {n} chapters picked by hand": "Сбросить главы, выбранные вручную: {n}",
+  "{source} · 1 chapter here": "{source} · 1 глава здесь",
+  "{source} · {n} chapters here": "{source} · глав здесь: {n}"
 }

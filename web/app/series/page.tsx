@@ -64,7 +64,7 @@ import { fetchingToast } from '@/lib/jobs';
 import { ALL_GROUPS, copySourceId, groupsOfRow, matchesGroup } from '@/lib/groupFilter';
 import { copiesForGroup, copiesOf, endorsedOrigin, pickFor, type ChapterCopy } from '@/lib/chapterCopies';
 import { SourcesSheet, useCheckNow, useSeriesGroups } from '@/components/SourcesSheet';
-import { ColorToggle, useKept } from '@/components/KeptVersions';
+import { ColorToggle, ReadFromPicker, useKept } from '@/components/KeptVersions';
 import { SourcesExplainer } from '@/components/SourcesExplainer';
 import { SupplyLine } from '@/components/SupplyLine';
 import { ChapterFilterSheet } from '@/components/ChapterFilterSheet';
@@ -2522,6 +2522,8 @@ function SeriesInner() {
               {hideRead ? tr('Show read') : tr('Hide read')}
             </button>
           )}
+          {/* Which source's copies this account reads, always in view, changed or undone from its menu (components/KeptVersions.tsx). */}
+          <ReadFromPicker id={id} names={copyNames} />
           {/* The group filter, on the bar itself (mangadot's way): every group that released a chapter here or on a source, its
               endorsed copy or one kept beside it. The Filter sheet still holds the same choice. */}
           {groupNames.length > 1 && (

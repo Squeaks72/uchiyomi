@@ -2,7 +2,7 @@
   "_meta": {
     "language": "ja",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 5949
+    "strings": 5960
   },
   "1 check found something": "1 件のチェックで問題を検出",
   "1 member": "メンバー 1 人",
@@ -5952,5 +5952,16 @@
   "The endorsed copy is downloading": "推奨版をダウンロードしています",
   "The extra copies in {what} are deleted from the server. Endorsed chapters stay, and so does everyone’s progress. {spared}": "{what} の追加コピーをサーバーから削除します。推奨の章と全員の進捗は残ります。{spared}",
   "Version actions": "版の操作",
-  "every series": "すべてのシリーズ"
+  "every series": "すべてのシリーズ",
+  "1 chapter picked": "1 章を選択",
+  "{n} chapters picked": "{n} 章を選択",
+  "Chapters this source has no copy of are read from the endorsed copy": "このソースに版がない章は推奨版で読みます",
+  "Endorsed copies": "推奨版",
+  "Every chapter follows your choice again": "すべての章が再びあなたの選択に従います",
+  "Reading from": "読むソース",
+  "The copy this server endorses for each chapter": "このサーバーが各章で推奨する版",
+  "Put back 1 chapter picked by hand": "手動で選んだ 1 章を戻す",
+  "Put back {n} chapters picked by hand": "手動で選んだ {n} 章を戻す",
+  "{source} · 1 chapter here": "{source} · ここに 1 章",
+  "{source} · {n} chapters here": "{source} · ここに {n} 章"
 }
