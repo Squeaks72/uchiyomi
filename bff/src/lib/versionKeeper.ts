@@ -8,7 +8,7 @@
 import { q, one } from './db';
 import { runtime } from './runtime';
 import { seriesSourcesFor } from './seriesSources';
-import { keepVersion } from './bookVersions';
+import { keepVersion, refreshColoredListing } from './bookVersions';
 import { COLORED_KEY } from './bookVersionsRead';
 
 type Log = { info: (m: string) => void; warn: (m: string) => void };
@@ -66,6 +66,12 @@ export function scheduleVersionKeeper(log: Log, delayMs = 10 * 60_000, everyMs =
   const tick = async () => {
     if (!runtime.stopping) {
       const ids = await q<{ id: string }>('SELECT id FROM lib_series WHERE keep_versions OR colored_source IS NOT NULL').catch(() => []);
+      // A colored edition's own chapter list, read again every six hours (lib/bookVersions.ts refreshColoredListing).
+      for (const { id } of await q<{ id: string }>(
+        `SELECT id FROM lib_series WHERE colored_source = '@colored' AND (colored_ref_listed_at IS NULL OR colored_ref_listed_at < now() - interval '6 hours')`).catch(() => [])) {
+        if (runtime.stopping) break;
+        await refreshColoredListing(id).catch(() => null);
+      }
       for (const { id } of ids) {
         if (runtime.stopping) break;
         const r = await keepAllVersions(id, log);
