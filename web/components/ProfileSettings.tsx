@@ -129,7 +129,7 @@ function useHoverPointer(): boolean {
   return on;
 }
 
-const THEME_LABEL = { amoled: 'AMOLED', paper: 'Paper', sepia: 'Sepia', gray: 'Gray' } as const;
+const THEME_LABEL = { amoled: 'Original', paper: 'Paper', sepia: 'Sepia', gray: 'Gray' } as const;
 
 /* ============================== Notifications ============================== */
 

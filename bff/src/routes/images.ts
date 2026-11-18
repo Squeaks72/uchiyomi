@@ -17,6 +17,7 @@ import { automaticAniListAllowed, withAniListMutation } from '../lib/anilistPoli
 import { linkSeriesWith } from '../lib/trackers';
 import { LIBRARY_ROOT, cbzPageAt } from '../lib/library';
 import { trimFor, trimPage } from '../lib/edgeMarks';
+import { tonePage, toneOf } from '../lib/pageTone';
 import { cfSession, withSolverDeadline } from '../lib/sources/flaresolverr';
 import { solverMayVisit } from '../lib/sources/imageHosts';
 import { getSource, isSwAdapterId } from '../lib/sources';
@@ -894,6 +895,8 @@ export const serveLibBookPage = async (req: FastifyRequest, reply: FastifyReply,
   // A strip the source stamped on every page, cut off when the admin turned that on for the source (lib/edgeMarks.ts). Not on a
   // translated page: its stored regions are placed on the page as it is in the file.
   const trim = tl ? null : await trimFor(abs, fileStat.mtimeMs);
+  // The reader's page theme, drawn in here rather than laid over the column as a CSS filter (lib/pageTone.ts).
+  const tone = toneOf((req.query as Record<string, unknown>).tone);
   const currentPage = async () => {
     const page = await pageOrGone(abs, pageNo - 1);
     if (await pageFileVersion(abs) !== fileVersion)
@@ -902,14 +905,18 @@ export const serveLibBookPage = async (req: FastifyRequest, reply: FastifyReply,
       const cut = await trimPage(page.bytes, trim.marks).catch(() => null);
       if (cut) return { ...page, bytes: cut.buffer, name: page.name.replace(/\.[^.]+$/, '') + '.webp' };
     }
+    if (page && tone) {
+      const toned = await tonePage(page.bytes, tone).catch(() => null);
+      if (toned) return { ...page, bytes: toned.buffer, name: page.name.replace(/\.[^.]+$/, '') + '.webp' };
+    }
     return page;
   };
-  const cacheVersion = fileVersion + (trim?.tag ?? '');
+  const cacheVersion = fileVersion + (trim?.tag ?? '') + (tone ? `:tone-${tone}` : '');
   if (tl && !w) {
     const engine = (await translateOn()) ? await engineKey() : null;
     const done = engine ? await doneTranslation(id, pageNo, tl, engine) : null;
     if (done && engine) {
-      return serveImage(req, reply, `lib-page:${id}:${pageNo}:tl${tl}:${engine}:r${RENDER_VERSION}:${done.at}${fit ? `:fit${fit}` : ''}:${fileVersion}`, async () => {
+      return serveImage(req, reply, `lib-page:${id}:${pageNo}:tl${tl}:${engine}:r${RENDER_VERSION}:${done.at}${fit ? `:fit${fit}` : ''}:${cacheVersion}`, async () => {
         const page = await currentPage();
         if (!page) throw Object.assign(new Error('no page'), { statusCode: 404 });
         const drawn = await drawPage(page.bytes, done.regions, tl);
