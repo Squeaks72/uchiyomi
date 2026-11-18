@@ -15,6 +15,7 @@
 // Kind names (Home Assistant, ntfy, Discord, and "Webhook", the name of the thing on every service that
 // offers one) are proper nouns and are not translated.
 import { useState } from 'react';
+import { useAuth } from '@/lib/auth';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/lib/api';
 import { relativeTime } from '@/lib/format';
@@ -86,25 +87,32 @@ function reasonText(code: string | null | undefined): string {
   }
 }
 
-export function NotificationsSection() {
+/**
+ * The notification targets (2026-11-18): `mine` is Profile -> Notifications -- the person's own targets (`/api/me/notify-targets`), never
+ * an email account. Without it, Admin -> Settings: the email provider and the server-wide targets only; a person's own targets live in
+ * their profile.
+ */
+export function NotificationsSection({ mine = false }: { mine?: boolean } = {}) {
   const qc = useQueryClient();
+  const base = mine ? '/api/me/notify-targets' : '/api/admin/notify-targets';
+  const key = mine ? 'my-notify-targets' : 'admin-notify-targets';
   const { data } = useQuery({
-    queryKey: ['admin-notify-targets'],
-    queryFn: () => api<{ targets: NotifyTarget[] }>('/api/admin/notify-targets'),
+    queryKey: [key],
+    queryFn: () => api<{ targets: NotifyTarget[] }>(base),
   });
-  const refresh = () => qc.invalidateQueries({ queryKey: ['admin-notify-targets'] });
+  const refresh = () => qc.invalidateQueries({ queryKey: [key] });
   // `null` closed, `'new'` the add dialog, a target the edit dialog for it.
   const [editing, setEditing] = useState<NotifyTarget | 'new' | null>(null);
   const [deleting, setDeleting] = useState<NotifyTarget | null>(null);
   const [busy, setBusy] = useState(false);
   const toast = useToast();
-  const targets = data?.targets ?? [];
+  const targets = (data?.targets ?? []).filter((t) => mine || !t.userId);
 
   const remove = async () => {
     if (!deleting) return;
     setBusy(true);
     try {
-      await api(`/api/admin/notify-targets/${deleting.id}`, { method: 'DELETE' });
+      await api(`${base}/${deleting.id}`, { method: 'DELETE' });
       toast(tr('Deleted {name}', { name: deleting.name }), 'success');
       setDeleting(null);
       void refresh();
@@ -114,9 +122,12 @@ export function NotificationsSection() {
 
   return (
     <>
+      {!mine && <ReaderEmailRow />}
       {/* One group of targets (v0.86.0) under the category's own title, Add above its end, and the note about them under it. */}
-      <RowGroup id="notify-targets"
-        description={tr('Send new chapters, whole volumes and server problems somewhere besides this browser: a webhook, Home Assistant, ntfy, Discord or email. One message per library update, not one per chapter.')}
+      <RowGroup id={mine ? 'my-notify-targets' : 'notify-targets'} title={mine ? tr('Other places to tell you') : tr('Server-wide targets')}
+        description={mine
+          ? tr('Send your new chapters and whole volumes somewhere else too: a webhook, Home Assistant, ntfy or Discord. One message per library update.')
+          : tr('Targets for the whole server, such as a channel for server problems. Each person sets up their own targets in Profile → Notifications.')}
         action={(
           <button type="button" onClick={() => setEditing('new')} className="btn-key">
             <IcPlus width={14} height={14} />{tr('Add')}
@@ -125,15 +136,15 @@ export function NotificationsSection() {
         {!data ? (
           <p className="px-4 py-3 text-sm text-fog-500">{tr('Loading…')}</p>
         ) : targets.length ? (
-          targets.map((t) => <TargetRow key={t.id} t={t} onEdit={() => setEditing(t)} onDelete={() => setDeleting(t)} refresh={refresh} />)
+          targets.map((t) => <TargetRow key={t.id} t={t} base={base} onEdit={() => setEditing(t)} onDelete={() => setDeleting(t)} refresh={refresh} />)
         ) : (
           <p className="max-w-prose px-4 py-3 text-[11px] leading-relaxed text-fog-500">
-            {tr('Nothing is set up yet. Add a target to hear about new chapters on your phone, in Home Assistant or in a Discord channel.')}
+            {mine ? tr('Nothing here yet. Add one to hear about your new chapters in Home Assistant, ntfy or a Discord channel.') : tr('No server-wide targets.')}
           </p>
         )}
       </RowGroup>
       {editing && (
-        <TargetDialog target={editing === 'new' ? null : editing}
+        <TargetDialog target={editing === 'new' ? null : editing} base={base} mine={mine}
           onClose={() => setEditing(null)}
           onSaved={() => { setEditing(null); void refresh(); }} />
       )}
@@ -159,8 +170,8 @@ export function NotificationsSection() {
  * `Row`: the actions sit on a line of their own under the text, so at 390 px three buttons and a switch do
  * not squeeze the name to one word per line.
  */
-function TargetRow({ t, onEdit, onDelete, refresh }: {
-  t: NotifyTarget; onEdit: () => void; onDelete: () => void; refresh: () => Promise<unknown>;
+function TargetRow({ t, base, onEdit, onDelete, refresh }: {
+  t: NotifyTarget; base: string; onEdit: () => void; onDelete: () => void; refresh: () => Promise<unknown>;
 }) {
   const toast = useToast();
   const pad = useRowPad();
@@ -173,7 +184,7 @@ function TargetRow({ t, onEdit, onDelete, refresh }: {
   const flip = async (next: boolean) => {
     setLocal(next);
     const ok = await run(async () => {
-      await api(`/api/admin/notify-targets/${t.id}`, { method: 'PATCH', json: { enabled: next } });
+      await api(`${base}/${t.id}`, { method: 'PATCH', json: { enabled: next } });
       await refresh();
     });
     if (!ok) setLocal(t.enabled);
@@ -182,7 +193,7 @@ function TargetRow({ t, onEdit, onDelete, refresh }: {
   const test = async () => {
     setTesting(true);
     try {
-      const r = await api<{ ok: boolean; status: number | null; reason: string }>(`/api/admin/notify-targets/${t.id}/test`, { method: 'POST' });
+      const r = await api<{ ok: boolean; status: number | null; reason: string }>(`${base}/${t.id}/test`, { method: 'POST' });
       toast(r.ok ? tr('Test sent to {name}', { name: t.name }) : reasonText(r.reason), r.ok ? 'success' : 'error');
     } catch (e) {
       toast(e instanceof ApiError && e.status === 429 ? tr('Five tests a minute at most — try again shortly') : msgOf(e, tr('Could not send the test')), 'error');
@@ -242,7 +253,8 @@ function TargetRow({ t, onEdit, onDelete, refresh }: {
  * one exception is the Home Assistant service name: it is not a secret, the server returns it, and it is
  * shown so it can be corrected.
  */
-function TargetDialog({ target, onClose, onSaved }: { target: NotifyTarget | null; onClose: () => void; onSaved: () => void }) {
+function TargetDialog({ target, base, mine, onClose, onSaved }: { target: NotifyTarget | null; base: string; mine: boolean; onClose: () => void; onSaved: () => void }) {
+  const { isAdmin } = useAuth();
   const toast = useToast();
   const editing = !!target;
   const [kind, setKind] = useState<Kind>(target?.kind ?? 'webhook');
@@ -256,7 +268,7 @@ function TargetDialog({ target, onClose, onSaved }: { target: NotifyTarget | nul
   const [username, setUsername] = useState('');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
-  const [events, setEvents] = useState<NotifyEvent[]>(target?.events ?? ['new_chapters', 'health']);
+  const [events, setEvents] = useState<NotifyEvent[]>(target?.events ?? (mine ? ['new_chapters'] : ['health']));
   const [template, setTemplate] = useState(target?.template ?? '');
   const [userId, setUserId] = useState(target?.userId ?? '');
   const [includeAdult, setIncludeAdult] = useState(target?.includeAdult ?? false);
@@ -266,6 +278,7 @@ function TargetDialog({ target, onClose, onSaved }: { target: NotifyTarget | nul
   const { data: users } = useQuery({
     queryKey: ['admin-users'],
     queryFn: () => api<{ content: Array<{ id: string; username: string; display_name?: string | null }> }>('/api/admin/users'),
+    enabled: !mine,
   });
 
   const toggle = (e: NotifyEvent, on: boolean) => setEvents((cur) => (on ? [...new Set([...cur, e])] : cur.filter((x) => x !== e)));
@@ -315,10 +328,10 @@ function TargetDialog({ target, onClose, onSaved }: { target: NotifyTarget | nul
       if (to.trim()) creds.to = to.trim();
     }
     if (kind === 'home_assistant' && service.trim() && service.trim() !== (target?.service ?? '')) creds.service = service.trim();
-    const common = { name: name.trim(), events, template: template.trim() || null, userId: userId || null, includeAdult };
+    const common = { name: name.trim(), events, template: template.trim() || null, includeAdult };
     try {
-      if (target) await api(`/api/admin/notify-targets/${target.id}`, { method: 'PATCH', json: { ...common, ...creds } });
-      else await api('/api/admin/notify-targets', { json: { kind, ...common, ...creds } });
+      if (target) await api(`${base}/${target.id}`, { method: 'PATCH', json: { ...common, ...creds } });
+      else await api(base, { json: { kind, ...common, ...creds } });
       toast(editing ? tr('Saved') : tr('Added {name} — send it a test from its row', { name: name.trim() }), 'success');
       onSaved();
     } catch (e) {
@@ -334,7 +347,7 @@ function TargetDialog({ target, onClose, onSaved }: { target: NotifyTarget | nul
       <div className="space-y-3 text-sm">
         {!editing && (
           <Segmented label={tr('Kind')} value={kind} onChange={(k) => { setKind(k); setError(''); }}
-            options={KINDS.map((k) => ({ value: k, label: KIND_LABEL[k] }))} />
+            options={KINDS.filter((k) => !mine || k !== 'email').map((k) => ({ value: k, label: KIND_LABEL[k] }))} />
         )}
         <Field label={tr('Name')}>
           <input value={name} onChange={(e) => setName(e.target.value)} maxLength={80} autoComplete="off"
@@ -418,10 +431,10 @@ function TargetDialog({ target, onClose, onSaved }: { target: NotifyTarget | nul
             <input type="checkbox" checked={events.includes('new_chapters')} onChange={(e) => toggle('new_chapters', e.target.checked)} className="mt-0.5 shrink-0 accent-accent" />
             {tr('New chapters — one message after each library update')}
           </label>
-          <label className="mt-1 flex items-start gap-2 text-xs text-fog-300">
+          {(!mine || isAdmin) && <label className="mt-1 flex items-start gap-2 text-xs text-fog-300">
             <input type="checkbox" checked={events.includes('health')} onChange={(e) => toggle('health', e.target.checked)} className="mt-0.5 shrink-0 accent-accent" />
             {tr('Server problems — a source refusing this server, the Cloudflare solver, extensions')}
-          </label>
+          </label>}
           <label className="mt-1 flex items-start gap-2 text-xs text-fog-300">
             <input type="checkbox" checked={events.includes('volume_complete')} onChange={(e) => toggle('volume_complete', e.target.checked)} className="mt-0.5 shrink-0 accent-accent" />
             {tr('Whole volumes — when every chapter of a volume or arc is here, for series someone waits on by volume')}
@@ -429,14 +442,7 @@ function TargetDialog({ target, onClose, onSaved }: { target: NotifyTarget | nul
           {!events.length && <p className="mt-1 text-[11px] text-rose-300">{tr('Pick at least one.')}</p>}
         </fieldset>
 
-        <Field label={tr('Who it is for')} help={tr('A person’s target hears only about their own favourites. Server problems reach it only if they are an admin.')}>
-          <select value={userId} onChange={(e) => setUserId(e.target.value)} className="field">
-            <option value="">{tr('The whole server')}</option>
-            {(users?.content ?? []).map((u) => (
-              <option key={u.id} value={u.id}>{tr('Only {name}’s favourites', { name: u.display_name || u.username })}</option>
-            ))}
-          </select>
-        </Field>
+        {/* "Who it is for" is gone (2026-11-18): a person's targets are their own, in Profile -> Notifications. */}
 
         {/* The 18+ opt-in, off by default, like an OPDS link's and an API token's: the web app's Show 18+ is a
             per-browser session cookie the server never sees, so a target carries its own choice. It only ever
@@ -513,5 +519,39 @@ function TokenField({ label, help, value, onChange, editing, hasToken, retype, r
         </label>
       )}
     </div>
+  );
+}
+
+/**
+ * Readers' own email (2026-11-18, bff routes/readerEmail.ts): which email target sends to the addresses readers confirm in their profile.
+ * Its own recipients are not used for this; only its account.
+ */
+function ReaderEmailRow() {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const { data } = useQuery({ queryKey: ['admin-reader-email'], queryFn: () => api<{ targetId: string | null; targets: { id: string; name: string; enabled: boolean }[]; readers: number }>('/api/admin/reader-email') });
+  if (!data) return null;
+  const pick = async (targetId: string | null) => {
+    try {
+      await api('/api/admin/reader-email', { method: 'PUT', json: { targetId } });
+      void qc.invalidateQueries({ queryKey: ['admin-reader-email'] });
+      toast(tr('Saved'), 'success');
+    } catch (e) { toast(msgOf(e, tr('Could not save')), 'error'); }
+  };
+  return (
+    <RowGroup id="reader-email" title={tr('Email provider')}
+      description={tr('The email account that sends everyone’s mail. Each person gives and confirms their own address in Profile → Notifications.')}>
+      <div className="px-4 py-3">
+        {data.targets.length === 0 ? (
+          <p className="text-[11px] text-fog-500">{tr('Add an Email target below with your mail account; then choose it here.')}</p>
+        ) : (
+          <select value={data.targetId ?? ''} onChange={(e) => void pick(e.target.value || null)} className="field max-w-sm" aria-label={tr('Email provider')} data-reader-email-target>
+            <option value="">{tr('None — no one can get email')}</option>
+            {data.targets.map((t) => <option key={t.id} value={t.id}>{t.name}{t.enabled ? '' : ` (${tr('off')})`}</option>)}
+          </select>
+        )}
+        {data.targetId && <p className="mt-1 text-[11px] text-fog-500">{data.readers === 1 ? tr('1 reader has a confirmed address.') : tr('{n} readers have a confirmed address.', { n: data.readers })}</p>}
+      </div>
+    </RowGroup>
   );
 }

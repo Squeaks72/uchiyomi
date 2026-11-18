@@ -2527,6 +2527,15 @@ CREATE TABLE IF NOT EXISTS series_requests (
   resolved_at timestamptz
 );
 CREATE INDEX IF NOT EXISTS series_requests_open ON series_requests (status, title_key);
+-- Readers' own email (2026-11-18, lib/notify/readerEmail.ts): an address each reader gives in Profile -> Notifications, confirmed by a code sent
+-- to it, and the admin's email target that sends to all of them (server_settings.reader_email_target).
+ALTER TABLE users ADD COLUMN IF NOT EXISTS notify_email text;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS notify_email_verified_at timestamptz;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS notify_email_code text;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS notify_email_code_at timestamptz;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS notify_email_sends int NOT NULL DEFAULT 0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS notify_email_on boolean NOT NULL DEFAULT true;
+ALTER TABLE server_settings ADD COLUMN IF NOT EXISTS reader_email_target uuid REFERENCES notify_targets(id) ON DELETE SET NULL;
 -- What a library is for (Admin -> Libraries' Type): an Automatic add files a series into the first library of its kind (lib/libraryKind.ts).
 -- 'manga', 'manga_adult', 'webtoon' (manhwa, manhua, webtoon), 'webtoon_adult'; null = any.
 ALTER TABLE libraries ADD COLUMN IF NOT EXISTS kind text;

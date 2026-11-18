@@ -61,7 +61,7 @@ test('TEST SENDS THE SAVED TARGET\'S ID AND NOTHING ELSE', () => {
   // The server tests only saved targets; a body with an address is the shape of a port scanner and must not
   // be something the panel ever learns to send. Reintroduce by adding `json: { url }` to the Test call.
   const src = code(read(PANEL));
-  const path = '/api/admin/notify-targets/${t.id}/test`';
+  const path = '${base}/${t.id}/test`'; // 2026-11-18: the panel serves both mounts (admin and Profile -> Notifications)
   assert.equal(src.split(path).length, 2, 'the Test call is not where this test looks (or there are two)');
   const at = src.indexOf(path) + path.length;
   assert.equal(src.slice(at, src.indexOf(');', at) + 1).trim(), ", { method: 'POST' })", 'the Test call sends a body');

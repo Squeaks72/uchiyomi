@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/lib/api';
+import { msgOf } from '@/components/ConfirmDialog';
+import { NotificationsSection } from '@/components/AdminNotifications';
 import { useAuth } from '@/lib/auth';
 import { requestPersist, storageEstimate } from '@/lib/downloads';
 import { deviceId } from '@/lib/device';
@@ -169,6 +171,8 @@ function NotificationsPane() {
   return (
     <>
       {!isDesktop() && <DeviceSection only="push" />}
+      <EmailSection />
+      <NotificationsSection mine />
       <RowGroup id="new-chapters" title={tr('New chapters')}>
         <SwitchRow id="notify-only-next" label={tr('Only tell me about my next chapter')}
           help={tr('A new chapter notifies you only when it is the one you would read next: you are caught up, with nothing older unread or half read. A chapter upgraded to a preferred group still tells you. Saved to your account.')}
@@ -204,11 +208,79 @@ function NotificationsPane() {
       )}
       {isAdmin && (
         <RowGroup id="notify-targets" title={tr('Server-wide')}>
-          <LinkRow label={tr('Webhooks and email')} help={tr('Send new chapters and health alerts to Discord, Home Assistant, email and more. Admin → Settings → Notifications.')}
+          <LinkRow label={tr('Email provider and server-wide targets')} help={tr('The mail account everyone’s email is sent from, and targets for the whole server. Admin → Settings → Notifications.')}
             href="/admin/?tab=settings&section=notifications" />
         </RowGroup>
       )}
     </>
+  );
+}
+
+/**
+ * Email (2026-11-18, bff routes/readerEmail.ts): the reader's own address, confirmed with a code sent to it, then a test and an on/off. The
+ * mail goes through the account the admin chose for readers; with none chosen the row says so.
+ */
+function EmailSection() {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const me = useQuery({ queryKey: ['me-email'], queryFn: () => api<{ address: string | null; verified: boolean; on: boolean; pending: boolean; available: boolean }>('/api/me/email'), staleTime: 30_000 });
+  const [address, setAddress] = useState('');
+  const [code, setCode] = useState('');
+  const [busy, setBusy] = useState(false);
+  const d = me.data;
+  useEffect(() => { if (d?.address) setAddress(d.address); }, [d?.address]);
+  const run = async (fn: () => Promise<unknown>, ok?: string) => {
+    setBusy(true);
+    try { await fn(); if (ok) toast(ok, 'success'); await qc.invalidateQueries({ queryKey: ['me-email'] }); }
+    catch (e) { toast(msgOf(e, tr('Could not save')), 'error'); } finally { setBusy(false); }
+  };
+  if (!d) return null;
+  if (!d.available && !d.address) {
+    return (
+      <RowGroup id="email" title={tr('Email')}>
+        <Row id="email-address" stacked label={tr('Email notifications')} help={tr('Email is not set up on this server. An admin can choose an email account for readers in Admin → Settings → Notifications.')} />
+      </RowGroup>
+    );
+  }
+  const changed = address.trim() !== (d.address ?? '');
+  return (
+    <RowGroup id="email" title={tr('Email')}>
+      <Row id="email-address" stacked label={tr('Your email address')}
+        help={d.verified ? tr('Confirmed. New chapters of the series you subscribe to, and answers to your requests, are emailed here.') : tr('We send a 6-digit code to confirm it is yours.')}>
+        <div className="flex flex-wrap gap-2">
+          <input type="email" value={address} onChange={(e) => setAddress(e.target.value)} placeholder={tr('you@example.com')} aria-label={tr('Your email address')}
+            className="field min-w-0 flex-1" autoComplete="email" data-email-address />
+          {(changed || (!d.verified && !d.pending)) && (
+            <button type="button" className="btn-key btn-key-primary" disabled={busy || !address.trim()} data-email-send-code
+              onClick={() => void run(() => api('/api/me/email', { method: 'PUT', json: { address: address.trim() } }), tr('Code sent. Check your inbox.'))}>
+              {tr('Send code')}
+            </button>
+          )}
+        </div>
+        {d.pending && !changed && !d.verified && (
+          <div className="mt-2 flex flex-wrap gap-2">
+            <input value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" placeholder="123456" aria-label={tr('Code')}
+              className="field w-32" data-email-code />
+            <button type="button" className="btn-key btn-key-primary" disabled={busy || code.length !== 6} data-email-verify
+              onClick={() => void run(() => api('/api/me/email/verify', { json: { code } }), tr('Email confirmed'))}>{tr('Confirm')}</button>
+            <button type="button" className="btn-key" disabled={busy}
+              onClick={() => void run(() => api('/api/me/email', { method: 'PUT', json: { address: address.trim() } }), tr('Code sent. Check your inbox.'))}>{tr('Send again')}</button>
+          </div>
+        )}
+        {d.verified && !changed && (
+          <div className="mt-2 flex flex-wrap gap-2">
+            <button type="button" className="btn-key" disabled={busy} data-email-test
+              onClick={() => void run(() => api('/api/me/email/test', { method: 'POST' }), tr('Test email sent'))}>{tr('Send a test')}</button>
+            <button type="button" className="btn-key" disabled={busy}
+              onClick={() => void run(() => api('/api/me/email', { method: 'DELETE' }), tr('Email removed'))}>{tr('Remove')}</button>
+          </div>
+        )}
+      </Row>
+      {d.verified && (
+        <SwitchRow id="email-on" label={tr('Email notifications')} help={tr('Turn off to stop the emails without removing the address.')}
+          on={d.on} onChange={async (on) => { await api('/api/me/email/on', { method: 'PUT', json: { on } }); await qc.invalidateQueries({ queryKey: ['me-email'] }); }} />
+      )}
+    </RowGroup>
   );
 }
 
