@@ -57,7 +57,8 @@ function BottomNavigation() {
   const offline = status === 'offline';
   // An account that may not add series has nothing to do on Discover -- every route the page calls is now
   // refused for it -- so the tab is a promise the app cannot keep. The page itself says so if you type it.
-  const allowed = canDownload(user) ? items : items.filter((i) => i.href !== '/discover');
+  // Everyone has Discover since 2026-11-18: a reader who may not reach the sources gets their own (components/MemberDiscover.tsx).
+  const allowed = items;
   // Uchiyomi Desktop has no Offline tab: the chapters are already on this disk (lib/desktop.ts).
   const shown = isDesktop() ? allowed.filter((i) => !(DESKTOP_HIDDEN.navHrefs as readonly string[]).includes(i.href)) : allowed;
   return (

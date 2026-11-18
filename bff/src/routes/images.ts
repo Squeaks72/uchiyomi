@@ -1241,6 +1241,13 @@ export default async function imageRoutes(app: FastifyInstance) {
     // as no art at all rather than as a low-quality one. Whitelisted rather than free-form so this cannot
     // become a request to render someone's 8000px file.
     const width = w === '1600' ? 1600 : w === '800' ? 800 : 400;
+    // A reader who may not reach the sources (2026-11-18) gets AniList's covers only -- what their Discover shows -- never a fetch of any
+    // other address on their behalf.
+    if (!(await mayDownload(((req as any).viewCtx?.userId as string | null | undefined) ?? null))) {
+      let host = '';
+      try { host = new URL(u).hostname; } catch { /* not a URL */ }
+      if (source || !/(^|\.)anilist\.co$|(^|\.)anili\.st$/.test(host)) return reply.code(403).send({ error: 'forbidden' });
+    }
     // The width is part of the cache key, or the first variant fetched would be served for every size.
     // ⚠️ `srccover2`, not `srccover`. Every entry written under the old prefix may be a grey placeholder
     // stored as though it were the cover, and there is no way to tell one from a real cover without decoding

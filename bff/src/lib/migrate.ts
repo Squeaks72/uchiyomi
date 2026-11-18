@@ -2498,6 +2498,32 @@ CREATE TABLE IF NOT EXISTS series_chapter_endorse (
 );
 -- Set when the main source changes (or an admin asks): the endorse pass puts the main source's copy on every chapter of the series.
 ALTER TABLE lib_series ADD COLUMN IF NOT EXISTS endorse_pending boolean NOT NULL DEFAULT false;
+-- Members reach the sources only when an admin allows it (2026-11-18): "may download" becomes opt-in. Once, existing members without an
+-- explicit choice are set to not allowed, and new members default to it. An admin turns it on per member as before.
+ALTER TABLE server_settings ADD COLUMN IF NOT EXISTS members_download_optin boolean NOT NULL DEFAULT false;
+DO $optin$ BEGIN
+  IF EXISTS (SELECT 1 FROM server_settings WHERE id = 1 AND NOT members_download_optin) THEN
+    UPDATE users SET perms = COALESCE(perms, '{}'::jsonb) || '{"canDownload": false}'::jsonb WHERE role <> 'admin' AND NOT (COALESCE(perms, '{}'::jsonb) ? 'canDownload');
+    UPDATE server_settings SET new_member_perms = COALESCE(new_member_perms, '{}'::jsonb) || '{"canDownload": false}'::jsonb, members_download_optin = true WHERE id = 1;
+  END IF;
+END $optin$;
+-- A reader's request for a series the library does not have (Discover, 2026-11-18): an admin finds and adds it, or declines it. Requests
+-- for the same title (by AniList id, else by folded title) are shown as one with a count.
+CREATE TABLE IF NOT EXISTS series_requests (
+  id          text PRIMARY KEY,
+  user_id     uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  title       text NOT NULL,
+  title_key   text NOT NULL,
+  anilist_id  int,
+  cover_url   text,
+  note        text,
+  status      text NOT NULL DEFAULT 'open',
+  series_id   text REFERENCES lib_series(id) ON DELETE SET NULL,
+  admin_note  text,
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  resolved_at timestamptz
+);
+CREATE INDEX IF NOT EXISTS series_requests_open ON series_requests (status, title_key);
 -- What a library is for (Admin -> Libraries' Type): an Automatic add files a series into the first library of its kind (lib/libraryKind.ts).
 -- 'manga', 'manga_adult', 'webtoon' (manhwa, manhua, webtoon), 'webtoon_adult'; null = any.
 ALTER TABLE libraries ADD COLUMN IF NOT EXISTS kind text;

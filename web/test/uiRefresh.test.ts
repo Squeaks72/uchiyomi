@@ -68,18 +68,18 @@ test('text laid in a bleed sits on the content edge, and the fixed bars start pa
 });
 
 test('the sidebar: who sees which item', () => {
-  // Reintroduce Discover for everyone: an account that may not add series is offered a page that refuses it.
+  // Since 2026-11-18 everyone has Discover: an account that may not add series gets its own (components/MemberDiscover.tsx).
   const names = (o: Parameters<typeof sidebarItems>[0]) => {
     const r = sidebarItems(o);
     return [...r.main, ...r.more, ...(r.admin ? [r.admin] : [])].map((i) => i.href);
   };
   assert.deepEqual(names({ downloader: true, admin: true, desktop: false }), ['/', '/library', '/collections', '/discover', '/history', '/moments', '/downloads', '/admin']);
-  assert.ok(!names({ downloader: false, admin: false, desktop: false }).includes('/discover'), 'Discover for an account that may not add series');
+  assert.ok(names({ downloader: false, admin: false, desktop: false }).includes('/discover'), 'no Discover for an account that may not add series');
   assert.ok(!names({ downloader: true, admin: false, desktop: false }).includes('/admin'), 'Admin for a member');
   assert.ok(!names({ downloader: true, admin: true, desktop: true }).includes('/downloads'), 'Offline in Uchiyomi Desktop, where the chapters are on the disk');
   const compact = names({ downloader: false, admin: false, desktop: false, nativeCompact: true });
   assert.ok(compact.includes('/search') && compact.includes('/profile'), 'native compact rail loses the phone search or profile entry');
-  assert.ok(!compact.includes('/discover') && !compact.includes('/admin'), 'native compact layout bypasses navigation permissions');
+  assert.ok(!compact.includes('/admin'), 'native compact layout bypasses navigation permissions');
   assert.equal(new Set(compact).size, compact.length, 'native compact rail duplicates destinations');
   // The mark walk49 reads off the Library item.
   const ring = (o: Partial<NavRing>): NavRing => ({ show: false, progress: 'idle', count: 0, attention: false, slow: false, label: '', ...o });

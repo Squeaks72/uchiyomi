@@ -4,6 +4,7 @@
 import './lib/desktop';
 import { uploadSeriesRoutes } from './routes/upload';
 import versionRoutes from './routes/versions';
+import requestRoutes from './routes/requests';
 import { scheduleVersionKeeper } from './lib/versionKeeper';
 import { scheduleEndorser } from './lib/endorse';
 import Fastify from 'fastify';
@@ -316,6 +317,7 @@ async function main() {
   await app.register(uploadSeriesRoutes);
   await app.register(sourceRoutes);
   await app.register(versionRoutes);
+  await app.register(requestRoutes);
   // Translated pages (v0.85.0): answers "off" until an admin downloads the engine and turns it on. Hidden on desktop
   // (DESKTOP_HIDDEN_ROUTES), whose server runs inside the app, where the engine's processes cannot (docs/DESKTOP.md).
   await app.register(translateRoutes);

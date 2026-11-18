@@ -196,6 +196,7 @@ function NotificationsPane() {
               ['solver', tr('Cloudflare solver'), tr('The solver needing attention, and recovering.')],
               ['autofix', tr('Nightly fixes that need you'), tr('The nightly Fix everything left cards only you can decide.')],
               ['notify', tr('Notification targets switched off'), tr('A webhook or email target turned off after failing.')],
+              ['requests', tr('Series requests'), tr('A reader asked for a series the library does not have.')],
             ] as const).map(([tag, label, help]) => (
               <SwitchRow key={tag} id={`health-push-${tag}`} label={label} help={help} on={!healthOff.includes(tag)} onChange={saveHealthPush(tag)} />
             ))}
