@@ -2,7 +2,7 @@
   "_meta": {
     "language": "de",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 6099
+    "strings": 6117
   },
   "1 check found something": "1 Prüfung hat etwas gefunden",
   "1 member": "1 Mitglied",
@@ -6102,5 +6102,23 @@
   "Turn off to stop the emails without removing the address.": "Ausschalten, um die E-Mails zu stoppen, ohne die Adresse zu entfernen.",
   "We send a 6-digit code to confirm it is yours.": "Wir senden einen 6-stelligen Code zur Bestätigung.",
   "Your email address": "Deine E-Mail-Adresse",
-  "you@example.com": "du@beispiel.de"
+  "you@example.com": "du@beispiel.de",
+  "Source stamps": "Quellen-Stempel",
+  "Looking at chapters · {n} left": "Kapitel werden geprüft · {n} übrig",
+  "Look now": "Jetzt prüfen",
+  "Banners and logos a source puts on the edge of every page. Cutting them off happens as pages are shown; the files are not changed, and turning it off brings them back.": "Banner und Logos, die eine Quelle an den Rand jeder Seite setzt. Das Abschneiden geschieht beim Anzeigen; die Dateien bleiben unverändert, und Ausschalten bringt sie zurück.",
+  "No source stamps its pages, of the chapters looked at so far.": "Keine Quelle stempelt ihre Seiten – bei den bisher geprüften Kapiteln.",
+  "bottom edge": "unterer Rand",
+  "top edge": "oberer Rand",
+  "Cut off": "Abschneiden",
+  "Cut off {source}’s stamps": "Stempel von {source} abschneiden",
+  "kept copy": "aufbewahrte Fassung",
+  "Clean copies you could endorse": "Saubere Fassungen zum Empfehlen",
+  "Stamped chapters where another source’s kept copy has no stamp.": "Gestempelte Kapitel, deren aufbewahrte Fassung einer anderen Quelle keinen Stempel hat.",
+  "Endorse clean copies": "Saubere Fassungen empfehlen",
+  "Endorsing {n} clean copies": "{n} saubere Fassungen werden empfohlen",
+  "Could not endorse": "Konnte nicht empfehlen",
+  "Looked at: {n} · waiting: {m}": "Geprüft: {n} · ausstehend: {m}",
+  "Chapters looked at: {n}": "Geprüfte Kapitel: {n}",
+  "Stamped on {n} of {m}": "Gestempelt: {n} von {m}"
 }

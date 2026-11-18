@@ -2,7 +2,7 @@
   "_meta": {
     "language": "ar",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 6106
+    "strings": 6124
   },
   "1 check found something": "فحص واحد وجد شيئًا",
   "1 member": "عضو واحد",
@@ -6109,5 +6109,23 @@
   "Turn off to stop the emails without removing the address.": "أوقفه لإيقاف الرسائل دون إزالة العنوان.",
   "We send a 6-digit code to confirm it is yours.": "نرسل رمزًا من 6 أرقام لتأكيد أنه عنوانك.",
   "Your email address": "عنوان بريدك",
-  "you@example.com": "you@example.com"
+  "you@example.com": "you@example.com",
+  "Source stamps": "علامات المصادر",
+  "Looking at chapters · {n} left": "جارٍ فحص الفصول · متبقٍ {n}",
+  "Look now": "افحص الآن",
+  "Banners and logos a source puts on the edge of every page. Cutting them off happens as pages are shown; the files are not changed, and turning it off brings them back.": "لافتات وشعارات يضعها المصدر على حافة كل صفحة. تُقص عند عرض الصفحات؛ لا تتغير الملفات، وإيقافها يعيدها.",
+  "No source stamps its pages, of the chapters looked at so far.": "لا يضع أي مصدر علامة على صفحاته، في الفصول المفحوصة حتى الآن.",
+  "bottom edge": "الحافة السفلية",
+  "top edge": "الحافة العلوية",
+  "Cut off": "قص",
+  "Cut off {source}’s stamps": "قص علامات {source}",
+  "kept copy": "نسخة محفوظة",
+  "Clean copies you could endorse": "نسخ نظيفة يمكنك اعتمادها",
+  "Stamped chapters where another source’s kept copy has no stamp.": "فصول بعلامة لها نسخة محفوظة من مصدر آخر بلا علامة.",
+  "Endorse clean copies": "اعتماد النسخ النظيفة",
+  "Endorsing {n} clean copies": "جارٍ اعتماد {n} نسخ نظيفة",
+  "Could not endorse": "تعذّر الاعتماد",
+  "Looked at: {n} · waiting: {m}": "فُحص: {n} · بالانتظار: {m}",
+  "Chapters looked at: {n}": "الفصول المفحوصة: {n}",
+  "Stamped on {n} of {m}": "بعلامة: {n} من {m}"
 }

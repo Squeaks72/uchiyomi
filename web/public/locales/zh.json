@@ -2,7 +2,7 @@
   "_meta": {
     "language": "zh",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 6099
+    "strings": 6117
   },
   "1 check found something": "1 项检查发现问题",
   "1 member": "1 位成员",
@@ -6102,5 +6102,23 @@
   "Turn off to stop the emails without removing the address.": "关闭即可停止邮件而不移除地址。",
   "We send a 6-digit code to confirm it is yours.": "我们会发送 6 位验证码确认是你的邮箱。",
   "Your email address": "你的邮箱地址",
-  "you@example.com": "you@example.com"
+  "you@example.com": "you@example.com",
+  "Source stamps": "来源水印",
+  "Looking at chapters · {n} left": "正在检查章节 · 剩余 {n}",
+  "Look now": "立即检查",
+  "Banners and logos a source puts on the edge of every page. Cutting them off happens as pages are shown; the files are not changed, and turning it off brings them back.": "来源在每页边缘添加的横幅和标志。显示页面时裁掉；文件不会改动，关闭后即可恢复。",
+  "No source stamps its pages, of the chapters looked at so far.": "在已检查的章节中，没有来源给页面加水印。",
+  "bottom edge": "底边",
+  "top edge": "顶边",
+  "Cut off": "裁掉",
+  "Cut off {source}’s stamps": "裁掉 {source} 的水印",
+  "kept copy": "保留的副本",
+  "Clean copies you could endorse": "可推荐的干净副本",
+  "Stamped chapters where another source’s kept copy has no stamp.": "另一来源的保留副本没有水印的带水印章节。",
+  "Endorse clean copies": "推荐干净副本",
+  "Endorsing {n} clean copies": "正在推荐 {n} 个干净副本",
+  "Could not endorse": "无法推荐",
+  "Looked at: {n} · waiting: {m}": "已检查：{n} · 等待：{m}",
+  "Chapters looked at: {n}": "已检查章节：{n}",
+  "Stamped on {n} of {m}": "有水印：{m} 中 {n}"
 }

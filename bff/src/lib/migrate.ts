@@ -2583,6 +2583,25 @@ ALTER TABLE lib_series ADD COLUMN IF NOT EXISTS colored_source text;
 ALTER TABLE lib_series ADD COLUMN IF NOT EXISTS colored_ref_source text;
 ALTER TABLE lib_series ADD COLUMN IF NOT EXISTS colored_ref_series text;
 ALTER TABLE lib_series ADD COLUMN IF NOT EXISTS colored_ref_title  text;
+-- Strips a source stamps onto the top or bottom edge of every page -- a banner naming the site, a corner logo (lib/edgeMarks.ts).
+-- One row per chapter file looked at, keyed by its path on disk; mtime is the file's when it was looked at, so a replaced file is
+-- looked at again. marks is empty for a clean chapter.
+CREATE TABLE IF NOT EXISTS edge_marks (
+  id         bigserial UNIQUE,
+  path       text PRIMARY KEY,
+  book_id    text,
+  source_id  text,
+  is_version boolean NOT NULL DEFAULT false,
+  mtime      bigint,
+  marks      jsonb NOT NULL DEFAULT '[]'::jsonb,
+  checked_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS edge_marks_book_idx ON edge_marks (book_id);
+-- The sources whose stamped strips are cut off the pages as they are served (opt-in per source; turning it off restores them).
+CREATE TABLE IF NOT EXISTS source_trim (
+  source_id text PRIMARY KEY,
+  set_at    timestamptz NOT NULL DEFAULT now()
+);
 `;
 
 // Serialises migrate() across processes. CREATE TABLE IF NOT EXISTS is not safe to run concurrently:

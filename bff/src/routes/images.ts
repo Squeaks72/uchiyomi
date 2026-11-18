@@ -16,6 +16,7 @@ import { learnTypeFromAniListWith } from '../lib/seriesType';
 import { automaticAniListAllowed, withAniListMutation } from '../lib/anilistPolicy';
 import { linkSeriesWith } from '../lib/trackers';
 import { LIBRARY_ROOT, cbzPageAt } from '../lib/library';
+import { trimFor, trimPage } from '../lib/edgeMarks';
 import { cfSession, withSolverDeadline } from '../lib/sources/flaresolverr';
 import { solverMayVisit } from '../lib/sources/imageHosts';
 import { getSource, isSwAdapterId } from '../lib/sources';
@@ -890,12 +891,20 @@ export const serveLibBookPage = async (req: FastifyRequest, reply: FastifyReply,
   const requestedVersion = (req.query as Record<string, unknown>).cv;
   if (requestedVersion !== undefined && requestedVersion !== fileVersion)
     return reply.code(409).send({ error: 'page_version_changed', message: 'The chapter changed. Reload its page list or restart this download.' });
+  // A strip the source stamped on every page, cut off when the admin turned that on for the source (lib/edgeMarks.ts). Not on a
+  // translated page: its stored regions are placed on the page as it is in the file.
+  const trim = tl ? null : await trimFor(abs, fileStat.mtimeMs);
   const currentPage = async () => {
     const page = await pageOrGone(abs, pageNo - 1);
     if (await pageFileVersion(abs) !== fileVersion)
       throw Object.assign(new Error('The chapter changed while reading this page. Restart its download.'), { statusCode: 409 });
+    if (page && trim) {
+      const cut = await trimPage(page.bytes, trim.marks).catch(() => null);
+      if (cut) return { ...page, bytes: cut.buffer, name: page.name.replace(/\.[^.]+$/, '') + '.webp' };
+    }
     return page;
   };
+  const cacheVersion = fileVersion + (trim?.tag ?? '');
   if (tl && !w) {
     const engine = (await translateOn()) ? await engineKey() : null;
     const done = engine ? await doneTranslation(id, pageNo, tl, engine) : null;
@@ -913,20 +922,20 @@ export const serveLibBookPage = async (req: FastifyRequest, reply: FastifyReply,
     return reply.header('content-type', out.contentType).header('cache-control', 'private, no-store').send(out.buffer);
   }
   if (fit && !w) {
-    return serveImage(req, reply, `lib-page:${id}:${pageNo}:fit${fit}:${fileVersion}`, async () => {
+    return serveImage(req, reply, `lib-page:${id}:${pageNo}:fit${fit}:${cacheVersion}`, async () => {
       const page = await currentPage();
       if (!page) throw Object.assign(new Error('no page'), { statusCode: 404 });
       return pageForScreen(page.bytes, libCt(page.name), fit);
     });
   }
   if (w && Number.isInteger(w) && w >= 64 && w <= 2000) {
-    return serveImage(req, reply, `lib-page:${id}:${pageNo}:w${w}:${fileVersion}`, async () => {
+    return serveImage(req, reply, `lib-page:${id}:${pageNo}:w${w}:${cacheVersion}`, async () => {
       const page = await currentPage();
       if (!page) throw Object.assign(new Error('no page'), { statusCode: 404 });
       return pageAtWidth(page.bytes, w, 74);
     });
   }
-  return serveImage(req, reply, `lib-page:${id}:${pageNo}:${fileVersion}`, async () => {
+  return serveImage(req, reply, `lib-page:${id}:${pageNo}:${cacheVersion}`, async () => {
     const page = await currentPage();
     if (!page) throw Object.assign(new Error('no page'), { statusCode: 404 });
     q('UPDATE lib_books SET pages=$1 WHERE id=$2 AND pages<>$1', [page.total, id]).catch(() => {});
