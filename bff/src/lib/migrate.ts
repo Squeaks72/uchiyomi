@@ -2477,6 +2477,15 @@ CREATE TABLE IF NOT EXISTS user_series_source (
   updated_at timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (user_id, series_id)
 );
+-- An account's pick of one chapter's copy (the series page's version rows): wins over user_series_source for that chapter.
+-- '@endorsed' picks the endorsed file explicitly; a source whose copy is no longer kept falls back to the endorsed file.
+CREATE TABLE IF NOT EXISTS user_book_version (
+  user_id    uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  book_id    text NOT NULL REFERENCES lib_books(id) ON DELETE CASCADE,
+  source_id  text NOT NULL,
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, book_id)
+);
 -- Opt-in per series: keep every followed source's copy of each chapter, not only the endorsed one.
 ALTER TABLE lib_series ADD COLUMN IF NOT EXISTS keep_versions boolean NOT NULL DEFAULT false;
 -- The followed source that carries the colored edition of the series. Its copies of every chapter are always kept, whether or

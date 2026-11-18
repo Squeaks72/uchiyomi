@@ -2,7 +2,7 @@
   "_meta": {
     "language": "es",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 5888
+    "strings": 5893
   },
   "1 check found something": "1 comprobación encontró algo",
   "1 member": "1 miembro",
@@ -5891,5 +5891,10 @@
   "Show up to": "Mostrar hasta",
   "AniList names no light novel for this series.": "AniList no indica ninguna novela ligera para esta serie.",
   "AniList lookups are off for this series’ library.": "Las búsquedas en AniList están desactivadas para la biblioteca de esta serie.",
-  "The novels AniList relates to this series. The series page shows one only when BookOrbit has it.": "Las novelas que AniList relaciona con esta serie. La página de la serie solo muestra una si BookOrbit la tiene."
+  "The novels AniList relates to this series. The series page shows one only when BookOrbit has it.": "Las novelas que AniList relaciona con esta serie. La página de la serie solo muestra una si BookOrbit la tiene.",
+  "Endorsed": "Avalada",
+  "This server": "Este servidor",
+  "Could not open this copy": "No se pudo abrir esta copia",
+  "Group": "Grupo",
+  "All groups": "Todos los grupos"
 }
