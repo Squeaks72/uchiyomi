@@ -18,7 +18,7 @@ import { effectsReduced, useReduceEffects } from '@/lib/effects';
 import { t as tr } from '@/lib/i18n';
 import { useSeriesMenu } from './SeriesMenu';
 import { useContextMenu } from './ContextMenu';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useToast } from './Toast';
 import { useAuth } from '@/lib/auth';
@@ -135,12 +135,51 @@ const noteOf = (note: CardNote): { kind?: SortValue['kind']; text: string; hint:
  * lib/seriesType.ts, the admin's override first). A small outlined tag under the title, as mangadot draws it. An unknown
  * type draws nothing: a tag that says "unknown" on half the library is noise, not information.
  */
-export function TypeTag({ type, className = '' }: { type?: SeriesType | null; className?: string }) {
-  if (!type || type === 'unknown') return null;
+export function TypeTag({ type, libraryId, className = '' }: { type?: SeriesType | null; libraryId?: string | null; className?: string }) {
+  const label = useTagLabel(type, libraryId);
+  if (!label) return null;
   return (
-    <span data-type-tag={type}
+    <span data-type-tag={type && type !== 'unknown' ? type : 'library'}
       className={`inline-block rounded-[4px] border border-ink-600/70 px-1.5 py-px text-[9px] font-semibold uppercase leading-snug tracking-wider text-fog-400 ${className}`}>
-      {tr(seriesTypeKey(type))}
+      {label}
+    </span>
+  );
+}
+
+/** The library names, for a card whose type is not known (one shared query; no refetch on every card that mounts). */
+function useLibraryNames(): Map<string, string> {
+  const { data } = useQuery({ queryKey: ['libraries'], queryFn: () => api<Array<{ id: string; name: string }>>('/api/libraries'), staleTime: 5 * 60 * 1000 });
+  return useMemo(() => new Map((data ?? []).map((l) => [l.id, l.name])), [data]);
+}
+
+/** A card's tag (2026-11-18): its type when known, else the name of the library it is in -- so every card says what it is. */
+function useTagLabel(type?: SeriesType | null, libraryId?: string | null): string | null {
+  const names = useLibraryNames();
+  if (type && type !== 'unknown') return tr(seriesTypeKey(type));
+  return (libraryId && names.get(libraryId)) || null;
+}
+
+/**
+ * The tag on the cover, top-start (2026-11-18, the owner: on the thumbnail, not under it), with the favourite heart under it in the same
+ * corner. `below` moves the stack under the select bubble.
+ */
+export function CoverCorner({ series, compact, below }: { series: Series; compact?: boolean; below?: boolean }) {
+  const label = useTagLabel(series.seriesType, series.libraryId);
+  if (!label && !series.yomi?.favorite) return null;
+  return (
+    <span className={`pointer-events-none absolute start-1.5 ${below ? 'top-9' : 'top-1.5'} z-10 flex max-w-[calc(100%-3.5rem)] flex-col items-start gap-1`}>
+      {label && (
+        <span data-type-tag={series.seriesType && series.seriesType !== 'unknown' ? series.seriesType : 'library'}
+          className={`max-w-full truncate rounded-[4px] bg-black/65 font-semibold uppercase leading-snug tracking-wider text-fog-100 backdrop-blur ${compact ? 'px-1 text-[8px] pointer-coarse:text-[10px]' : 'px-1.5 py-px text-[9px] pointer-coarse:text-[10px]'}`}>
+          {label}
+        </span>
+      )}
+      {series.yomi?.favorite && (
+        <span className={`rounded-full bg-black/55 ${compact ? 'p-0.5' : 'p-1'} text-accent backdrop-blur`}>
+          <IcHeart width={compact ? 10 : 12} height={compact ? 10 : 12} fill="currentColor" stroke="none" data-favorite-star />
+          <span className="sr-only">{tr('Favorite')}</span>
+        </span>
+      )}
     </span>
   );
 }
@@ -231,12 +270,7 @@ export function SeriesCard({ series, w = CARD_W, eager = false, note }: {
       >
         <Img src={img.seriesThumb(series.id)} alt="" eager={eager} className={blurred ? BLURRED_COVER : "h-full w-full transition-transform duration-500 group-hover:scale-[1.07]"} />
         <div aria-hidden className="pointer-events-none absolute inset-0 z-10" style={tilt.glare} />
-        {series.yomi?.favorite && (
-          <span className="absolute start-2 top-2 z-10 rounded-full bg-black/55 p-1.5 text-accent backdrop-blur">
-            <IcHeart width={14} height={14} fill="currentColor" stroke="none" data-favorite-star />
-            <span className="sr-only">{tr('Favorite')}</span>
-          </span>
-        )}
+        <CoverCorner series={series} />
         {/* dir="ltr" (UnreadCount): "99+" was a number and a sign, and in Arabic the paragraph's direction put the sign
             first ("+99"); a grouped count is one run too. Squared (v0.60.0), as every count tag in the app is since "no more pills". ⚠️ The direction on the TEXT, never
             on the positioned box: a box's own direction decides which side `end` is, and an ltr box sat top-right in an
@@ -264,7 +298,6 @@ export function SeriesCard({ series, w = CARD_W, eager = false, note }: {
       <p className="mt-2 line-clamp-2 px-0.5 text-[13px] font-medium leading-tight text-fog-200 transition group-hover:text-fog-50">
         {title}
       </p>
-      <TypeTag type={series.seriesType} className="mx-0.5 mt-1" />
       <NoteLine note={note} attr="data-card-note" className="mt-0.5 flex min-w-0 items-center gap-1 px-0.5 text-[11px] leading-tight text-fog-500 tabular-nums" />
     </Link>
     {/* The cover's box, lifted and tilted with it, so the ⋯ stays on its corner. */}
@@ -434,12 +467,7 @@ export function SeriesTile({ series, eager = false, selectable, selected, onTogg
         )}
         {/* Top-start, under the select bubble in Select mode (v0.60.0): the bubble sat on the heart, and a favourite looked
             like any other series exactly while choosing which to Favourite. */}
-        {series.yomi?.favorite && (
-          <span className={`absolute start-1.5 ${selectable ? 'top-9' : 'top-1.5'} z-10 rounded-full bg-black/55 ${compact ? 'p-0.5' : 'p-1'} text-accent backdrop-blur`}>
-            <IcHeart width={compact ? 10 : 12} height={compact ? 10 : 12} fill="currentColor" stroke="none" data-favorite-star />
-            <span className="sr-only">{tr('Favorite')}</span>
-          </span>
-        )}
+        <CoverCorner series={series} compact={compact} below={selectable} />
         {/* Bottom-end: NEW owns bottom-start, the unread count owns top-end, favourite owns top-start -- logical sides, so
             they mirror in Arabic as Discover's cards do. */}
         {savedOffline && (
@@ -464,7 +492,6 @@ export function SeriesTile({ series, eager = false, selectable, selected, onTogg
       <p dir="auto" className={`${compact ? 'mt-1 truncate text-[11px]' : 'mt-1.5 line-clamp-2 text-xs'} font-medium leading-tight text-fog-300 transition group-hover:text-fog-100`}>
         {title}
       </p>
-      {!compact && <TypeTag type={series.seriesType} className="mt-1" />}
       <NoteLine note={note} attr="data-sort-value"
         className={`mt-0.5 flex min-w-0 items-center gap-1 ${compact ? 'text-[10px] pointer-coarse:text-[11px]' : 'text-[11px]'} leading-tight text-fog-500 tabular-nums`} />
       {/* The work's languages (v0.52.0, #72): the Library shows one card for every language edition the viewer may
@@ -531,7 +558,7 @@ export function SeriesRow({ series, eager = false, selectable, selected, onToggl
       </div>
       <div className="min-w-0 flex-1">
         <p dir="auto" className="truncate text-sm font-medium leading-snug text-fog-100">{title}</p>
-        <TypeTag type={series.seriesType} className="mt-0.5" />
+        <TypeTag type={series.seriesType} libraryId={series.libraryId} className="mt-0.5" />
         <EditionLangs series={series} className="truncate text-[10px] pointer-coarse:text-[11px] font-semibold tracking-wide text-fog-600" />
         {sorted
           ? <NoteLine note={note} attr="data-sort-value" className="mt-0.5 flex min-w-0 items-center gap-1 text-[11px] leading-tight text-fog-500 tabular-nums" />
