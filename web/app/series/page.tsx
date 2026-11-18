@@ -571,7 +571,9 @@ function ChapterRow({ book, downloaded, sourceNames, primarySource, versions, gr
       {/* In select mode a pruned chapter is still selectable -- Mark read and Fetch again are exactly the
           things one wants for it -- so the disable only applies to opening. */}
       <button type="button" onClick={selectable ? (e) => onToggle?.(e.shiftKey) : onReader} onMouseDown={selectable ? keepSelection : undefined} disabled={pruned && !selectable} aria-pressed={selectable ? !!selected : undefined}
-        className="flex min-w-0 flex-1 items-center gap-3 text-start disabled:cursor-default">
+        // The same hover as the versions key beside it (2026-11-18): the opener lights as one surface, so it reads as a button. The negative
+        // margins give the light room around the thumb and title without moving either.
+        className="-mx-1.5 -my-1 flex min-w-0 flex-1 items-center gap-3 rounded-lg px-1.5 py-1 text-start transition-colors hover:bg-white/[0.06] disabled:cursor-default disabled:hover:bg-transparent">
         <div className={`relative h-14 w-10 shrink-0${thumbHide(!!compact, !!selectable)} overflow-hidden rounded-lg border ${state === 'read' ? 'border-ink-800 opacity-45' : 'border-ink-700'} ${book.pruned && !downloaded ? 'border-dashed border-ink-600' : ''}`}>
           {/* A tombstone has no file to draw a thumbnail from; asking would be a 404 per row on every visit.
               The dashed empty box is the ghost row's, so "no pages here" reads the same in both places. */}
@@ -603,9 +605,10 @@ function ChapterRow({ book, downloaded, sourceNames, primarySource, versions, gr
       </button>
       {!selectable && onToggleCopies && versions && versions >= 2 && (
         <button type="button" onClick={onToggleCopies} aria-expanded={!!expanded} data-copies-toggle
-          className={`flex shrink-0 items-center gap-1 rounded-md px-1.5 py-1 text-[11px] transition-colors hover:bg-white/[0.06] pointer-coarse:py-2 ${expanded ? 'text-accent' : 'text-fog-400'}`}>
+          // As tall as the row (self-stretch), bordered like the row's other keys: a key, plainly, and an easy one to hit.
+          className={`flex min-h-9 shrink-0 items-center gap-1.5 self-stretch rounded-lg border px-3 text-xs font-medium transition-colors hover:bg-white/[0.06] ${expanded ? 'border-accent/50 bg-accent/[0.07] text-accent' : 'border-ink-700 text-fog-300 hover:text-fog-100'}`}>
           {tr('{n} versions', { n: versions })}
-          <IcChevronRight aria-hidden width={12} height={12} className={`transition-transform ${expanded ? 'rotate-90' : 'rtl:-scale-x-100'}`} />
+          <IcChevronRight aria-hidden width={14} height={14} className={`transition-transform ${expanded ? 'rotate-90' : 'rtl:-scale-x-100'}`} />
         </button>
       )}
       {book.metadata?.releaseDate && <RowDate iso={book.metadata.releaseDate} className="w-auto shrink-0 text-end" />}
