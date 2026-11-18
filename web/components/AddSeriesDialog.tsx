@@ -479,7 +479,9 @@ export function AddSeriesDialog({ seed, sources, mayFollow, onClose, onAdded }: 
     // listing it has just written, so a stale title or cover from the search cannot steer the match.
     // Not under posting order: another site's numbers cannot line up with posts numbered 1..K, and the server
     // would refuse every candidate for it anyway.
-    const alsoFollowBody = mayFollow && alsoFollow && others.length && !view?.posting ? others.map(({ source, sourceId }) => ({ source, sourceId })) : undefined;
+    // The "Also check the other sources" switch is gone (2026-11-18, the owner: not worth it): an add follows its one source. Other sources
+    // are still added later from the series' Sources sheet. A device that remembered the switch on sends nothing.
+    const alsoFollowBody = undefined as Array<{ source: string; sourceId: string }> | undefined;
     // `auto` unless the person flipped the switch: the server's own decision stands (lib/numbering.ts addNumbering).
     // Reintroduce by dropping `numbering` here: "Keep the source's numbers" is shown and ignored.
     const numbering = view?.send ?? 'auto';
@@ -765,10 +767,12 @@ export function AddSeriesDialog({ seed, sources, mayFollow, onClose, onAdded }: 
   }
 
   // ---------------------------------------------------------------- options
-  const summary = detail?.summary && !looksCss(detail.summary) ? detail.summary : '';
   const presets = CHAPTER_PRESETS.filter((n) => view && n < view.count);
   // The picked provider's own cover until the detail lands, then the detail's: the same picture nearly
   // always, so nothing jumps, and the body paints at once instead of behind a bare "Loading…".
+  // The description is no longer shown (2026-11-18, the owner: slimmer dialog); kept as the options step's first derived value.
+  const summary = detail?.summary && !looksCss(detail.summary) ? detail.summary : '';
+  void summary;
   const coverUrl = detail?.coverUrl ?? picked.coverUrl;
 
   return (
@@ -888,7 +892,6 @@ export function AddSeriesDialog({ seed, sources, mayFollow, onClose, onAdded }: 
             {detail.genres.length > 0 && (
               <p className="mt-1 line-clamp-1 text-[11px] text-fog-500">{detail.genres.slice(0, 4).join(' · ')}</p>
             )}
-            {summary && <p className="mt-2 line-clamp-4 text-xs leading-relaxed text-fog-400">{summary}</p>}
 
             {/* "Fetch now", not "download": the chapters land on the server, and the server side of the app
                 is called fetching everywhere else. With nothing listed, "Nothing yet" is the only option that
@@ -938,17 +941,6 @@ export function AddSeriesDialog({ seed, sources, mayFollow, onClose, onAdded }: 
             <p className="mt-3 text-[11px] text-fog-500" data-also-follow="posting_order">
               {tr('Other sources are not followed for a series numbered by posting order: their chapter numbers do not line up.')}
             </p>
-          )}
-          {mayFollow && others.length > 0 && !view?.posting && (
-            <div className="mt-3" data-also-follow>
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-sm text-fog-200">{tr('Also check the other sources that carry this title')}</span>
-                <Switch on={alsoFollow} onChange={setAlsoFollow} label={tr('Also check the other sources that carry this title')} />
-              </div>
-              <p className="mt-1 text-[11px] text-fog-500">
-                {tr('Following one means new chapters are taken from whichever source has them first. Each is checked against this title\'s chapter list — only a source listing at least 90 % of the same numbers is followed.')}
-              </p>
-            </div>
           )}
 
           {count > 40 && (
@@ -1005,6 +997,7 @@ export function AddSeriesDialog({ seed, sources, mayFollow, onClose, onAdded }: 
           sourceName={picked.name || picked.source}
           sourceId={picked.sourceId}
           title={picked.title || title}
+          firstOnly
           onClose={() => setPreviewing(false)}
           canAdd={!adding && !!detail && !needsLang && scopeReady}
           onAdd={() => { if (adding || !detail || needsLang || !scopeReady) return; setPreviewing(false); void add(!!dup && !asEdition); }}

@@ -581,8 +581,9 @@ test('the switch is for admins: a member sees no "also check" switch, sends no a
   const src = code(read('components/AddSeriesDialog.tsx'));
   assert.match(src, /mayFollow: boolean;/, 'the dialog has no mayFollow prop');
   // v0.49.0 (#116): and never under posting order, whose numbers no other source shares.
-  assert.match(src, /const alsoFollowBody = mayFollow && alsoFollow && others\.length && !view\?\.posting \?/, "a member's add still carries alsoFollow");
-  assert.match(src, /\{mayFollow && others\.length > 0 && !view\?\.posting && \(\s*<div className="mt-3" data-also-follow>/, 'the switch renders for a member');
+  // 2026-11-18: the switch is gone for everyone; no add carries alsoFollow.
+  assert.match(src, /const alsoFollowBody = undefined as Array<\{ source: string; sourceId: string \}> \| undefined;/, "an add still carries alsoFollow");
+  assert.doesNotMatch(src, /data-also-follow>/, 'the also-check switch is back');
   const block = src.slice(src.indexOf('const followBlock = (() => {'), src.indexOf('if (others.length === 0) return'));
   assert.match(block, /if \(!mayFollow\) return <p[^>]*>\{tr\('Other sources: an admin can follow them from Sources & translations\.'\)\}<\/p>;/, 'a member is not told who can follow');
   assert.match(code(read('app/discover/page.tsx')), /<AddSeriesDialog\s+seed=\{seed\}\s+sources=\{budgetIds\}\s+mayFollow=\{isAdmin\}/, 'Discover does not pass isAdmin');
@@ -626,13 +627,13 @@ test('the add dialog offers the other sources only when it already holds a list,
   assert.match(memo, /return out\.slice\(0, ALSO_FOLLOW_MAX\);/, 'more than six can ride');
   assert.doesNotMatch(memo, /api</, 'others is fetched rather than taken from the list the dialog already has');
   assert.match(src, /useState<Provider\[\] \| null>\(seed\.kind === 'group' \? seed\.providers : null\)/, 'providers is no longer null for a result seed');
-  assert.match(src, /const alsoFollowBody = mayFollow && alsoFollow && others\.length && !view\?\.posting \? others\.map\(\(\{ source, sourceId \}\) => \(\{ source, sourceId \}\)\) : undefined;/, 'alsoFollow rides with the switch off, or carries more than the identity');
+  assert.match(src, /const alsoFollowBody = undefined as Array<\{ source: string; sourceId: string \}> \| undefined;/, 'alsoFollow rides again');
   // (#116's `numbering` and #117's "Archive the rest slowly" ride after it, pinned in numbering.test.ts and
   // addSeriesDialog.test.ts.)
   // (v0.52.0's language edition rides after those, pinned in addSeriesDialog.test.ts.)
   assert.match(src, /json: \{\s*source: picked\.source, sourceId: picked\.sourceId, chapterCount, chapterFrom, autoUpdate, force, alsoFollow: alsoFollowBody, numbering,\s*\.\.\.\(!edSeed \? \{ visibility: contentScope\.visibility \} : \{\}\),(?:\s*\.\.\.\(!edSeed && contentScope\.visibility === 'shared' && libraryId \? \{ libraryId \} : \{\}\),)?(?:\s*\.\.\.\(archiving \? \{ archive: true \} : \{\}\),?)?(?:\s*\.\.\.\(editionBody \? \{ edition: editionBody \} : \{\}\),?)?\s*\}/, 'the add body does not carry alsoFollow');
   // The switch is on the options step only with candidates, remembered per device under one key.
-  assert.match(src, /\{mayFollow && others\.length > 0 && !view\?\.posting && \(\s*<div className="mt-3" data-also-follow>/, 'the switch shows without candidates');
+  assert.doesNotMatch(src, /data-also-follow>/, 'the also-check switch is back');
   // Remembered on the ACCOUNT now (lib/accountPrefs.ts, mirrored to the same localStorage key it always used).
   assert.match(src, /const ALSO_FOLLOW_KEY = 'uchiyomi\.alsoFollow';/, 'the per-device key changed');
   assert.match(src, /localStorage\.setItem\(ALSO_FOLLOW_KEY, v \? '1' : '0'\)/, 'the switch is not remembered');

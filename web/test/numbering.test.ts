@@ -111,8 +111,8 @@ test('the add dialog wires the switch into the request, the counts and the other
   assert.match(src, /const flipNumbering = !!pickKey && flippedFor === pickKey;/, 'the switch outlives the source it was flipped on');
   // Other sources cannot line up with posts numbered 1..K: no switch, one line, and nothing sent.
   assert.match(src, /mayFollow && others\.length > 0 && view\?\.posting && \(/, 'no reason is given for hiding the other sources');
-  assert.match(src, /mayFollow && others\.length > 0 && !view\?\.posting && \(\s*<div className="mt-3" data-also-follow>/, 'the also-follow switch shows under posting order');
-  assert.match(src, /alsoFollow && others\.length && !view\?\.posting \?/, 'candidates are still sent under posting order');
+  assert.doesNotMatch(src, /data-also-follow>/, 'the also-follow switch is back (removed 2026-11-18)');
+  assert.match(src, /const alsoFollowBody = undefined as Array<\{ source: string; sourceId: string \}> \| undefined;/, 'candidates are sent again');
 });
 
 test('the series page\'s notice says what was done or what waits, and to whom', () => {
