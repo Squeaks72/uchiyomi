@@ -2501,6 +2501,15 @@ CREATE TABLE IF NOT EXISTS series_chapter_endorse (
 );
 -- Set when the main source changes (or an admin asks): the endorse pass puts the main source's copy on every chapter of the series.
 ALTER TABLE lib_series ADD COLUMN IF NOT EXISTS endorse_pending boolean NOT NULL DEFAULT false;
+-- "Notify me when the next chapter is out" (the series page's button once a reader has caught up on an ongoing series): one push to this
+-- account's devices when a chapter past its 'after' lands, then the row goes (lib/push.ts notifyNewChapter).
+CREATE TABLE IF NOT EXISTS chapter_watch (
+  user_id    uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  series_id  text NOT NULL REFERENCES lib_series(id) ON DELETE CASCADE,
+  after      real NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, series_id)
+);
 -- A colored edition that is its own title on a source (colored_ref_*): its chapter list, as that source gave it, so every chapter shows the
 -- colored copy as a version at once -- before any is downloaded. The followed sources' lists are series_listing; this title is followed by none.
 ALTER TABLE lib_series ADD COLUMN IF NOT EXISTS colored_ref_listing jsonb;

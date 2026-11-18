@@ -32,6 +32,18 @@ export function seriesOngoing(status: string | null | undefined): boolean {
   return /\b(ongoing|publishing|releasing|serializ(?:ed|ing)|serialis(?:ed|ing)|hiatus|in progress)\b/i.test(status.replace(/[_-]+/g, ' '));
 }
 
+/**
+ * Ongoing as far as anyone can tell (2026-11-18): the status says so, or the series has no status that says either way -- 131 series on
+ * the owner's server had none or "Unknown" -- and its newest chapter came out within the last half year. A finished status always wins.
+ */
+export function seriesLikelyOngoing(status: string | null | undefined, newestRelease?: string | null, now = Date.now()): boolean {
+  if (seriesOngoing(status)) return true;
+  if (seriesFinished(status)) return false;
+  if (status && !/^\s*unknown\s*$/i.test(status)) return false;
+  const t = newestRelease ? Date.parse(newestRelease) : NaN;
+  return Number.isFinite(t) && now - t < 180 * 24 * 3600_000;
+}
+
 // The four statuses the Library filters by (components/LibraryFilters.tsx STATUS_LABELS), declared again here
 // because statusText reaches them through a variable.
 const STATUS_WORDS = keys('Ongoing', 'Completed', 'Hiatus', 'Cancelled');

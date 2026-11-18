@@ -6,7 +6,11 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { useReduceEffects } from '@/lib/effects';
 import { useLayer } from '@/lib/layers';
 import { ProgressBar } from './ui';
-import { IcPlay } from './icons';
+import { IcBell, IcCheck, IcPlay } from './icons';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { api } from '@/lib/api';
+import { t as tr } from '@/lib/i18n';
+import { useToast } from './Toast';
 
 /**
  * The one reading button: the accent key, lit by the series' cover colour (`.cta-glow`, app/globals.css; Reduce
@@ -84,5 +88,43 @@ export function ContinueBar({ shown, children }: { shown: boolean; children: Rea
         </motion.div>
       )}
     </AnimatePresence>
+  );
+}
+
+/**
+ * Caught up on an ongoing series (2026-11-18): instead of "Read again", the big button asks to be told when the next chapter is out --
+ * one push to this account's devices (the profile's notifications), then the watch is spent (bff chapter_watch, lib/push.ts). Pressed
+ * again it is called off. With no device to tell, it still saves the watch and says where notifications are turned on.
+ */
+export function WatchNextButton({ seriesId, after, compact }: { seriesId: string; after: number; compact?: boolean }) {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const key = ['chapter-watch', seriesId];
+  const { data } = useQuery({ queryKey: key, queryFn: () => api<{ watching: boolean; after: number | null; devices: number }>(`/api/series/${encodeURIComponent(seriesId)}/watch`), staleTime: 30_000 });
+  const [busy, setBusy] = useState(false);
+  const next = Math.floor(after) + 1;
+  const on = !!data?.watching;
+  const flip = async () => {
+    setBusy(true);
+    try {
+      if (on) {
+        await api(`/api/series/${encodeURIComponent(seriesId)}/watch`, { method: 'DELETE' });
+        toast(tr('You won’t be told about Ch. {chapter}', { chapter: next }), 'info');
+      } else {
+        await api(`/api/series/${encodeURIComponent(seriesId)}/watch`, { method: 'PUT', json: { after } });
+        toast(data && data.devices === 0
+          ? tr('Saved. Turn on notifications in your profile to be told when Ch. {chapter} is out.', { chapter: next })
+          : tr('You’ll be notified when Ch. {chapter} is out', { chapter: next }), data && data.devices === 0 ? 'info' : 'success');
+      }
+      await qc.invalidateQueries({ queryKey: key });
+    } catch { toast(tr('Could not save'), 'error'); } finally { setBusy(false); }
+  };
+  return (
+    <button type="button" onClick={() => void flip()} disabled={busy || !data} aria-pressed={on} data-watch-next={on ? 'on' : 'off'}
+      className={`${on ? 'btn-ghost border border-accent/60 text-accent' : 'btn-accent cta-glow'} min-w-0 disabled:opacity-60 ${compact ? 'h-11 flex-1 px-4 py-0 text-sm' : 'w-full'}`}>
+      {on ? <IcCheck width={compact ? 16 : 18} height={compact ? 16 : 18} aria-hidden className="shrink-0" />
+        : <IcBell width={compact ? 16 : 18} height={compact ? 16 : 18} aria-hidden className="shrink-0" />}
+      <span className="min-w-0 truncate">{on ? tr('Notifying you when Ch. {chapter} is out', { chapter: next }) : tr('Notify me when Ch. {chapter} is out', { chapter: next })}</span>
+    </button>
   );
 }
