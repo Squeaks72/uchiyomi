@@ -382,7 +382,7 @@ test('every toast, refusal fallback and sign-in error is said through tr()', () 
   }
   assert.deepEqual(bare, [], `says English: ${bare.join(' | ')}`);
   // The walk reaches the calls it is about: one of each, from this release's own.
-  const updates = stripComments(read('app/updates/page.tsx'));
+  const updates = stripComments(read('components/UpdatesPopover.tsx'));
   assert.ok(callArgs(updates, 'toast').some((c) => c.args[0] === "tr('All caught up')"), 'the toast scan does not reach Updates');
 });
 

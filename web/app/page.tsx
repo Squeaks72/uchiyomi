@@ -12,6 +12,7 @@ import { applyCover, clearCover } from '@/lib/theme';
 import { ART } from '@/lib/art';
 import { Img, ProgressBar, RailSkeleton, SectionTitle, Reveal, useWideViewport } from '@/components/ui';
 import { SeriesCard, ContinueCard } from '@/components/cards';
+import { UpdatesBell } from '@/components/UpdatesPopover';
 import { KeepReadingHidden } from '@/components/KeepReadingHidden';
 import { HeroCarousel } from '@/components/HeroCarousel';
 import { useTitleArtPolling } from '@/lib/useTitleArtPolling';
@@ -19,7 +20,7 @@ import { useBanners } from '@/lib/bannerPref';
 import { heroQuery, heroSetting, type HeroKind } from '@/lib/heroBanner';
 import type { HeroMeta } from '@/components/HeroCarousel';
 import { useArtUnderChrome } from '@/lib/overArt';
-import { IcPlay, IcSparkle, IcRefresh, IcBell, IcSliders } from '@/components/icons';
+import { IcPlay, IcSparkle, IcRefresh, IcSliders } from '@/components/icons';
 import { PullToRefresh } from '@/components/PullToRefresh';
 import { Avatar } from '@/components/Avatar';
 import { QuickSettingsSheet } from '@/components/ProfileMenu';
@@ -290,11 +291,7 @@ export default function HomePage() {
       <header className="safe-top sticky top-0 z-30 flex items-center justify-between px-5 pb-3 lg:hidden">
         <Lockup className="text-2xl" markSize={36} />
         <div className="flex items-center gap-2">
-          <Link href="/updates" className="relative grid h-10 w-10 place-items-center rounded-full border border-ink-700 bg-ink-850/70 text-fog-300 backdrop-blur">
-            <IcBell width={19} height={19} />
-            {/* Squared, as the desktop bar's: a round tag grows into a capsule at "9+". */}
-            {(data?.updatesCount ?? 0) > 0 && <span className="absolute -end-1.5 -top-1 grid h-4 min-w-4 place-items-center rounded-[4px] bg-accent px-[3px] text-[10px] pointer-coarse:text-[11px] font-bold leading-none tabular-nums text-black">{(data!.updatesCount ?? 0) > 9 ? '9+' : data!.updatesCount}</span>}
-          </Link>
+          <UpdatesBell count={data?.updatesCount ?? 0} className="relative grid h-10 w-10 place-items-center rounded-full border border-ink-700 bg-ink-850/70 text-fog-300 backdrop-blur" />
           <button type="button" aria-label={tr('You')} aria-haspopup="dialog" onClick={() => setQuickOpen(true)} className="grid h-10 w-10 place-items-center rounded-full transition active:opacity-80">
             <Avatar avatar={user?.avatar} size={40} />
           </button>
