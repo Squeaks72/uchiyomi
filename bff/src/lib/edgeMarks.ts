@@ -140,14 +140,20 @@ export const emState: EdgeMarkProgress = { running: false, chapters: 0, marked: 
 
 interface Todo { path: string; book_id: string; source_id: string | null; is_version: boolean }
 
-/** Chapter files not looked at yet: every endorsed copy and every other source's kept copy. */
-const TODO = `
-  WITH f AS (
-    SELECT COALESCE(b.root, $1) || '/' || b.file AS path, b.id AS book_id, b.source_id, false AS is_version
+/** Every chapter file there is: each endorsed copy (with its mtime, ms) and every other source's kept copy. */
+const FILES = `
+    SELECT COALESCE(b.root, $1) || '/' || b.file AS path, b.id AS book_id, b.source_id, false AS is_version, b.mtime
       FROM lib_books b WHERE b.pruned_at IS NULL AND b.file IS NOT NULL
     UNION ALL
-    SELECT v.root || '/' || v.file, v.book_id, v.source_id, true FROM lib_book_versions v WHERE v.file IS NOT NULL AND v.root IS NOT NULL)
-  SELECT f.* FROM f WHERE NOT EXISTS (SELECT 1 FROM edge_marks e WHERE e.path = f.path)`;
+    SELECT v.root || '/' || v.file, v.book_id, v.source_id, true, NULL::bigint FROM lib_book_versions v WHERE v.file IS NOT NULL AND v.root IS NOT NULL`;
+/**
+ * The files not looked at yet -- or replaced since: an endorse or a refetch writes a new file at the same path, and the catalog's mtime
+ * for it then differs from the one recorded.
+ */
+const TODO = `
+  WITH f AS (${FILES})
+  SELECT f.path, f.book_id, f.source_id, f.is_version FROM f
+   WHERE NOT EXISTS (SELECT 1 FROM edge_marks e WHERE e.path = f.path AND (f.mtime IS NULL OR e.mtime IS NULL OR abs(e.mtime - f.mtime) < 2000))`;
 
 export async function edgeMarksRemaining(): Promise<number> {
   const r = await one<{ n: string }>(`SELECT count(*)::text n FROM (${TODO}) t`, [LIBRARY_ROOT]).catch(() => null);
@@ -176,7 +182,7 @@ export async function runEdgeMarks(opts: { max?: number } = {}): Promise<EdgeMar
   } finally { if (!held) client.release(); }
   Object.assign(emState, { running: true, chapters: 0, marked: 0, startedAt: Date.now(), finishedAt: null });
   const limit = opts.max ?? Infinity;
-  // Files that could not be read this pass: not asked for again until the next one.
+  // Files handled this pass: not asked for again until the next one.
   const skip: string[] = [];
   try {
     for (;;) {
@@ -184,8 +190,10 @@ export async function runEdgeMarks(opts: { max?: number } = {}): Promise<EdgeMar
         [LIBRARY_ROOT, Math.min(BATCH, Math.max(0, limit - emState.chapters)), skip]);
       if (!batch.length) break;
       for (const t of batch) {
+        // Never twice in one pass, read or not: a file replaced moments ago may not have its new mtime in the catalog yet.
+        skip.push(t.path);
         const m = await checkFile(t).catch(() => null);
-        if (!m) { skip.push(t.path); continue; }
+        if (!m) continue;
         emState.chapters++;
         if (m.length) emState.marked++;
         // A breath between files: this decodes pages, and the server is answering readers at the same time.
@@ -194,6 +202,8 @@ export async function runEdgeMarks(opts: { max?: number } = {}): Promise<EdgeMar
       emState.remaining = await edgeMarksRemaining();
       if (emState.chapters >= limit) break;
     }
+    // Rows for files that are gone (a kept copy deleted, a chapter pruned) would keep counting in the report.
+    await q(`DELETE FROM edge_marks e WHERE NOT EXISTS (SELECT 1 FROM (${FILES}) f WHERE f.path = e.path)`, [LIBRARY_ROOT]).catch(() => {});
     return emState;
   } finally {
     emState.running = false;

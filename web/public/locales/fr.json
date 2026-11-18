@@ -2,7 +2,7 @@
   "_meta": {
     "language": "fr",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 6117
+    "strings": 6119
   },
   "1 check found something": "1 vérification a trouvé quelque chose",
   "1 member": "1 membre",
@@ -6120,5 +6120,7 @@
   "Could not endorse": "Impossible de recommander",
   "Looked at: {n} · waiting: {m}": "Examinés : {n} · en attente : {m}",
   "Chapters looked at: {n}": "Chapitres examinés : {n}",
-  "Stamped on {n} of {m}": "Marqués : {n} sur {m}"
+  "Stamped on {n} of {m}": "Marqués : {n} sur {m}",
+  "Stamped": "Marqué",
+  "This source put its banner or logo on the pages": "Cette source a mis sa bannière ou son logo sur les pages"
 }
