@@ -6,6 +6,7 @@
 // fifty rows each card sends, so a series past a card's fifty was missing and Select all and Remove acted on part of the
 // library.
 import { t as tr } from './i18n';
+import type { QueryClient } from '@tanstack/react-query';
 import { api } from './api';
 import type { HealthReport, SeriesFindings } from './types';
 
@@ -27,8 +28,17 @@ export function setHealthView(v: HealthView): void {
  */
 export const healthQuery = {
   queryKey: ['admin-health'] as const,
+  // The last run's report as the server stored it (2026-11-18): opening Health or the overview never runs the checks. Re-check does,
+  // through runHealthNow below.
   queryFn: () => api<HealthReport>(healthView() === 'series' ? '/api/admin/health?view=series' : '/api/admin/health'),
 };
+
+/** Run every check now (Health's Re-check, and after anything on the page changed a finding), and show what they found. */
+export async function runHealthNow(qc: QueryClient): Promise<HealthReport> {
+  const r = await api<HealthReport>(healthView() === 'series' ? '/api/admin/health?view=series&run=1' : '/api/admin/health?run=1');
+  qc.setQueryData(healthQuery.queryKey, r);
+  return r;
+}
 
 /** The series cards drawn at first, and how many more each "Show more" draws: a page, not a library. */
 export const SERIES_PAGE = 50;

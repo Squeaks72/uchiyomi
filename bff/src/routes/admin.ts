@@ -134,10 +134,10 @@ import { importReadProgress, readUpTo } from '../lib/importProgress';
 import { linkSeries, seedTrackerFloor, rememberTrackerPrivacy, TOKEN_EXPIRED, TOKEN_REJECTED, TOKEN_UNREADABLE } from '../lib/trackers';
 import { ADAPTERS, PROVIDERS, LIST_STATUSES, TRACKER_LIST_MAX, type Provider, type LibraryEntry } from '../lib/trackerProviders';
 import { open as unseal } from '../lib/secretbox';
-import { findingOf, recheckCheck, RECHECKABLE_CHECKS, runHealthChecks } from '../lib/health';
+import { findingOf, groupBySeries, recheckCheck, RECHECKABLE_CHECKS, runHealthChecks } from '../lib/health';
 import { autofixRun, autofixSeriesIds, autofixState, scrubAutofixRecord, scrubAutofixRun, startAutofix, stopAutofix } from '../lib/autofix';
 import { IGNORABLE_CHECKS, ignoreFinding, unignoreFinding } from '../lib/healthIgnore';
-import { readHealthSummary, scheduleHealthSummaryRefresh, storeHealthSummary } from '../lib/healthSummary';
+import { readHealthReport, readHealthSummary, scheduleHealthSummaryRefresh, storeHealthSummary } from '../lib/healthSummary';
 import { titlesFromMangadexList, entriesFromMangadexList } from '../lib/mangadexList';
 import { MANGADEX_LANGS, canonLang, editionLang, mdLang, setUnstatedLang } from '../lib/lang';
 import { cleanMangadexLangs, mangadexLangs, setMangadexLangs, syncMangadexSources } from '../lib/sources/mangadexLangs';
@@ -4701,10 +4701,18 @@ export default async function adminRoutes(app: FastifyInstance) {
   // `view=series` (v0.72.0, the page's By series view): also every series with a finding, grouped from each card's full
   // list (lib/health.ts groupBySeries) -- only when the page shows that view.
   app.get('/api/admin/health', async (req, reply) => {
-    const v = z.object({ view: z.enum(['checks', 'series']).optional() }).safeParse(req.query ?? {});
+    const v = z.object({ view: z.enum(['checks', 'series']).optional(), run: z.enum(['0', '1']).optional() }).safeParse(req.query ?? {});
     if (!v.success) return reply.code(400).send({ error: 'bad_request', message: 'view is checks or series' });
-    const report = await runHealthChecks({ bySeries: v.data.view === 'series' });
-    // What the header shows (#101): refreshed whenever somebody looks, so it never disagrees with the page.
+    const bySeries = v.data.view === 'series';
+    // The last run's report, as it was stored (2026-11-18): opening Health, or the Admin overview, no longer runs the checks. They run
+    // on the server's schedule and after whatever changes a finding (scheduleHealthSummaryRefresh), and here on `run=1` -- the page's
+    // Re-check -- or when nothing has been stored yet. `stored` says which the page is looking at.
+    if (v.data.run !== '1') {
+      const last = await readHealthReport();
+      if (last) return { ...last, stored: true, ...(bySeries ? { bySeries: await groupBySeries(last.checks) } : {}) };
+    }
+    const report = await runHealthChecks({ bySeries });
+    // What the header shows (#101), and the whole report the page reads next time.
     await storeHealthSummary(report).catch(() => {});
     return report;
   });
@@ -4746,6 +4754,8 @@ export default async function adminRoutes(app: FastifyInstance) {
       await unignoreFinding(check, key);
       await logAudit('health.unignore', { userId: userIdOf(req), detail: { check, key }, req });
     }
+    // The stored report the page reads (readHealthReport) catches up, as after any change to a finding.
+    scheduleHealthSummaryRefresh();
     return { ok: true };
   });
 

@@ -55,8 +55,17 @@ export function summarise(report: HealthReport): HealthSummary {
 
 export async function storeHealthSummary(report: HealthReport): Promise<HealthSummary> {
   const s = summarise(report);
-  await q('UPDATE server_settings SET health_summary = $1::jsonb WHERE id = 1', [JSON.stringify(s)]);
+  // The whole report beside its summary (2026-11-18): Admin -> Health and the overview read the last run instead of running the
+  // checks on every visit. Without the By series grouping, which is derived from the checks on request (groupBySeries).
+  const { bySeries: _drop, ...whole } = report;
+  await q('UPDATE server_settings SET health_summary = $1::jsonb, health_report = $2::jsonb WHERE id = 1', [JSON.stringify(s), JSON.stringify(whole)]);
   return s;
+}
+
+/** The last stored Health report, or null when the checks have never run (or ran on a server older than this). */
+export async function readHealthReport(): Promise<HealthReport | null> {
+  const row = await one<{ health_report: HealthReport | null }>('SELECT health_report FROM server_settings WHERE id = 1').catch(() => null);
+  return row?.health_report?.checks ? row.health_report : null;
 }
 
 export async function readHealthSummary(): Promise<HealthSummary | null> {

@@ -50,7 +50,7 @@ import { useLayer } from '@/lib/layers';
 import { SourceHealthBody } from '@/components/SourceHealthBody';
 import { HealthBySeries } from '@/components/HealthBySeries';
 import { Segmented } from '@/components/settings';
-import { healthQuery, healthView, setHealthView, type HealthView } from '@/lib/healthBySeries';
+import { healthQuery, healthView, runHealthNow, setHealthView, type HealthView } from '@/lib/healthBySeries';
 import { releaseHref, shownVersion, updateState, type UpdateState } from '@/lib/versionLine';
 import { useSectionArrival } from '@/lib/useSectionArrival';
 import { useReduceEffects } from '@/lib/effects';
@@ -2194,13 +2194,18 @@ function Health() {
   // renders without localStorage. The report asks for the series while it is By series (lib/healthBySeries.ts).
   const [view, setView] = useState<HealthView>('checks');
   useEffect(() => { setView(healthView()); }, []);
-  const { data, isFetching, refetch } = useQuery(healthQuery);
+  const { data, refetch } = useQuery(healthQuery);
   const checks = data?.checks || [];
   const bad = checks.filter((c) => c.status !== 'ok').length;
-  // After anything on this page changes a finding -- a repair that ENDED, an ignore -- the page is checked
-  // again, and the header's mark with it: the refetch stores a new summary, and the header reads that summary.
+  // The page opens on the last stored run (no checks run on a visit). After anything on this page changes a finding -- a repair that
+  // ENDED, an ignore -- and on Re-check, the checks run now: that run stores a new report and summary, and the header reads that summary.
   const qc = useQueryClient();
-  const recheck = () => refetch().then(() => qc.invalidateQueries({ queryKey: ['health-summary'] }));
+  const [running, setRunning] = useState(false);
+  const recheck = async () => {
+    setRunning(true);
+    try { await runHealthNow(qc); } catch { /* the stored report stays on screen */ } finally { setRunning(false); }
+    await qc.invalidateQueries({ queryKey: ['health-summary'] });
+  };
   const pickView = (v: HealthView) => {
     setHealthView(v);
     setView(v);
@@ -2236,8 +2241,8 @@ function Health() {
             {data && <> · {tr('checked {when}', { when: relativeTime(data.generatedAt) })}</>}
           </p>
           <div className="ms-auto flex flex-wrap items-center justify-end gap-2">
-            <button type="button" onClick={() => refetch()} disabled={isFetching} className="btn-key">
-              <IcRefresh aria-hidden width={14} height={14} />{isFetching ? tr('Checking…') : tr('Re-check')}
+            <button type="button" onClick={() => void recheck()} disabled={running} className="btn-key" data-health-recheck>
+              <IcRefresh aria-hidden width={14} height={14} />{running ? tr('Checking…') : tr('Re-check')}
             </button>
             {/* v0.55.0: whenever any card has a finding -- where Fix all issues' row was, which only the repair's four
                 steps could summon. */}

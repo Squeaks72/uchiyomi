@@ -583,7 +583,8 @@ test('the Health page: keys that follow their finding, marks not capsules, the d
   const hdr = health.indexOf('type="button"');
   const close = health.indexOf('</button>', hdr);
   assert.ok(hdr > 0 && close > hdr && health.indexOf('<HealthCardActions') > close, 'a card action is inside the disclosure, or before it');
-  assert.match(health, /const recheck = \(\) => refetch\(\)\.then\(\(\) => qc\.invalidateQueries\(\{ queryKey: \['health-summary'\] \}\)\);/, 'the header mark is not refreshed after a change on the page');
+  // 2026-11-18: the page opens on the stored report; recheck runs the checks now (runHealthNow) and then refreshes the header's mark.
+  assert.match(health, /const recheck = async \(\) => \{[\s\S]*?await runHealthNow\(qc\);[\s\S]*?await qc\.invalidateQueries\(\{ queryKey: \['health-summary'\] \}\);/, 'the header mark is not refreshed after a change on the page');
   // Open is a text link, not a chip: it goes somewhere, it does nothing.
   assert.doesNotMatch(health, /className="chip/, 'a chip is left in Health()');
   // The browser walk finds a key's row with closest('[data-health-item]').
@@ -681,4 +682,13 @@ test('every Health row has a Recheck that reruns only its own check and patches 
   assert.match(src, /data-health-recheck/);
   assert.match(src, /hook: 'recheck'/);
   assert.match(src, /tr\('No longer a problem'\)/);
+});
+
+test('opening Health or the overview reads the stored report; only Re-check runs the checks (2026-11-18)', () => {
+  const lib = readFileSync(join(__dirname, '..', 'lib/healthBySeries.ts'), 'utf8');
+  const query = lib.slice(lib.indexOf('export const healthQuery'), lib.indexOf('export async function runHealthNow'));
+  assert.doesNotMatch(query, /run=1/, 'the shared query runs the checks');
+  assert.match(lib, /\/api\/admin\/health\?run=1/);
+  const page = readFileSync(join(__dirname, '..', 'app/admin/page.tsx'), 'utf8');
+  assert.match(page, /onClick=\{\(\) => void recheck\(\)\} disabled=\{running\}[^>]*data-health-recheck/);
 });
