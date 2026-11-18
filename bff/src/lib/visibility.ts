@@ -464,7 +464,9 @@ export function adultFilterConfigured(ctx: ViewCtx): boolean {
 export function sourceBrowsableFor(src: { id?: string; isNsfw?: boolean } | null | undefined, ctx: ViewCtx): boolean {
   if (!sourceAllowedFor(src, ctx.maxAgeRating)) return false;
   if (!ctx.hideAdultLibraries) return true;
-  if (sourceRatedAdult(src) || src?.isNsfw) return false;
+  // Not `isNsfw` (2026-11-18): most general aggregators declare themselves NSFW for hosting some adult titles, and hiding every one left
+  // almost nothing to search. Their results are judged one by one instead (lib/adultResults.ts); only a source rated adult goes whole.
+  if (sourceRatedAdult(src)) return false;
   // Rated Adult only by the admin even though its extension does not say so, as this request read the list. The list is
   // lowercased on the way in, so the comparison is too.
   return !(src?.id && (ctx.adultSources ?? []).includes(String(src.id).toLowerCase()));
