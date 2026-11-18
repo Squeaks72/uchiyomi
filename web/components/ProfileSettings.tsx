@@ -23,7 +23,7 @@ import { FRAMES, badgeCaption, badgeEarned, badgeOfFrame, frameName, type Avatar
 import type { Stats } from '@/components/ProfileYou';
 import { ProgressBar } from '@/components/ui';
 import { useToast } from '@/components/Toast';
-import { IcCheck, IcChevronRight, IcDownload, IcLock, IcMoments, IcSliders, IcSparkle } from '@/components/icons';
+import { IcBell, IcCheck, IcChevronRight, IcDownload, IcLock, IcMoments, IcSliders, IcSparkle } from '@/components/icons';
 import { t as tr, LOCALES, keys, type Locale } from '@/lib/i18n';
 import { useT } from '@/lib/I18nProvider';
 import {
@@ -93,6 +93,11 @@ export function useProfileSettingsViews(): { views: Record<string, PageView>; po
       description: tr('These are your defaults: the reader’s own sheet still changes them for the session you are in, and a series you have adjusted keeps its own.'),
       pane: <ReadingSection prefs={prefs} set={setReader} />,
     },
+    notifications: {
+      icon: <IcBell width={18} height={18} />, tint: 'bg-rose-500/15 text-rose-300',
+      summary: notifyOnlyNextOn(user?.settings) ? tr('Only my next chapter') : undefined,
+      pane: <NotificationsPane />,
+    },
     device: {
       icon: <IcDownload width={18} height={18} />, tint: 'bg-sky-500/15 text-sky-300',
       summary: [usage.usage > 0 ? bytes(usage.usage) : null, so.enabled ? tr('Keep favorites offline') : null].filter(Boolean).join(' · ') || undefined,
@@ -124,25 +129,16 @@ function useHoverPointer(): boolean {
 
 const THEME_LABEL = { amoled: 'AMOLED', paper: 'Paper', sepia: 'Sepia', gray: 'Gray' } as const;
 
-/* ================================ General ================================ */
+/* ============================== Notifications ============================== */
 
-/** The language, how series pages list chapters, the shortcuts, and Incognito. */
-function GeneralPane({ pointer }: { pointer: boolean }) {
+/**
+ * Everything about being told things, on one page (2026-11-18): push on this device, which new chapters, the series subscribed to, and --
+ * for admins -- the server-health alerts and where the server-wide targets (webhooks, email) are set up.
+ */
+function NotificationsPane() {
   const { user, setSettings, isAdmin } = useAuth();
-  const { lang, setLang } = useT();
-  const incognito = useIncognito();
-  // Read after mount: localStorage is not there during the static export's render.
-  const [typeSearch, setTypeSearch] = useState(true);
-  useEffect(() => { setTypeSearch(typeToSearchOn()); }, []);
-  const [compactList, setCompactList] = useState(false);
-  useEffect(() => { setCompactList(compactChaptersOn()); }, []);
-  const [banners, setBanners] = useBanners();
-  const [keepAdult, setKeepAdult] = useState(false);
-  useEffect(() => { setKeepAdult(keepAdultOn()); }, []);
-  const [contextMenus, setContextMenus] = useState(true);
-  useEffect(() => { setContextMenus(contextMenusOn()); }, []);
-  // Show all chapters at once (lib/showAllChapters.ts): on the account like Reduce effects, so every device the
-  // reader signs in on opens the whole list; optimistic, and put back when the server refuses.
+  const qc = useQueryClient();
+  const toast = useToast();
   // Only tell this account about a new chapter when it is the one it would read next (bff lib/nextUp.ts). On the account
   // like the switch above; the server reads it when it sends a push or a person-aimed target's message.
   const notifyOnlyNext = notifyOnlyNextOn(user?.settings);
@@ -161,6 +157,79 @@ function GeneralPane({ pointer }: { pointer: boolean }) {
     try { await api('/api/settings', { method: 'PUT', json: { healthPushOff: next } }); }
     catch (e) { setSettings({ healthPushOff: prev }); throw e; }
   };
+  const subs = useQuery({ queryKey: ['subscriptions'], queryFn: () => api<{ content: { id: string; title: string }[] }>('/api/subscriptions'), staleTime: 30_000 });
+  const unsubscribe = async (id: string) => {
+    try {
+      await api(`/api/series/${encodeURIComponent(id)}/subscription`, { method: 'DELETE' });
+      void qc.invalidateQueries({ queryKey: ['subscriptions'] });
+      void qc.invalidateQueries({ queryKey: ['subscription', id] });
+    } catch { toast(tr('Could not save'), 'error'); }
+  };
+  const list = subs.data?.content ?? [];
+  return (
+    <>
+      {!isDesktop() && <DeviceSection only="push" />}
+      <RowGroup id="new-chapters" title={tr('New chapters')}>
+        <SwitchRow id="notify-only-next" label={tr('Only tell me about my next chapter')}
+          help={tr('A new chapter notifies you only when it is the one you would read next: you are caught up, with nothing older unread or half read. A chapter upgraded to a preferred group still tells you. Saved to your account.')}
+          on={notifyOnlyNext} onChange={saveNotifyOnlyNext} />
+        <Row id="subscriptions" stacked label={list.length === 1 ? tr('Subscribed to 1 series') : tr('Subscribed to {n} series', { n: list.length })}
+          help={tr('You are told about every new chapter of these. Subscribe or unsubscribe with the bell on a series page.')}>
+          {list.length > 0 && (
+            <ul className="mt-1 max-h-72 divide-y divide-ink-800/70 overflow-y-auto rounded-lg border border-ink-800" data-lenis-prevent data-subscription-list>
+              {list.map((s) => (
+                <li key={s.id} className="flex items-center gap-2 px-3 py-2 text-sm">
+                  <Link href={`/series/?id=${s.id}`} dir="auto" className="min-w-0 flex-1 truncate text-fog-100 hover:text-accent">{s.title}</Link>
+                  <button type="button" onClick={() => void unsubscribe(s.id)} className="btn-key shrink-0 text-xs" data-unsubscribe={s.id}>{tr('Unsubscribe')}</button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Row>
+      </RowGroup>
+      {isAdmin && (
+        <RowGroup id="health-alerts" title={tr('Health alerts on your devices')}>
+
+            {([
+              ['sources', tr('Sources that stop working'), tr('A source failing its checks: searching, listing chapters, or downloading pages.')],
+              ['extensions', tr('Extension problems'), tr('Extensions that could not update, are no longer offered, or whose repositories could not be read.')],
+              ['solver', tr('Cloudflare solver'), tr('The solver needing attention, and recovering.')],
+              ['autofix', tr('Nightly fixes that need you'), tr('The nightly Fix everything left cards only you can decide.')],
+              ['notify', tr('Notification targets switched off'), tr('A webhook or email target turned off after failing.')],
+            ] as const).map(([tag, label, help]) => (
+              <SwitchRow key={tag} id={`health-push-${tag}`} label={label} help={help} on={!healthOff.includes(tag)} onChange={saveHealthPush(tag)} />
+            ))}
+        </RowGroup>
+      )}
+      {isAdmin && (
+        <RowGroup id="notify-targets" title={tr('Server-wide')}>
+          <LinkRow label={tr('Webhooks and email')} help={tr('Send new chapters and health alerts to Discord, Home Assistant, email and more. Admin → Settings → Notifications.')}
+            href="/admin/?tab=settings&section=notifications" />
+        </RowGroup>
+      )}
+    </>
+  );
+}
+
+/* ================================ General ================================ */
+
+/** The language, how series pages list chapters, the shortcuts, and Incognito. */
+function GeneralPane({ pointer }: { pointer: boolean }) {
+  const { user, setSettings } = useAuth();
+  const { lang, setLang } = useT();
+  const incognito = useIncognito();
+  // Read after mount: localStorage is not there during the static export's render.
+  const [typeSearch, setTypeSearch] = useState(true);
+  useEffect(() => { setTypeSearch(typeToSearchOn()); }, []);
+  const [compactList, setCompactList] = useState(false);
+  useEffect(() => { setCompactList(compactChaptersOn()); }, []);
+  const [banners, setBanners] = useBanners();
+  const [keepAdult, setKeepAdult] = useState(false);
+  useEffect(() => { setKeepAdult(keepAdultOn()); }, []);
+  const [contextMenus, setContextMenus] = useState(true);
+  useEffect(() => { setContextMenus(contextMenusOn()); }, []);
+  // Show all chapters at once (lib/showAllChapters.ts): on the account like Reduce effects, so every device the
+  // reader signs in on opens the whole list; optimistic, and put back when the server refuses.
   const showAllChapters = showAllChaptersOn(user?.settings);
   const saveShowAllChapters = async (next: boolean) => {
     const prev = showAllChapters;
@@ -191,23 +260,6 @@ function GeneralPane({ pointer }: { pointer: boolean }) {
           <SwitchRow id="compact-chapters" device label={tr('Compact chapter list')}
             help={tr('On a computer, chapter rows without thumbnails, and their buttons appear when you point at a row. Phones and tablets are unchanged. This device only.')}
             on={compactList} onChange={(next) => { setCompactChaptersOn(next); setCompactList(next); }} />
-        )}
-        <SwitchRow id="notify-only-next" label={tr('Only tell me about my next chapter')}
-          help={tr('A new chapter notifies you only when it is the one you would read next: you are caught up, with nothing older unread or half read. A chapter upgraded to a preferred group still tells you. Saved to your account.')}
-          on={notifyOnlyNext} onChange={saveNotifyOnlyNext} />
-        {/* Admins only: which server-health pushes reach this account's devices. Webhook and email targets keep their own choices. */}
-        {isAdmin && (
-          <RowSubgroup title={tr('Health alerts on your devices')} data-health-push>
-            {([
-              ['sources', tr('Sources that stop working'), tr('A source failing its checks: searching, listing chapters, or downloading pages.')],
-              ['extensions', tr('Extension problems'), tr('Extensions that could not update, are no longer offered, or whose repositories could not be read.')],
-              ['solver', tr('Cloudflare solver'), tr('The solver needing attention, and recovering.')],
-              ['autofix', tr('Nightly fixes that need you'), tr('The nightly Fix everything left cards only you can decide.')],
-              ['notify', tr('Notification targets switched off'), tr('A webhook or email target turned off after failing.')],
-            ] as const).map(([tag, label, help]) => (
-              <SwitchRow key={tag} id={`health-push-${tag}`} label={label} help={help} on={!healthOff.includes(tag)} onChange={saveHealthPush(tag)} />
-            ))}
-          </RowSubgroup>
         )}
         {/* This device only (lib/typeToSearch.ts says why): single-key shortcuts must be possible to switch off. */}
         {pointer && (
@@ -586,7 +638,7 @@ function DevicePane({ usage, nativeControls }: { usage: { usage: number; quota: 
     <>
       <NativeServerSettings available={nativeControls} />
       <DownloadsSection usage={usage} />
-      <DeviceSection />
+      <DeviceSection only="install" />
     </>
   );
 }
@@ -671,7 +723,7 @@ function urlB64ToUint8(s: string): Uint8Array {
  * as a whole steps aside only when it has nothing to say -- push unconfigured on the server AND the app already
  * installed.
  */
-function DeviceSection() {
+function DeviceSection({ only }: { only?: 'push' | 'install' } = {}) {
   // Uchiyomi Desktop's window onto a server (its server mode -- standalone hides this whole category) has no push
   // service: Electron ships none, so the switch could only ever fail with "The browser did not grant it." There
   // the row says where new-chapter alerts come from instead (V2 review, v0.45.0).
@@ -761,22 +813,25 @@ function DeviceSection() {
     setCanInstall(false);
   };
 
-  // Nothing to decide here: push is not configured on the server and the app is already installed.
-  if (native || (!enabledSrv && standalone)) return null;
+  // Nothing to decide here: push is not configured on the server and the app is already installed. Since 2026-11-18 the push switch is
+  // drawn on the Notifications page (only 'push') and the install row on This device (only 'install').
+  const showPush = only !== 'install';
+  const showInstall = only !== 'push';
+  if (native || ((!enabledSrv || !showPush) && (standalone || !showInstall))) return null;
 
   return (
-    <RowGroup id="device" title={tr('Alerts and app')}>
-      {enabledSrv && (inApp ? (
+    <RowGroup id={only === 'push' ? 'push-alerts' : 'device'} title={only === 'push' ? tr('On this device') : only === 'install' ? tr('App') : tr('Alerts and app')}>
+      {showPush && enabledSrv && (inApp ? (
         <Row id="chapter-alerts" stacked label={tr('New-chapter alerts')}>
           <p className="max-w-prose text-sm text-fog-400">{tr('The desktop app cannot receive push notifications. Your server can still send new chapters to your phone, Home Assistant or Discord through a notification target, which an admin sets up under Admin → Settings → Notifications.')}</p>
         </Row>
       ) : (
         <SwitchRow id="chapter-alerts" device label={tr('New-chapter alerts')}
-          help={supported ? tr('Get a push notification when one of your favorites gets a new chapter, or when someone comments on a chapter you commented on.') : tr('Not supported on this browser.')}
+          help={supported ? tr('Push notifications on this device: new chapters of the series you subscribe to, replies to chapters you commented on, and (for admins) the health alerts below.') : tr('Not supported on this browser.')}
           on={on} disabled={!supported} onChange={toggle} />
       ))}
       {/* Already installed: the row is about installing, so it unmounts rather than congratulating you. */}
-      {!standalone && (
+      {showInstall && !standalone && (
         <Row id="install" stacked label={tr('Install Uchiyomi')}>
           {canInstall ? (
             <button type="button" onClick={install} className="btn-accent px-4 py-2 text-sm">

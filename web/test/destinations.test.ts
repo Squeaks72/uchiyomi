@@ -64,7 +64,7 @@ const TASK_IDS = (() => {
 test('every destination lands where it says: a real page, one of its pages, and a card that page draws', () => {
   // Reintroduce a section without its id (drop `id="notice-chapters"` from AdminSettings.tsx), or a page that is gone
   // (`?tab=providers`): the destination is named here by its key.
-  assert.ok(PAGES_OF['/admin/'].length === 13 && PAGES_OF['/profile/'].length === 8, 'the consoles\' pages were not read');
+  assert.ok(PAGES_OF['/admin/'].length === 13 && PAGES_OF['/profile/'].length === 9, 'the consoles\' pages were not read');
   for (const d of DESTINATIONS) {
     const u = new URL(d.href, 'http://x');
     assert.ok(['/admin/', '/profile/', '/admin/import/'].includes(u.pathname), `${d.key}: ${u.pathname} is not a page this lists`);

@@ -298,7 +298,7 @@ test('the profile is one list -- You, Insights and its Settings group -- with no
   // setting lives in its page's component. Reintroduce by moving Connections out of the group: "the profile's list
   // changed" fails; by importing `SecurityPanel` on the page: "a retired card is back on the page" fails.
   assert.deepEqual(PROFILE_SETTINGS.categories.map((c) => `${c.group ?? ''}/${c.id}`),
-    ['/you', '/insights', 'Settings/general', 'Settings/appearance', 'Settings/reading', 'Settings/device', 'Settings/connections', 'Settings/account'],
+    ['/you', '/insights', 'Settings/general', 'Settings/appearance', 'Settings/reading', 'Settings/notifications', 'Settings/device', 'Settings/connections', 'Settings/account'],
     'the profile\'s list changed');
   const src = code(read('app/profile/page.tsx'));
   assert.doesNotMatch(src, /AdminCard|SignOutCard|SettingsCard|SecurityPanel/, 'a retired card is back on the page');

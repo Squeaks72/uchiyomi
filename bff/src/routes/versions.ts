@@ -2,7 +2,7 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { actsAsAdmin, authenticate, requireAdmin, roleOf, userIdOf } from '../lib/auth';
 import { one, q } from '../lib/db';
-import { viewCtxFor, hideAdult, seriesVisible, type ViewCtx } from '../lib/visibility';
+import { viewCtxFor, hideAdult, seriesVisible, visible, Params, type ViewCtx } from '../lib/visibility';
 import { seriesSourcesFor } from '../lib/seriesSources';
 import { heldBySeries, mySource, setMySource, myBookPicks, setBookPick, COLORED_KEY, ENDORSED_KEY } from '../lib/bookVersionsRead';
 import { visibleBookFile } from '../lib/visibility';
@@ -95,6 +95,16 @@ export default async function versionRoutes(app: FastifyInstance) {
    * Subscribe (series_subscriptions, 2026-11-18): this account is told about every new chapter of the series -- a push to its devices and the
    * new-chapters digest. `devices`: how many devices would be told (push subscriptions; none means the profile's notifications are off).
    */
+  /** Every series this account is subscribed to that it may still see, by title (Profile -> Notifications). */
+  app.get('/api/subscriptions', async (req) => {
+    const p = new Params();
+    const uid = p.add(userIdOf(req));
+    const rows = await q<{ id: string; title: string }>(
+      `SELECT s.id, s.title FROM series_subscriptions sub JOIN lib_series s ON s.id = sub.series_id
+        WHERE sub.user_id = ${uid} AND ${visible('s', vc(req), p)} ORDER BY lower(s.title)`, p.values as any[]).catch(() => []);
+    return { content: rows };
+  });
+
   app.get('/api/series/:id/subscription', async (req, reply) => {
     const { id } = req.params as { id: string };
     if (!(await seriesVisible(id, vc(req)))) return reply.code(404).send({ error: 'not_found' });

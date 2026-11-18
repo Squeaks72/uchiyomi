@@ -21,6 +21,8 @@ export const PROFILE_SETTINGS: SettingsIndex = {
     { id: 'general', label: 'General', group: 'Settings', settings: true },
     { id: 'appearance', label: 'Appearance', group: 'Settings', settings: true },
     { id: 'reading', label: 'Reading', group: 'Settings', settings: true },
+    { id: 'notifications', label: 'Notifications', group: 'Settings', settings: true,
+      keywords: ['push', 'alerts', 'subscriptions', 'subscribe', 'health alerts', 'notify'] },
     // Uchiyomi Desktop: no offline copies (the chapters are on this disk already), no push service, nothing to install.
     { id: 'device', label: 'This device', group: 'Settings', settings: true, when: ['web'] },
     { id: 'connections', label: 'Connections', group: 'Settings',
@@ -37,7 +39,7 @@ export const PROFILE_SETTINGS: SettingsIndex = {
       help: 'Translations other than English are machine-assisted and have not been checked by a native speaker. If something reads wrong, the language files are one JSON each — corrections are welcome.' },
     { id: 'show-all-chapters', cat: 'general', label: 'Show all chapters at once', keywords: ['chapter list', 'hundred at a time', 'series page'],
       help: 'A series page lists every chapter, including those not here yet, on one page instead of a hundred at a time. Saved to your account.' },
-    { id: 'notify-only-next', cat: 'general', label: 'Only tell me about my next chapter', keywords: ['notifications', 'push', 'alerts', 'new chapter', 'caught up'],
+    { id: 'notify-only-next', cat: 'notifications', label: 'Only tell me about my next chapter', keywords: ['notifications', 'push', 'alerts', 'new chapter', 'caught up'],
       help: 'A new chapter notifies you only when it is the one the series page would open for you: you are caught up, with nothing older unread or half read. Applies to push alerts and to messages sent to you. Saved to your account.' },
     // Only a computer's rows change, so a phone or tablet held alone has nothing to switch (lib/compactChapters.ts).
     { id: 'compact-chapters', cat: 'general', label: 'Compact chapter list', when: ['pointer'], keywords: ['thumbnails', 'dense', 'chapter rows'] },
@@ -81,7 +83,7 @@ export const PROFILE_SETTINGS: SettingsIndex = {
     { id: 'downloads', cat: 'device', label: 'Offline downloads', when: ['web'], keywords: ['offline', 'downloaded chapters'] },
     { id: 'keep-offline', cat: 'device', label: 'Keep favorites offline', when: ['web'], keywords: ['auto download', 'offline', 'favourites'] },
     { id: 'storage', cat: 'device', label: 'Storage used', when: ['web'], keywords: ['space', 'quota', 'eviction', 'protect downloads', 'persist'] },
-    { id: 'chapter-alerts', cat: 'device', label: 'New-chapter alerts', when: ['web'], keywords: ['push', 'notifications', 'alerts', 'comments', 'replies'] },
+    { id: 'chapter-alerts', cat: 'notifications', label: 'New-chapter alerts', when: ['web'], keywords: ['push', 'notifications', 'alerts', 'comments', 'replies'] },
     { id: 'install', cat: 'device', label: 'Install Uchiyomi', when: ['web'], keywords: ['install app', 'pwa', 'home screen', 'add to home screen'] },
   ],
   legacy: {},

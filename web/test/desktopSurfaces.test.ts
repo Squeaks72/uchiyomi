@@ -156,14 +156,14 @@ test('the profile settings and connections hide what only other devices use', ()
   const device0 = PROFILE_SETTINGS.categories.find((c) => c.id === 'device');
   assert.deepEqual(device0?.when, ['web'], 'This device shows on desktop');
   assert.match(code(read('app/profile/page.tsx')), /conds=\{\{ web: !desktop, /, 'the page does not say it is on desktop');
-  assert.match(settings, /<DownloadsSection usage=\{usage\} \/>\s*<DeviceSection \/>/, 'the This device category lost a group');
+  assert.match(settings, /<DownloadsSection usage=\{usage\} \/>\s*<DeviceSection only="install" \/>/, 'the This device category lost a group');
   assert.match(settings, /function DeviceSection\(/, 'DeviceSection was deleted rather than gated');
   // v0.45.0: the desktop app's server mode is a plain window onto the server, so the server's own settings
   // render there -- but the window IS the installed app. Reintroduce by dropping `|| inDesktopWindow()`:
   // "Install Uchiyomi shows inside the desktop app" fails.
   const device = settings.slice(settings.indexOf('function DeviceSection('));
   assert.match(device, /setStandalone\(window\.matchMedia\('\(display-mode: standalone\)'\)\.matches \|\| \(navigator as any\)\.standalone === true \|\| inDesktopWindow\(\) \|\| usesNativeCache\(\)\);/, 'Install Uchiyomi shows inside the desktop app');
-  assert.match(device, /\{!standalone && \(\s*<Row id="install" stacked label=\{tr\('Install Uchiyomi'\)\}>/, 'the install row is no longer gated on standalone');
+  assert.match(device, /\{(?:showInstall && )?!standalone && \(\s*<Row id="install" stacked label=\{tr\('Install Uchiyomi'\)\}>/, 'the install row is no longer gated on standalone');
   // ...and the window has no push service (Electron ships none): the push switch there could only fail with
   // "The browser did not grant it." (V2 review). Reintroduce by rendering the SwitchRow whatever `inApp` says:
   // "the push switch is offered inside the desktop app" fails; by dropping `!inApp &&` from `supported`: "push
