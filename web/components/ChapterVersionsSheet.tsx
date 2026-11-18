@@ -150,7 +150,7 @@ export function ChapterVersionsSheet({ number, ghost, book, copies, sourceNames,
               )}
               {mayReplace && !own && (
                 <button type="button" onClick={() => onReplace(c)} disabled={c.onDisk} aria-describedby={`${rowId}-${i}`} className="btn-key"
-                  title={c.onDisk ? undefined : tr('Replace the file on the server with this version')}>{tr('Replace…')}</button>
+                  title={c.onDisk ? undefined : tr('Make this copy the chapter’s file on the server')} data-endorse-version>{tr('Endorse')}</button>
               )}
               {onKeep && !own && !c.onDisk && c.source && (keptSources?.has(c.source)
                 ? <span className="text-[11px] text-fog-500" data-version-kept>{tr('Kept')}</span>

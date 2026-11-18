@@ -37,7 +37,7 @@
 // admin's age reach; a target in another language (the follow route's refusal, with the edition to add); and `moved`,
 // when the main changed under the transaction (or, for Replace, is no longer the source being replaced).
 import type { FastifyRequest } from 'fastify';
-import { one, tx } from './db';
+import { one, q, tx } from './db';
 import { getSource } from './sources';
 import { logAudit } from './audit';
 import { seriesVisible, sourceAllowedFor, type ViewCtx } from './visibility';
@@ -235,6 +235,8 @@ export async function switchMainSource(seriesId: string, to: string, opts: Switc
   });
   // Health's sources and "can no longer update" rows count main sources: the header catches up now, not in 6 h.
   scheduleHealthSummaryRefresh();
+  // The new main's copy becomes every chapter's endorsed copy, except where an admin endorsed another (lib/endorse.ts).
+  await q('UPDATE lib_series SET endorse_pending = true WHERE id = $1', [seriesId]).catch(() => {});
   return out.r;
 }
 

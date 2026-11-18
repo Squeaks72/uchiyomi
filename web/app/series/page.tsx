@@ -75,11 +75,10 @@ import { CullSourcesDialog } from '@/components/CullSourcesDialog';
 import { foreignSources, type CullPlan } from '@/lib/cullPlan';
 import { HiddenChaptersDialog } from '@/components/HiddenChapters';
 import { CoverPickerSheet } from '@/components/CoverPickerSheet';
-import { CompareCopiesDialog } from '@/components/CompareCopiesDialog';
 import { GroupAvatar } from '@/components/GroupAvatar';
 import { supplyLine } from '@/lib/supplyLine';
 import { isDesktop } from '@/lib/desktop';
-import { useContextMenu } from '@/components/ContextMenu';
+import { useContextMenu, type MenuItem } from '@/components/ContextMenu';
 import { useLayer, useLayers } from '@/lib/layers';
 import { kickDownloads, useServerDownloads } from '@/lib/useServerDownloads';
 import { SeriesServerDownloads } from '@/components/SeriesServerDownloads';
@@ -475,7 +474,7 @@ function ButtonsWrap({ compact, menuOpen, children }: { compact: boolean; menuOp
 /** Shift+click in select mode picks a range; without this the browser also paints a text selection across it. */
 const keepSelection = (e: { shiftKey: boolean; preventDefault: () => void }) => { if (e.shiftKey) e.preventDefault(); };
 
-function ChapterRow({ book, downloaded, sourceNames, primarySource, versions, group, expanded, onToggleCopies, below, onReader, onToggleDownload, onMark, onEdit, onVersions, onReplaceFrom, onCopyPath, onHide, onRefetch, onDelete, fresh, selectable, selected, onToggle, compact, lit, talk, onTalk }: {
+function ChapterRow({ book, downloaded, sourceNames, primarySource, versions, group, expanded, onToggleCopies, below, onReader, onToggleDownload, onMark, onEdit, onVersions, onCopyPath, onHide, onRefetch, onDelete, fresh, selectable, selected, onToggle, compact, lit, talk, onTalk }: {
   book: Book;
   /** The group the file on disk came from (lib/chapterCopies.ts endorsedOrigin): the tag beside the title. Null when nobody said. */
   group?: string | null;
@@ -524,8 +523,6 @@ function ChapterRow({ book, downloaded, sourceNames, primarySource, versions, gr
   onEdit?: () => void;
   /** Opens the chapter sheet with every copy of this number; absent when the sources know none. */
   onVersions?: () => void;
-  /** Admins only: compare this file with another source's copy of the same number and swap it. Absent when no other source has one. */
-  onReplaceFrom?: () => void;
 }) {
   const [busy, setBusy] = useState(false);
   const rp = book.readProgress;
@@ -541,7 +538,6 @@ function ChapterRow({ book, downloaded, sourceNames, primarySource, versions, gr
     { label: tr('Mark previous as read'), onSelect: () => onMark('previous') },
     ...(onTalk ? [{ label: talk?.comments ? `${tr('Comments')} · ${talk.comments}` : tr('Comments'), divider: true, hook: 'comments', onSelect: onTalk }] : []),
     ...(onVersions ? [{ label: tr('Versions'), divider: true, onSelect: onVersions }] : []),
-    ...(onReplaceFrom ? [{ label: tr('Replace from another source…'), onSelect: onReplaceFrom }] : []),
     ...(onEdit ? [{ label: tr('Edit number & title'), divider: true, onSelect: onEdit }] : []),
     ...(onCopyPath ? [{ label: tr('Copy file path'), divider: !onEdit, onSelect: onCopyPath }] : []),
     ...(onHide ? [{ label: tr('Hide chapter {n}', { n: book.number }), divider: !onEdit && !onCopyPath, hook: 'hide-chapter', onSelect: onHide }] : []),
@@ -666,38 +662,54 @@ function GroupTag({ name }: { name: string }) {
  * The copies of one chapter the server holds, under its row (lib/chapterCopies.ts): each says its source, the group that released it,
  * its pages, and whether it is the endorsed copy, the colored edition, and the one this account reads. A press reads that copy.
  */
-function CopyRows({ copies, fetching, onRead }: { copies: ChapterCopy[]; fetching?: string | null; onRead: (c: ChapterCopy) => void }) {
+function CopyRows({ copies, fetching, onRead, menuFor }: {
+  copies: ChapterCopy[];
+  fetching?: string | null;
+  onRead: (c: ChapterCopy) => void;
+  /** The copy's own menu (right-click, a press-and-hold, or its ⋯ key): read, download, endorse, read the series from it, filter, delete. */
+  menuFor: (c: ChapterCopy) => MenuItem[];
+}) {
   return (
     <ul data-chapter-copies className="-mt-1 pb-2 ps-3">
-      {copies.map((c) => (
-        <li key={c.sourceId ?? 'endorsed'}>
-          <button type="button" onClick={() => onRead(c)} data-chapter-copy={c.sourceId ?? 'endorsed'} data-held={c.held ? '' : undefined}
-            aria-current={c.reading ? 'true' : undefined} disabled={!!fetching}
-            title={c.held ? undefined : tr('Not on the server yet: download it and read')}
-            className={`flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-start text-xs transition-colors hover:bg-white/[0.05] disabled:cursor-wait pointer-coarse:py-2.5 ${c.reading ? 'bg-accent/[0.07]' : ''} ${c.held ? '' : 'opacity-70 hover:opacity-100'}`}>
-            <span aria-hidden className="shrink-0 text-fog-600">└</span>
-            <span dir="auto" className={`min-w-0 truncate font-medium ${c.reading ? 'text-accent' : c.held ? 'text-fog-100' : 'text-fog-300'}`}>{c.sourceName ?? tr('This server')}</span>
-            {c.endorsed && <span data-copy-endorsed className="shrink-0 rounded-[4px] border border-accent/50 px-1 text-[10px] font-semibold uppercase tracking-wide text-accent">{tr('Endorsed')}</span>}
-            {c.colored && <span data-copy-colored className="shrink-0 rounded-[4px] border border-amber-300/50 px-1 text-[10px] font-semibold uppercase tracking-wide text-amber-300">{tr('Colored')}</span>}
-            {c.group && (
-              <span className="flex min-w-0 items-center gap-1 text-fog-400">
-                <span aria-hidden className="text-fog-600">·</span>
-                <IcUser aria-hidden width={11} height={11} className="shrink-0" />
-                <span dir="auto" className="truncate">{c.group}</span>
-              </span>
-            )}
-            <span className="ms-auto shrink-0 tabular-nums text-fog-500">
-              {c.pages > 0 ? (c.pages === 1 ? tr('1 page') : tr('{n} pages', { n: c.pages })) : ''}
-            </span>
-            {/* Not here yet: a press downloads it, then reads it. */}
-            {!c.held && (fetching === c.sourceId
-              ? <span className="shrink-0 text-accent" aria-label={tr('Downloading')}>…</span>
-              : <IcCloudDownload aria-label={tr('Not on the server yet: download it and read')} width={14} height={14} className="shrink-0 text-fog-500" />)}
-            {c.reading && <span className="sr-only">{tr('Reading')}</span>}
-          </button>
-        </li>
-      ))}
+      {copies.map((c) => <CopyRow key={c.sourceId ?? 'endorsed'} copy={c} fetching={fetching} onRead={onRead} items={() => menuFor(c)} />)}
     </ul>
+  );
+}
+
+function CopyRow({ copy: c, fetching, onRead, items }: { copy: ChapterCopy; fetching?: string | null; onRead: (c: ChapterCopy) => void; items: () => MenuItem[] }) {
+  const menu = useContextMenu(items, { label: tr('Version actions') });
+  return (
+    <li className="flex min-w-0 items-center gap-1" {...menu.bind}>
+      <button type="button" onClick={() => onRead(c)} data-chapter-copy={c.sourceId ?? 'endorsed'} data-held={c.held ? '' : undefined}
+        aria-current={c.reading ? 'true' : undefined} disabled={!!fetching}
+        title={c.held ? undefined : tr('Not on the server yet: download it and read')}
+        className={`flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-start text-xs transition-colors hover:bg-white/[0.05] disabled:cursor-wait pointer-coarse:py-2.5 ${c.reading ? 'bg-accent/[0.07]' : ''} ${c.held ? '' : 'opacity-70 hover:opacity-100'}`}>
+        <span aria-hidden className="shrink-0 text-fog-600">└</span>
+        <span dir="auto" className={`min-w-0 truncate font-medium ${c.reading ? 'text-accent' : c.held ? 'text-fog-100' : 'text-fog-300'}`}>{c.sourceName ?? tr('This server')}</span>
+        {c.endorsed && <span data-copy-endorsed className="shrink-0 rounded-[4px] border border-accent/50 px-1 text-[10px] font-semibold uppercase tracking-wide text-accent">{tr('Endorsed')}</span>}
+        {c.colored && <span data-copy-colored className="shrink-0 rounded-[4px] border border-amber-300/50 px-1 text-[10px] font-semibold uppercase tracking-wide text-amber-300">{tr('Colored')}</span>}
+        {c.group && (
+          <span className="flex min-w-0 items-center gap-1 text-fog-400">
+            <span aria-hidden className="text-fog-600">·</span>
+            <IcUser aria-hidden width={11} height={11} className="shrink-0" />
+            <span dir="auto" className="truncate">{c.group}</span>
+          </span>
+        )}
+        <span className="ms-auto shrink-0 tabular-nums text-fog-500">
+          {c.pages > 0 ? (c.pages === 1 ? tr('1 page') : tr('{n} pages', { n: c.pages })) : ''}
+        </span>
+        {/* Not here yet: a press downloads it, then reads it. */}
+        {!c.held && (fetching === c.sourceId
+          ? <span className="shrink-0 text-accent" aria-label={tr('Downloading')}>…</span>
+          : <IcCloudDownload aria-label={tr('Not on the server yet: download it and read')} width={14} height={14} className="shrink-0 text-fog-500" />)}
+        {c.reading && <span className="sr-only">{tr('Reading')}</span>}
+      </button>
+      <button type="button" onClick={(e) => menu.openFrom(e.currentTarget)} aria-label={tr('Version actions')} aria-haspopup="menu" aria-expanded={menu.open}
+        data-copy-menu className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-fog-500 hover:bg-white/[0.06] hover:text-fog-100 pointer-coarse:h-9 pointer-coarse:w-9">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden><circle cx="5" cy="12" r="1.8" /><circle cx="12" cy="12" r="1.8" /><circle cx="19" cy="12" r="1.8" /></svg>
+      </button>
+      {menu.element}
+    </li>
   );
 }
 
@@ -1226,6 +1238,51 @@ function SeriesInner() {
   // A chapter matches a group when its endorsed copy or any copy kept beside it is that group's (lib/chapterCopies.ts).
   const keptMatches = useCallback((n: number) => (keptData?.held?.[String(n)] ?? []).some((v) => matchesGroup(v, group)), [keptData, group]);
   const filteredBooks = useMemo(() => rowBooks.filter((b) => wholeOnly(b.number) && (group === ALL_GROUPS || matchesGroup(b, group) || keptMatches(b.number)) && !(hideReadNow && b.readProgress?.completed === true)), [rowBooks, group, wholeOnly, hideReadNow, keptMatches]);
+  // A followed source's copy (not an import, not a colored edition kept under its own key): what can be endorsed or read the series from.
+  const followedSource = (sid: string | null) => !!sid && !sid.startsWith('@');
+  const setMySource = async (sid: string | null) => {
+    try {
+      await api(`/api/series/${encodeURIComponent(id)}/my-source`, { method: 'PUT', json: { sourceId: sid } });
+      void qc.invalidateQueries({ queryKey: ['kept', id] });
+      toast(sid ? tr('Reading this series from {source}', { source: copyNames[sid] ?? sid }) : tr('Reading the endorsed copies'), 'success');
+    } catch (e) { toast(actionFailure(e, tr('Could not save')), 'error'); }
+  };
+  // The version rows' menu (lib/chapterCopies.ts). Admin items: endorse, back to the main source, delete a kept copy.
+  const copyMenu = (b: Book, c: ChapterCopy): MenuItem[] => {
+    const mine = keptData?.mySource ?? null;
+    const manual = keptData?.endorsements?.[String(b.number)] ?? null;
+    const name = c.sourceName ?? tr('This server');
+    return [
+      c.held
+        ? { label: tr('Read this version'), onSelect: () => void readCopy(b, c) }
+        : { label: tr('Download and read'), onSelect: () => void readCopy(b, c) },
+      ...(!c.held && c.sourceId ? [{ label: tr('Download only'), onSelect: () => void readCopy(b, c, { read: false }) }] : []),
+      ...(isAdmin && !c.endorsed && followedSource(c.sourceId) && (series?.sources ?? []).some((x) => x.sourceId === c.sourceId)
+        ? [{ label: tr('Endorse this version'), divider: true, hook: 'endorse', title: tr('Make this copy the chapter’s file: what everyone reads unless they picked another'), onSelect: () => void endorse(b.number, c.sourceId) }] : []),
+      ...(isAdmin && c.endorsed && manual
+        ? [{ label: tr('Endorse the main source again'), divider: true, hook: 'endorse-main', onSelect: () => void endorse(b.number, null) }] : []),
+      ...(c.held && followedSource(c.sourceId) && !c.endorsed
+        ? [mine === c.sourceId
+          ? { label: tr('Stop reading the series from {source}', { source: name }), divider: true, onSelect: () => void setMySource(null) }
+          : { label: tr('Read the whole series from {source}', { source: name }), divider: true, onSelect: () => void setMySource(c.sourceId) }] : []),
+      ...(c.endorsed && mine ? [{ label: tr('Read the endorsed copies'), divider: true, onSelect: () => void setMySource(null) }] : []),
+      // One group for the filter: a joint release ("A & B") filters by its first, the way the group select lists them.
+      ...((() => { const g = c.group ? groupsOfRow({ scanlator: c.group })[0] : null; return g
+        ? [group !== ALL_GROUPS && normGroup(group) === normGroup(g)
+          ? { label: tr('Show every group'), divider: true, onSelect: () => setGroup(ALL_GROUPS) }
+          : { label: tr('Show only {group}', { group: g }), divider: true, onSelect: () => setGroup(g) }] : []; })()),
+      ...(isAdmin && c.held && !c.endorsed && c.sourceId ? [{
+        label: tr('Delete this copy'), divider: true, danger: true, hook: 'drop-copy',
+        onSelect: async () => {
+          try {
+            await api(`/api/admin/series/${encodeURIComponent(id)}/versions/drop`, { method: 'POST', json: { number: b.number, sourceId: c.sourceId } });
+            void qc.invalidateQueries({ queryKey: ['kept', id] });
+            toast(tr('Copy deleted'), 'success');
+          } catch (e) { toast(actionFailure(e, tr('Could not delete this copy')), 'error'); }
+        },
+      }] : []),
+    ];
+  };
   const filteredGhosts = useMemo(() => visibleGhosts.filter((g) => wholeOnly(g.number) && (group === ALL_GROUPS || matchesGroup(g, group)) && !(hideReadNow && g.read === true)), [visibleGhosts, group, wholeOnly, hideReadNow]);
   // The list, in the list's direction: chapters on disk and, between them, the ghosts (see chapterRows.ts).
   // The chapters on the server, and apart from them what is only listed by a source ("Not downloaded yet", a group of its own under the
@@ -1264,20 +1321,36 @@ function SeriesInner() {
     ...Object.fromEntries((series?.sources ?? []).map((s) => [s.sourceId, s.name])),
   }), [series, allSources]);
   const primarySource = series?.sources?.find((s) => s.primary)?.sourceId;
+  // Chapters (downloaded, not imports) whose file is not the main source's copy though the main source lists it, and no admin endorsed
+  // another: what "Endorse main source" would change (bff lib/endorse.ts endorsePlan, the same rule).
+  const offMain = useMemo(() => {
+    if (!primarySource) return 0;
+    const manual = keptData?.endorsements ?? {};
+    return allBooks.filter((b) => !b.pruned && b.sourceId && b.sourceId !== primarySource && !manual[String(b.number)]
+      && (versionsOf.get(b.number) ?? []).some((c) => c.source === primarySource)).length;
+  }, [allBooks, primarySource, keptData, versionsOf]);
+  const endorseMain = async () => {
+    try {
+      const r = await api<{ started: number; remaining: number }>(`/api/admin/series/${encodeURIComponent(id)}/endorse-main`, { method: 'POST' });
+      const n = r.started + r.remaining;
+      toast(r.started ? (n === 1 ? tr('Downloading the main source’s copy of 1 chapter') : tr('Downloading the main source’s copy of {n} chapters', { n })) : tr('Every chapter is already the main source’s copy'), 'success');
+      if (r.started) invalidateChapters();
+    } catch (e) { toast(actionFailure(e, tr('Could not start')), 'error'); }
+  };
   // The copies of each chapter (lib/chapterCopies.ts) -- held, and listed by a source but not here yet -- drawn as an accordion under a
   // chapter with two or more. Folded by default, so the list stays one line a chapter; `{n} versions` at the row's end unfolds it.
   // Per visit, by book id. `fetchingCopy`: the listed copy being downloaded to read, `${bookId}|${sourceId}`.
   const [openCopies, setOpenCopies] = useState<Set<string>>(() => new Set());
   useEffect(() => { setOpenCopies(new Set()); }, [id]);
   const [fetchingCopy, setFetchingCopy] = useState<string | null>(null);
-  const copyNames = useMemo(() => ({ ...Object.fromEntries((keptData?.sources ?? []).map((x) => [x.sourceId, x.name])), ...sourceNames }), [keptData, sourceNames]);
+  const copyNames = useMemo((): Record<string, string> => ({ '@imported': tr('Imported file'), ...Object.fromEntries((keptData?.sources ?? []).map((x) => [x.sourceId, x.name])), ...sourceNames }), [keptData, sourceNames]);
   const copiesFor = (b: Book): ChapterCopy[] => copiesOf(b, keptData?.held?.[String(b.number)], {
     names: copyNames, coloredSource: keptData?.coloredSource ?? null, coloredName: keptData?.coloredRef?.sourceName ?? null,
     mySource: keptData?.mySource ?? null, pick: keptData?.picks?.[b.id] ?? null,
   }, versionsOf.get(b.number));
   // Read one copy: this account's pick for the chapter is saved first (PUT /api/books/:id/my-version), so the reader -- and OPDS and
   // Mihon after it -- are served that copy; then the reader opens.
-  const readCopy = async (b: Book, c: ChapterCopy) => {
+  const readCopy = async (b: Book, c: ChapterCopy, opts: { read?: boolean } = {}) => {
     const kept = (keptData?.held?.[String(b.number)] ?? []).map((v) => v.sourceId);
     // A copy a source lists and the server does not hold: download it beside the endorsed one first (POST versions/fetch), then read it.
     if (!c.held && c.sourceId) {
@@ -1293,6 +1366,7 @@ function SeriesInner() {
       } catch (e) { toast(actionFailure(e, tr('Could not download this copy')), 'error', { key: 'fetch-copy' }); return; }
       finally { setFetchingCopy(null); }
     }
+    if (opts.read === false) return;
     const want = pickFor(c, keptData?.mySource ?? null, kept);
     if ((keptData?.picks?.[b.id] ?? null) !== want) {
       try {
@@ -1877,12 +1951,17 @@ function SeriesInner() {
     }
   };
   const [coverPicker, setCoverPicker] = useState(false);
-  const [replacing, setReplacing] = useState<{ book: Book; copy: VersionCopy } | null>(null);
-  const [comparing, setComparing] = useState<Book | null>(null);
-  const replaceWith = async () => {
-    if (!replacing) return;
-    await startJob(`/api/admin/series/${id}/chapters/refetch`, { picks: [{ bookId: replacing.book.id, source: replacing.copy.source, sourceId: copySourceId(replacing.copy) }] });
-    setReplacing(null);
+  // Endorse one source's copy of a chapter (admin; bff lib/endorse.ts): it becomes the chapter's file, for everyone who has not picked
+  // another. `null` goes back to the main source's copy. The copy endorsed until now stays as a version. It took over from the row
+  // menu's old replace-and-compare (2026-11-18).
+  const endorse = async (number: number, sourceId: string | null) => {
+    try {
+      toast(tr('Endorsing…'), 'info', { busy: true, key: 'endorse' });
+      const r = await api<{ started: number; already: boolean }>(`/api/admin/series/${encodeURIComponent(id)}/endorse`, { method: 'PUT', json: { number, sourceId } });
+      void qc.invalidateQueries({ queryKey: ['kept', id] });
+      if (r.started) { toast(tr('The endorsed copy is downloading'), 'info', { key: 'endorse' }); invalidateChapters(); }
+      else toast(r.already ? tr('Endorsed') : tr('That copy could not be fetched right now'), r.already ? 'success' : 'error', { key: 'endorse' });
+    } catch (e) { toast(actionFailure(e, tr('Could not endorse this copy')), 'error', { key: 'endorse' }); }
   };
   // Every source with files on this series, for "select by source" and the cull button. Over ALL books, not the
   // filtered ones: a group filter must not hide that a source is here.
@@ -2305,7 +2384,7 @@ function SeriesInner() {
                 group={endorsedOrigin(b, versionsOf.get(b.number)).group}
                 expanded={accordion ? open : undefined}
                 onToggleCopies={accordion ? () => setOpenCopies((prev) => { const next = new Set(prev); if (next.has(b.id)) next.delete(b.id); else next.add(b.id); return next; }) : undefined}
-                below={accordion ? <CopyRows copies={copies} fetching={fetchingCopy?.startsWith(`${b.id}|`) ? fetchingCopy.slice(b.id.length + 1) : null} onRead={(c) => void readCopy(b, c)} /> : undefined}
+                below={accordion ? <CopyRows copies={copies} fetching={fetchingCopy?.startsWith(`${b.id}|`) ? fetchingCopy.slice(b.id.length + 1) : null} onRead={(c) => void readCopy(b, c)} menuFor={(c) => copyMenu(b, c)} /> : undefined}
                 onReader={() => router.push(`/reader/?book=${b.id}`)}
                 onToggleDownload={() => toggleDownload(b.id)}
                 onMark={(mode) => markChapter(b, mode)}
@@ -2318,7 +2397,6 @@ function SeriesInner() {
                 selectable={selecting} selected={pickedBooks.has(b.id)} onToggle={(shift) => pickRow(`b:${b.id}`, shift)}
                 versions={accordion ? copies.length : versionsOf.get(b.number)?.length}
                 onVersions={versionsOf.has(b.number) ? () => setChapterSheet({ number: b.number, book: b }) : undefined}
-                onReplaceFrom={isAdmin && b.owned !== false && versionsOf.get(b.number)?.some((c) => !c.onDisk) ? () => setComparing(b) : undefined}
                 talk={talkOn ? talkOf.get(b.id) : null} onTalk={talkOn ? () => setTalkFor(b.id) : undefined} />
             );
           }
@@ -2430,6 +2508,13 @@ function SeriesInner() {
           <button onClick={markAllRead} className="btn-key">{tr('Mark all read')}</button>
           <button onClick={flipOrder} className="btn-key">{asc ? tr('Oldest') : tr('Newest')}</button>
           {isAdmin && <button onClick={() => setNamesFor(null)} data-fetch-names className="btn-key">{tr('Fetch names')}</button>}
+          {/* Admin: chapters whose file came from another source though the main source has them (bff lib/endorse.ts). */}
+          {isAdmin && offMain > 0 && (
+            <button onClick={() => void endorseMain()} data-endorse-main className="btn-key whitespace-nowrap"
+              title={tr('Make the main source’s copy the endorsed one on every chapter, except chapters you endorsed by hand. The current copies are kept as versions.')}>
+              {tr('Endorse main source · {n}', { n: offMain })}
+            </button>
+          )}
           {/* Hide what is finished: this device's choice, kept (lib/hideRead.ts). Only offered once something is read. */}
           {(hideRead || readCount.read > 0) && (
             <button onClick={() => { const next = !hideRead; setHideRead(next); setHideReadOn(next); }} aria-pressed={hideRead} data-hide-read
@@ -2786,7 +2871,7 @@ function SeriesInner() {
           } : undefined}
           keptSources={new Set((keptData?.held?.[String(chapterSheet.number)] ?? []).map((v) => v.sourceId))}
           // ⚠️ The sheet closes FIRST, then the confirm opens: a Modal under a Sheet cannot be tapped.
-          onReplace={(copy) => { const b = chapterSheet.book!; setChapterSheet(null); setReplacing({ book: b, copy }); }}
+          onReplace={(copy) => { const n = chapterSheet.number; setChapterSheet(null); void endorse(n, copy.source); }}
           // Delete the server's file for this chapter: the same confirm as the row menu's, opened after the sheet closes.
           onDelete={chapterSheet.book && isAdmin && chapterSheet.book.owned && !chapterSheet.book.pruned
             ? () => { const b = chapterSheet.book!; setChapterSheet(null); setConfirming({ what: 'delete', books: [b] }); } : undefined}
@@ -2967,27 +3052,6 @@ function SeriesInner() {
             onPage={(n) => router.push(`/reader/?book=${talkFor}&page=${n}`)} onClose={() => setTalkFor(null)} overBottomNav />
         );
       })()}
-      {comparing && (
-        <CompareCopiesDialog seriesId={id} book={comparing} copies={versionsOf.get(comparing.number) ?? []} sourceNames={sourceNames}
-          // The compare closes FIRST, then the confirm opens: the same Modal-over-Modal rule as the versions sheet.
-          onReplace={(copy) => { const b = comparing; setComparing(null); setReplacing({ book: b, copy }); }}
-          onClose={() => setComparing(null)} />
-      )}
-      {replacing && (
-        <ConfirmDialog
-          title={tr('Replace with this version?')}
-          danger
-          busy={acting}
-          confirmLabel={tr('Replace')}
-          // A tombstone has no file to set aside -- the cleanup already deleted it -- and a sentence that
-          // says one is set aside on a row that reads "Deleted from the server" contradicts the row.
-          body={<p>{replacing.book.pruned
-            ? tr('The chapter was deleted from the server; this copy is downloaded onto the same row and everyone’s progress stays.')
-            : tr('The current file is set aside and this copy is downloaded onto the same row. Everyone’s progress stays; the page count may differ.')}</p>}
-          onConfirm={replaceWith}
-          onClose={() => setReplacing(null)}
-        />
-      )}
 
       {/* v0.61.0: what AniList relates this series to -- sequels, prequels, side stories -- just above More like this. */}
       <LightNovels seriesId={id} />

@@ -2489,6 +2489,18 @@ CREATE TABLE IF NOT EXISTS user_book_version (
   updated_at timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (user_id, book_id)
 );
+-- An admin's endorsement of one chapter's copy (the version rows' "Endorse this version"): which source's copy is the chapter's file,
+-- where it differs from the series' main source. Without a row, the main source's copy is endorsed (lib/endorse.ts).
+CREATE TABLE IF NOT EXISTS series_chapter_endorse (
+  series_id text NOT NULL REFERENCES lib_series(id) ON DELETE CASCADE,
+  number    real NOT NULL,
+  source_id text NOT NULL,
+  set_by    uuid,
+  set_at    timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (series_id, number)
+);
+-- Set when the main source changes (or an admin asks): the endorse pass puts the main source's copy on every chapter of the series.
+ALTER TABLE lib_series ADD COLUMN IF NOT EXISTS endorse_pending boolean NOT NULL DEFAULT false;
 -- Opt-in per series: keep every followed source's copy of each chapter, not only the endorsed one.
 ALTER TABLE lib_series ADD COLUMN IF NOT EXISTS keep_versions boolean NOT NULL DEFAULT false;
 -- The followed source that carries the colored edition of the series. Its copies of every chapter are always kept, whether or
