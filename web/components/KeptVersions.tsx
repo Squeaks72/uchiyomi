@@ -11,6 +11,7 @@ import { useAuth } from '@/lib/auth';
 import { t as tr } from '@/lib/i18n';
 import { useToast } from './Toast';
 import { MigrateSourceSheet } from './MigrateSourceSheet';
+import { useContextMenu } from './ContextMenu';
 
 interface Kept {
   mySource: string | null;
@@ -28,9 +29,9 @@ interface Kept {
   sources: { sourceId: string; name: string; primary: boolean; kept: number }[];
 }
 
-export function useKept(id: string) {
+export function useKept(id: string, enabled = true) {
   // Refreshed while a pass is running, so the counts climb on screen.
-  return useQuery({ queryKey: ['kept', id], queryFn: () => api<Kept>(`/api/series/${encodeURIComponent(id)}/kept`), staleTime: 15_000,
+  return useQuery({ queryKey: ['kept', id], queryFn: () => api<Kept>(`/api/series/${encodeURIComponent(id)}/kept`), staleTime: 15_000, enabled: enabled && !!id,
     refetchInterval: (q) => (q.state.data?.keeping ? 8_000 : false) });
 }
 
@@ -157,5 +158,58 @@ export function KeptVersions({ id, title }: { id: string; title?: string }) {
           onDone={() => { setPicking(false); void qc.invalidateQueries({ queryKey: key }); }} onClose={() => setPicking(false)} />
       )}
     </section>
+  );
+}
+
+/**
+ * Reading from (2026-11-18), in the series page's chapter toolbar: which source's copies THIS account reads the series from, said on the
+ * key itself so the choice is always in view, and changed or undone from its menu (✓ on the current one). Endorsed copies is the default;
+ * a source is offered once the server holds copies from it (or it is the current choice), each with how many. Chapters picked one by one
+ * (a version row) are counted, and can all be put back. Drawn only when there is a choice to make or to undo.
+ */
+export function ReadFromPicker({ id, names }: { id: string; names: Record<string, string> }) {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const { data } = useKept(id);
+  const mine = data?.mySource ?? null;
+  const picks = Object.keys(data?.picks ?? {}).length;
+  const options = (data?.sources ?? []).filter((s) => s.kept > 0 || s.sourceId === mine);
+  const nameOf = (sid: string) => options.find((o) => o.sourceId === sid)?.name ?? names[sid] ?? sid;
+  const set = async (sid: string | null) => {
+    try {
+      await api(`/api/series/${encodeURIComponent(id)}/my-source`, { method: 'PUT', json: { sourceId: sid } });
+      for (const k of [['kept', id], ['series-books', id]]) void qc.invalidateQueries({ queryKey: k });
+      toast(sid ? tr('Reading this series from {source}', { source: nameOf(sid) }) : tr('Reading the endorsed copies'), 'success');
+    } catch { toast(tr('Could not save'), 'error'); }
+  };
+  const clearPicks = async () => {
+    try {
+      await api(`/api/series/${encodeURIComponent(id)}/my-picks/clear`, { method: 'POST' });
+      void qc.invalidateQueries({ queryKey: ['kept', id] });
+      toast(tr('Every chapter follows your choice again'), 'success');
+    } catch { toast(tr('Could not save'), 'error'); }
+  };
+  const tick = (on: boolean, label: string) => `${on ? '✓ ' : ' '}${label}`;
+  const menu = useContextMenu(() => [
+    { label: tick(mine === null, tr('Endorsed copies')), title: tr('The copy this server endorses for each chapter'), onSelect: () => void set(null) },
+    ...options.map((o) => ({
+      label: tick(mine === o.sourceId, o.kept === 1 ? tr('{source} · 1 chapter here', { source: o.name }) : tr('{source} · {n} chapters here', { source: o.name, n: o.kept })),
+      title: tr('Chapters this source has no copy of are read from the endorsed copy'),
+      onSelect: () => void set(o.sourceId),
+    })),
+    ...(picks ? [{ label: picks === 1 ? tr('Put back 1 chapter picked by hand') : tr('Put back {n} chapters picked by hand', { n: picks }), divider: true, onSelect: () => void clearPicks() }] : []),
+  ], { label: tr('Reading from') });
+  if (!data || (!options.length && !mine && !picks)) return null;
+  const current = mine ? nameOf(mine) : tr('Endorsed copies');
+  return (
+    <>
+      <button type="button" onClick={(e) => menu.openFrom(e.currentTarget)} aria-haspopup="menu" aria-expanded={menu.open} data-read-from={mine ?? ''}
+        className={`btn-key whitespace-nowrap ${mine || picks ? 'btn-key-accent' : ''}`}>
+        <span className="text-fog-400">{tr('Reading from')}:</span> {current}
+        {picks > 0 && <span className="text-[11px] opacity-80"> · {picks === 1 ? tr('1 chapter picked') : tr('{n} chapters picked', { n: picks })}</span>}
+        <span aria-hidden className="ms-0.5">▾</span>
+      </button>
+      {menu.element}
+    </>
   );
 }

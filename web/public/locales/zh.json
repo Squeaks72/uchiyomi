@@ -2,7 +2,7 @@
   "_meta": {
     "language": "zh",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 5961
+    "strings": 5972
   },
   "1 check found something": "1 项检查发现问题",
   "1 member": "1 位成员",
@@ -5964,5 +5964,16 @@
   "The endorsed copy is downloading": "推荐副本正在下载",
   "The extra copies in {what} are deleted from the server. Endorsed chapters stay, and so does everyone’s progress. {spared}": "将从服务器删除 {what} 中的额外副本。推荐章节和每个人的进度都会保留。{spared}",
   "Version actions": "版本操作",
-  "every series": "所有系列"
+  "every series": "所有系列",
+  "1 chapter picked": "已选 1 章",
+  "{n} chapters picked": "已选 {n} 章",
+  "Chapters this source has no copy of are read from the endorsed copy": "此来源没有副本的章节将从推荐副本阅读",
+  "Endorsed copies": "推荐副本",
+  "Every chapter follows your choice again": "每一章都重新遵循你的选择",
+  "Reading from": "阅读来源",
+  "The copy this server endorses for each chapter": "本服务器为每章推荐的副本",
+  "Put back 1 chapter picked by hand": "恢复 1 个手动选择的章节",
+  "Put back {n} chapters picked by hand": "恢复 {n} 个手动选择的章节",
+  "{source} · 1 chapter here": "{source} · 此处 1 章",
+  "{source} · {n} chapters here": "{source} · 此处 {n} 章"
 }

@@ -91,6 +91,16 @@ export default async function versionRoutes(app: FastifyInstance) {
     return { sourceId: pick };
   });
 
+  /** Forget this account's per-chapter copy picks across a series (the Reading from menu's "Clear"): every chapter follows its choice again. */
+  app.post('/api/series/:id/my-picks/clear', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    if (!(await seriesVisible(id, vc(req)))) return reply.code(404).send({ error: 'not_found' });
+    const r = await q<{ book_id: string }>(
+      `DELETE FROM user_book_version p USING lib_books b WHERE p.book_id = b.id AND b.series_id = $2 AND p.user_id = $1 RETURNING p.book_id`,
+      [userIdOf(req), id]);
+    return { cleared: r.length };
+  });
+
   /** Admin: keep every followed source's copy of this series' chapters (or stop). Turning it on starts the first pass. */
   app.put('/api/admin/series/:id/keep-versions', { preHandler: requireAdmin }, async (req, reply) => {
     const { id } = req.params as { id: string };

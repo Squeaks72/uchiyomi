@@ -2,7 +2,7 @@
   "_meta": {
     "language": "es",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 5961
+    "strings": 5972
   },
   "1 check found something": "1 comprobación encontró algo",
   "1 member": "1 miembro",
@@ -5964,5 +5964,16 @@
   "The endorsed copy is downloading": "La copia avalada se está descargando",
   "The extra copies in {what} are deleted from the server. Endorsed chapters stay, and so does everyone’s progress. {spared}": "Las copias adicionales de {what} se eliminan del servidor. Los capítulos avalados se quedan, y también el progreso de todos. {spared}",
   "Version actions": "Acciones de la versión",
-  "every series": "todas las series"
+  "every series": "todas las series",
+  "1 chapter picked": "1 capítulo elegido",
+  "{n} chapters picked": "{n} capítulos elegidos",
+  "Chapters this source has no copy of are read from the endorsed copy": "Los capítulos sin copia de esta fuente se leen de la copia avalada",
+  "Endorsed copies": "Copias avaladas",
+  "Every chapter follows your choice again": "Todos los capítulos vuelven a seguir tu elección",
+  "Reading from": "Leyendo desde",
+  "The copy this server endorses for each chapter": "La copia que este servidor avala para cada capítulo",
+  "Put back 1 chapter picked by hand": "Restablecer 1 capítulo elegido a mano",
+  "Put back {n} chapters picked by hand": "Restablecer {n} capítulos elegidos a mano",
+  "{source} · 1 chapter here": "{source} · 1 capítulo aquí",
+  "{source} · {n} chapters here": "{source} · {n} capítulos aquí"
 }

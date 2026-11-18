@@ -6355,6 +6355,9 @@ export async function refetchChapters(
             // A copy picked by name is the admin's choice, and the nightly group upgrade (lib/repair.ts
             // stepGroups) leaves it alone; a plain Fetch again hands the choice back to the preferences.
             await q('UPDATE lib_books SET picked_at = $2 WHERE id = $1', [r.id, pickOf.has(r.id) ? new Date() : null]).catch(() => {});
+            // This chapter's source and group now, not at the end of the job: a long endorse (bff lib/endorse.ts) runs for minutes, and
+            // until the job's own stamp the page would name the source the file used to come from.
+            await setBookMeta(s.folder, [{ number: ch.number, scanlator: ch.scanlator, source: ch.source, title: ch.title, chapterId: ch.sourceId }]).catch(() => {});
             if (opts.onLanded) await opts.onLanded(r.id).catch(() => {});
             return;
           }
