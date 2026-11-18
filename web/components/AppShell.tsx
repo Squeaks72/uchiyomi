@@ -16,6 +16,7 @@ import { DesktopReconnect } from './DesktopReconnect';
 import { CinematicFX } from './CinematicFX';
 import { PageTransition } from './PageTransition';
 import { CommandPalette, usePaletteHotkeys } from './CommandPalette';
+import { UpdatesHost } from './UpdatesPopover';
 import { useWideViewport } from './ui';
 import { Mark } from './Brand';
 import { IcWifiOff } from './icons';
@@ -182,6 +183,7 @@ function AppShellContent({ children }: { children: React.ReactNode }) {
       </main>
       {!hostNavigation && <BottomNav nativeSide={nativeSide} />}
       {status === 'authed' && <CommandPalette open={palette} seed={paletteSeed} onClose={() => setPalette(false)} />}
+      {status === 'authed' && <UpdatesHost />}
     </>
   );
 }

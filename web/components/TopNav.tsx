@@ -1,7 +1,7 @@
 'use client';
-import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
-import { IcSearch, IcBell } from './icons';
+import { IcSearch } from './icons';
+import { UpdatesBell } from './UpdatesPopover';
 import { api } from '@/lib/api';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
@@ -41,11 +41,7 @@ export function TopNav({ onSearchFocus }: { onSearchFocus?: () => void }) {
           <kbd data-search-kbd className="hidden shrink-0 rounded-md border border-ink-700 px-1.5 py-0.5 text-[10px] text-fog-500 xl:@[12rem]:block">⌘K</kbd>
         </button>
         <div className="ms-auto flex shrink-0 items-center gap-3">
-          <Link href="/updates" title={tr('Updates')} aria-label={tr('Updates')} className="relative grid h-10 w-10 shrink-0 place-items-center rounded-full border border-ink-700 text-fog-300 transition hover:text-accent">
-            <IcBell width={19} height={19} />
-            {/* A squared tag: a round one grows into a capsule at "9+". */}
-            {updCount > 0 && <span data-updates-count className="absolute -end-1.5 -top-1 grid h-4 min-w-4 place-items-center rounded-[4px] bg-accent px-[3px] text-[10px] font-bold leading-none tabular-nums text-black">{updCount > 9 ? '9+' : updCount}</span>}
-          </Link>
+          <UpdatesBell count={updCount} className="relative grid h-10 w-10 shrink-0 place-items-center rounded-full border border-ink-700 text-fog-300 transition hover:text-accent" />
           <ProfileMenu active={path.startsWith('/profile')} />
         </div>
       </div>

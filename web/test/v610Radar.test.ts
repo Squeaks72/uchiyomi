@@ -47,8 +47,8 @@ test('the reader\'s end card: its label and line come from the radar, only at th
 });
 
 test('Updates: Expected this week sits under the list and the empty state, with its own query key, gone when empty', () => {
-  const page = code(read('app/updates/page.tsx'));
-  const section = slice(page, 'function ExpectedThisWeek(', 'export default function UpdatesPage(');
+  const page = code(read('components/UpdatesPopover.tsx'));
+  const section = slice(page, 'function ExpectedThisWeek(', '');
   // Reintroduce ['updates'] as its key: the new-chapters list renders the expected series' DTOs (queryKeys.test.ts).
   assert.match(section, /queryKey: \['updates-expected'\], queryFn: \(\) => api<\{ content: Series\[\] \}>\('\/api\/updates\/expected'\)/);
   assert.match(section, /if \(!list\.length\) return null;/, 'an empty heading on a quiet week');
@@ -56,7 +56,7 @@ test('Updates: Expected this week sits under the list and the empty state, with 
   assert.match(section, /\{tr\('Expected this week'\)\}/);
   assert.match(section, /\{tr\('Estimated from when chapters usually arrive, not promised\.'\)\}/, 'the honesty note is gone');
   // After the list-or-empty-state ternary, so it shows under both.
-  assert.match(page, /\)\}\s*<ExpectedThisWeek \/>\s*<\/div>\s*\);\s*\}\s*$/);
+  assert.match(page, /\)\}\s*<ExpectedThisWeek \/>\s*<\/div>/);
 });
 
 test('a Releasing soon card says the radar\'s note', () => {

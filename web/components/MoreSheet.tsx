@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import { openUpdates } from './UpdatesPopover';
 import { useState } from 'react';
 import { Sheet } from './ui';
 import { IcBookmark, IcHeart, IcBell, IcMoments, IcClock, IcSparkle, IcCloudDownload, IcSettings, IcSliders, IcSearch, IcChevronRight } from './icons';
@@ -46,7 +47,8 @@ export function MoreSheet({ onClose }: { onClose: () => void }) {
           const Icon = ICONS[e.key];
           return (
             <li key={e.key}>
-              <Link href={e.href} onClick={onClose} data-more={e.key} className={row}>
+              {/* Updates is a bubble, not a page (components/UpdatesPopover.tsx): the sheet closes and the panel opens over the page. */}
+              <Link href={e.href} onClick={(ev) => { onClose(); if (e.key === 'updates') { ev.preventDefault(); openUpdates(); } }} data-more={e.key} className={row}>
                 <span className={`${chip} relative`}>
                   <Icon width={18} height={18} />
                   {e.key === 'admin' && critical && <CriticalDot className="-end-1 -top-1" />}

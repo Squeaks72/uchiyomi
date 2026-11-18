@@ -6,6 +6,7 @@ import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useSta
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+import { openUpdates } from './UpdatesPopover';
 import { api, img } from '@/lib/api';
 import { Page, Series } from '@/lib/types';
 import { triggerRefresh } from '@/lib/refresh';
@@ -48,7 +49,7 @@ export function usePaletteActions(go: (href: string) => void, onClose: () => voi
         catch { toast(tr('Couldn’t pick one. Try again.'), 'error'); }
       },
     },
-    { key: 'updates', label: tr('Updates'), hint: tr('new chapters'), icon: <IcBell width={16} height={16} />, run: () => go('/updates') },
+    { key: 'updates', label: tr('Updates'), hint: tr('new chapters'), icon: <IcBell width={16} height={16} />, run: () => { onClose(); openUpdates(); } },
     { key: 'lists', label: tr('Lists'), hint: tr('your reading lists'), icon: <IcBookmark width={16} height={16} />, run: () => go('/collections/') },
     { key: 'favorites', label: tr('Favorites'), icon: <IcHeart width={16} height={16} />, run: () => go('/collection/?id=favorites') },
     { key: 'history', label: tr('Reading history'), icon: <IcClock width={16} height={16} />, run: () => go('/history/') },
@@ -176,7 +177,7 @@ export function CommandPalette({ open, seed = '', onClose }: { open: boolean; se
         catch { toast(tr('No luck — try again'), 'error'); }
       },
     },
-    { key: 'updates', label: tr('Updates'), hint: tr('new chapters'), icon: <IcBell width={16} height={16} />, run: () => go('/updates') },
+    { key: 'updates', label: tr('Updates'), hint: tr('new chapters'), icon: <IcBell width={16} height={16} />, run: () => { onClose(); openUpdates(); } },
     { key: 'moments', label: tr('Moments'), hint: tr('pages you saved'), icon: <IcMoments width={16} height={16} />, run: () => go('/moments') },
     // The sidebar's Lists (UI refresh), here too: a phone has no sidebar, and Profile's "See all" was the only way in.
     { key: 'lists', label: tr('Lists'), icon: <IcBookmark width={16} height={16} />, run: () => go('/collections') },
