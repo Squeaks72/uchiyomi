@@ -2578,9 +2578,13 @@ export default async function sourceRoutes(app: FastifyInstance) {
     const me = await one<{ role: string; perms: { canDownload?: boolean } | null }>(
       'SELECT role, perms FROM users WHERE id = $1', [userIdOf(req)]).catch(() => null);
     if (!me) return reply.code(403).send({ error: 'forbidden', message: 'Could not check your permissions.' });
-    if (!actsAsAdmin(req) && me.perms?.canDownload === false) {
+    // A reader who may not download never reaches a source (2026-11-18): every route here asks one, except the three that read only what the
+    // server has stored -- AniList's trending copy (never refreshed on their behalf), Because you read, and the work keys.
+    const storedOnly = /^\/api\/discover\/(?:trending|because|works)(?:\?|$)/.test(req.url);
+    if (!actsAsAdmin(req) && me.perms?.canDownload === false && !storedOnly) {
       return reply.code(403).send({ error: 'forbidden', message: "You don't have permission to add series." });
     }
+    (req as any).mayReachSources = actsAsAdmin(req) || me.perms?.canDownload !== false;
     // Resolved once per request, as in catalog.ts. Only `maxAgeRating` is read here, but taking the whole
     // context means this file cannot drift from everyone else's idea of who the viewer is.
     (req as any).viewCtx = await viewCtxFor(userIdOf(req), roleOf(req), { hideAdult: hideAdult(req) });
@@ -4056,7 +4060,8 @@ export default async function sourceRoutes(app: FastifyInstance) {
     if (!TREND_COUNTRIES.includes(country)) return reply.code(400).send({ error: 'bad_request', message: 'country is one of KR, JP, CN' });
     // From the stored copy (v0.98.0, lib/trending.ts): at once, after a restart too. `pending` only while a server that
     // has never stored one is still pulling it -- the page asks again.
-    const { items, pending } = await trendingFor(country);
+    // A reader who may not reach the sources reads the stored copy only: their visit never pulls a fresh one from AniList.
+    const { items, pending } = await trendingFor(country, { pull: (req as any).mayReachSources === true });
     if (!items) return { content: [], pending };
     // `isAdult:false` is an argument to the AniList query, so adult titles never arrive. The copy is shared by every
     // viewer, so it is never filtered per viewer -- that would pin one capped account's view for everyone; the ANSWER is
@@ -4070,13 +4075,21 @@ export default async function sourceRoutes(app: FastifyInstance) {
     // across two. Left out when the library holds it (v0.56.0): by any name the library knows it by, or by its
     // AniList entry -- before, only by the library's own title.
     const seen = new Set<string>();
+    // The trending titles the library already holds, with the series to open (2026-11-18): a reader's Discover shows them as "already here".
+    const inLibrary: Array<{ id: number | null; title: string; cover: string | null; seriesId: string }> = [];
     const out = items.filter((t) => {
       const k = norm(t.title);
-      const held = heldFor(idx, { source: '', sourceId: '', title: t.title }).length > 0
-        || (t.id != null && (idx.byWork.get(`al:${t.id}`)?.length ?? 0) > 0);
+      const byName = heldFor(idx, { source: '', sourceId: '', title: t.title });
+      const byWork = t.id != null ? (idx.byWork.get(`al:${t.id}`) ?? []) : [];
+      const held = byName.length > 0 || byWork.length > 0;
+      const first = (byName[0] ?? byWork[0]) as { id?: string } | undefined;
+      if (held && first?.id && adultOk({ adult: false, genres: t.genres }, ctx) && !seen.has(k)) {
+        seen.add(k);
+        inLibrary.push({ id: t.id ?? null, title: t.title, cover: t.cover ?? null, seriesId: first.id });
+      }
       return !held && adultOk({ adult: false, genres: t.genres }, ctx) && !seen.has(k) && (seen.add(k), true);
     });
-    return { content: (await withoutHiddenDiscover(userIdOf(req), out)).slice(0, TREND_KEEP), pending: false };
+    return { content: (await withoutHiddenDiscover(userIdOf(req), out)).slice(0, TREND_KEEP), pending: false, inLibrary: inLibrary.slice(0, TREND_KEEP) };
   });
 
   /**

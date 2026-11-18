@@ -24,6 +24,8 @@ import { normTitle } from '@/lib/normTitle';
 import { applyWorks, foldByWork, followWorks, mergeGroups, unknownWorks, workKey, type WallProvider } from '@/lib/wall';
 import { useLiveWorks } from '@/lib/useLiveWorks';
 import { AddSeriesDialog, AddSeed } from '@/components/AddSeriesDialog';
+import { MemberDiscover } from '@/components/MemberDiscover';
+import { RequestsInbox } from '@/components/RequestsInbox';
 import { AdultToggle, useAdultShown } from '@/components/AdultToggle';
 import { IcChevronLeft, IcSearch, IcX } from '@/components/icons';
 import { forStrip } from '@/lib/jobs';
@@ -603,14 +605,9 @@ function DiscoverInner() {
   // ---------------------------------------------------------------- may they be here at all
   // The tab is hidden for this account and every route this page calls now refuses it, so a typed URL would
   // otherwise render a wall of empty skeletons and a "try again" button that never works. Say it plainly.
-  if (!mayAdd) {
-    return (
-      <div className="min-h-screen-d px-4 lg:px-0">
-        <EmptyState art={ART.emptyLibrary} title={tr('Adding series is turned off for your account')}
-          sub={tr('Ask whoever runs this server if you need it. Everything already in the library is still yours to read.')} />
-      </div>
-    );
-  }
+  // A reader who may not reach the sources (2026-11-18): their own Discover -- the library, AniList's stored picks, and requests to the
+  // admin (components/MemberDiscover.tsx). Nothing on it asks a source or any outside service.
+  if (!mayAdd) return <MemberDiscover />;
 
   // Every card names its sources, one of them or five, in Newest, Popular and search alike (v0.56.0).
   const cardsOf = (from: number, to: number) => wall.items.slice(from, to).map((it, k) => (
@@ -628,6 +625,8 @@ function DiscoverInner() {
   return (
     <div className="min-h-screen-d px-4 lg:px-0">
       <h1 className="sr-only">{tr('Discover')}</h1>
+      {/* Readers' requests, while any is open (admins only; components/RequestsInbox.tsx). */}
+      {isAdmin && <RequestsInbox />}
       {tabReady && tab === 'for-you' && user?.id && <div ref={setHeroTarget} data-discovery-hero-slot />}
       <header className="mb-5 mt-4 rounded-2xl border border-ink-700/70 bg-ink-900/30 p-4 lg:p-5" data-discovery-controls>
         <div className="flex flex-wrap items-center justify-between gap-3">

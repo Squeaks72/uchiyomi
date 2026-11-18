@@ -76,14 +76,14 @@ function pull(country: TrendCountry): Promise<TrendingItem[]> {
  * a country that has never had a copy, so the page should ask again in a few seconds.
  */
 export async function trendingFor(
-  country: TrendCountry, opts: { waitMs?: number } = {},
+  country: TrendCountry, opts: { waitMs?: number; /** false: the stored copy only, never a pull (a reader who may not reach out). */ pull?: boolean } = {},
 ): Promise<{ items: TrendingItem[] | null; pending: boolean }> {
   let have = memory.get(country) ?? null;
   if (!have) {
     have = await storedCopy(country);
     if (have) memory.set(country, have);
   }
-  const mayPull = (!have || Date.now() - have.at > TREND_TTL_MS)
+  const mayPull = opts.pull !== false && (!have || Date.now() - have.at > TREND_TTL_MS)
     && Date.now() - (failedAt.get(country) ?? 0) >= TREND_RETRY_MS;
   // Stale beats empty: an old copy is still what was trending, where nothing reads as "nothing is". Reintroduce the
   // memory-only cache: "a stored copy answers after a restart without asking AniList" in trending.int.test.ts asks it.

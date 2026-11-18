@@ -47,7 +47,7 @@ const MAIN: Item[] = [
   { href: '/', label: LABELS[0], Icon: IcHome, match: (p) => p === '/' },
   { href: '/library', label: LABELS[1], Icon: IcGrid, match: (p) => p.startsWith('/library') || p.startsWith('/series') },
   { href: '/collections', label: LABELS[2], Icon: IcBookmark, match: (p) => p.startsWith('/collection') },
-  { href: '/discover', label: LABELS[3], Icon: IcPlus, match: (p) => p.startsWith('/discover'), only: 'downloaders' },
+  { href: '/discover', label: LABELS[3], Icon: IcPlus, match: (p) => p.startsWith('/discover') },
 ];
 const MORE: Item[] = [
   { href: '/history', label: LABELS[4], Icon: IcClock, match: (p) => p.startsWith('/history') },
