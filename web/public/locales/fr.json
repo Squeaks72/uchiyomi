@@ -2,7 +2,7 @@
   "_meta": {
     "language": "fr",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 5981
+    "strings": 5988
   },
   "1 check found something": "1 vérification a trouvé quelque chose",
   "1 member": "1 membre",
@@ -5984,5 +5984,12 @@
   "Saved. Turn on notifications in your profile to be told when Ch. {chapter} is out.": "Enregistré. Activez les notifications dans votre profil pour savoir quand sort le ch. {chapter}.",
   "You’ll be notified when Ch. {chapter} is out": "Vous serez prévenu à la sortie du ch. {chapter}",
   "Notifying you when Ch. {chapter} is out": "Prévenu à la sortie du ch. {chapter}",
-  "Notify me when Ch. {chapter} is out": "Me prévenir à la sortie du ch. {chapter}"
+  "Notify me when Ch. {chapter} is out": "Me prévenir à la sortie du ch. {chapter}",
+  "Not out yet": "Pas encore sorti",
+  "Notify me": "Me prévenir",
+  "Notifying you": "Vous serez prévenu",
+  "Read chapters are hidden. Show them to see the whole list.": "Les chapitres lus sont masqués. Affichez-les pour voir toute la liste.",
+  "Show read chapters": "Afficher les chapitres lus",
+  "You’ve read all 1 chapter": "Vous avez lu le seul chapitre",
+  "You’ve read all {n} chapters": "Vous avez lu les {n} chapitres"
 }

@@ -96,7 +96,7 @@ export function ContinueBar({ shown, children }: { shown: boolean; children: Rea
  * one push to this account's devices (the profile's notifications), then the watch is spent (bff chapter_watch, lib/push.ts). Pressed
  * again it is called off. With no device to tell, it still saves the watch and says where notifications are turned on.
  */
-export function WatchNextButton({ seriesId, after, compact }: { seriesId: string; after: number; compact?: boolean }) {
+export function WatchNextButton({ seriesId, after, compact, inline }: { seriesId: string; after: number; compact?: boolean; /** The placeholder row's small key. */ inline?: boolean }) {
   const qc = useQueryClient();
   const toast = useToast();
   const key = ['chapter-watch', seriesId];
@@ -119,6 +119,15 @@ export function WatchNextButton({ seriesId, after, compact }: { seriesId: string
       await qc.invalidateQueries({ queryKey: key });
     } catch { toast(tr('Could not save'), 'error'); } finally { setBusy(false); }
   };
+  if (inline) {
+    return (
+      <button type="button" onClick={() => void flip()} disabled={busy || !data} aria-pressed={on} data-watch-next-inline={on ? 'on' : 'off'}
+        className={`btn-key shrink-0 whitespace-nowrap ${on ? 'btn-key-accent' : ''}`}>
+        {on ? <IcCheck width={14} height={14} aria-hidden /> : <IcBell width={14} height={14} aria-hidden />}
+        {on ? tr('Notifying you') : tr('Notify me')}
+      </button>
+    );
+  }
   return (
     <button type="button" onClick={() => void flip()} disabled={busy || !data} aria-pressed={on} data-watch-next={on ? 'on' : 'off'}
       className={`${on ? 'btn-ghost border border-accent/60 text-accent' : 'btn-accent cta-glow'} min-w-0 disabled:opacity-60 ${compact ? 'h-11 flex-1 px-4 py-0 text-sm' : 'w-full'}`}>

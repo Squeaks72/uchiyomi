@@ -1429,6 +1429,20 @@ function SeriesInner() {
     return shown.kind !== 'none' ? shown : continueChoice(books?.content ?? [], openable, opts);
   }, [books, downloaded, series?.metadata?.status, wholeOnly]);
   const resumeBook = reading.book;
+  // Caught up on an ongoing series, and no source lists anything past it yet: one dashed row for the chapter that is not out, at the newest
+  // end of the list, with the Notify me key (2026-11-18; the owner: never while anything is left to read).
+  const nextNumber = reading.kind === 'caughtup' && reading.book ? Math.floor(Math.max(...(books?.content ?? []).map((b) => b.number), reading.book.number)) + 1 : null;
+  const nextPlaceholder = nextNumber !== null && !ghosts.some((g) => g.number >= nextNumber) && !numMatch ? (
+    <div data-next-placeholder className="flex items-center gap-3 border-b border-ink-800/70 py-2.5 lg:-mx-2 lg:px-2">
+      <div aria-hidden className="h-14 w-10 shrink-0 rounded-lg border border-dashed border-ink-600" />
+      <span aria-hidden className="h-2 w-2 shrink-0 rounded-full border border-dashed border-ink-500" />
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm text-fog-300">{tr('Ch. {n}', { n: nextNumber })}</p>
+        <p className="text-[11px] text-fog-500">{tr('Not out yet')}</p>
+      </div>
+      <WatchNextButton inline seriesId={id} after={nextNumber - 1} />
+    </div>
+  ) : null;
 
   // The list a page at a time (lib/chapterPages.ts). It opens on the page holding `resumeBook`, so a reader
   // on chapter 956 lands among the 900s, and then STAYS there: the page is decided once per series, sort and
@@ -2591,10 +2605,19 @@ function SeriesInner() {
           {tr('{n} of {m} chapters match', { n: filteredBooks.length + filteredGhosts.length, m: rowBooks.length + visibleGhosts.length })}
         </p>
       )}
-      {hideRead && readCount.read > 0 && (
-        <p role="status" data-hide-read-note className="mb-2 text-xs text-fog-500">
-          {rows.length === 0 ? tr('Every chapter is read. Choose Show read to see them again.') : tr('{n} read chapters hidden', { n: readCount.read })}
-        </p>
+      {/* Everything read and "Hide read" on: a notice the size of the list it replaces, with the way back, rather than an empty list and
+          a footnote (2026-11-18). Otherwise the one-line count, as before. */}
+      {hideRead && readCount.read > 0 && rows.length === 0 && !numMatch && (
+        <div role="status" data-all-read-notice className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl border border-ink-800 bg-ink-900/40 px-4 py-4">
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium text-fog-100">{readCount.read === 1 ? tr('You’ve read all 1 chapter') : tr('You’ve read all {n} chapters', { n: readCount.read })}</p>
+            <p className="mt-0.5 text-xs text-fog-500">{tr('Read chapters are hidden. Show them to see the whole list.')}</p>
+          </div>
+          <button type="button" className="btn-key" data-show-read onClick={() => { setHideRead(false); setHideReadOn(false); }}>{tr('Show read chapters')}</button>
+        </div>
+      )}
+      {hideRead && readCount.read > 0 && rows.length > 0 && (
+        <p role="status" data-hide-read-note className="mb-2 text-xs text-fog-500">{tr('{n} read chapters hidden', { n: readCount.read })}</p>
       )}
       {byVolume ? (
         <VolumeList seriesId={id} books={books?.content ?? []} isAdmin={isAdmin}
@@ -2610,7 +2633,9 @@ function SeriesInner() {
       {pages <= 1 && rows.length > JUMP_AFTER && <ChapterJump rows={rows} asc={asc} onOpen={() => setListOpen(true)} />}
       {asc && ReadFold}
       <div className={`${chapterRowsClass(view)}${pageRows.length > 120 ? ' chapter-rows-long' : ''}`} data-chapter-rows={view} style={colW && colW > CHAPTER_COL_MIN ? ({ '--chap-col': `${colW}px`, ...(colW > CHAPTER_COL_STRETCH ? { '--chap-max': `${Math.round(colW * 1.15)}px` } : {}) } as React.CSSProperties) : undefined}>
+        {listReady && !asc && nextPlaceholder}
         {listReady && shownRows.map(renderRow)}
+        {listReady && asc && nextPlaceholder}
         {!listReady && Array.from({ length: 8 }).map((_, i) => <div key={i} className="skeleton my-3 h-6 rounded" />)}
       </div>
       {listReady && foldList && (
