@@ -2,7 +2,7 @@
   "_meta": {
     "language": "es",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 5991
+    "strings": 5999
   },
   "1 check found something": "1 comprobación encontró algo",
   "1 member": "1 miembro",
@@ -5994,5 +5994,13 @@
   "Unsubscribe": "Cancelar suscripción",
   "Unsubscribe?": "¿Cancelar la suscripción?",
   "Unsubscribed": "Suscripción cancelada",
-  "You won’t be notified about new chapters of this series any more.": "Ya no se te avisará de los capítulos nuevos de esta serie."
+  "You won’t be notified about new chapters of this series any more.": "Ya no se te avisará de los capítulos nuevos de esta serie.",
+  "When adding with “Automatic”": "Al añadir con «Automático»",
+  "Any series (when no other library fits)": "Cualquier serie (si ninguna otra biblioteca encaja)",
+  "Series with these genres…": "Series con estos géneros…",
+  "Never add here automatically": "Nunca añadir aquí automáticamente",
+  "Ecchi, Isekai": "Ecchi, Isekai",
+  "A series with any of these genres goes here, unless it is adult: adult series go to the adult libraries first. Separate genres with commas.": "Una serie con alguno de estos géneros va aquí, salvo que sea para adultos: esas van primero a las bibliotecas para adultos. Separa los géneros con comas.",
+  "Automatic never puts a series here. You can still pick this library by name when adding.": "«Automático» nunca pone una serie aquí. Aún puedes elegir esta biblioteca por su nombre al añadir.",
+  "Only used when adding a series with “Automatic”: it goes to the first library that fits, adult libraries first, then genres, then manga or manhwa/manhua.": "Solo al añadir con «Automático»: la serie va a la primera biblioteca que encaje, primero las de adultos, luego géneros, luego manga o manhwa/manhua."
 }

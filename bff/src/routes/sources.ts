@@ -1,4 +1,4 @@
-import { kindOfSeries, firstLibraryOfKind } from '../lib/libraryKind';
+import { automaticLibraryFor, automaticMayUse, automaticFallback } from '../lib/libraryKind';
 import { resultJudge, tameResults } from '../lib/adultResults';
 import { resolveAddScope, scopeForSeries, scopeSql, folderForScope, defaultPrivateFor, privateFolderOwner, reservedPrivateFolder, type AddScope } from '../lib/contentScope';
 // Search across sources and add a new series to the library (queues its download). Backed by the source
@@ -1545,15 +1545,17 @@ export async function addSeriesFromSource(opts: {
   if(opts.scope?.visibility==='shared' && opts.preserveSharedDestination && preferredShared && preferredShared.library_id!==scope.libraryId && opts.userId){
     scope=await resolveAddScope(await viewCtxFor(opts.userId),{visibility:'shared',libraryId:preferredShared.library_id});
   }
-  // Automatic, and the title is nowhere yet (2026-11-18): the first library whose Type is this series' kind -- manga or manhwa/manhua/webtoon,
-  // adult or not (lib/libraryKind.ts) -- when one is set up and this account may add to it. Otherwise as before.
-  if (opts.scope?.visibility === 'shared' && opts.preserveSharedDestination && !preferredShared && opts.userId) {
-    const lists = await adultFilter().catch(() => ({ genres: [] as string[], sources: [] as string[] }));
-    const kind = await kindOfSeries(series, { lang: series?.originalLanguage ?? null, sourceAdult: lists.sources.includes(String(src.id).toLowerCase()) });
-    const target = await firstLibraryOfKind(kind);
-    if (target && target !== scope.libraryId) {
-      scope = await resolveAddScope(await viewCtxFor(opts.userId), { visibility: 'shared', libraryId: target }).catch(() => scope);
+  // Automatic (2026-11-18, lib/libraryKind.ts): a title not in a library yet goes by the libraries' "Automatic adding" -- adult kind, then a
+  // genre library, then the series' kind; and no Automatic add ever lands in a library set to 'ignore', the title's old library included.
+  if (opts.scope?.visibility === 'shared' && opts.preserveSharedDestination && opts.userId) {
+    const viewer = await viewCtxFor(opts.userId);
+    let target: string | null = null;
+    if (!preferredShared) {
+      const lists = await adultFilter().catch(() => ({ genres: [] as string[], sources: [] as string[] }));
+      target = await automaticLibraryFor(series, { lang: series?.originalLanguage ?? null, sourceAdult: lists.sources.includes(String(src.id).toLowerCase()) });
     }
+    if (!target && scope.libraryId && !(await automaticMayUse(scope.libraryId))) target = await automaticFallback();
+    if (target && target !== scope.libraryId) scope = await resolveAddScope(viewer, { visibility: 'shared', libraryId: target }).catch(() => scope);
   }
   const scoped = <T>(sql: string, values: unknown[] = [], alias = 's') => {
     const params = new Params();
