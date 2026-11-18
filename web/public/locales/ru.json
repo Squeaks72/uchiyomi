@@ -2,7 +2,7 @@
   "_meta": {
     "language": "ru",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 6031
+    "strings": 6040
   },
   "1 check found something": "1 проверка нашла проблему",
   "1 member": "1 участник",
@@ -6034,5 +6034,14 @@
   "Nightly fixes that need you": "Ночные исправления, требующие вас",
   "The nightly Fix everything left cards only you can decide.": "Ночное «Исправить всё» оставило карточки, решить которые можете только вы.",
   "Notification targets switched off": "Отключённые получатели уведомлений",
-  "A webhook or email target turned off after failing.": "Webhook или почтовый получатель отключён после сбоев."
+  "A webhook or email target turned off after failing.": "Webhook или почтовый получатель отключён после сбоев.",
+  "App": "Приложение",
+  "Subscribed to 1 series": "Подписка на 1 серию",
+  "Subscribed to {n} series": "Подписок на серии: {n}",
+  "You are told about every new chapter of these. Subscribe or unsubscribe with the bell on a series page.": "Вы узнаёте о каждой новой главе этих серий. Подписка — колокольчиком на странице серии.",
+  "Server-wide": "Для всего сервера",
+  "Webhooks and email": "Webhooks и почта",
+  "Send new chapters and health alerts to Discord, Home Assistant, email and more. Admin → Settings → Notifications.": "Отправляйте новые главы и оповещения в Discord, Home Assistant, почту и др. Админ → Настройки → Уведомления.",
+  "Push notifications on this device: new chapters of the series you subscribe to, replies to chapters you commented on, and (for admins) the health alerts below.": "Push-уведомления на этом устройстве: новые главы серий, на которые вы подписаны, ответы в главах с вашими комментариями и (для админов) оповещения ниже.",
+  "Only my next chapter": "Только следующая глава"
 }
