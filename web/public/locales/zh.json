@@ -2,7 +2,7 @@
   "_meta": {
     "language": "zh",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 6011
+    "strings": 6021
   },
   "1 check found something": "1 项检查发现问题",
   "1 member": "1 位成员",
@@ -6014,5 +6014,15 @@
   "Ecchi, Isekai": "Ecchi, 异世界",
   "A series with any of these genres goes here, unless it is adult: adult series go to the adult libraries first. Separate genres with commas.": "含任一类型的系列会放到这里，成人系列除外：成人系列优先放入成人书库。类型用逗号分隔。",
   "Automatic never puts a series here. You can still pick this library by name when adding.": "“自动”永远不会把系列放到这里。添加时仍可按名称选择此书库。",
-  "Only used when adding a series with “Automatic”: it goes to the first library that fits, adult libraries first, then genres, then manga or manhwa/manhua.": "仅在使用“自动”添加时生效：系列进入第一个合适的书库，先成人，再类型，最后漫画或韩漫/国漫。"
+  "Only used when adding a series with “Automatic”: it goes to the first library that fits, adult libraries first, then genres, then manga or manhwa/manhua.": "仅在使用“自动”添加时生效：系列进入第一个合适的书库，先成人，再类型，最后漫画或韩漫/国漫。",
+  "1 · Choose the folder to move them into": "1 · 选择目标文件夹",
+  "2 · Preview the move": "2 · 预览移动",
+  "Nothing moves until you have previewed it and pressed Move.": "在预览并点“移动”之前不会移动任何内容。",
+  "3 · Move 1 series, then save": "3 · 移动 1 个系列并保存",
+  "3 · Move {n} series, then save": "3 · 移动 {n} 个系列并保存",
+  "Moved 1 series.": "已移动 1 个系列。",
+  "Moved {n} series.": "已移动 {n} 个系列。",
+  "1 series could not be moved: see above.": "有 1 个系列无法移动：见上文。",
+  "{n} series could not be moved: see above.": "有 {n} 个系列无法移动：见上文。",
+  "Save and close": "保存并关闭"
 }

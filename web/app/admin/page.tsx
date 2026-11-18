@@ -1689,6 +1689,9 @@ function RemovedFoldersPrompt({ lib, removed, keep, onSkip, onMoved, onCancel }:
   const [plan, setPlan] = useState<(GatherAnswer & { total: number }) | null>(null);
   const pick = useTargetFolder([''], '', () => setPlan(null));
   const [busy, setBusy] = useState(false);
+  // The real move has run (2026-11-18): the prompt shows what it did and offers one way out -- save the library and close -- instead of
+  // Back / Save without moving, which read as if nothing had happened.
+  const [done, setDone] = useState<(GatherAnswer & { total: number }) | null>(null);
   const { armed, arm, disarm } = useArmed();
   const ask = async (dryRun: boolean) => {
     setBusy(true);
@@ -1698,7 +1701,7 @@ function RemovedFoldersPrompt({ lib, removed, keep, onSkip, onMoved, onCancel }:
       setPlan(r);
       if (!dryRun) {
         toast(tr('{n} series moved', { n: r.moved }), r.moved > 0 || !r.problems.length ? 'success' : 'error');
-        if (!r.problems.length) onMoved();
+        if (!r.problems.length) onMoved(); else setDone(r);
       }
     } catch (e) { toast(msgOf(e, tr('Could not move the series')), 'error'); }
     setBusy(false);
@@ -1714,8 +1717,13 @@ function RemovedFoldersPrompt({ lib, removed, keep, onSkip, onMoved, onCancel }:
         </ul>
         <p className="mt-2 text-xs text-fog-500">{tr('The series in them would stay where they are on disk and move to whichever library holds that place. Or move them into a new folder now, which keeps them together.')}</p>
         <div className="mt-3 rounded-lg border border-ink-700 bg-ink-900/40 p-3">
-          <TargetFolderPicker pick={pick} label={tr('Move them into')} />
-          <button type="button" onClick={() => ask(true)} disabled={busy || !ready} className="btn-key mt-2 w-full">{tr('Preview')}</button>
+          {/* Three steps, said as steps (2026-11-18): a bare "Preview" did not read as the key to press before anything moves. */}
+          {!done && <>
+          <TargetFolderPicker pick={pick} label={tr('1 · Choose the folder to move them into')} />
+          <button type="button" onClick={() => ask(true)} disabled={busy || !ready} data-relocate-preview
+            className={`btn-key mt-2 w-full ${plan ? '' : 'btn-key-primary'}`}>{tr('2 · Preview the move')}</button>
+          {!plan && <p className="mt-1 text-[11px] text-fog-500">{tr('Nothing moves until you have previewed it and pressed Move.')}</p>}
+          </>}
           {plan && (
             <div role="status" className="mt-2 text-[11px] leading-relaxed text-fog-400">
               {plan.planned === 1 ? tr('1 series would move.') : tr('{n} series would move.', { n: plan.planned })}
@@ -1737,15 +1745,24 @@ function RemovedFoldersPrompt({ lib, removed, keep, onSkip, onMoved, onCancel }:
               )}
             </div>
           )}
-          {plan && plan.planned > 0 && (
-            <ArmButton type="button" armed={armed} arm={arm} onConfirm={() => void ask(false)} busy={busy} disabled={busy} className="btn-key mt-2">
-              {plan.planned === 1 ? tr('Move 1 series, then save') : tr('Move {n} series, then save', { n: plan.planned })}
+          {!done && plan && plan.planned > 0 && (
+            <ArmButton type="button" armed={armed} arm={arm} onConfirm={() => void ask(false)} busy={busy} disabled={busy} className="btn-key btn-key-primary mt-2 w-full">
+              {plan.planned === 1 ? tr('3 · Move 1 series, then save') : tr('3 · Move {n} series, then save', { n: plan.planned })}
             </ArmButton>
+          )}
+          {done && (
+            <p role="status" data-relocate-done className="mt-2 text-xs text-fog-200">
+              {done.moved === 1 ? tr('Moved 1 series.') : tr('Moved {n} series.', { n: done.moved })} {done.problems.length === 1 ? tr('1 series could not be moved: see above.') : tr('{n} series could not be moved: see above.', { n: done.problems.length })}
+            </p>
           )}
         </div>
         <div className="mt-4 flex justify-end gap-2">
-          <button type="button" onClick={onCancel} className="btn-key">{tr('Back')}</button>
-          <button type="button" onClick={onSkip} className="btn-key">{tr('Save without moving')}</button>
+          {done ? (
+            <button type="button" onClick={onMoved} className="btn-key btn-key-primary" data-relocate-close>{tr('Save and close')}</button>
+          ) : <>
+            <button type="button" onClick={onCancel} className="btn-key">{tr('Back')}</button>
+            <button type="button" onClick={onSkip} className="btn-key">{tr('Save without moving')}</button>
+          </>}
         </div>
       </div>
     </Modal>

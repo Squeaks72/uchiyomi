@@ -142,8 +142,10 @@ test('the dialog keeps a list of folders, sends `paths`, and the browser\'s rows
   // Folder names in <bdi>, a typed one dir="auto": an Arabic page keeps "Aqua Manga (EN)" whole.
   assert.match(dialog, /<bdi>\{p\}<\/bdi>/);
   assert.match(dialog, /dir="auto"/);
-  // One filled key: Save.
-  assert.equal(dialog.match(/btn-key-primary/g)?.length, 1, 'the dialog has more or fewer than one filled key');
+  // One filled key: Save. The "Move the series first?" prompt below it in the file is a dialog of its own, whose one filled key moves with
+  // its step (Preview, then Move, then Save and close -- never two at once), so it is counted apart.
+  const own = dialog.slice(0, dialog.indexOf('function RemovedFoldersPrompt(') >= 0 ? dialog.indexOf('function RemovedFoldersPrompt(') : dialog.length);
+  assert.equal(own.match(/btn-key-primary/g)?.length, 1, 'the dialog has more or fewer than one filled key');
 });
 
 test('every manual AniList surface states that it can cross an automatic opt-out', () => {
