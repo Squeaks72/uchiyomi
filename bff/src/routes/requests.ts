@@ -12,6 +12,7 @@ import { authenticate, requireAdmin, userIdOf } from '../lib/auth';
 import { one, q } from '../lib/db';
 import { nameKey } from '../lib/onlineMatch';
 import { notifyAdmins, notifyUser } from '../lib/push';
+import { emailUser } from '../lib/notify/readerEmail';
 
 type Row = { id: string; user_id: string; title: string; title_key: string; anilist_id: number | null; cover_url: string | null; note: string | null;
   status: string; series_id: string | null; admin_note: string | null; created_at: Date; resolved_at: Date | null };
@@ -34,7 +35,10 @@ async function reconcile(): Promise<void> {
     if (!hit) continue;
     const done = await one<{ id: string }>(
       `UPDATE series_requests SET status = 'added', series_id = $2, resolved_at = now() WHERE id = $1 AND status = 'open' RETURNING id`, [r.id, hit]);
-    if (done) void notifyUser(r.user_id, r.title, 'Your request was added to the library.', `/series/?id=${hit}`, `request-${r.id}`).catch(() => false);
+    if (done) {
+      void notifyUser(r.user_id, r.title, 'Your request was added to the library.', `/series/?id=${hit}`, `request-${r.id}`).catch(() => false);
+      void emailUser(r.user_id, `Added: ${r.title}`, `"${r.title}", which you asked for, is in the library now.`).catch(() => false);
+    }
   }
 }
 
@@ -129,6 +133,7 @@ export default async function requestRoutes(app: FastifyInstance) {
       const body = b.data.status === 'added' ? 'Your request was added to the library.'
         : `Your request was declined${b.data.note ? `: ${b.data.note}` : '.'}`;
       void notifyUser(r.user_id, r.title, body, r.series_id ? `/series/?id=${r.series_id}` : '/discover/', `request-${r.id}`).catch(() => false);
+      void emailUser(r.user_id, `${b.data.status === 'added' ? 'Added' : 'Declined'}: ${r.title}`, `${r.title}: ${body}`).catch(() => false);
     }
     return { answered: rows.length };
   });

@@ -20,11 +20,11 @@
  * only TRUST_PROXY's do, but its default still names every device on the LAN and every container on the Docker
  * network, and any of those can say what address it likes. A limit on a signed-in admin is a limit on the admin.
  */
-import type { FastifyInstance, FastifyReply } from 'fastify';
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import rateLimit from '@fastify/rate-limit';
 import { z } from 'zod';
 import { q, one } from '../lib/db';
-import { authenticate, requireAdmin, userIdOf } from '../lib/auth';
+import { actsAsAdmin, authenticate, requireAdmin, userIdOf } from '../lib/auth';
 import { logAudit } from '../lib/audit';
 import { EVENTS, KINDS, smtpEndpoint, validateTarget, type Kind, type TargetInput } from '../lib/notify/kinds';
 import { safeUrl } from '../lib/notify/guard';
@@ -88,19 +88,41 @@ async function userExists(id: string): Promise<boolean> {
 /** The host alone, for the audit row: who pointed notifications where, without the path that holds a secret. */
 const hostOf = (display: string): string => display.replace(/^https?:\/\//, '').replace(/\/….*$/, '');
 
-export default async function notifyRoutes(app: FastifyInstance) {
+/**
+ * Two mounts of the same routes (2026-11-18): the admin's (`/api/admin/notify-targets`, every target, as before) and each person's own
+ * (`/api/me/notify-targets`, Profile -> Notifications): only targets aimed at them, created aimed at them, never an SMTP email target -- a
+ * reader's email goes through the admin's email provider (lib/notify/readerEmail.ts) -- and server health only for an admin.
+ */
+export default async function notifyRoutes(app: FastifyInstance) { await targetRoutes(app, false); }
+export async function myNotifyRoutes(app: FastifyInstance) { await targetRoutes(app, true); }
+
+async function targetRoutes(app: FastifyInstance, mine: boolean) {
+  const base = mine ? '/api/me/notify-targets' : '/api/admin/notify-targets';
   app.addHook('preHandler', authenticate);
-  app.addHook('preHandler', requireAdmin);
+  if (!mine) app.addHook('preHandler', requireAdmin);
+  /** A personal mount's guard on a stored target: it is this person's, or it does not exist. */
+  const ownOrNot = async (req: FastifyRequest, id: string) => {
+    const t = await getTarget(id);
+    return t && (!mine || t.user_id === userIdOf(req)) ? t : null;
+  };
+  /** The events a person may ask for on their own target: server health only for an admin. */
+  const allowedEvents = (req: FastifyRequest, ev: string[] | undefined) => (mine && !actsAsAdmin(req) && ev ? ev.filter((e) => e !== 'health') : ev);
   // server.ts registers the limiter at the root; a test or a tool that mounts this plugin bare gets it here
   // instead, so the Test route is never unlimited by accident (the komgaCompat precedent).
   if (!app.hasDecorator('createRateLimit')) await app.register(rateLimit, { global: false });
 
-  app.get('/api/admin/notify-targets', async () => ({ targets: (await listTargets()).map(toDto) }));
+  app.get(base, async (req) => ({ targets: (await listTargets()).filter((t) => (mine ? t.user_id === userIdOf(req) : true)).map(toDto) }));
 
-  app.post('/api/admin/notify-targets', async (req, reply) => {
+  app.post(base, async (req, reply) => {
     const p = createBody.safeParse(req.body);
     if (!p.success) return badRequest(reply, p.error);
     const b = p.data;
+    if (mine) {
+      if (b.kind === 'email') return reply.code(400).send({ error: 'use_email', message: 'Add your email address under Email instead.' });
+      b.userId = userIdOf(req);
+      b.events = allowedEvents(req, b.events ?? ['new_chapters']) as typeof b.events;
+      if (!b.events?.length) return reply.code(400).send({ error: 'bad_request', message: 'Choose what to be told about' });
+    }
     const v = validateTarget(b.kind as Kind, b as TargetInput);
     if (!v.ok) return reply.code(400).send({ error: v.error, message: v.message });
     if (b.userId && !(await userExists(b.userId))) return reply.code(400).send({ error: 'unknown_user', message: 'That person does not exist' });
@@ -118,14 +140,18 @@ export default async function notifyRoutes(app: FastifyInstance) {
     return reply.code(201).send(toDto(saved!));
   });
 
-  app.patch('/api/admin/notify-targets/:id', async (req, reply) => {
+  app.patch(`${base}/:id`, async (req, reply) => {
     const { id } = req.params as { id: string };
     if (!UUID.test(id)) return notFound(reply);
-    const cur = await getTarget(id);
+    const cur = await ownOrNot(req, id);
     if (!cur) return notFound(reply);
     const p = patchBody.safeParse(req.body);
     if (!p.success) return badRequest(reply, p.error);
     const b = p.data;
+    if (mine) {
+      delete b.userId;
+      if (b.events) { b.events = allowedEvents(req, b.events) as typeof b.events; if (!b.events?.length) return reply.code(400).send({ error: 'bad_request', message: 'Choose what to be told about' }); }
+    }
     const sets: string[] = [];
     const vals: unknown[] = [];
     const set = (col: string, val: unknown, cast = '') => { vals.push(val); sets.push(`${col} = $${vals.length + 1}${cast}`); };
@@ -209,9 +235,10 @@ export default async function notifyRoutes(app: FastifyInstance) {
     return toDto((await getTarget(id))!);
   });
 
-  app.delete('/api/admin/notify-targets/:id', async (req, reply) => {
+  app.delete(`${base}/:id`, async (req, reply) => {
     const { id } = req.params as { id: string };
     if (!UUID.test(id)) return notFound(reply);
+    if (!(await ownOrNot(req, id))) return notFound(reply);
     const gone = await one<{ kind: string; name: string }>('DELETE FROM notify_targets WHERE id = $1 RETURNING kind, name', [id]);
     if (!gone) return notFound(reply);
     await logAudit('notify.target.delete', { userId: userIdOf(req), req, detail: { id, kind: gone.kind, name: gone.name } });
@@ -226,7 +253,7 @@ export default async function notifyRoutes(app: FastifyInstance) {
    * there to key on. Reintroduce by dropping `keyGenerator`: "six Tests in a minute from one admin, each from
    * a new X-Forwarded-For, the sixth is refused" in notifyTargets.int.test.ts sees a sixth 200.
    */
-  app.post('/api/admin/notify-targets/:id/test', {
+  app.post(`${base}/:id/test`, {
     config: {
       rateLimit: {
         max: 5,
@@ -238,7 +265,7 @@ export default async function notifyRoutes(app: FastifyInstance) {
   }, async (req, reply) => {
     const { id } = req.params as { id: string };
     if (!UUID.test(id)) return notFound(reply);
-    const row = await getTarget(id);
+    const row = await ownOrNot(req, id);
     if (!row) return notFound(reply);
     const s = await one<{ server_name: string | null }>('SELECT server_name FROM server_settings WHERE id = 1').catch(() => null);
     const r = await deliver(row, {

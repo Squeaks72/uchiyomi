@@ -219,9 +219,15 @@ function digestText(t: Pick<TargetRow, 'kind' | 'template'>, series: ReadonlyArr
  * Reintroduce by dropping the browsableIds filter: "THE DIGEST LEAVES 18+ LIBRARIES OUT UNLESS A TARGET OPTS
  * IN" in notifyTargets.int.test.ts sees the server-wide target name "Adult Title".
  */
+/** Readers' own email digest (lib/notify/readerEmail.ts registers it as it loads; a hook, so the two modules do not import each other). */
+let readerDigestHook: ((landed: ReadonlyArray<Landed>) => Promise<void>) | null = null;
+export function onDigest(fn: (landed: ReadonlyArray<Landed>) => Promise<void>): void { readerDigestHook = fn; }
+
 export async function sendDigest(landed: ReadonlyArray<Landed>, opts: SendOptions = {}): Promise<void> {
   const moved = landed.filter((s) => s.added > 0);
   if (!moved.length) return;
+  // Readers' own email (2026-11-18, lib/notify/readerEmail.ts): each confirmed reader's subscribed series, beside the targets below.
+  if (readerDigestHook) void readerDigestHook(moved).catch(() => {});
   const targets = await q<TargetRow & { user_role: string | null }>(
     `SELECT ${COLS}, u.role AS user_role FROM notify_targets t LEFT JOIN users u ON u.id = t.user_id
       WHERE t.enabled AND 'new_chapters' = ANY(t.events)`).catch(() => [] as Array<TargetRow & { user_role: string | null }>);

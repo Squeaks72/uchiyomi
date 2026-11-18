@@ -5,6 +5,7 @@ import './lib/desktop';
 import { uploadSeriesRoutes } from './routes/upload';
 import versionRoutes from './routes/versions';
 import requestRoutes from './routes/requests';
+import readerEmailRoutes from './routes/readerEmail';
 import { scheduleVersionKeeper } from './lib/versionKeeper';
 import { scheduleEndorser } from './lib/endorse';
 import Fastify from 'fastify';
@@ -89,7 +90,7 @@ import kosyncRoutes from './routes/kosync';
 import externalReaderRoutes from './routes/externalReaders';
 import { privateLibraryRoutes, privateResponseHeaders } from './routes/privateLibrary';
 import { privateAdminContentGuard, privateAdminResponse } from './lib/privateAdmin';
-import notifyRoutes from './routes/notify';
+import notifyRoutes, { myNotifyRoutes } from './routes/notify';
 import translateRoutes from './routes/translate';
 import { stopEngine } from './lib/translate/engine';
 import commentRoutes from './routes/comments';
@@ -306,6 +307,7 @@ async function main() {
   await app.register(adminRoutes);
   // Notification targets (#70): admin-only, with its own hooks, like admin.ts.
   await app.register(notifyRoutes);
+  await app.register(myNotifyRoutes);
   await app.register(catalogRoutes);
   await app.register(panelRoutes);
   await app.register(imageRoutes);
@@ -318,6 +320,7 @@ async function main() {
   await app.register(sourceRoutes);
   await app.register(versionRoutes);
   await app.register(requestRoutes);
+  await app.register(readerEmailRoutes);
   // Translated pages (v0.85.0): answers "off" until an admin downloads the engine and turns it on. Hidden on desktop
   // (DESKTOP_HIDDEN_ROUTES), whose server runs inside the app, where the engine's processes cannot (docs/DESKTOP.md).
   await app.register(translateRoutes);
