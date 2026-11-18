@@ -50,3 +50,31 @@ export async function keepVersion(seriesId: string, number: number, sourceId: st
     [book.id, sourceId, got.file, DL_ROOT, got.pages, chapter.scanlator ?? null, chapter.publishedAt ?? null, st && st.isFile() ? st.size : null]);
   return 'kept';
 }
+
+/** One chapter of a colored edition's own title, as its source lists it (lib_series.colored_ref_listing). */
+export interface ColoredListed { sourceId: string; number: number; title: string | null; scanlator: string | null; groups: string[]; pages: number | null; publishedAt: string | null }
+
+/**
+ * Read a colored edition's own title's chapter list from its source and keep it on the series (colored_ref_listing): only the list --
+ * numbers, titles, groups, pages -- so the series page shows a colored version under every chapter it has, at once. Downloads are the
+ * version keeper's, at its own pace. Answers how many chapters were listed, or null when the series has no such edition or the source
+ * did not answer (the previous list stands).
+ */
+export async function refreshColoredListing(seriesId: string): Promise<number | null> {
+  const s = await one<{ colored_source: string | null; colored_ref_source: string | null; colored_ref_series: string | null }>(
+    'SELECT colored_source, colored_ref_source, colored_ref_series FROM lib_series WHERE id = $1', [seriesId]);
+  if (!s || s.colored_source !== COLORED_KEY || !s.colored_ref_source || !s.colored_ref_series) {
+    await q('UPDATE lib_series SET colored_ref_listing = NULL, colored_ref_listed_at = NULL WHERE id = $1 AND colored_ref_listing IS NOT NULL', [seriesId]);
+    return null;
+  }
+  const adapter = getSource(s.colored_ref_source);
+  if (!adapter) return null;
+  const listed = await adapter.listChapters(s.colored_ref_series).catch(() => null);
+  if (!listed) return null;
+  const rows: ColoredListed[] = listed.filter((c) => Number.isFinite(c.number)).map((c) => ({
+    sourceId: c.sourceId, number: c.number, title: c.title ?? null, scanlator: c.scanlator ?? null, groups: c.groups ?? [],
+    pages: c.pages ?? null, publishedAt: c.publishedAt ?? null,
+  }));
+  await q('UPDATE lib_series SET colored_ref_listing = $2::jsonb, colored_ref_listed_at = now() WHERE id = $1', [seriesId, JSON.stringify(rows)]);
+  return rows.length;
+}

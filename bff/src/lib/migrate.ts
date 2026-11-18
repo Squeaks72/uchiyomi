@@ -2501,6 +2501,10 @@ CREATE TABLE IF NOT EXISTS series_chapter_endorse (
 );
 -- Set when the main source changes (or an admin asks): the endorse pass puts the main source's copy on every chapter of the series.
 ALTER TABLE lib_series ADD COLUMN IF NOT EXISTS endorse_pending boolean NOT NULL DEFAULT false;
+-- A colored edition that is its own title on a source (colored_ref_*): its chapter list, as that source gave it, so every chapter shows the
+-- colored copy as a version at once -- before any is downloaded. The followed sources' lists are series_listing; this title is followed by none.
+ALTER TABLE lib_series ADD COLUMN IF NOT EXISTS colored_ref_listing jsonb;
+ALTER TABLE lib_series ADD COLUMN IF NOT EXISTS colored_ref_listed_at timestamptz;
 -- The whole Health report of the last run (lib/healthSummary.ts): what Admin -> Health and the overview show without running the checks.
 ALTER TABLE server_settings ADD COLUMN IF NOT EXISTS health_report jsonb;
 -- Opt-in per series: keep every followed source's copy of each chapter, not only the endorsed one.

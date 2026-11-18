@@ -1,5 +1,6 @@
 import { sharedActivitySql } from '../lib/contentScope';
 import { chosenVersion } from '../lib/bookVersionsRead';
+import { numKey } from '../lib/postingOrder';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { q, one } from '../lib/db';
@@ -1242,7 +1243,13 @@ export default async function catalogRoutes(app: FastifyInstance) {
       if (n === undefined) { n = getSource(sid)?.name ?? sid; names.set(sid, n); }
       return n;
     };
-    const series = await one<{ folder: string; source_id: string | null }>('SELECT folder, source_id FROM lib_series WHERE id = $1', [id]);
+    const series = await one<{ folder: string; source_id: string | null; colored_ref_source: string | null; colored_ref_listing: Array<{ sourceId: string; number: number; title: string | null; scanlator: string | null; groups: string[]; pages: number | null; publishedAt: string | null }> | null }>(
+      'SELECT folder, source_id, colored_ref_source, colored_ref_listing FROM lib_series WHERE id = $1', [id]);
+    // A colored edition that is its own title (lib/bookVersions.ts refreshColoredListing): its chapters as copies under the reserved key, so
+    // every chapter it has shows its colored version at once, downloaded or not. Keyed by number; the first listed per number.
+    const coloredBy = new Map<number, NonNullable<NonNullable<typeof series>['colored_ref_listing']>[number]>();
+    for (const c of series?.colored_ref_listing ?? []) { const k = numKey(c.number); if (!coloredBy.has(k)) coloredBy.set(k, c); }
+    const coloredName = series?.colored_ref_source ? `${getSource(series.colored_ref_source)?.name ?? series.colored_ref_source}` : '';
     const followed = [
       ...(series?.source_id ? [series.source_id] : []),
       ...(await q<{ source_id: string }>('SELECT source_id FROM series_sources WHERE series_id = $1', [id])).map((f) => f.source_id),
@@ -1290,9 +1297,15 @@ export default async function catalogRoutes(app: FastifyInstance) {
         // groupsAndVersions.int.test.ts shows no copy on disk.
         const stamped = (b: { source_chapter_id: string | null }) =>
           !!b.source_chapter_id && (r.copies ?? []).some((o) => o.sourceId === b.source_chapter_id);
+        const colored = coloredBy.get(numKey(number));
+        const coloredCopy = colored ? [{
+          key: `@colored:${colored.sourceId}`, source: '@colored', sourceName: coloredName, title: colored.title, groups: colored.groups ?? [],
+          scanlator: colored.scanlator, lang: null, otherLanguage: null, pages: colored.pages, publishedAt: colored.publishedAt,
+          chosen: false, blocked: false, onDisk: false,
+        }] : [];
         return {
           number,
-          copies: (r.copies ?? []).map((c) => {
+          copies: [...coloredCopy, ...(r.copies ?? []).map((c) => {
             // Reintroduce by dropping the status check: chapter 5 in groupsAndVersions.int.test.ts reads
             // chosen AND blocked on one copy, and the page shows both pills on a version nobody chose.
             const chosen = r.status !== 'blocked' && c.source === r.source_id && c.sourceId === r.chosen?.sourceId;
@@ -1328,7 +1341,7 @@ export default async function catalogRoutes(app: FastifyInstance) {
                   && (!namesDiffer(c) || !b.chapter_name || b.chapter_name === chapterName(titleOf(c), number))
                 : (b.source_id == null || b.source_id === c.source) && chosen),
             };
-          }),
+          })],
         };
       }),
     };

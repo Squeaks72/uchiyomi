@@ -7,7 +7,7 @@ import { seriesSourcesFor } from '../lib/seriesSources';
 import { heldBySeries, mySource, setMySource, myBookPicks, setBookPick, COLORED_KEY, ENDORSED_KEY } from '../lib/bookVersionsRead';
 import { visibleBookFile } from '../lib/visibility';
 import { getSource } from '../lib/sources';
-import { keepVersion } from '../lib/bookVersions';
+import { keepVersion, refreshColoredListing } from '../lib/bookVersions';
 import { keepAllVersions, keepingNow } from '../lib/versionKeeper';
 import { logAudit } from '../lib/audit';
 import { searchNovelSeries } from '../lib/bookorbitSync';
@@ -142,8 +142,10 @@ export default async function versionRoutes(app: FastifyInstance) {
       [id, set.source, set.refSource, set.refSeries, set.refTitle]);
     if (!r.length) return reply.code(404).send({ error: 'not_found' });
     void logAudit('series.colored_source', { userId: userIdOf(req), req, detail: { id, source: set.source, ref: set.refSource ? `${set.refSource}:${set.refSeries}` : null } }).catch(() => {});
+    // The edition's chapter list first, so its versions show under every chapter at once; then the copies, at the keeper's pace.
+    const listed = await refreshColoredListing(id).catch(() => null);
     if (set.source) void keepAllVersions(id, app.log);
-    return { coloredSource: set.source };
+    return { coloredSource: set.source, listed };
   });
 
   /**
