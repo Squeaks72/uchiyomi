@@ -32,7 +32,7 @@ import { commentsLine, seriesTalkKey, talkWantedOf, type ChapterTalkCount } from
 import { ChapterTalkSheet } from '@/components/ChapterTalk';
 import { AuthorLinks } from '@/components/AuthorLinks';
 import { t as tr } from '@/lib/i18n';
-import { seriesOngoing, statusText } from '@/lib/activity';
+import { seriesLikelyOngoing, seriesOngoing, statusText } from '@/lib/activity';
 import { applyFavorite } from '@/lib/favoriteCache';
 import { deletedText, selectedText, skippedBookmarkedText, skippedNotOursText } from '@/lib/counted';
 import { unlistedWarning } from '@/lib/sourceLeftovers';
@@ -96,7 +96,7 @@ import { radarText } from '@/lib/radar';
 import { catchUpText } from '@/lib/readingTime';
 import { offlineKeyShown, seriesActionGroups, type SeriesActionId } from '@/lib/seriesActions';
 import { RatingsPanel, useSeriesRating } from '@/components/RatingsPanel';
-import { ContinueBar, ContinueButton, ReadProgress, useOutOfView } from '@/components/ContinueBar';
+import { ContinueBar, ContinueButton, ReadProgress, WatchNextButton, useOutOfView } from '@/components/ContinueBar';
 import { useNativeSidebar } from '@/lib/nativeLayout';
 import { FavouriteKey, IcListAdd, MoreKey, SeriesKey, SeriesMoreSheet, moreMenuItems } from '@/components/SeriesKeys';
 import { ProgressRing } from '@/components/ProgressRing';
@@ -1420,7 +1420,9 @@ function SeriesInner() {
   // series whose next unread chapter was pruned opened straight onto "Chapter deleted".
   const reading = useMemo(() => {
     const openable = (b: Book) => !b.pruned || downloaded.has(b.id);
-    const opts = { ongoing: seriesOngoing(series?.metadata?.status) };
+    // Ongoing by the status, or -- with no status saying either way -- by a chapter out in the last half year (lib/activity.ts).
+    const newest = (books?.content ?? []).reduce<string | null>((m, b) => { const d = b.metadata?.releaseDate; return d && (!m || d > m) ? d : m; }, null);
+    const opts = { ongoing: seriesLikelyOngoing(series?.metadata?.status, newest) };
     // Continue follows the list's "Show .5 & extras" (2026-11-18): with extras hidden it never sends the reader to a chapter 8.16 the list
     // does not show. A series of nothing but extras still has something to continue with.
     const shown = continueChoice(books?.content ?? [], (b: Book) => openable(b) && wholeOnly(b.number), opts);
@@ -2315,7 +2317,9 @@ function SeriesInner() {
           under it says what the label does not: the chapter's own name and how far into it the reader is, or which
           chapter "Start reading" and "Read again" open. */}
       <div ref={ctaRef}>
-        <ContinueButton label={ctaText.label} disabled={!resumeBook} onOpen={openReader} />
+        {reading.kind === 'caughtup' && reading.book
+          ? <WatchNextButton seriesId={id} after={reading.book.number} />
+          : <ContinueButton label={ctaText.label} disabled={!resumeBook} onOpen={openReader} />}
       </div>
       {ctaText.caption && <p data-continue-caption className="-mt-1 truncate text-center text-xs text-fog-500">{ctaText.caption}</p>}
       {readLine && <ReadProgress read={readCount.read} total={readCount.total} text={readLine} />}
@@ -2996,7 +3000,9 @@ function SeriesInner() {
       {Toolbar}
       {/* After the select bar, which takes the same place and hides this one. */}
       <ContinueBar shown={barShown}>
-        <ContinueButton compact label={ctaText.label} disabled={!resumeBook} onOpen={openReader} />
+        {reading.kind === 'caughtup' && reading.book
+          ? <WatchNextButton compact seriesId={id} after={reading.book.number} />
+          : <ContinueButton compact label={ctaText.label} disabled={!resumeBook} onOpen={openReader} />}
         <FavouriteKey compact on={fav} pops={favPops} onToggle={toggleFav} />
         <MoreKey compact onOpen={openMore} open={moreSheet} menu={false} />
       </ContinueBar>

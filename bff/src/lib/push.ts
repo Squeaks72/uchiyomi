@@ -115,6 +115,20 @@ export async function notifyNewChapter(seriesId: string, title: string, addedCou
     if (!(await wantsNews(f.user_id, seriesId, numbers))) continue;
     users.push({ user_id: f.user_id });
   }
+  // "Notify me when the next chapter is out" (chapter_watch): asked for once, by this account, about this series -- told whatever its
+  // favourites or its next-up setting say, once a chapter past the one it had read lands, and then the watch is spent.
+  const newest = numbers?.length ? Math.max(...numbers.filter(Number.isFinite)) : null;
+  const watchers = await q<{ user_id: string; role: string }>(
+    `SELECT w.user_id, u.role FROM chapter_watch w JOIN users u ON u.id = w.user_id
+      WHERE w.series_id = $1 AND NOT u.disabled AND ($2::real IS NULL OR w.after < $2::real)`, [seriesId, newest]).catch(() => []);
+  for (const w of watchers) {
+    if (users.some((u) => u.user_id === w.user_id)) continue;
+    const ok = await viewCtxFor(w.user_id, w.role).then((ctx) => seriesVisible(seriesId, ctx)).catch(() => false);
+    if (ok) users.push({ user_id: w.user_id });
+  }
+  if (watchers.length) {
+    await q('DELETE FROM chapter_watch WHERE series_id = $1 AND user_id = ANY($2::uuid[])', [seriesId, watchers.map((w) => w.user_id)]).catch(() => {});
+  }
   if (!users.length) return;
   const payload = {
     title,
