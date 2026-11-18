@@ -1412,8 +1412,12 @@ function SeriesInner() {
   // series whose next unread chapter was pruned opened straight onto "Chapter deleted".
   const reading = useMemo(() => {
     const openable = (b: Book) => !b.pruned || downloaded.has(b.id);
-    return continueChoice(books?.content ?? [], openable, { ongoing: seriesOngoing(series?.metadata?.status) });
-  }, [books, downloaded, series?.metadata?.status]);
+    const opts = { ongoing: seriesOngoing(series?.metadata?.status) };
+    // Continue follows the list's "Show .5 & extras" (2026-11-18): with extras hidden it never sends the reader to a chapter 8.16 the list
+    // does not show. A series of nothing but extras still has something to continue with.
+    const shown = continueChoice(books?.content ?? [], (b: Book) => openable(b) && wholeOnly(b.number), opts);
+    return shown.kind !== 'none' ? shown : continueChoice(books?.content ?? [], openable, opts);
+  }, [books, downloaded, series?.metadata?.status, wholeOnly]);
   const resumeBook = reading.book;
 
   // The list a page at a time (lib/chapterPages.ts). It opens on the page holding `resumeBook`, so a reader
