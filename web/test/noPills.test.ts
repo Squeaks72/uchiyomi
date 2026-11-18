@@ -189,7 +189,7 @@ const SLICES: [string, string, string, string][] = [
   ['components/TopNav.tsx', 'TopNav: the Updates count and the avatar', '<Link href="/updates"', '<ProfileMenu'],
   // UI refresh: the series page's chapter toolbar (keys: they act on the list), its pager, and the chapter rows' keys;
   // Home's phone header; Updates' header.
-  ['app/series/page.tsx', 'Series: the chapter toolbar', '<div data-chapter-toolbar', '{group !== ALL_GROUPS && ('],
+  ['app/series/page.tsx', 'Series: the chapter toolbar', '<div data-chapter-toolbar', '{(group !== ALL_GROUPS || numMatch) && ('],
   ['app/series/page.tsx', 'Series: the chapter pager', 'function ChapterPager(', 'function EditionChips('],
   ['app/page.tsx', "Home: the phone's header", '<header className="safe-top sticky top-0 z-30', '</header>'],
   ['app/updates/page.tsx', "Updates: the header's keys", '<h1 className="font-display', '</header>'],

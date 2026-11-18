@@ -2,7 +2,7 @@
   "_meta": {
     "language": "zh",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 5960
+    "strings": 5964
   },
   "1 check found something": "1 项检查发现问题",
   "1 member": "1 位成员",
@@ -5963,5 +5963,9 @@
   "Put back 1 chapter picked by hand": "恢复 1 个手动选择的章节",
   "Put back {n} chapters picked by hand": "恢复 {n} 个手动选择的章节",
   "{source} · 1 chapter here": "{source} · 此处 1 章",
-  "{source} · {n} chapters here": "{source} · 此处 {n} 章"
+  "{source} · {n} chapters here": "{source} · 此处 {n} 章",
+  "Ch. #": "章 #",
+  "Chapter": "章节",
+  "Read {series} · Ch. {n}": "阅读 {series} · 第 {n} 章",
+  "Show Ch. {n} in {series}": "在 {series} 中显示第 {n} 章"
 }

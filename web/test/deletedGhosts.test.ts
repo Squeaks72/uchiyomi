@@ -60,7 +60,8 @@ test('the series page turns them into ghost rows only under the switch, and keep
   const src = readFileSync(join(__dirname, '..', 'app/series/page.tsx'), 'utf8');
   assert.match(src, /listing\?\.deletedAsGhosts === true && deliberatelyDeleted\(b\) && !downloaded\.has\(b\.id\)/);
   assert.match(src, /visibleBooks\.filter\(asGhost\)\.map\(ghostOfDeleted\)/);
-  assert.match(src, /rowBooks\.filter\(\(b\) => wholeOnly\(b\.number\)/, 'the deleted chapters are still drawn as chapter rows');
+  // 2026-11-18: the chapter-number box filters first when it holds a number; otherwise the list's own rules, wholeOnly among them.
+  assert.match(src, /rowBooks\.filter\(\(b\) => \(numMatch \? numMatch\(b\.number\) : wholeOnly\(b\.number\)/, 'the deleted chapters are still drawn as chapter rows');
   assert.match(src, /ghosts\.length > 0 \|\| deletedGhosts\.length > 0/, 'deleted-only series still expose the ghost control');
 });
 

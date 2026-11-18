@@ -223,7 +223,7 @@ test('the palette lists them after the series under their own heading, and goes 
   // Reintroduce the palette without destinations, or `router.push` for every row: these fail by name.
   const pal = code(read('components/CommandPalette.tsx'));
   assert.match(pal, /const places = useMemo\(\(\) => findDestinations\(q, \{ admin: isAdmin, desktop: isDesktop\(\) \}\), \[q, isAdmin\]\);/, 'the palette does not ask for destinations');
-  assert.match(pal, /\.\.\.results\.map\(\(s\) => \(\{ kind: 'series' as const, series: s \}\)\),\s*\.\.\.places\.map\(\(p\) => \(\{ kind: 'place' as const, place: p \}\)\),\s*\.\.\.shownActions\.map/,
+  assert.match(pal, /\.\.\.results\.map\(\(s\) => \(\{ kind: 'series' as const, series: s \}\)\),\s*(?:\.\.\.\(wholeTitle \? chapterRows : \[\]\),\s*)?\.\.\.places\.map\(\(p\) => \(\{ kind: 'place' as const, place: p \}\)\),\s*\.\.\.shownActions\.map/,
     'the destinations are not between the series and the actions');
   assert.match(pal, /\{rows\[i - 1\]\?\.kind !== 'place' && <p [^>]*>\{tr\('Pages and settings'\)\}<\/p>\}/, 'the destinations have no heading of their own');
   assert.match(pal, /\{rows\[i - 1\]\?\.kind !== 'action' && <p [^>]*>\{tr\('Actions'\)\}<\/p>\}/, 'the Actions heading is placed by the series count alone');
