@@ -62,7 +62,7 @@ import { seriesBooksQuery, seriesQuery } from '@/lib/seriesPrefetch';
 import { fetchAllBooks } from '@/lib/seriesBooks';
 import { fetchingToast } from '@/lib/jobs';
 import { ALL_GROUPS, copySourceId, groupsOfRow, matchesGroup } from '@/lib/groupFilter';
-import { copiesForGroup, copiesOf, pickFor, type ChapterCopy } from '@/lib/chapterCopies';
+import { copiesForGroup, copiesOf, endorsedOrigin, pickFor, type ChapterCopy } from '@/lib/chapterCopies';
 import { SourcesSheet, useCheckNow, useSeriesGroups } from '@/components/SourcesSheet';
 import { ColorToggle, useKept } from '@/components/KeptVersions';
 import { SourcesExplainer } from '@/components/SourcesExplainer';
@@ -475,13 +475,16 @@ function ButtonsWrap({ compact, menuOpen, children }: { compact: boolean; menuOp
 /** Shift+click in select mode picks a range; without this the browser also paints a text selection across it. */
 const keepSelection = (e: { shiftKey: boolean; preventDefault: () => void }) => { if (e.shiftKey) e.preventDefault(); };
 
-function ChapterRow({ book, downloaded, sourceNames, primarySource, versions, expanded, below, onReader, onToggleDownload, onMark, onEdit, onVersions, onReplaceFrom, onCopyPath, onHide, onRefetch, onDelete, fresh, selectable, selected, onToggle, compact, lit, talk, onTalk }: {
+function ChapterRow({ book, downloaded, sourceNames, primarySource, versions, group, expanded, onToggleCopies, below, onReader, onToggleDownload, onMark, onEdit, onVersions, onReplaceFrom, onCopyPath, onHide, onRefetch, onDelete, fresh, selectable, selected, onToggle, compact, lit, talk, onTalk }: {
   book: Book;
+  /** The group the file on disk came from (lib/chapterCopies.ts endorsedOrigin): the tag beside the title. Null when nobody said. */
+  group?: string | null;
   /**
-   * A chapter the server holds more than one copy of: the row is the head of an accordion -- a press folds or unfolds the copies
-   * (`below`) instead of opening the reader, and each copy opens its own. Undefined for a chapter with one copy.
+   * A chapter with two or more copies (held, or listed by a source): `{n} versions` at the row's end folds or unfolds them (`below`),
+   * each copy reading its own. The row itself still opens the reader. Undefined for a chapter with one copy.
    */
   expanded?: boolean;
+  onToggleCopies?: () => void;
   below?: ReactNode;
   /** v0.87.0: the chapter's talk for the caption, and the menu's Comments, while the household has any. */
   talk?: ChapterTalkCount | null;
@@ -572,7 +575,6 @@ function ChapterRow({ book, downloaded, sourceNames, primarySource, versions, ex
       {/* In select mode a pruned chapter is still selectable -- Mark read and Fetch again are exactly the
           things one wants for it -- so the disable only applies to opening. */}
       <button type="button" onClick={selectable ? (e) => onToggle?.(e.shiftKey) : onReader} onMouseDown={selectable ? keepSelection : undefined} disabled={pruned && !selectable} aria-pressed={selectable ? !!selected : undefined}
-        aria-expanded={!selectable && expanded !== undefined ? expanded : undefined}
         className="flex min-w-0 flex-1 items-center gap-3 text-start disabled:cursor-default">
         <div className={`relative h-14 w-10 shrink-0${thumbHide(!!compact, !!selectable)} overflow-hidden rounded-lg border ${state === 'read' ? 'border-ink-800 opacity-45' : 'border-ink-700'} ${book.pruned && !downloaded ? 'border-dashed border-ink-600' : ''}`}>
           {/* A tombstone has no file to draw a thumbnail from; asking would be a 404 per row on every visit.
@@ -582,24 +584,35 @@ function ChapterRow({ book, downloaded, sourceNames, primarySource, versions, ex
           {selectable && <SelectBubble selected={!!selected} />}
         </div>
         <span aria-hidden className={`h-2 w-2 shrink-0 rounded-full${dotHide(!!compact)} ${state === 'read' ? 'bg-ink-600' : state === 'reading' ? 'bg-accent' : 'bg-accent/40'}`} />
-        <div className="min-w-0">
-          <p className={`truncate text-sm ${state === 'read' ? 'text-fog-500' : 'text-fog-100'}`}>
-            {expanded !== undefined && !selectable && (
-              <IcChevronRight aria-hidden width={12} height={12} className={`me-1 inline-block align-[-1px] text-fog-500 transition-transform ${expanded ? 'rotate-90' : 'rtl:-scale-x-100'}`} />
-            )}
-            {chapterLabel(book)}
-            {/* The chapter's own name, when the source gave one that is not just the number again. */}
-            {chapterName(book) && <span className="text-fog-500"> · {chapterName(book)}</span>}
-            {/* The dot and the dimming say it in colour; this says it in words. */}
-            <span className="sr-only"> · {state === 'read' ? tr('Read') : state === 'reading' ? tr('Reading') : tr('Unread')}</span>
+        <div className="min-w-0 flex-1">
+          {/* Two lines (mangadot's density): the title with the group's tag, then the caption with where the reader got to. The date
+              and the versions key sit at the row's end, outside this opener -- a key inside a <button> is invalid DOM. */}
+          <p className={`flex min-w-0 items-center gap-2 text-sm ${state === 'read' ? 'text-fog-500' : 'text-fog-100'}`}>
+            <span className="min-w-0 truncate">
+              {chapterLabel(book)}
+              {/* The chapter's own name, when the source gave one that is not just the number again. */}
+              {chapterName(book) && <span className="text-fog-500"> · {chapterName(book)}</span>}
+              {/* The dot and the dimming say it in colour; this says it in words. */}
+              <span className="sr-only"> · {state === 'read' ? tr('Read') : state === 'reading' ? tr('Reading') : tr('Unread')}</span>
+            </span>
+            {group && <GroupTag name={group} />}
           </p>
-          <RowCaption group={book.scanlator} via={altSource} versions={versions} pruned={prunedWords(book)} missing={book.missingPages?.length} talk={talk} />
-          {state === 'reading' && rp && (
-            <p className="text-[11px] text-accent">{tr('Page {n} of {m}', { n: rp.page, m: book.media.pagesCount })}</p>
-          )}
-          {book.metadata?.releaseDate && <RowDate iso={book.metadata.releaseDate} />}
+          <div className="flex min-w-0 items-baseline gap-2">
+            <RowCaption via={altSource} versions={onToggleCopies ? undefined : versions} pruned={prunedWords(book)} missing={book.missingPages?.length} talk={talk} />
+            {state === 'reading' && rp && (
+              <span className="shrink-0 text-[11px] text-accent">{tr('Page {n} of {m}', { n: rp.page, m: book.media.pagesCount })}</span>
+            )}
+          </div>
         </div>
       </button>
+      {!selectable && onToggleCopies && versions && versions >= 2 && (
+        <button type="button" onClick={onToggleCopies} aria-expanded={!!expanded} data-copies-toggle
+          className={`flex shrink-0 items-center gap-1 rounded-md px-1.5 py-1 text-[11px] transition-colors hover:bg-white/[0.06] pointer-coarse:py-2 ${expanded ? 'text-accent' : 'text-fog-400'}`}>
+          {tr('{n} versions', { n: versions })}
+          <IcChevronRight aria-hidden width={12} height={12} className={`transition-transform ${expanded ? 'rotate-90' : 'rtl:-scale-x-100'}`} />
+        </button>
+      )}
+      {book.metadata?.releaseDate && <RowDate iso={book.metadata.releaseDate} className="w-auto shrink-0 text-end" />}
       {!selectable && <ButtonsWrap compact={!!compact} menuOpen={menu.open}>
       {fresh && (
         <span role="img" aria-label={tr('Fetched')} data-fetched
@@ -640,19 +653,30 @@ function ChapterRow({ book, downloaded, sourceNames, primarySource, versions, ex
   );
 }
 
+/** The group a chapter came from, as a squared tag beside its title (mangadot's): avatar and name, cut with an ellipsis when long. */
+function GroupTag({ name }: { name: string }) {
+  return (
+    <span data-group-tag title={name} className="block min-w-0 max-w-[45%] shrink truncate rounded-[4px] border border-ink-700 px-1 text-[10px] leading-4 text-fog-400 pointer-coarse:text-[11px]">
+      <GroupAvatar name={name} size={14} className="me-1 align-text-bottom" />{name}
+    </span>
+  );
+}
+
 /**
  * The copies of one chapter the server holds, under its row (lib/chapterCopies.ts): each says its source, the group that released it,
  * its pages, and whether it is the endorsed copy, the colored edition, and the one this account reads. A press reads that copy.
  */
-function CopyRows({ copies, onRead }: { copies: ChapterCopy[]; onRead: (c: ChapterCopy) => void }) {
+function CopyRows({ copies, fetching, onRead }: { copies: ChapterCopy[]; fetching?: string | null; onRead: (c: ChapterCopy) => void }) {
   return (
     <ul data-chapter-copies className="-mt-1 pb-2 ps-3">
       {copies.map((c) => (
         <li key={c.sourceId ?? 'endorsed'}>
-          <button type="button" onClick={() => onRead(c)} data-chapter-copy={c.sourceId ?? 'endorsed'} aria-current={c.reading ? 'true' : undefined}
-            className={`flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-start text-xs transition-colors hover:bg-white/[0.05] pointer-coarse:py-2.5 ${c.reading ? 'bg-accent/[0.07]' : ''}`}>
+          <button type="button" onClick={() => onRead(c)} data-chapter-copy={c.sourceId ?? 'endorsed'} data-held={c.held ? '' : undefined}
+            aria-current={c.reading ? 'true' : undefined} disabled={!!fetching}
+            title={c.held ? undefined : tr('Not on the server yet: download it and read')}
+            className={`flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-start text-xs transition-colors hover:bg-white/[0.05] disabled:cursor-wait pointer-coarse:py-2.5 ${c.reading ? 'bg-accent/[0.07]' : ''} ${c.held ? '' : 'opacity-70 hover:opacity-100'}`}>
             <span aria-hidden className="shrink-0 text-fog-600">└</span>
-            <span dir="auto" className={`min-w-0 truncate font-medium ${c.reading ? 'text-accent' : 'text-fog-100'}`}>{c.sourceName ?? tr('This server')}</span>
+            <span dir="auto" className={`min-w-0 truncate font-medium ${c.reading ? 'text-accent' : c.held ? 'text-fog-100' : 'text-fog-300'}`}>{c.sourceName ?? tr('This server')}</span>
             {c.endorsed && <span data-copy-endorsed className="shrink-0 rounded-[4px] border border-accent/50 px-1 text-[10px] font-semibold uppercase tracking-wide text-accent">{tr('Endorsed')}</span>}
             {c.colored && <span data-copy-colored className="shrink-0 rounded-[4px] border border-amber-300/50 px-1 text-[10px] font-semibold uppercase tracking-wide text-amber-300">{tr('Colored')}</span>}
             {c.group && (
@@ -665,6 +689,10 @@ function CopyRows({ copies, onRead }: { copies: ChapterCopy[]; onRead: (c: Chapt
             <span className="ms-auto shrink-0 tabular-nums text-fog-500">
               {c.pages > 0 ? (c.pages === 1 ? tr('1 page') : tr('{n} pages', { n: c.pages })) : ''}
             </span>
+            {/* Not here yet: a press downloads it, then reads it. */}
+            {!c.held && (fetching === c.sourceId
+              ? <span className="shrink-0 text-accent" aria-label={tr('Downloading')}>…</span>
+              : <IcCloudDownload aria-label={tr('Not on the server yet: download it and read')} width={14} height={14} className="shrink-0 text-fog-500" />)}
             {c.reading && <span className="sr-only">{tr('Reading')}</span>}
           </button>
         </li>
@@ -1236,19 +1264,35 @@ function SeriesInner() {
     ...Object.fromEntries((series?.sources ?? []).map((s) => [s.sourceId, s.name])),
   }), [series, allSources]);
   const primarySource = series?.sources?.find((s) => s.primary)?.sourceId;
-  // The copies of each chapter the server holds (lib/chapterCopies.ts), drawn as an accordion under a chapter with two or more. Unfolded
-  // by default (all copies in view, mangadot's way); a press on the chapter folds it. Per visit, by book id.
-  const [foldedCopies, setFoldedCopies] = useState<Set<string>>(() => new Set());
-  useEffect(() => { setFoldedCopies(new Set()); }, [id]);
+  // The copies of each chapter (lib/chapterCopies.ts) -- held, and listed by a source but not here yet -- drawn as an accordion under a
+  // chapter with two or more. Folded by default, so the list stays one line a chapter; `{n} versions` at the row's end unfolds it.
+  // Per visit, by book id. `fetchingCopy`: the listed copy being downloaded to read, `${bookId}|${sourceId}`.
+  const [openCopies, setOpenCopies] = useState<Set<string>>(() => new Set());
+  useEffect(() => { setOpenCopies(new Set()); }, [id]);
+  const [fetchingCopy, setFetchingCopy] = useState<string | null>(null);
   const copyNames = useMemo(() => ({ ...Object.fromEntries((keptData?.sources ?? []).map((x) => [x.sourceId, x.name])), ...sourceNames }), [keptData, sourceNames]);
   const copiesFor = (b: Book): ChapterCopy[] => copiesOf(b, keptData?.held?.[String(b.number)], {
     names: copyNames, coloredSource: keptData?.coloredSource ?? null, coloredName: keptData?.coloredRef?.sourceName ?? null,
     mySource: keptData?.mySource ?? null, pick: keptData?.picks?.[b.id] ?? null,
-  });
+  }, versionsOf.get(b.number));
   // Read one copy: this account's pick for the chapter is saved first (PUT /api/books/:id/my-version), so the reader -- and OPDS and
   // Mihon after it -- are served that copy; then the reader opens.
   const readCopy = async (b: Book, c: ChapterCopy) => {
     const kept = (keptData?.held?.[String(b.number)] ?? []).map((v) => v.sourceId);
+    // A copy a source lists and the server does not hold: download it beside the endorsed one first (POST versions/fetch), then read it.
+    if (!c.held && c.sourceId) {
+      if (fetchingCopy) return;
+      setFetchingCopy(`${b.id}|${c.sourceId}`);
+      try {
+        toast(tr('Downloading this copy…'), 'info', { busy: true, key: 'fetch-copy' });
+        const r = await api<{ result: string }>(`/api/series/${encodeURIComponent(id)}/versions/fetch`, { method: 'POST', json: { number: b.number, sourceId: c.sourceId } });
+        await qc.invalidateQueries({ queryKey: ['kept', id] });
+        if (r.result === 'is_endorsed') { toast(tr('This copy is the one on the server'), 'info', { key: 'fetch-copy' }); c = { ...c, held: true, endorsed: true, sourceId: null }; }
+        else if (r.result !== 'kept' && r.result !== 'already') { toast(tr('Could not download this copy'), 'error', { key: 'fetch-copy' }); return; }
+        else { toast(tr('Copy downloaded'), 'success', { key: 'fetch-copy' }); kept.push(c.sourceId!); }
+      } catch (e) { toast(actionFailure(e, tr('Could not download this copy')), 'error', { key: 'fetch-copy' }); return; }
+      finally { setFetchingCopy(null); }
+    }
     const want = pickFor(c, keptData?.mySource ?? null, kept);
     if ((keptData?.picks?.[b.id] ?? null) !== want) {
       try {
@@ -2252,16 +2296,17 @@ function SeriesInner() {
           if (r.kind === 'book') {
             const b = r.book;
             const all = b.pruned ? [] : copiesFor(b);
-            const copies = all.length > 1 ? copiesForGroup(all, group) : [];
-            const accordion = copies.length > 0;
-            const open = accordion && !foldedCopies.has(b.id);
+            // Under a group filter the copies are that group's; a listed copy is offered only to someone who may download.
+            const copies = all.length > 1 ? copiesForGroup(all, group).filter((c) => c.held || canDownload(user)) : [];
+            const accordion = copies.length > 1;
+            const open = accordion && openCopies.has(b.id);
             return (
               <ChapterRow key={b.id} book={b} compact={compact} lit={litCh === b.number} downloaded={downloaded.has(b.id)} sourceNames={sourceNames} primarySource={primarySource}
+                group={endorsedOrigin(b, versionsOf.get(b.number)).group}
                 expanded={accordion ? open : undefined}
-                below={accordion ? <CopyRows copies={copies} onRead={(c) => void readCopy(b, c)} /> : undefined}
-                onReader={accordion
-                  ? () => setFoldedCopies((prev) => { const next = new Set(prev); if (next.has(b.id)) next.delete(b.id); else next.add(b.id); return next; })
-                  : () => router.push(`/reader/?book=${b.id}`)}
+                onToggleCopies={accordion ? () => setOpenCopies((prev) => { const next = new Set(prev); if (next.has(b.id)) next.delete(b.id); else next.add(b.id); return next; }) : undefined}
+                below={accordion ? <CopyRows copies={copies} fetching={fetchingCopy?.startsWith(`${b.id}|`) ? fetchingCopy.slice(b.id.length + 1) : null} onRead={(c) => void readCopy(b, c)} /> : undefined}
+                onReader={() => router.push(`/reader/?book=${b.id}`)}
                 onToggleDownload={() => toggleDownload(b.id)}
                 onMark={(mode) => markChapter(b, mode)}
                 fresh={landed.has(b.number)}
@@ -2271,7 +2316,7 @@ function SeriesInner() {
                 onRefetch={isAdmin && b.owned ? () => setConfirming({ what: 'refetch', books: [b] }) : undefined}
                 onDelete={isAdmin && b.owned && !b.pruned ? () => setConfirming({ what: 'delete', books: [b] }) : undefined}
                 selectable={selecting} selected={pickedBooks.has(b.id)} onToggle={(shift) => pickRow(`b:${b.id}`, shift)}
-                versions={versionsOf.get(b.number)?.length}
+                versions={accordion ? copies.length : versionsOf.get(b.number)?.length}
                 onVersions={versionsOf.has(b.number) ? () => setChapterSheet({ number: b.number, book: b }) : undefined}
                 onReplaceFrom={isAdmin && b.owned !== false && versionsOf.get(b.number)?.some((c) => !c.onDisk) ? () => setComparing(b) : undefined}
                 talk={talkOn ? talkOf.get(b.id) : null} onTalk={talkOn ? () => setTalkFor(b.id) : undefined} />

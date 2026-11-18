@@ -2,7 +2,7 @@
   "_meta": {
     "language": "ru",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 5893
+    "strings": 5899
   },
   "1 check found something": "1 проверка нашла проблему",
   "1 member": "1 участник",
@@ -5896,5 +5896,11 @@
   "This server": "Этот сервер",
   "Could not open this copy": "Не удалось открыть эту копию",
   "Group": "Группа",
-  "All groups": "Все группы"
+  "All groups": "Все группы",
+  "Downloading this copy…": "Загрузка этой копии…",
+  "This copy is the one on the server": "Эта копия уже на сервере",
+  "Could not download this copy": "Не удалось загрузить эту копию",
+  "Copy downloaded": "Копия загружена",
+  "Not on the server yet: download it and read": "Ещё нет на сервере: загрузить и читать",
+  "Downloading": "Загрузка"
 }
