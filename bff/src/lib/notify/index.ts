@@ -231,7 +231,7 @@ export async function sendDigest(landed: ReadonlyArray<Landed>, opts: SendOption
     let series = moved;
     if (t.user_id) {
       const fav = await q<{ series_id: string }>(
-        'SELECT series_id FROM favorites WHERE user_id = $1 AND series_id = ANY($2)', [t.user_id, moved.map((s) => s.id)]).catch(() => []);
+        'SELECT series_id FROM series_subscriptions WHERE user_id = $1 AND series_id = ANY($2)', [t.user_id, moved.map((s) => s.id)]).catch(() => []);
       const mine = new Set(fav.map((f) => f.series_id));
       series = moved.filter((s) => mine.has(s.id));
       // An account that asked to hear only about the chapter it would read next (lib/nextUp.ts): a series whose new

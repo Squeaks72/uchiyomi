@@ -11,6 +11,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { t as tr } from '@/lib/i18n';
 import { useToast } from './Toast';
+import { ConfirmDialog } from './ConfirmDialog';
+import { SeriesKey } from './SeriesKeys';
 
 /**
  * The one reading button: the accent key, lit by the series' cover colour (`.cta-glow`, app/globals.css; Reduce
@@ -91,49 +93,77 @@ export function ContinueBar({ shown, children }: { shown: boolean; children: Rea
   );
 }
 
-/**
- * Caught up on an ongoing series (2026-11-18): instead of "Read again", the big button asks to be told when the next chapter is out --
- * one push to this account's devices (the profile's notifications), then the watch is spent (bff chapter_watch, lib/push.ts). Pressed
- * again it is called off. With no device to tell, it still saves the watch and says where notifications are turned on.
- */
-export function WatchNextButton({ seriesId, after, compact, inline }: { seriesId: string; after: number; compact?: boolean; /** The placeholder row's small key. */ inline?: boolean }) {
+/** This account's subscription to a series (bff series_subscriptions): told about every new chapter, by push and the digest. */
+export function useSubscription(seriesId: string) {
   const qc = useQueryClient();
   const toast = useToast();
-  const key = ['chapter-watch', seriesId];
-  const { data } = useQuery({ queryKey: key, queryFn: () => api<{ watching: boolean; after: number | null; devices: number }>(`/api/series/${encodeURIComponent(seriesId)}/watch`), staleTime: 30_000 });
+  const key = ['subscription', seriesId];
+  const { data } = useQuery({ queryKey: key, queryFn: () => api<{ subscribed: boolean; devices: number }>(`/api/series/${encodeURIComponent(seriesId)}/subscription`), staleTime: 30_000, enabled: !!seriesId });
   const [busy, setBusy] = useState(false);
-  const next = Math.floor(after) + 1;
-  const on = !!data?.watching;
-  const flip = async () => {
+  const set = async (on: boolean) => {
     setBusy(true);
     try {
-      if (on) {
-        await api(`/api/series/${encodeURIComponent(seriesId)}/watch`, { method: 'DELETE' });
-        toast(tr('You won’t be told about Ch. {chapter}', { chapter: next }), 'info');
-      } else {
-        await api(`/api/series/${encodeURIComponent(seriesId)}/watch`, { method: 'PUT', json: { after } });
-        toast(data && data.devices === 0
-          ? tr('Saved. Turn on notifications in your profile to be told when Ch. {chapter} is out.', { chapter: next })
-          : tr('You’ll be notified when Ch. {chapter} is out', { chapter: next }), data && data.devices === 0 ? 'info' : 'success');
-      }
-      await qc.invalidateQueries({ queryKey: key });
+      await api(`/api/series/${encodeURIComponent(seriesId)}/subscription`, { method: on ? 'PUT' : 'DELETE' });
+      qc.setQueryData(key, { subscribed: on, devices: data?.devices ?? 0 });
+      toast(!on ? tr('Unsubscribed')
+        : data && data.devices === 0 ? tr('Subscribed. Turn on notifications in your profile to be told about new chapters.')
+        : tr('Subscribed: you’ll hear about every new chapter'), on && data?.devices === 0 ? 'info' : 'success');
     } catch { toast(tr('Could not save'), 'error'); } finally { setBusy(false); }
   };
+  return { subscribed: !!data?.subscribed, ready: !!data, busy, set };
+}
+
+/**
+ * Subscribe (2026-11-18), YouTube's way: told about every new chapter of the series, by the profile's notifications. Three shapes:
+ *  - `key`: the series' key row, beside Favourite -- a bell, filled once subscribed;
+ *  - the big button where the reading button was, once the reader is caught up on an ongoing series: "Subscribe", or "Subscribed ·
+ *    waiting for Ch. N";
+ *  - `inline`: the small key on the "not out yet" row.
+ * Unsubscribing from the big button asks first; the bell key and the small key toggle at once (they say what they are).
+ */
+export function SubscribeButton({ seriesId, waitingFor, compact, inline, keyShape }: {
+  seriesId: string;
+  /** The chapter not out yet, for "waiting for Ch. N". */
+  waitingFor?: number;
+  compact?: boolean;
+  inline?: boolean;
+  keyShape?: boolean;
+}) {
+  const sub = useSubscription(seriesId);
+  const [asking, setAsking] = useState(false);
+  const on = sub.subscribed;
+  if (keyShape) {
+    return (
+      <SeriesKey icon={<IcBell width={20} height={20} fill={on ? 'currentColor' : 'none'} aria-hidden />} label={on ? tr('Subscribed') : tr('Subscribe')}
+        onClick={() => void sub.set(!on)} compact={compact}
+        className={on ? 'border-accent/50 bg-accent/10 text-accent' : ''} attrs={{ 'aria-pressed': on, 'data-subscribe': on ? 'on' : 'off', disabled: sub.busy || !sub.ready }} />
+    );
+  }
   if (inline) {
     return (
-      <button type="button" onClick={() => void flip()} disabled={busy || !data} aria-pressed={on} data-watch-next-inline={on ? 'on' : 'off'}
+      <button type="button" onClick={() => void sub.set(!on)} disabled={sub.busy || !sub.ready} aria-pressed={on} data-subscribe-inline={on ? 'on' : 'off'}
         className={`btn-key shrink-0 whitespace-nowrap ${on ? 'btn-key-accent' : ''}`}>
         {on ? <IcCheck width={14} height={14} aria-hidden /> : <IcBell width={14} height={14} aria-hidden />}
-        {on ? tr('Notifying you') : tr('Notify me')}
+        {on ? tr('Subscribed') : tr('Subscribe')}
       </button>
     );
   }
+  const size = compact ? 16 : 18;
   return (
-    <button type="button" onClick={() => void flip()} disabled={busy || !data} aria-pressed={on} data-watch-next={on ? 'on' : 'off'}
-      className={`${on ? 'btn-ghost border border-accent/60 text-accent' : 'btn-accent cta-glow'} min-w-0 disabled:opacity-60 ${compact ? 'h-11 flex-1 px-4 py-0 text-sm' : 'w-full'}`}>
-      {on ? <IcCheck width={compact ? 16 : 18} height={compact ? 16 : 18} aria-hidden className="shrink-0" />
-        : <IcBell width={compact ? 16 : 18} height={compact ? 16 : 18} aria-hidden className="shrink-0" />}
-      <span className="min-w-0 truncate">{on ? tr('Notifying you when Ch. {chapter} is out', { chapter: next }) : tr('Notify me when Ch. {chapter} is out', { chapter: next })}</span>
-    </button>
+    <>
+      <button type="button" onClick={() => (on ? setAsking(true) : void sub.set(true))} disabled={sub.busy || !sub.ready} aria-pressed={on} data-subscribe-big={on ? 'on' : 'off'}
+        className={`${on ? 'btn-ghost border border-accent/60 text-accent' : 'btn-accent cta-glow'} min-w-0 disabled:opacity-60 ${compact ? 'h-11 flex-1 px-4 py-0 text-sm' : 'w-full'}`}>
+        {on ? <IcCheck width={size} height={size} aria-hidden className="shrink-0" /> : <IcBell width={size} height={size} aria-hidden className="shrink-0" />}
+        <span className="min-w-0 truncate">
+          {on ? (waitingFor != null ? tr('Subscribed · waiting for Ch. {chapter}', { chapter: waitingFor }) : tr('Subscribed'))
+            : tr('Subscribe for new chapters')}
+        </span>
+      </button>
+      {asking && (
+        <ConfirmDialog title={tr('Unsubscribe?')} confirmLabel={tr('Unsubscribe')} busy={sub.busy}
+          body={<p>{tr('You won’t be notified about new chapters of this series any more.')}</p>}
+          onConfirm={async () => { await sub.set(false); setAsking(false); }} onClose={() => setAsking(false)} />
+      )}
+    </>
   );
 }

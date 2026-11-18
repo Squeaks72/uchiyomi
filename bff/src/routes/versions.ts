@@ -92,31 +92,28 @@ export default async function versionRoutes(app: FastifyInstance) {
   });
 
   /**
-   * "Notify me when the next chapter is out" (chapter_watch, lib/push.ts): this account's watch on the series, and how many devices would
-   * be told (push subscriptions; none means the profile's notifications are off on every device).
+   * Subscribe (series_subscriptions, 2026-11-18): this account is told about every new chapter of the series -- a push to its devices and the
+   * new-chapters digest. `devices`: how many devices would be told (push subscriptions; none means the profile's notifications are off).
    */
-  app.get('/api/series/:id/watch', async (req, reply) => {
+  app.get('/api/series/:id/subscription', async (req, reply) => {
     const { id } = req.params as { id: string };
     if (!(await seriesVisible(id, vc(req)))) return reply.code(404).send({ error: 'not_found' });
-    const [w, d] = await Promise.all([
-      one<{ after: number }>('SELECT after::float8 AS after FROM chapter_watch WHERE user_id = $1 AND series_id = $2', [userIdOf(req), id]),
+    const [sub, d] = await Promise.all([
+      one('SELECT 1 FROM series_subscriptions WHERE user_id = $1 AND series_id = $2', [userIdOf(req), id]),
       one<{ n: number }>('SELECT count(*)::int AS n FROM push_subscriptions WHERE user_id = $1', [userIdOf(req)]),
     ]);
-    return { watching: !!w, after: w ? Number(w.after) : null, devices: d?.n ?? 0 };
+    return { subscribed: !!sub, devices: d?.n ?? 0 };
   });
-  app.put('/api/series/:id/watch', async (req, reply) => {
+  app.put('/api/series/:id/subscription', async (req, reply) => {
     const { id } = req.params as { id: string };
-    const b = z.object({ after: z.number().finite().min(0).max(1e6) }).safeParse(req.body);
-    if (!b.success) return reply.code(400).send({ error: 'bad_request' });
     if (!(await seriesVisible(id, vc(req)))) return reply.code(404).send({ error: 'not_found' });
-    await q(`INSERT INTO chapter_watch (user_id, series_id, after) VALUES ($1, $2, $3)
-             ON CONFLICT (user_id, series_id) DO UPDATE SET after = EXCLUDED.after, created_at = now()`, [userIdOf(req), id, b.data.after]);
-    return { watching: true, after: b.data.after };
+    await q('INSERT INTO series_subscriptions (user_id, series_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [userIdOf(req), id]);
+    return { subscribed: true };
   });
-  app.delete('/api/series/:id/watch', async (req) => {
+  app.delete('/api/series/:id/subscription', async (req) => {
     const { id } = req.params as { id: string };
-    await q('DELETE FROM chapter_watch WHERE user_id = $1 AND series_id = $2', [userIdOf(req), id]);
-    return { watching: false };
+    await q('DELETE FROM series_subscriptions WHERE user_id = $1 AND series_id = $2', [userIdOf(req), id]);
+    return { subscribed: false };
   });
 
   /** Forget this account's per-chapter copy picks across a series (the Reading from menu's "Clear"): every chapter follows its choice again. */
