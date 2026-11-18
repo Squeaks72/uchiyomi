@@ -2,7 +2,7 @@
   "_meta": {
     "language": "zh",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 6003
+    "strings": 6011
   },
   "1 check found something": "1 项检查发现问题",
   "1 member": "1 位成员",
@@ -6006,5 +6006,13 @@
   "Unsubscribe": "取消订阅",
   "Unsubscribe?": "取消订阅？",
   "Unsubscribed": "已取消订阅",
-  "You won’t be notified about new chapters of this series any more.": "你将不再收到此系列新章节的通知。"
+  "You won’t be notified about new chapters of this series any more.": "你将不再收到此系列新章节的通知。",
+  "When adding with “Automatic”": "使用“自动”添加时",
+  "Any series (when no other library fits)": "任意系列（没有其他合适书库时）",
+  "Series with these genres…": "含这些类型的系列…",
+  "Never add here automatically": "从不自动添加到这里",
+  "Ecchi, Isekai": "Ecchi, 异世界",
+  "A series with any of these genres goes here, unless it is adult: adult series go to the adult libraries first. Separate genres with commas.": "含任一类型的系列会放到这里，成人系列除外：成人系列优先放入成人书库。类型用逗号分隔。",
+  "Automatic never puts a series here. You can still pick this library by name when adding.": "“自动”永远不会把系列放到这里。添加时仍可按名称选择此书库。",
+  "Only used when adding a series with “Automatic”: it goes to the first library that fits, adult libraries first, then genres, then manga or manhwa/manhua.": "仅在使用“自动”添加时生效：系列进入第一个合适的书库，先成人，再类型，最后漫画或韩漫/国漫。"
 }

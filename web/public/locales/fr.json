@@ -2,7 +2,7 @@
   "_meta": {
     "language": "fr",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 6003
+    "strings": 6011
   },
   "1 check found something": "1 vérification a trouvé quelque chose",
   "1 member": "1 membre",
@@ -6006,5 +6006,13 @@
   "Unsubscribe": "Se désabonner",
   "Unsubscribe?": "Se désabonner ?",
   "Unsubscribed": "Désabonné",
-  "You won’t be notified about new chapters of this series any more.": "Vous ne serez plus prévenu des nouveaux chapitres de cette série."
+  "You won’t be notified about new chapters of this series any more.": "Vous ne serez plus prévenu des nouveaux chapitres de cette série.",
+  "When adding with “Automatic”": "Lors d’un ajout « Automatique »",
+  "Any series (when no other library fits)": "Toute série (si aucune autre bibliothèque ne convient)",
+  "Series with these genres…": "Séries de ces genres…",
+  "Never add here automatically": "Ne jamais ajouter ici automatiquement",
+  "Ecchi, Isekai": "Ecchi, Isekai",
+  "A series with any of these genres goes here, unless it is adult: adult series go to the adult libraries first. Separate genres with commas.": "Une série ayant l’un de ces genres va ici, sauf si elle est pour adultes : celles-ci vont d’abord aux bibliothèques adultes. Séparez les genres par des virgules.",
+  "Automatic never puts a series here. You can still pick this library by name when adding.": "« Automatique » ne met jamais de série ici. Vous pouvez toujours choisir cette bibliothèque par son nom lors d’un ajout.",
+  "Only used when adding a series with “Automatic”: it goes to the first library that fits, adult libraries first, then genres, then manga or manhwa/manhua.": "Utilisé seulement lors d’un ajout « Automatique » : la série va dans la première bibliothèque qui convient, adultes d’abord, puis genres, puis manga ou manhwa/manhua."
 }

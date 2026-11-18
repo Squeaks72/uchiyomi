@@ -2504,6 +2504,8 @@ ALTER TABLE lib_series ADD COLUMN IF NOT EXISTS endorse_pending boolean NOT NULL
 -- What a library is for (Admin -> Libraries' Type): an Automatic add files a series into the first library of its kind (lib/libraryKind.ts).
 -- 'manga', 'manga_adult', 'webtoon' (manhwa, manhua, webtoon), 'webtoon_adult'; null = any.
 ALTER TABLE libraries ADD COLUMN IF NOT EXISTS kind text;
+-- kind 'genre': Automatic adds a series with any of these genres here (Ecchi -> the ecchi library). kind 'ignore': Automatic never adds here.
+ALTER TABLE libraries ADD COLUMN IF NOT EXISTS auto_genres text[];
 -- Subscribe (2026-11-18): who is told about every new chapter of a series -- a push to their devices and the new-chapters digest. Until now
 -- that was whoever FAVOURITED it; a favourite is a shelf now. Created once, and filled once from the favourites (and the one-shot "notify
 -- me" watches) at that moment, so nobody stops hearing about a series they had; an unsubscribe after that is never undone by a boot.

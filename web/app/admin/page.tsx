@@ -1133,7 +1133,9 @@ interface LibraryRow {
   paths?: string[];
   age_rating: number | null;
   /** What it is for: where an Automatic add files a series of that kind (bff lib/libraryKind.ts). Null: any. */
-  kind?: 'manga' | 'manga_adult' | 'webtoon' | 'webtoon_adult' | null;
+  kind?: 'manga' | 'manga_adult' | 'webtoon' | 'webtoon_adult' | 'genre' | 'ignore' | null;
+  /** kind 'genre': the genres that send an Automatic add here. */
+  auto_genres?: string[] | null;
   /** Automatic, implicit title/id lookups may contact AniList for series currently filed here. */
   anilist_lookup: boolean;
   /** The library view starts with it selected. */
@@ -1379,6 +1381,8 @@ function LibraryDialog({ editing, start, libs, onClose, onSaved }: {
   const [anilistLookup, setAniListLookup] = useState(editing?.anilist_lookup ?? true);
   const [defaultVisible, setDefaultVisible] = useState(editing?.default_visible ?? true);
   const [kind, setKind] = useState<string>(editing?.kind ?? '');
+  const [autoGenres, setAutoGenres] = useState<string>((editing?.auto_genres ?? []).join(', '));
+  const genreList = () => autoGenres.split(',').map((g) => g.trim()).filter(Boolean);
   const [look, setLook] = useState<Record<string, string>>(() => {
     const r = editing?.reader_prefs;
     return { mode: r?.mode ?? '', spread: r?.spread === undefined ? '' : String(r.spread), pagedDirection: r?.pagedDirection ?? '' };
@@ -1449,7 +1453,7 @@ function LibraryDialog({ editing, start, libs, onClose, onSaved }: {
     try {
       const ageRating = age === '' ? null : Number(age);
       if (editing) {
-        const body: Record<string, unknown> = { name: name.trim(), ageRating, anilistLookup, defaultVisible, readerPrefs: readerPrefs(), kind: kind || null };
+        const body: Record<string, unknown> = { name: name.trim(), ageRating, anilistLookup, defaultVisible, readerPrefs: readerPrefs(), kind: kind || null, autoGenres: kind === 'genre' ? genreList() : null };
         if (!isLib && !unchanged) body.paths = folders;
         await api(`/api/admin/libraries/${editing.id}`, { method: 'PATCH', json: body });
         toast(tr('Saved'), 'success');
@@ -1457,7 +1461,7 @@ function LibraryDialog({ editing, start, libs, onClose, onSaved }: {
         // One request. This used to POST the library and then PATCH the rating separately, and skip the
         // PATCH entirely when the rating was null -- so a failed second call created an unrated library
         // under a "Created" toast, which is the one outcome nobody would check for.
-        await api('/api/admin/libraries', { method: 'POST', json: { name: name.trim(), paths: folders, ageRating, anilistLookup, defaultVisible, readerPrefs: readerPrefs(), kind: kind || null } });
+        await api('/api/admin/libraries', { method: 'POST', json: { name: name.trim(), paths: folders, ageRating, anilistLookup, defaultVisible, readerPrefs: readerPrefs(), kind: kind || null, autoGenres: kind === 'genre' ? genreList() : null } });
         toast(tr('Created'), 'success');
       }
       onSaved();
@@ -1518,17 +1522,26 @@ function LibraryDialog({ editing, start, libs, onClose, onSaved }: {
           </>
         )}
 
-        {/* What it is for (2026-11-18): an Automatic add files a series into the first library of its kind (bff lib/libraryKind.ts). */}
-        <label htmlFor="library-kind" className="mb-1 mt-3 block text-xs font-semibold uppercase tracking-wider text-fog-500">{tr('Library type')}</label>
+        {/* Automatic adding (2026-11-18, bff lib/libraryKind.ts): only where the add dialog's "Automatic" files a new series. A series added
+            by naming a library, or already here, is never moved by it. */}
+        <label htmlFor="library-kind" className="mb-1 mt-3 block text-xs font-semibold uppercase tracking-wider text-fog-500">{tr('When adding with “Automatic”')}</label>
         <select id="library-kind" aria-describedby="library-kind-help" value={kind} onChange={(e) => setKind(e.target.value)} className="field" data-library-kind>
-          <option value="">{tr('Any')}</option>
+          <option value="">{tr('Any series (when no other library fits)')}</option>
           <option value="manga">{tr('Manga')}</option>
           <option value="manga_adult">{tr('Manga (adult)')}</option>
           <option value="webtoon">{tr('Manhwa / manhua')}</option>
           <option value="webtoon_adult">{tr('Manhwa / manhua (adult)')}</option>
+          <option value="genre">{tr('Series with these genres…')}</option>
+          <option value="ignore">{tr('Never add here automatically')}</option>
         </select>
+        {kind === 'genre' && (
+          <input value={autoGenres} onChange={(e) => setAutoGenres(e.target.value)} placeholder={tr('Ecchi, Isekai')} aria-label={tr('Genres')}
+            className="field mt-2" data-library-auto-genres />
+        )}
         <p id="library-kind-help" className="mt-1 text-[11px] text-fog-600">
-          {tr('Adding a series with Automatic puts it in the first library of its type. Libraries set to Any are only used when no library has the type.')}
+          {kind === 'genre' ? tr('A series with any of these genres goes here, unless it is adult: adult series go to the adult libraries first. Separate genres with commas.')
+            : kind === 'ignore' ? tr('Automatic never puts a series here. You can still pick this library by name when adding.')
+            : tr('Only used when adding a series with “Automatic”: it goes to the first library that fits, adult libraries first, then genres, then manga or manhwa/manhua.')}
         </p>
 
         <label htmlFor="library-age" className="mb-1 mt-3 block text-xs font-semibold uppercase tracking-wider text-fog-500">{tr('Age rating')}</label>
