@@ -49,6 +49,7 @@ import { FindMissingLink, FindSourceLink, SeriesRowTools } from '@/components/Fi
 import { useLayer } from '@/lib/layers';
 import { SourceHealthBody } from '@/components/SourceHealthBody';
 import { HealthBySeries } from '@/components/HealthBySeries';
+import { SourceStamps } from '@/components/SourceStamps';
 import { Segmented } from '@/components/settings';
 import { healthQuery, healthView, runHealthNow, setHealthView, type HealthView } from '@/lib/healthBySeries';
 import { releaseHref, shownVersion, updateState, type UpdateState } from '@/lib/versionLine';
@@ -2402,6 +2403,7 @@ function Health() {
 
         <FindRunCard />
         <RepairHistory />
+        <SourceStamps />
       </div>
       {fixing && (
         <OnBody>

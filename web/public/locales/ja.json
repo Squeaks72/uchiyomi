@@ -2,7 +2,7 @@
   "_meta": {
     "language": "ja",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 6087
+    "strings": 6105
   },
   "1 check found something": "1 件のチェックで問題を検出",
   "1 member": "メンバー 1 人",
@@ -6090,5 +6090,23 @@
   "Turn off to stop the emails without removing the address.": "アドレスを残したままメールを止めるにはオフにします。",
   "We send a 6-digit code to confirm it is yours.": "あなたのものか確認するため6桁のコードを送ります。",
   "Your email address": "あなたのメールアドレス",
-  "you@example.com": "you@example.com"
+  "you@example.com": "you@example.com",
+  "Source stamps": "ソースの刻印",
+  "Looking at chapters · {n} left": "章を確認中 · 残り {n}",
+  "Look now": "今すぐ確認",
+  "Banners and logos a source puts on the edge of every page. Cutting them off happens as pages are shown; the files are not changed, and turning it off brings them back.": "ソースが各ページの端に入れるバナーやロゴ。表示時に切り取ります。ファイルは変更されず、オフにすると戻ります。",
+  "No source stamps its pages, of the chapters looked at so far.": "これまで確認した章では、ページに刻印を入れるソースはありません。",
+  "bottom edge": "下端",
+  "top edge": "上端",
+  "Cut off": "切り取る",
+  "Cut off {source}’s stamps": "{source} の刻印を切り取る",
+  "kept copy": "保存版",
+  "Clean copies you could endorse": "推奨できるきれいな版",
+  "Stamped chapters where another source’s kept copy has no stamp.": "別ソースの保存版に刻印がない、刻印付きの章。",
+  "Endorse clean copies": "きれいな版を推奨",
+  "Endorsing {n} clean copies": "きれいな版 {n} 件を推奨中",
+  "Could not endorse": "推奨できませんでした",
+  "Looked at: {n} · waiting: {m}": "確認済み: {n} · 待機: {m}",
+  "Chapters looked at: {n}": "確認済みの章: {n}",
+  "Stamped on {n} of {m}": "刻印あり: {m} 中 {n}"
 }

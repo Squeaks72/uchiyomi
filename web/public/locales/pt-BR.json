@@ -2,7 +2,7 @@
   "_meta": {
     "language": "pt-BR",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 6087
+    "strings": 6105
   },
   "1 check found something": "1 verificação encontrou algo",
   "1 member": "1 membro",
@@ -6090,5 +6090,23 @@
   "Turn off to stop the emails without removing the address.": "Desative para parar os e-mails sem remover o endereço.",
   "We send a 6-digit code to confirm it is yours.": "Enviamos um código de 6 dígitos para confirmar que é seu.",
   "Your email address": "Seu endereço de e-mail",
-  "you@example.com": "voce@exemplo.com"
+  "you@example.com": "voce@exemplo.com",
+  "Source stamps": "Marcas da fonte",
+  "Looking at chapters · {n} left": "Verificando capítulos · faltam {n}",
+  "Look now": "Verificar agora",
+  "Banners and logos a source puts on the edge of every page. Cutting them off happens as pages are shown; the files are not changed, and turning it off brings them back.": "Faixas e logotipos que uma fonte coloca na borda de cada página. O corte acontece ao exibir; os arquivos não mudam e desligar os traz de volta.",
+  "No source stamps its pages, of the chapters looked at so far.": "Nenhuma fonte marca suas páginas, nos capítulos verificados até agora.",
+  "bottom edge": "borda inferior",
+  "top edge": "borda superior",
+  "Cut off": "Cortar",
+  "Cut off {source}’s stamps": "Cortar as marcas de {source}",
+  "kept copy": "cópia mantida",
+  "Clean copies you could endorse": "Cópias limpas que você poderia endossar",
+  "Stamped chapters where another source’s kept copy has no stamp.": "Capítulos marcados cuja cópia mantida de outra fonte não tem marca.",
+  "Endorse clean copies": "Endossar cópias limpas",
+  "Endorsing {n} clean copies": "Endossando {n} cópias limpas",
+  "Could not endorse": "Não foi possível endossar",
+  "Looked at: {n} · waiting: {m}": "Verificados: {n} · aguardando: {m}",
+  "Chapters looked at: {n}": "Capítulos verificados: {n}",
+  "Stamped on {n} of {m}": "Marcados: {n} de {m}"
 }

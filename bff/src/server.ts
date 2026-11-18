@@ -6,6 +6,8 @@ import { uploadSeriesRoutes } from './routes/upload';
 import versionRoutes from './routes/versions';
 import requestRoutes from './routes/requests';
 import readerEmailRoutes from './routes/readerEmail';
+import edgeMarkRoutes from './routes/edgeMarks';
+import { scheduleEdgeMarks } from './lib/edgeMarks';
 import { scheduleVersionKeeper } from './lib/versionKeeper';
 import { scheduleEndorser } from './lib/endorse';
 import Fastify from 'fastify';
@@ -321,6 +323,7 @@ async function main() {
   await app.register(versionRoutes);
   await app.register(requestRoutes);
   await app.register(readerEmailRoutes);
+  await app.register(edgeMarkRoutes);
   // Translated pages (v0.85.0): answers "off" until an admin downloads the engine and turns it on. Hidden on desktop
   // (DESKTOP_HIDDEN_ROUTES), whose server runs inside the app, where the engine's processes cannot (docs/DESKTOP.md).
   await app.register(translateRoutes);
@@ -1086,6 +1089,7 @@ async function main() {
   // deliberately last: it decodes every page in the library, which is the heaviest thing this process ever
   // does. Nothing breaks while it is unfinished -- an un-hashed page is simply never skipped.
   if (process.env.LIBRARY_BACKEND !== 'komga') schedulePageHashBackfill();
+  if (process.env.LIBRARY_BACKEND !== 'komga') scheduleEdgeMarks();
   // Panel detection (Admin -> Panel detection): nightly and on import, each only if an admin switched it on.
   stopPanelJobs = process.env.LIBRARY_BACKEND !== 'komga' ? schedulePanelJobs() : () => {};
 }
