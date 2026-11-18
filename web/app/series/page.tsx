@@ -63,6 +63,7 @@ import { fetchAllBooks } from '@/lib/seriesBooks';
 import { fetchingToast } from '@/lib/jobs';
 import { ALL_GROUPS, copySourceId, groupsOfRow, matchesGroup } from '@/lib/groupFilter';
 import { copiesForGroup, copiesOf, endorsedOrigin, pickFor, type ChapterCopy } from '@/lib/chapterCopies';
+import { chapterNumberMatcher } from '@/lib/chapterNumberFilter';
 import { SourcesSheet, useCheckNow, useSeriesGroups } from '@/components/SourcesSheet';
 import { ColorToggle, ReadFromPicker, useKept } from '@/components/KeptVersions';
 import { SourcesExplainer } from '@/components/SourcesExplainer';
@@ -1252,7 +1253,13 @@ function SeriesInner() {
   const hasFractions = useMemo(() => allBooks.some((b) => !Number.isInteger(b.number) || b.number <= 0) || ghosts.some((g) => !Number.isInteger(g.number) || g.number <= 0), [allBooks, ghosts]);
   // A chapter matches a group when its endorsed copy or any copy kept beside it is that group's (lib/chapterCopies.ts).
   const keptMatches = useCallback((n: number) => (keptData?.held?.[String(n)] ?? []).some((v) => matchesGroup(v, group)), [keptData, group]);
-  const filteredBooks = useMemo(() => rowBooks.filter((b) => wholeOnly(b.number) && (group === ALL_GROUPS || matchesGroup(b, group) || keptMatches(b.number)) && !(hideReadNow && b.readProgress?.completed === true)), [rowBooks, group, wholeOnly, hideReadNow, keptMatches]);
+  // The chapter-number box (lib/chapterNumberFilter.ts): while it holds a number, the list is the chapters it names -- read ones and extras
+  // included, since a number asked for by hand is wanted whatever the other filters would hide.
+  const [chNum, setChNum] = useState('');
+  useEffect(() => { setChNum(''); }, [id]);
+  const numMatch = useMemo(() => chapterNumberMatcher(chNum), [chNum]);
+  const filteredBooks = useMemo(() => rowBooks.filter((b) => (numMatch ? numMatch(b.number) : wholeOnly(b.number) && !(hideReadNow && b.readProgress?.completed === true))
+    && (group === ALL_GROUPS || matchesGroup(b, group) || keptMatches(b.number))), [rowBooks, group, wholeOnly, hideReadNow, keptMatches, numMatch]);
   // A followed source's copy (not an import, not a colored edition kept under its own key): what can be endorsed or read the series from.
   const followedSource = (sid: string | null) => !!sid && !sid.startsWith('@');
   const setMySource = async (sid: string | null) => {
@@ -1299,7 +1306,8 @@ function SeriesInner() {
       }] : []),
     ];
   };
-  const filteredGhosts = useMemo(() => visibleGhosts.filter((g) => wholeOnly(g.number) && (group === ALL_GROUPS || matchesGroup(g, group)) && !(hideReadNow && g.read === true)), [visibleGhosts, group, wholeOnly, hideReadNow]);
+  const filteredGhosts = useMemo(() => visibleGhosts.filter((g) => (numMatch ? numMatch(g.number) : wholeOnly(g.number) && !(hideReadNow && g.read === true))
+    && (group === ALL_GROUPS || matchesGroup(g, group))), [visibleGhosts, group, wholeOnly, hideReadNow, numMatch]);
   // The list, in the list's direction: chapters on disk and, between them, the ghosts (see chapterRows.ts).
   // The chapters on the server, and apart from them what is only listed by a source ("Not downloaded yet", a group of its own under the
   // list): mixed in, the grey rows made the list longer and shifted it as the sources' listing arrived.
@@ -2528,6 +2536,15 @@ function SeriesInner() {
               {hideRead ? tr('Show read') : tr('Hide read')}
             </button>
           )}
+          {/* Jump to a chapter by its number: the list narrows as it is typed (lib/chapterNumberFilter.ts); × or Escape clears it. */}
+          <span className="relative inline-flex items-center">
+            <input value={chNum} onChange={(e) => setChNum(e.target.value)} onKeyDown={(e) => { if (e.key === 'Escape' && chNum) { e.stopPropagation(); setChNum(''); } }}
+              inputMode="decimal" placeholder={tr('Ch. #')} aria-label={tr('Chapter number')} data-chapter-number-filter
+              className={`field w-24 py-1.5 pe-6 text-xs ${numMatch ? 'border-accent/60' : ''}`} />
+            {chNum && (
+              <button type="button" onClick={() => setChNum('')} aria-label={tr('Clear')} className="absolute end-1.5 text-fog-500 hover:text-fog-100">×</button>
+            )}
+          </span>
           {/* Which source's copies this account reads, always in view, changed or undone from its menu (components/KeptVersions.tsx). */}
           <ReadFromPicker id={id} names={copyNames} />
           {/* The group filter, on the bar itself (mangadot's way): every group that released a chapter here or on a source, its
@@ -2565,7 +2582,7 @@ function SeriesInner() {
           </div>
         </div>
       </div>
-      {group !== ALL_GROUPS && (
+      {(group !== ALL_GROUPS || numMatch) && (
         <p role="status" className="mb-2 text-xs text-fog-500">
           {tr('{n} of {m} chapters match', { n: filteredBooks.length + filteredGhosts.length, m: rowBooks.length + visibleGhosts.length })}
         </p>

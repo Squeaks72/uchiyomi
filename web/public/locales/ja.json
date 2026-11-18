@@ -2,7 +2,7 @@
   "_meta": {
     "language": "ja",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 5972
+    "strings": 5976
   },
   "1 check found something": "1 件のチェックで問題を検出",
   "1 member": "メンバー 1 人",
@@ -5975,5 +5975,9 @@
   "Put back 1 chapter picked by hand": "手動で選んだ 1 章を戻す",
   "Put back {n} chapters picked by hand": "手動で選んだ {n} 章を戻す",
   "{source} · 1 chapter here": "{source} · ここに 1 章",
-  "{source} · {n} chapters here": "{source} · ここに {n} 章"
+  "{source} · {n} chapters here": "{source} · ここに {n} 章",
+  "Ch. #": "話 #",
+  "Chapter": "章",
+  "Read {series} · Ch. {n}": "{series} を読む · 第{n}話",
+  "Show Ch. {n} in {series}": "{series} の第{n}話を表示"
 }

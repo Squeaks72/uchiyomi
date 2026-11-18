@@ -1055,6 +1055,24 @@ export default async function catalogRoutes(app: FastifyInstance) {
     return { ...v, waiting: await waitsForVolumes(userIdOf(req), id) };
   });
 
+  /**
+   * One chapter of a series by its number (the search box's "dandadan 213", 2026-11-18): the chapter on the server to read, if there is one,
+   * and whether a followed source lists the number at all. A whole number also finds its first part (213 -> 213.1) when 213 itself is
+   * not here. Hidden from a viewer who may not see the series, like every series route.
+   */
+  app.get('/api/series/:id/chapter', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const n = Number((req.query as { n?: string }).n);
+    if (!Number.isFinite(n) || n < 0 || n > 1e6) return reply.code(400).send({ error: 'bad_request' });
+    if (!(await seriesVisible(id, vc(req)))) return reply.code(404).send({ error: 'not_found' });
+    const book = await one<{ id: string; number: number; title: string | null; chapter_name: string | null }>(
+      `SELECT id, number::float8 AS number, title, chapter_name FROM lib_books
+        WHERE series_id = $1 AND pruned_at IS NULL AND (number = $2::real OR (floor(number) = $2::real AND $2::real = floor($2::real)))
+        ORDER BY (number = $2::real) DESC, number, file LIMIT 1`, [id, n]);
+    const listed = !!(await one('SELECT 1 FROM series_listing WHERE series_id = $1 AND number = $2::real', [id, n]));
+    return { book: book ? { id: book.id, number: Number(book.number), chapterName: book.chapter_name } : null, listed };
+  });
+
   app.get('/api/series/:id/books', async (req) => {
     const { id } = req.params as { id: string };
     const { page = '0', size = '200', sort } = req.query as Record<string, string>;

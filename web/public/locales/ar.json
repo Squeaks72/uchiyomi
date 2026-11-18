@@ -2,7 +2,7 @@
   "_meta": {
     "language": "ar",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 5979
+    "strings": 5983
   },
   "1 check found something": "فحص واحد وجد شيئًا",
   "1 member": "عضو واحد",
@@ -5982,5 +5982,9 @@
   "Put back 1 chapter picked by hand": "أعِد فصلًا واحدًا مختارًا يدويًا",
   "Put back {n} chapters picked by hand": "أعِد {n} فصول مختارة يدويًا",
   "{source} · 1 chapter here": "{source} · فصل واحد هنا",
-  "{source} · {n} chapters here": "{source} · {n} فصول هنا"
+  "{source} · {n} chapters here": "{source} · {n} فصول هنا",
+  "Ch. #": "فصل #",
+  "Chapter": "الفصل",
+  "Read {series} · Ch. {n}": "اقرأ {series} · فصل {n}",
+  "Show Ch. {n} in {series}": "اعرض الفصل {n} في {series}"
 }

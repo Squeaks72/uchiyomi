@@ -11,7 +11,8 @@ import { Page, Series } from '@/lib/types';
 import { triggerRefresh } from '@/lib/refresh';
 import { useToast } from './Toast';
 import { Img, trapTab, BACKDROP_CLS } from './ui';
-import { IcSearch, IcSparkle, IcRefresh, IcBell, IcDownload, IcCloudDownload, IcGrid, IcMoments, IcSettings, IcUser, IcImport, IcBookmark, IcHeart, IcClock } from './icons';
+import { IcSearch, IcSparkle, IcRefresh, IcBell, IcDownload, IcCloudDownload, IcGrid, IcMoments, IcSettings, IcUser, IcImport, IcBookmark, IcHeart, IcClock, IcPlay, IcRows } from './icons';
+import { parseChapterQuery, titleIsWholeQuery } from '@/lib/chapterQuery';
 import { t as tr } from '@/lib/i18n';
 import { hiddenOnDesktop, isDesktop, DESKTOP_HIDDEN } from '@/lib/desktop';
 import { effectsReduced, useReduceEffects } from '@/lib/effects';
@@ -74,6 +75,8 @@ export function CommandPalette({ open, seed = '', onClose }: { open: boolean; se
   const mayDownload = status === 'authed' && canDownload(user);
   const [q, setQ] = useState('');
   const [results, setResults] = useState<Series[]>([]);
+  // "dandadan 213" (lib/chapterQuery.ts): the series the text before the number finds, and that chapter on the server if it is there.
+  const [chapterHit, setChapterHit] = useState<{ series: Series; number: number; bookId: string | null; name: string | null } | null>(null);
   const [searching, setSearching] = useState(false);
   const [sel, setSel] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -130,14 +133,24 @@ export function CommandPalette({ open, seed = '', onClose }: { open: boolean; se
   useEffect(() => {
     if (!open) return;
     const query = q.trim();
-    if (query.length < 2) { setResults([]); setSearching(false); return; }
+    if (query.length < 2) { setResults([]); setChapterHit(null); setSearching(false); return; }
     setSearching(true);
     const my = ++seq.current;
     const t = setTimeout(async () => {
+      const asked = parseChapterQuery(query);
+      // The chapter: the best series for the text before the number, then that number of it. Beside the normal search, never instead.
+      const chapter = asked ? (async () => {
+        const found = await api<Page<Series>>('/api/series/search', { json: { query: asked.title, size: 1 } }).catch(() => null);
+        const s = found?.content?.[0];
+        if (!s) return null;
+        const r = await api<{ book: { id: string; number: number; chapterName: string | null } | null; listed: boolean }>(
+          `/api/series/${encodeURIComponent(s.id)}/chapter?n=${asked.number}`).catch(() => null);
+        return r && (r.book || r.listed) ? { series: s, number: r.book?.number ?? asked.number, bookId: r.book?.id ?? null, name: r.book?.chapterName ?? null } : null;
+      })() : Promise.resolve(null);
       try {
-        const r = await api<Page<Series>>('/api/series/search', { json: { query, size: 12 } });
-        if (seq.current === my) setResults(r.content ?? []);
-      } catch { if (seq.current === my) setResults([]); }
+        const [r, hit] = await Promise.all([api<Page<Series>>('/api/series/search', { json: { query, size: 12 } }), chapter]);
+        if (seq.current === my) { setResults(r.content ?? []); setChapterHit(hit); }
+      } catch { if (seq.current === my) { setResults([]); setChapterHit(null); } }
       if (seq.current === my) setSearching(false);
     }, 250);
     return () => clearTimeout(t);
@@ -194,15 +207,25 @@ export function CommandPalette({ open, seed = '', onClose }: { open: boolean; se
   // one flat keyboard list: series first, then pages and settings, then actions
   // Nothing in the library by this name, and the viewer may add series: offer to ask the sources instead (Discover
   // searches them). With nothing else listed it is the only row, so a second Enter takes you there.
-  const discoverRow = mayDownload && !searching && query.length >= 2 && results.length === 0;
+  const discoverRow = mayDownload && !searching && query.length >= 2 && results.length === 0 && !chapterHit;
+  // The chapter's rows: Read it (when the server has it), and Show it in the series' list. First, unless a series' title IS the whole query
+  // ("Mob Psycho 100"): then the number was the title's, and that series leads.
+  const chapterRows = chapterHit ? [
+    ...(chapterHit.bookId ? [{ kind: 'chapter' as const, how: 'read' as const, series: chapterHit.series, number: chapterHit.number, bookId: chapterHit.bookId, name: chapterHit.name }] : []),
+    { kind: 'chapter' as const, how: 'show' as const, series: chapterHit.series, number: chapterHit.number, bookId: null, name: null },
+  ] : [];
+  const wholeTitle = results.some((s) => titleIsWholeQuery(q, [s.metadata?.title, s.name]));
   const rows = useMemo(
     () => [
+      ...(wholeTitle ? [] : chapterRows),
       ...results.map((s) => ({ kind: 'series' as const, series: s })),
+      ...(wholeTitle ? chapterRows : []),
       ...places.map((p) => ({ kind: 'place' as const, place: p })),
       ...shownActions.map((a) => ({ kind: 'action' as const, action: a })),
       ...(discoverRow ? [{ kind: 'discover' as const, term: q.trim() }] : []),
     ],
-    [results, places, shownActions, discoverRow, q],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [results, places, shownActions, discoverRow, q, chapterHit],
   );
   useEffect(() => { setSel((s) => Math.min(s, Math.max(0, rows.length - 1))); }, [rows.length]);
   // The highlighted row stays on screen as the arrows move it past the edge of the list.
@@ -214,6 +237,7 @@ export function CommandPalette({ open, seed = '', onClose }: { open: boolean; se
     const r = rows[i];
     if (!r) return;
     if (r.kind === 'series') go(`/series/?id=${r.series.id}`);
+    else if (r.kind === 'chapter') { if (r.how === 'read') go(`/reader/?book=${r.bookId}`); else go(`/series/?id=${r.series.id}&ch=${r.number}`); }
     else if (r.kind === 'place') goTo(r.place.href);
     else if (r.kind === 'discover') go(`/discover/?q=${encodeURIComponent(r.term)}`);
     else r.action.run();
@@ -270,7 +294,24 @@ export function CommandPalette({ open, seed = '', onClose }: { open: boolean; se
               )}
               {results.length > 0 && <p role="presentation" className="px-4 pb-1 pt-2 text-xs font-semibold uppercase tracking-widest text-fog-400">{tr('Series')}</p>}
               {rows.map((r, i) =>
-                r.kind === 'series' ? (
+                r.kind === 'chapter' ? (
+                  <div key={`c:${r.how}`}>
+                    {rows[i - 1]?.kind !== 'chapter' && <p role="presentation" className="px-4 pb-1 pt-2 text-xs font-semibold uppercase tracking-widest text-fog-400">{tr('Chapter')}</p>}
+                    <button type="button" role="option" id={optId(i)} aria-selected={sel === i} tabIndex={-1} data-palette-chapter={r.how} onClick={() => activate(i)} onMouseEnter={() => setSel(i)}
+                      className={`flex w-full items-center gap-3 px-4 py-2.5 text-start ${sel === i ? 'bg-accent-soft' : ''}`}>
+                      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-ink-700 text-fog-400">
+                        {r.how === 'read' ? <IcPlay width={16} height={16} /> : <IcRows width={16} height={16} />}
+                      </span>
+                      <span className="min-w-0 truncate text-sm text-fog-100">
+                        {r.how === 'read'
+                          ? tr('Read {series} · Ch. {n}', { series: `\u2068${r.series.metadata?.title || r.series.name}\u2069`, n: r.number })
+                          : tr('Show Ch. {n} in {series}', { series: `\u2068${r.series.metadata?.title || r.series.name}\u2069`, n: r.number })}
+                        {r.name && <span className="text-fog-500"> · {r.name}</span>}
+                      </span>
+                      <span className="ms-auto shrink-0 text-xs text-fog-400">{r.how === 'read' ? tr('Reader') : tr('Chapter list')}</span>
+                    </button>
+                  </div>
+                ) : r.kind === 'series' ? (
                   <PaletteSeriesRow key={`s:${r.series.id}`} series={r.series} id={optId(i)} selected={sel === i}
                     onOpen={() => activate(i)} onHover={() => setSel(i)}
                     register={(fn) => { if (fn) menuOpeners.current.set(r.series.id, fn); else menuOpeners.current.delete(r.series.id); }} />
