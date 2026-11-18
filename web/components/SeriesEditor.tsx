@@ -19,6 +19,7 @@ import { motion, useReducedMotion } from 'framer-motion';
 import { createPortal } from 'react-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AnilistLinkPicker, AnilistLinkStatus } from './AnilistLink';
+import { LightNovelDetails } from './LightNovels';
 import { useAuth } from '@/lib/auth';
 import { api, ApiError, img, getCurrentUser } from '@/lib/api';
 import type { Series } from '@/lib/types';
@@ -513,6 +514,10 @@ function ReadingPane({ id, series, meta, save, onSaved }: {
         onPick={(seriesType) => save({ seriesType })} />
       <LanguageRow id={id} series={series} onSaved={onSaved} />
       <AnilistLinkRow id={id} />
+      {/* The series page draws a light novel only when BookOrbit holds one; the rest of what is known lives here. */}
+      <Row label={tr('Light novel')} help={tr('The novels AniList relates to this series. The series page shows one only when BookOrbit has it.')} stacked>
+        <LightNovelDetails seriesId={id} />
+      </Row>
     </>
   );
 }

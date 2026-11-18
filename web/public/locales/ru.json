@@ -2,7 +2,7 @@
   "_meta": {
     "language": "ru",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 5897
+    "strings": 5900
   },
   "1 check found something": "1 проверка нашла проблему",
   "1 member": "1 участник",
@@ -5900,5 +5900,8 @@
   "Could not set the colored edition": "Не удалось задать цветное издание",
   "Use as the colored edition": "Использовать как цветное издание",
   "Pick a title from a source…": "Выбрать название из источника…",
-  "Show up to": "Показывать до"
+  "Show up to": "Показывать до",
+  "AniList names no light novel for this series.": "AniList не называет ранобэ для этой серии.",
+  "AniList lookups are off for this series’ library.": "Запросы к AniList отключены для библиотеки этой серии.",
+  "The novels AniList relates to this series. The series page shows one only when BookOrbit has it.": "Романы, которые AniList связывает с этой серией. Страница серии показывает роман, только если он есть в BookOrbit."
 }

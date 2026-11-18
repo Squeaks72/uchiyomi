@@ -1,9 +1,12 @@
 'use client';
-// The light novel of a series' story, on its page (above Related). AniList says which novel a manga was drawn from, or which novels
-// adapt it (bff lib/anilist.ts normaliseRelated, GET /api/series/:id/novels); when BookOrbit is linked (Admin -> BookOrbit sync) and holds
-// that novel as an ebook, the card opens it there -- reading, read-aloud and the rest are BookOrbit's. An admin can attach a BookOrbit
-// series by hand for the one the title match misses (it is then drawn even when AniList names no novel). Drawn for everyone only when
-// there is something to show.
+// The light novel of a series' story. AniList says which novel a manga was drawn from, or which novels adapt it (bff
+// lib/anilist.ts normaliseRelated, GET /api/series/:id/novels); when BookOrbit is linked (Admin -> BookOrbit sync) and holds
+// that novel as an ebook, the card opens it there -- reading, read-aloud and the rest are BookOrbit's. An admin can attach a
+// BookOrbit series by hand for the one the title match misses (it is then drawn even when AniList names no novel).
+//
+// Two places. Almost no manga has a novel to read, so the series PAGE draws only novels BookOrbit actually holds
+// (`LightNovels`, above Related) and nothing at all otherwise -- not for an admin either. Everything else (AniList's novels
+// that are not in BookOrbit, attaching and detaching) lives in Edit details -> Details (`LightNovelDetails`).
 import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
@@ -24,31 +27,64 @@ interface NovelAnswer {
 const REL = ['SOURCE', 'ADAPTATION', 'ALTERNATIVE'] as const;
 const REL_LABELS = keys('Source novel', 'Novel adaptation', 'Alternative version');
 
+const novelsKey = (seriesId: string) => ['novels', seriesId];
+const useNovels = (seriesId: string) => useQuery({
+  queryKey: novelsKey(seriesId), queryFn: () => api<NovelAnswer>(`/api/series/${encodeURIComponent(seriesId)}/novels`), staleTime: 600_000, retry: false,
+});
+
+/** A novel the reader can open: BookOrbit is linked and holds it. The page draws only these. */
+export const readable = (n: NovelAnswer['content'][number], bookorbit: string | null) => !!(n.held && bookorbit);
+
+/** The series page: the light novels BookOrbit holds, or nothing. */
 export function LightNovels({ seriesId }: { seriesId: string }) {
+  const { data } = useNovels(seriesId);
+  const held = data ? data.content.filter((n) => readable(n, data.bookorbit)) : [];
+  if (!data || !held.length) return null;
+  return (
+    <section className="mt-10 px-4" data-light-novels>
+      <SectionTitle>{tr('Light novel')}</SectionTitle>
+      <NovelList data={{ ...data, content: held }} seriesId={seriesId} />
+    </section>
+  );
+}
+
+/** Edit details -> Details: every novel AniList names, whether BookOrbit has it, and (admin) attaching one by hand. */
+export function LightNovelDetails({ seriesId }: { seriesId: string }) {
+  const { data } = useNovels(seriesId);
+  const [attaching, setAttaching] = useState(false);
   const qc = useQueryClient();
   const toast = useToast();
-  const key = ['novels', seriesId];
-  const { data } = useQuery({ queryKey: key, queryFn: () => api<NovelAnswer>(`/api/series/${encodeURIComponent(seriesId)}/novels`), staleTime: 600_000, retry: false });
-  const [attaching, setAttaching] = useState(false);
   if (!data) return null;
   const attachable = data.canEdit && !!data.bookorbit;
-  if (!data.content.length && !attachable) return null;
+  const link = async (boSeriesId: number) => {
+    try {
+      await api(`/api/admin/series/${encodeURIComponent(seriesId)}/novel-links`, { method: 'PUT', json: { boSeriesId, on: true } });
+      setAttaching(false);
+      void qc.invalidateQueries({ queryKey: novelsKey(seriesId) });
+    } catch { toast(tr('Could not save'), 'error'); }
+  };
+  return (
+    <div data-light-novel-details>
+      {data.content.length
+        ? <NovelList data={data} seriesId={seriesId} />
+        : <p className="text-xs text-fog-500">{data.lookups ? tr('AniList names no light novel for this series.') : tr('AniList lookups are off for this series’ library.')}</p>}
+      {attachable && !attaching && <button type="button" onClick={() => setAttaching(true)} className="btn-key mt-2 text-xs" data-novel-attach>{tr('Attach a BookOrbit series')}</button>}
+      {attaching && <AttachSearch onPick={(id) => void link(id)} onCancel={() => setAttaching(false)} />}
+    </div>
+  );
+}
 
+function NovelList({ data, seriesId }: { data: NovelAnswer; seriesId: string }) {
+  const qc = useQueryClient();
+  const toast = useToast();
   const link = async (boSeriesId: number, on: boolean) => {
     try {
       await api(`/api/admin/series/${encodeURIComponent(seriesId)}/novel-links`, { method: 'PUT', json: { boSeriesId, on } });
-      setAttaching(false);
-      void qc.invalidateQueries({ queryKey: key });
+      void qc.invalidateQueries({ queryKey: novelsKey(seriesId) });
     } catch { toast(tr('Could not save'), 'error'); }
   };
 
   return (
-    <section className="mt-10 px-4" data-light-novels>
-      <div className="flex items-baseline justify-between gap-3">
-        <SectionTitle>{tr('Light novel')}</SectionTitle>
-        {attachable && !attaching && <button type="button" onClick={() => setAttaching(true)} className="btn-key text-xs" data-novel-attach>{tr('Attach a BookOrbit series')}</button>}
-      </div>
-      {attaching && <AttachSearch onPick={(id) => void link(id, true)} onCancel={() => setAttaching(false)} />}
       <ul className="mt-2 grid gap-3 sm:grid-cols-2">
         {data.content.map((n) => {
           const rel = (REL as readonly string[]).indexOf(n.relation ?? '');
@@ -81,7 +117,6 @@ export function LightNovels({ seriesId }: { seriesId: string }) {
           );
         })}
       </ul>
-    </section>
   );
 }
 
