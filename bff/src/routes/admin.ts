@@ -3361,7 +3361,7 @@ export default async function adminRoutes(app: FastifyInstance) {
     const candidateVisible = visible('s',viewer,candidatesParams);
     const rows = await q<{ id: string; name: string; path: string; paths: string[]; age_rating: number | null; anilist_lookup: boolean; default_visible: boolean; reader_prefs: unknown; managed_private: boolean; owner_user_id: string | null; n: number; pinned: number; members: string[] }>(
       // `paths`: every folder it holds (v0.55.1, #148), the first -- `path`, all a v0.55.0 reads -- first, then by name.
-      `SELECT l.id, l.name, l.path, l.age_rating, l.anilist_lookup, l.default_visible, l.reader_prefs, l.managed_private, l.owner_user_id,
+      `SELECT l.id, l.name, l.path, l.age_rating, l.kind, l.anilist_lookup, l.default_visible, l.reader_prefs, l.managed_private, l.owner_user_id,
               (SELECT coalesce(array_agg(lp.path ORDER BY lp.path <> l.path, lp.path), '{}') FROM library_paths lp
                 WHERE lp.library_id = l.id) AS paths,
               (SELECT count(*)::int FROM lib_series s WHERE s.library_id = l.id AND ${countable}) AS n,
@@ -3506,6 +3506,7 @@ export default async function adminRoutes(app: FastifyInstance) {
       anilistLookup: z.boolean().optional(),
       // Whether the library view starts with it selected.
       defaultVisible: z.boolean().optional(),
+      kind: z.enum(['manga', 'manga_adult', 'webtoon', 'webtoon_adult']).nullable().optional(),
       // Reading defaults for its series (lib/libraryReader.ts). null clears them.
       readerPrefs: LIBRARY_READER.nullable().optional(),
     }).safeParse(req.body);
@@ -3523,8 +3524,8 @@ export default async function adminRoutes(app: FastifyInstance) {
       // Checked under the lock, so two saves cannot both take one folder.
       const held = await heldElsewhere(qq, id, paths);
       if (held) return { held };
-      await qq(`INSERT INTO libraries (id, name, path, age_rating, anilist_lookup, default_visible, reader_prefs) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-        [id, b.data.name.trim(), paths[0], b.data.ageRating ?? null, b.data.anilistLookup ?? true, b.data.defaultVisible ?? true, cleanLibraryReader(b.data.readerPrefs)]);
+      await qq(`INSERT INTO libraries (id, name, path, age_rating, anilist_lookup, default_visible, reader_prefs, kind) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+        [id, b.data.name.trim(), paths[0], b.data.ageRating ?? null, b.data.anilistLookup ?? true, b.data.defaultVisible ?? true, cleanLibraryReader(b.data.readerPrefs), b.data.kind ?? null]);
       // Reassignment is deliberate and happens here, not in a scan: the scanner keeps an existing folder in
       // the library it is already in, precisely so it can never re-mint an id by recomputing. The longest folder
       // wins, so a new `Manga/Seinen` takes from `Manga` and never the other way, and a pinned series stays put:
@@ -3554,6 +3555,8 @@ export default async function adminRoutes(app: FastifyInstance) {
       anilistLookup: z.boolean().optional(),
       // Whether the library view starts with it selected.
       defaultVisible: z.boolean().optional(),
+      // What it is for (lib/libraryKind.ts): where an Automatic add files a series of that kind. null clears it.
+      kind: z.enum(['manga', 'manga_adult', 'webtoon', 'webtoon_adult']).nullable().optional(),
       // Reading defaults for its series (lib/libraryReader.ts). null clears them.
       readerPrefs: LIBRARY_READER.nullable().optional(),
       // Who may see it. See the note below: this is not simply "insert a row".
@@ -3588,6 +3591,7 @@ export default async function adminRoutes(app: FastifyInstance) {
     if (b.data.name !== undefined) {
       await q('UPDATE libraries SET name = $2 WHERE id = $1', [id, b.data.name.trim()]);
     }
+    if (b.data.kind !== undefined) await q('UPDATE libraries SET kind = $2 WHERE id = $1', [id, b.data.kind]);
     if (b.data.ageRating !== undefined) {
       await q('UPDATE libraries SET age_rating = $2 WHERE id = $1', [id, b.data.ageRating]);
     }

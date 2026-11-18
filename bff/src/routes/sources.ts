@@ -1,3 +1,4 @@
+import { kindOfSeries, firstLibraryOfKind } from '../lib/libraryKind';
 import { resolveAddScope, scopeForSeries, scopeSql, folderForScope, defaultPrivateFor, privateFolderOwner, reservedPrivateFolder, type AddScope } from '../lib/contentScope';
 // Search across sources and add a new series to the library (queues its download). Backed by the source
 // adapters + the downloader. The cover proxy lives under /img (cookie auth) so <img> tags can load it.
@@ -1542,6 +1543,16 @@ export async function addSeriesFromSource(opts: {
     ownerUserId: null, visibility: 'shared', folderPrefix: '' };
   if(opts.scope?.visibility==='shared' && opts.preserveSharedDestination && preferredShared && preferredShared.library_id!==scope.libraryId && opts.userId){
     scope=await resolveAddScope(await viewCtxFor(opts.userId),{visibility:'shared',libraryId:preferredShared.library_id});
+  }
+  // Automatic, and the title is nowhere yet (2026-11-18): the first library whose Type is this series' kind -- manga or manhwa/manhua/webtoon,
+  // adult or not (lib/libraryKind.ts) -- when one is set up and this account may add to it. Otherwise as before.
+  if (opts.scope?.visibility === 'shared' && opts.preserveSharedDestination && !preferredShared && opts.userId) {
+    const lists = await adultFilter().catch(() => ({ genres: [] as string[], sources: [] as string[] }));
+    const kind = await kindOfSeries(series, { lang: series?.originalLanguage ?? null, sourceAdult: lists.sources.includes(String(src.id).toLowerCase()) });
+    const target = await firstLibraryOfKind(kind);
+    if (target && target !== scope.libraryId) {
+      scope = await resolveAddScope(await viewCtxFor(opts.userId), { visibility: 'shared', libraryId: target }).catch(() => scope);
+    }
   }
   const scoped = <T>(sql: string, values: unknown[] = [], alias = 's') => {
     const params = new Params();

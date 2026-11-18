@@ -2501,6 +2501,9 @@ CREATE TABLE IF NOT EXISTS series_chapter_endorse (
 );
 -- Set when the main source changes (or an admin asks): the endorse pass puts the main source's copy on every chapter of the series.
 ALTER TABLE lib_series ADD COLUMN IF NOT EXISTS endorse_pending boolean NOT NULL DEFAULT false;
+-- What a library is for (Admin -> Libraries' Type): an Automatic add files a series into the first library of its kind (lib/libraryKind.ts).
+-- 'manga', 'manga_adult', 'webtoon' (manhwa, manhua, webtoon), 'webtoon_adult'; null = any.
+ALTER TABLE libraries ADD COLUMN IF NOT EXISTS kind text;
 -- "Notify me when the next chapter is out" (the series page's button once a reader has caught up on an ongoing series): one push to this
 -- account's devices when a chapter past its 'after' lands, then the row goes (lib/push.ts notifyNewChapter).
 CREATE TABLE IF NOT EXISTS chapter_watch (
