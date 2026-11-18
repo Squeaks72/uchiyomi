@@ -333,8 +333,8 @@ test('the tags are squared and mirror in Arabic, and the select bubble no longer
   }
   // In select mode the bubble takes top-start, and the heart steps down under it.
   const picking = mounted(createElement(SeriesTile, { series: fav, selectable: true, selected: true }));
-  assert.match(picking, /<span class="absolute start-1\.5 top-9 z-10 rounded-full bg-black\/55/, 'the select bubble covers the heart');
-  assert.match(mounted(createElement(SeriesTile, { series: fav })), /<span class="absolute start-1\.5 top-1\.5 z-10 rounded-full bg-black\/55/);
+  assert.match(picking, /<span class="pointer-events-none absolute start-1\.5 top-9 z-10 [^"]*"><span class="rounded-full bg-black\/55/, 'the select bubble covers the heart');
+  assert.match(mounted(createElement(SeriesTile, { series: fav })), /<span class="pointer-events-none absolute start-1\.5 top-1\.5 z-10 [^"]*"><span class="rounded-full bg-black\/55/);
   assert.match(picking, /<button type="button" aria-pressed="true" class="group block w-full text-start">/, 'a selected tile does not say so');
 });
 
