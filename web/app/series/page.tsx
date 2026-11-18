@@ -96,7 +96,7 @@ import { radarText } from '@/lib/radar';
 import { catchUpText } from '@/lib/readingTime';
 import { offlineKeyShown, seriesActionGroups, type SeriesActionId } from '@/lib/seriesActions';
 import { RatingsPanel, useSeriesRating } from '@/components/RatingsPanel';
-import { ContinueBar, ContinueButton, ReadProgress, WatchNextButton, useOutOfView } from '@/components/ContinueBar';
+import { ContinueBar, ContinueButton, ReadProgress, SubscribeButton, useOutOfView } from '@/components/ContinueBar';
 import { useNativeSidebar } from '@/lib/nativeLayout';
 import { FavouriteKey, IcListAdd, MoreKey, SeriesKey, SeriesMoreSheet, moreMenuItems } from '@/components/SeriesKeys';
 import { ProgressRing } from '@/components/ProgressRing';
@@ -1440,7 +1440,7 @@ function SeriesInner() {
         <p className="truncate text-sm text-fog-300">{tr('Ch. {n}', { n: nextNumber })}</p>
         <p className="text-[11px] text-fog-500">{tr('Not out yet')}</p>
       </div>
-      <WatchNextButton inline seriesId={id} after={nextNumber - 1} />
+      <SubscribeButton inline seriesId={id} />
     </div>
   ) : null;
 
@@ -2332,7 +2332,7 @@ function SeriesInner() {
           chapter "Start reading" and "Read again" open. */}
       <div ref={ctaRef}>
         {reading.kind === 'caughtup' && reading.book
-          ? <WatchNextButton seriesId={id} after={reading.book.number} />
+          ? <SubscribeButton seriesId={id} waitingFor={Math.floor(reading.book.number) + 1} />
           : <ContinueButton label={ctaText.label} disabled={!resumeBook} onOpen={openReader} />}
       </div>
       {ctaText.caption && <p data-continue-caption className="-mt-1 truncate text-center text-xs text-fog-500">{ctaText.caption}</p>}
@@ -2341,6 +2341,7 @@ function SeriesInner() {
       {/* Four keys, or three where there is nothing to save offline. Equal widths, whatever their number. */}
       <div data-series-keys className="mt-0.5 grid auto-cols-fr grid-flow-col gap-1.5">
         <FavouriteKey on={fav} pops={favPops} onToggle={toggleFav} />
+        <SubscribeButton keyShape seriesId={id} />
         {/* "Save all offline", not "Download all": this copies to THIS DEVICE; the server side is Fetch (☁). Never on
             Uchiyomi Desktop, where this device IS the server (lib/desktop.ts). The key's word is "Offline", its name the
             whole action. */}
@@ -3026,9 +3027,10 @@ function SeriesInner() {
       {/* After the select bar, which takes the same place and hides this one. */}
       <ContinueBar shown={barShown}>
         {reading.kind === 'caughtup' && reading.book
-          ? <WatchNextButton compact seriesId={id} after={reading.book.number} />
+          ? <SubscribeButton compact seriesId={id} waitingFor={Math.floor(reading.book.number) + 1} />
           : <ContinueButton compact label={ctaText.label} disabled={!resumeBook} onOpen={openReader} />}
         <FavouriteKey compact on={fav} pops={favPops} onToggle={toggleFav} />
+        <SubscribeButton keyShape compact seriesId={id} />
         <MoreKey compact onOpen={openMore} open={moreSheet} menu={false} />
       </ContinueBar>
       {more.element}

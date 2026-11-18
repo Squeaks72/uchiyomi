@@ -23,9 +23,11 @@ test('no status, or Unknown: a chapter in the last half year makes it ongoing', 
   }
 });
 
-test('caught up on an ongoing series, the page offers Notify me instead of the reading button', () => {
+test('caught up on an ongoing series, the page offers Subscribe instead of the reading button', () => {
   const src = readFileSync(join(__dirname, '..', 'app/series/page.tsx'), 'utf8');
-  assert.match(src, /reading\.kind === 'caughtup' && reading\.book\s*\? <WatchNextButton seriesId=\{id\} after=\{reading\.book\.number\} \/>/);
-  assert.match(src, /reading\.kind === 'caughtup' && reading\.book\s*\? <WatchNextButton compact seriesId=\{id\}/);
+  // 2026-11-18 later: the one-shot watch became Subscribe.
+  assert.match(src, /reading\.kind === 'caughtup' && reading\.book\s*\? <SubscribeButton seriesId=\{id\} waitingFor=\{Math\.floor\(reading\.book\.number\) \+ 1\} \/>/);
+  assert.match(src, /reading\.kind === 'caughtup' && reading\.book\s*\? <SubscribeButton compact seriesId=\{id\}/);
+  assert.match(src, /<SubscribeButton keyShape seriesId=\{id\} \/>/, 'no Subscribe key beside Favourite');
   assert.match(src, /seriesLikelyOngoing\(series\?\.metadata\?\.status, newest\)/);
 });

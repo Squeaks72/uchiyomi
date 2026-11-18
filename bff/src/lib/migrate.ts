@@ -2501,6 +2501,23 @@ ALTER TABLE lib_series ADD COLUMN IF NOT EXISTS endorse_pending boolean NOT NULL
 -- What a library is for (Admin -> Libraries' Type): an Automatic add files a series into the first library of its kind (lib/libraryKind.ts).
 -- 'manga', 'manga_adult', 'webtoon' (manhwa, manhua, webtoon), 'webtoon_adult'; null = any.
 ALTER TABLE libraries ADD COLUMN IF NOT EXISTS kind text;
+-- Subscribe (2026-11-18): who is told about every new chapter of a series -- a push to their devices and the new-chapters digest. Until now
+-- that was whoever FAVOURITED it; a favourite is a shelf now. Created once, and filled once from the favourites (and the one-shot "notify
+-- me" watches) at that moment, so nobody stops hearing about a series they had; an unsubscribe after that is never undone by a boot.
+DO $sub$ BEGIN
+  IF to_regclass('series_subscriptions') IS NULL THEN
+    CREATE TABLE series_subscriptions (
+      user_id    uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      series_id  text NOT NULL REFERENCES lib_series(id) ON DELETE CASCADE,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      PRIMARY KEY (user_id, series_id)
+    );
+    INSERT INTO series_subscriptions (user_id, series_id) SELECT user_id, series_id FROM favorites ON CONFLICT DO NOTHING;
+    IF to_regclass('chapter_watch') IS NOT NULL THEN
+      INSERT INTO series_subscriptions (user_id, series_id) SELECT user_id, series_id FROM chapter_watch ON CONFLICT DO NOTHING;
+    END IF;
+  END IF;
+END $sub$;
 -- "Notify me when the next chapter is out" (the series page's button once a reader has caught up on an ongoing series): one push to this
 -- account's devices when a chapter past its 'after' lands, then the row goes (lib/push.ts notifyNewChapter).
 CREATE TABLE IF NOT EXISTS chapter_watch (

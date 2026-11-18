@@ -2,7 +2,7 @@
   "_meta": {
     "language": "de",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 5981
+    "strings": 5991
   },
   "1 check found something": "1 Prüfung hat etwas gefunden",
   "1 member": "1 Mitglied",
@@ -5984,5 +5984,15 @@
   "Manga (adult)": "Manga (Erwachsene)",
   "Manhwa / manhua": "Manhwa / Manhua",
   "Manhwa / manhua (adult)": "Manhwa / Manhua (Erwachsene)",
-  "Adding a series with Automatic puts it in the first library of its type. Libraries set to Any are only used when no library has the type.": "Beim Hinzufügen mit „Automatisch“ landet eine Serie in der ersten Bibliothek ihres Typs. Bibliotheken mit „Beliebig“ werden nur genutzt, wenn keine den Typ hat."
+  "Adding a series with Automatic puts it in the first library of its type. Libraries set to Any are only used when no library has the type.": "Beim Hinzufügen mit „Automatisch“ landet eine Serie in der ersten Bibliothek ihres Typs. Bibliotheken mit „Beliebig“ werden nur genutzt, wenn keine den Typ hat.",
+  "Subscribe": "Abonnieren",
+  "Subscribed": "Abonniert",
+  "Subscribe for new chapters": "Neue Kapitel abonnieren",
+  "Subscribed · waiting for Ch. {chapter}": "Abonniert · wartet auf Kap. {chapter}",
+  "Subscribed. Turn on notifications in your profile to be told about new chapters.": "Abonniert. Schalte in deinem Profil Benachrichtigungen ein, um von neuen Kapiteln zu erfahren.",
+  "Subscribed: you’ll hear about every new chapter": "Abonniert: Du erfährst von jedem neuen Kapitel",
+  "Unsubscribe": "Abbestellen",
+  "Unsubscribe?": "Abbestellen?",
+  "Unsubscribed": "Abbestellt",
+  "You won’t be notified about new chapters of this series any more.": "Du wirst über neue Kapitel dieser Serie nicht mehr benachrichtigt."
 }

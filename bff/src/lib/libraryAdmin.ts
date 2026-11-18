@@ -248,6 +248,10 @@ export async function mergeSeries(
       [fromId, intoId],
     );
     await qq(`DELETE FROM favorites WHERE series_id = $1`, [fromId]);
+    // Subscriptions follow the merge the same way (series_subscriptions, 2026-11-18).
+    await qq(`INSERT INTO series_subscriptions (user_id, series_id, created_at) SELECT user_id, $2, created_at FROM series_subscriptions WHERE series_id = $1
+              ON CONFLICT (user_id, series_id) DO NOTHING`, [fromId, intoId]);
+    await qq(`DELETE FROM series_subscriptions WHERE series_id = $1`, [fromId]);
 
     const rates = await qq<{ user_id: string }>(
       `INSERT INTO ratings (user_id, series_id, stars, updated_at)
