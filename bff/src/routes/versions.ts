@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
-import { authenticate, requireAdmin, roleOf, userIdOf } from '../lib/auth';
+import { actsAsAdmin, authenticate, requireAdmin, roleOf, userIdOf } from '../lib/auth';
 import { one, q } from '../lib/db';
 import { viewCtxFor, hideAdult, seriesVisible, type ViewCtx } from '../lib/visibility';
 import { seriesSourcesFor } from '../lib/seriesSources';
@@ -130,6 +130,27 @@ export default async function versionRoutes(app: FastifyInstance) {
     void logAudit('series.colored_source', { userId: userIdOf(req), req, detail: { id, source: set.source, ref: set.refSource ? `${set.refSource}:${set.refSeries}` : null } }).catch(() => {});
     if (set.source) void keepAllVersions(id, app.log);
     return { coloredSource: set.source };
+  });
+
+  /**
+   * Download one source's copy of a chapter beside the endorsed one, for anyone who may download (the series page's version rows: a
+   * copy a source lists and the server does not hold yet). The sources routes' rule: admins, and members whose canDownload is not off.
+   * Answers once the copy is kept, so the caller can read it at once.
+   */
+  app.post('/api/series/:id/versions/fetch', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const b = z.object({ number: z.number().finite().min(0).max(1e6), sourceId: z.string().min(1).max(200) }).safeParse(req.body);
+    if (!b.success) return reply.code(400).send({ error: 'bad_request' });
+    if (!actsAsAdmin(req)) {
+      const me = await one<{ perms: { canDownload?: boolean } | null }>('SELECT perms FROM users WHERE id = $1', [userIdOf(req)]).catch(() => null);
+      if (!me || me.perms?.canDownload === false) return reply.code(403).send({ error: 'forbidden' });
+    }
+    if (!(await seriesVisible(id, vc(req)))) return reply.code(404).send({ error: 'not_found' });
+    try {
+      return { result: await keepVersion(id, b.data.number, b.data.sourceId) };
+    } catch (e) {
+      return reply.code(502).send({ error: 'fetch_failed', message: String((e as Error)?.message || e).slice(0, 200) });
+    }
   });
 
   /** Admin: keep one chapter's copy from one source. Answers when it is kept (or why it was not). */

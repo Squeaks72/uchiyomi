@@ -4,7 +4,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { ALL_GROUPS } from '../lib/groupFilter';
-import { COLORED_SOURCE, ENDORSED_PICK, copiesForGroup, copiesOf, pickFor } from '../lib/chapterCopies';
+import { COLORED_SOURCE, ENDORSED_PICK, cleanGroup, copiesForGroup, copiesOf, endorsedOrigin, pickFor } from '../lib/chapterCopies';
+import type { VersionCopy } from '../lib/types';
 
 const book = { sourceId: 'mp', scanlator: 'MANGA Plus', media: { pagesCount: 17 } };
 const kept = [{ sourceId: 'viz', pages: 18, scanlator: 'VIZ Media' }, { sourceId: 'tcb', pages: 19, scanlator: 'TCB Scans' }];
@@ -54,9 +55,40 @@ test('the group filter keeps the copies of that group', () => {
   assert.deepEqual(copiesForGroup(c, 'tcb scans').map((x) => x.sourceId), ['tcb']);
 });
 
+const listed = (source: string, o: Partial<VersionCopy> = {}): VersionCopy => ({
+  key: `${source}:1`, source, sourceName: source.toUpperCase(), groups: [], scanlator: null, lang: null, pages: null, publishedAt: null,
+  chosen: false, blocked: false, onDisk: false, ...o,
+});
+
+test('a file with no group recorded takes the group and source of the listed copy it was matched to', () => {
+  const imported = { sourceId: null, scanlator: null, media: { pagesCount: 26 } };
+  const copies = [listed('off', { scanlator: 'Official', groups: ['Official'], onDisk: true, chosen: true }), listed('cmk', { scanlator: '\u200b', pages: 27 })];
+  assert.deepEqual(endorsedOrigin(imported, copies), { sourceId: 'off', group: 'Official' });
+  const c = copiesOf(imported, [], { ...ctx, names: { off: 'Official src' } }, copies);
+  assert.deepEqual(c.map((x) => [x.sourceId, x.held, x.sourceName, x.group, x.pages]), [[null, true, 'Official src', 'Official', 26], ['cmk', false, 'CMK', null, 27]]);
+});
+
+test('listed copies not held come after the held ones, one per source, never another language or a source already here', () => {
+  const c = copiesOf(book, kept, ctx, [
+    listed('mp', { onDisk: true }), listed('viz'), listed('new', { scanlator: 'New Scans' }), listed('new', { scanlator: 'Other' }),
+    listed('fr', { otherLanguage: 'fr' }),
+  ]);
+  assert.deepEqual(c.map((x) => [x.sourceId, x.held]), [[null, true], ['tcb', true], ['viz', true], ['new', false]]);
+  assert.equal(c[3].group, 'New Scans');
+});
+
+test('a blank group is no group', () => {
+  assert.equal(cleanGroup('\u200b'), null);
+  assert.equal(cleanGroup('  '), null);
+  assert.equal(cleanGroup(' TCB '), 'TCB');
+});
+
 test('the series page draws the copies under the chapter, and the bar has the group filter', () => {
   const src = readFileSync(join(__dirname, '..', 'app/series/page.tsx'), 'utf8');
   assert.match(src, /below=\{accordion \? <CopyRows copies=\{copies\}/);
   assert.match(src, /\/api\/books\/\$\{encodeURIComponent\(b\.id\)\}\/my-version/);
   assert.match(src, /data-group-filter/);
+  assert.match(src, /\/api\/series\/\$\{encodeURIComponent\(id\)\}\/versions\/fetch/);
+  assert.match(src, /aria-expanded=\{!!expanded\} data-copies-toggle/);
+  assert.match(src, /group=\{endorsedOrigin\(b, versionsOf\.get\(b\.number\)\)\.group\}/);
 });

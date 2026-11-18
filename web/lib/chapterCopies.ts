@@ -8,6 +8,7 @@
 //
 // Pure, so the rules are unit-tested (test/chapterCopies.test.ts).
 import { matchesGroup, ALL_GROUPS } from './groupFilter';
+import type { VersionCopy } from './types';
 
 /** The pick that means "the endorsed file", even when the account reads the series from another source (bff ENDORSED_KEY). */
 export const ENDORSED_PICK = '@endorsed';
@@ -17,8 +18,13 @@ export const COLORED_SOURCE = '@colored';
 export interface KeptCopy { sourceId: string; pages: number; scanlator?: string | null }
 
 export interface ChapterCopy {
-  /** The kept copy's source, or null for the endorsed copy. */
+  /** The kept or listed copy's source, or null for the endorsed copy. */
   sourceId: string | null;
+  /**
+   * False for a copy a source lists that this server does not hold yet: pressing it downloads it beside the endorsed one
+   * (POST /api/series/:id/versions/fetch), then reads it.
+   */
+  held: boolean;
   /** The source's display name, or null when it is unknown (a file that arrived some other way). */
   sourceName: string | null;
   /** The group that released this copy, as its source said; null when it did not. */
@@ -43,37 +49,84 @@ export interface CopyContext {
   pick?: string | null;
 }
 
-/** Every copy of a chapter the server holds: the endorsed one first, then the kept ones by source name. */
+/**
+ * A group name as a source gave it, or null for none. Sources send blanks for "no group" -- an empty string, or a lone zero-width
+ * space (Comick does) -- which would otherwise draw an empty tag.
+ */
+export function cleanGroup(g: string | null | undefined): string | null {
+  const t = (g ?? '').replace(/[\u200b-\u200d\u2060\ufeff]/g, '').trim();
+  return t || null;
+}
+
+/** A listed copy's group: its scanlator, else its groups joined as the server joins a joint release. */
+const groupOfCopy = (c: Pick<VersionCopy, 'scanlator' | 'groups'>): string | null =>
+  cleanGroup(c.scanlator) ?? cleanGroup((c.groups ?? []).map((g) => cleanGroup(g)).filter(Boolean).join(' & '));
+
+/**
+ * The group and source of the file on disk: what the file says, else the listed copy the server matched it to (`onDisk`; for a
+ * file that arrived with no stamp, the copy the series chose). The tag beside a chapter's title.
+ */
+export function endorsedOrigin(
+  book: { sourceId?: string | null; scanlator?: string | null },
+  listed: ReadonlyArray<VersionCopy> | undefined,
+): { sourceId: string | null; group: string | null } {
+  const disk = (listed ?? []).find((c) => c.onDisk);
+  return {
+    sourceId: book.sourceId ?? disk?.source ?? null,
+    group: cleanGroup(book.scanlator) ?? (disk ? groupOfCopy(disk) : null),
+  };
+}
+
+/**
+ * Every copy of a chapter: the endorsed one first, then the kept ones and the listed ones not held, by source name. A listed copy is
+ * offered only from a source with no copy here already (a kept copy is one per source), and never in another language than the
+ * series' (one the server would never take).
+ */
 export function copiesOf(
   book: { sourceId?: string | null; scanlator?: string | null; media: { pagesCount: number } },
   kept: ReadonlyArray<KeptCopy> | undefined,
   ctx: CopyContext,
+  listed?: ReadonlyArray<VersionCopy>,
 ): ChapterCopy[] {
-  const others = (kept ?? []).filter((k) => k.sourceId && k.sourceId !== book.sourceId);
+  const origin = endorsedOrigin(book, listed);
+  const others = (kept ?? []).filter((k) => k.sourceId && k.sourceId !== origin.sourceId);
   const want = ctx.pick ?? ctx.mySource;
   const servedKept = want && want !== ENDORSED_PICK ? others.find((k) => k.sourceId === want)?.sourceId ?? null : null;
   const nameOf = (id: string) => (id === COLORED_SOURCE ? ctx.coloredName || ctx.names[id] || null : ctx.names[id] ?? null);
   const endorsed: ChapterCopy = {
     sourceId: null,
-    sourceName: book.sourceId ? nameOf(book.sourceId) : null,
-    group: book.scanlator ?? null,
+    held: true,
+    sourceName: origin.sourceId ? nameOf(origin.sourceId) : null,
+    group: origin.group,
     pages: book.media.pagesCount,
     endorsed: true,
-    colored: !!ctx.coloredSource && ctx.coloredSource !== COLORED_SOURCE && book.sourceId === ctx.coloredSource,
+    colored: !!ctx.coloredSource && ctx.coloredSource !== COLORED_SOURCE && origin.sourceId === ctx.coloredSource,
     reading: servedKept === null,
   };
   const rest = others
     .map((k): ChapterCopy => ({
       sourceId: k.sourceId,
+      held: true,
       sourceName: nameOf(k.sourceId),
-      group: k.scanlator ?? null,
+      group: cleanGroup(k.scanlator),
       pages: k.pages,
       endorsed: false,
       colored: k.sourceId === ctx.coloredSource,
       reading: k.sourceId === servedKept,
-    }))
-    .sort((a, b) => (a.sourceName ?? '').localeCompare(b.sourceName ?? ''));
-  return [endorsed, ...rest];
+    }));
+  const taken = new Set<string>([...(origin.sourceId ? [origin.sourceId] : []), ...others.map((k) => k.sourceId)]);
+  const offered: ChapterCopy[] = [];
+  for (const c of listed ?? []) {
+    if (c.onDisk || !c.source || taken.has(c.source) || c.otherLanguage) continue;
+    taken.add(c.source);
+    offered.push({
+      sourceId: c.source, held: false, sourceName: c.sourceName || nameOf(c.source), group: groupOfCopy(c), pages: c.pages ?? 0,
+      endorsed: false, colored: c.source === ctx.coloredSource, reading: false,
+    });
+  }
+  // Held before offered, each by source name: what can be read now comes first.
+  const byName = (a: ChapterCopy, b: ChapterCopy) => (a.sourceName ?? '').localeCompare(b.sourceName ?? '');
+  return [endorsed, ...rest.sort(byName), ...offered.sort(byName)];
 }
 
 /**

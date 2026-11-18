@@ -2,7 +2,7 @@
   "_meta": {
     "language": "zh",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 5905
+    "strings": 5911
   },
   "1 check found something": "1 项检查发现问题",
   "1 member": "1 位成员",
@@ -5908,5 +5908,11 @@
   "This server": "本服务器",
   "Could not open this copy": "无法打开此副本",
   "Group": "组",
-  "All groups": "所有组"
+  "All groups": "所有组",
+  "Downloading this copy…": "正在下载此副本…",
+  "This copy is the one on the server": "此副本就是服务器上的那份",
+  "Could not download this copy": "无法下载此副本",
+  "Copy downloaded": "副本已下载",
+  "Not on the server yet: download it and read": "尚未在服务器上：下载并阅读",
+  "Downloading": "正在下载"
 }

@@ -158,18 +158,16 @@ test('a Modal keeps clear of the phone bottom nav', () => {
   assert.match(modal, /max-h-\[calc\(100dvh-7\.5rem-env\(safe-area-inset-bottom\)\)\] w-full lg:max-h-\[88vh\]/, 'the panel is capped under that band, 88vh from lg up');
 });
 
-test('a row caption carries its text as a title, and the date sits on its own line under it', () => {
-  // The date used to be a column beside the title and caption (short "3d" in the grid): ~50 px off every row, and the
-  // title was what got cut. It is now a line of its own under the title and "translated by", so both get the width
-  // and the full date fits. Reintroduce the column (RowDate after the row's button, `shrink-0`): "the date is a
-  // column again" fails; drop `title=` from RowCaption's <p>: "the caption has a title" fails.
+test('a row caption carries its text as a title; a chapter row is two lines with its date at the end (2026-11-18)', () => {
+  // The owner asked for narrower rows, mangadot-style: title + group tag, then the caption, with the date (and the versions key) at the
+  // row's END, outside the opener. A ghost row keeps its date under the caption. Drop `title=` from RowCaption's <p>: "the caption has
+  // a title" fails; put the chapter's date back inside the opener: "a chapter's date is not at the row's end" fails.
   const page = code(read('app/series/page.tsx'));
   const cap = page.slice(page.indexOf('function RowCaption('), page.indexOf('function RowDate('));
   assert.match(cap, /<p className=\{`mt-0\.5 truncate[^>]*title=\{title\}/, 'the caption has a title');
   const date = page.slice(page.indexOf('function RowDate('), page.indexOf('function ChapterRow('));
   assert.match(date, /<p className=\{`truncate text-\[11px\] text-fog-500 \$\{className\}`\}>\{relativeTime\(iso\)\}<\/p>/, 'the date is not a line of text');
-  assert.doesNotMatch(date, /shrink-0/, 'the date is a column again');
-  assert.match(page, /<RowCaption group=\{book\.scanlator\}[\s\S]*?\{book\.metadata\?\.releaseDate && <RowDate iso=\{book\.metadata\.releaseDate\} \/>\}\s*<\/div>\s*<\/button>/, 'a chapter\'s date is not under its caption');
+  assert.match(page, /<\/button>\s*\{!selectable && onToggleCopies[\s\S]*?\{book\.metadata\?\.releaseDate && <RowDate iso=\{book\.metadata\.releaseDate\} className="w-auto shrink-0 text-end" \/>\}/, 'a chapter\'s date is not at the row\'s end');
   assert.match(page, /\{ghost\.publishedAt && <RowDate iso=\{ghost\.publishedAt\}[^>]*\/>\}\s*<\/div>\s*<\/button>/, 'a ghost\'s date is not under its caption');
 });
 
