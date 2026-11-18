@@ -1,4 +1,5 @@
 import { kindOfSeries, firstLibraryOfKind } from '../lib/libraryKind';
+import { resultJudge, tameResults } from '../lib/adultResults';
 import { resolveAddScope, scopeForSeries, scopeSql, folderForScope, defaultPrivateFor, privateFolderOwner, reservedPrivateFolder, type AddScope } from '../lib/contentScope';
 // Search across sources and add a new series to the library (queues its download). Backed by the source
 // adapters + the downloader. The cover proxy lives under /img (cookie auth) so <img> tags can load it.
@@ -2598,8 +2599,13 @@ export default async function sourceRoutes(app: FastifyInstance) {
    * child's account. Reintroduce by returning `items`: "a capped account's MangaDex listing leaves erotica out" in
    * ageRatingOnAdd.int.test.ts lists it.
    */
-  const ratedForViewer = <T extends { contentRating?: string; genres?: string[] }>(req: FastifyRequest, items: T[]): T[] =>
-    cappedBelowAdult(req) || vc(req).hideAdultLibraries ? items.filter((r) => !adultSourceSeries(r)) : items;
+  /**
+   * One source's results as this viewer may be shown them (2026-11-18, lib/adultResults.ts): with Show 18+ off (or an account capped below
+   * adult), every result judged by what it carries -- not only MangaDex's rating -- and, from a source that declares itself NSFW, an
+   * unknown one left out unless the library holds the title outside the 18+ filter.
+   */
+  const ratedForViewer = async <T extends { title?: string; contentRating?: string; genres?: string[] }>(req: FastifyRequest, items: T[], src: SourceAdapter): Promise<T[]> =>
+    cappedBelowAdult(req) || vc(req).hideAdultLibraries ? tameResults(items, src) : items;
   /** The sources this viewer may reach, in registry order. This is the ACCESS rule and nothing else. */
   const reachable = (req: FastifyRequest): SourceAdapter[] =>
     listSources().filter((s) => sourceAllowedFor(s, vc(req).maxAgeRating));
@@ -2795,7 +2801,7 @@ export default async function sourceRoutes(app: FastifyInstance) {
     const raw = await (creator ? src.searchCreator!(query.trim(), creator, p) : p > 1 ? src.searchPage!(query.trim(), p) : src.search(query.trim())).catch(() => []);
     // dedupe by sourceId (duplicate ids collide on the React key → wrong cover/title on a card)
     const seen = new Set<string>();
-    const results = ratedForViewer(req, raw.filter((r) => !!r.sourceId && !seen.has(r.sourceId) && (seen.add(r.sourceId), true))).slice(0, 100);
+    const results = (await ratedForViewer(req, raw.filter((r) => !!r.sourceId && !seen.has(r.sourceId) && (seen.add(r.sourceId), true)), src)).slice(0, 100);
     // flag titles already in the library so the UI can mark them instead of offering a duplicate add
     return { content: await decorate(results, src.id, vc(req)) };
   });
@@ -3743,8 +3749,9 @@ export default async function sourceRoutes(app: FastifyInstance) {
     // `rating`: the filter this answer applied -- the one asked for, or `safe` when the viewer may not be shown 18+.
     const rest = { sources: ans.sources, pending: ans.pending, asked: ans.asked, rating };
     // Every result's rating, by the admin's lists as they are now (cached briefly: lib/visibility.ts adultFilter).
-    const lists = await adultFilter();
-    const rated: Rated = { of: (r, src) => ratingOf(r, src, lists), want: rating };
+    // Every result judged by lib/adultResults.ts: its own signals, explicit genres and title words, and the library's safe titles.
+    const judge = await resultJudge();
+    const rated: Rated = { of: (r, src) => judge(r, src), want: rating };
 
     // Same fan-out either way; only the shaping differs. groupBy=source mirrors Mihon's global-search
     // screen (one rail per provider) for the import-review "search manually" sheet — the title-grouped
@@ -3800,10 +3807,10 @@ export default async function sourceRoutes(app: FastifyInstance) {
     const resting = await blockedNow(source!).catch(() => null);
     if (resting) {
       const stale = cachedLatest(src.id, p);
-      if (stale.length || !restingForSlowness(resting)) return { content: await decorate(ratedForViewer(req, stale), src.id, vc(req)) };
+      if (stale.length || !restingForSlowness(resting)) return { content: await decorate(await ratedForViewer(req, stale, src), src.id, vc(req)) };
     }
     const results = await latestPage(src, p);
-    return { content: await decorate(ratedForViewer(req, results), src.id, vc(req)) };
+    return { content: await decorate(await ratedForViewer(req, results, src), src.id, vc(req)) };
   });
 
   /**
@@ -3855,7 +3862,7 @@ export default async function sourceRoutes(app: FastifyInstance) {
     if (await isDisabled(src.id).catch(() => false)) return { content: [] };
     try {
       const results = await src.filteredSearch!(b.data.q ?? '', b.data.changes, b.data.page ?? 1);
-      return { content: await decorate(ratedForViewer(req, results), src.id, vc(req)) };
+      return { content: await decorate(await ratedForViewer(req, results, src), src.id, vc(req)) };
     } catch (e) {
       return reply.code(502).send({ error: 'source_error', message: `${src.name} could not answer that: ${(e as Error).message}`.slice(0, 300) });
     }
@@ -3873,10 +3880,10 @@ export default async function sourceRoutes(app: FastifyInstance) {
     const resting = await blockedNow(source!).catch(() => null);
     if (resting) {
       const stale = cachedLatest(src.id, p, 'popular');
-      if (stale.length || !restingForSlowness(resting)) return { content: await decorate(ratedForViewer(req, stale), src.id, vc(req)) };
+      if (stale.length || !restingForSlowness(resting)) return { content: await decorate(await ratedForViewer(req, stale, src), src.id, vc(req)) };
     }
     const results = await latestPage(src, p, 'popular');
-    return { content: await decorate(ratedForViewer(req, results), src.id, vc(req)) };
+    return { content: await decorate(await ratedForViewer(req, results, src), src.id, vc(req)) };
   });
 
   /**
