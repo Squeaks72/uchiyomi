@@ -2,7 +2,7 @@
   "_meta": {
     "language": "ar",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 5976
+    "strings": 5983
   },
   "1 check found something": "فحص واحد وجد شيئًا",
   "1 member": "عضو واحد",
@@ -5979,5 +5979,12 @@
   "Saved. Turn on notifications in your profile to be told when Ch. {chapter} is out.": "تم الحفظ. فعّل الإشعارات في ملفك لتعرف متى يصدر الفصل {chapter}.",
   "You’ll be notified when Ch. {chapter} is out": "سيتم إعلامك عند صدور الفصل {chapter}",
   "Notifying you when Ch. {chapter} is out": "سنعلمك عند صدور الفصل {chapter}",
-  "Notify me when Ch. {chapter} is out": "أعلمني عند صدور الفصل {chapter}"
+  "Notify me when Ch. {chapter} is out": "أعلمني عند صدور الفصل {chapter}",
+  "Not out yet": "لم يصدر بعد",
+  "Notify me": "أعلمني",
+  "Notifying you": "سنعلمك",
+  "Read chapters are hidden. Show them to see the whole list.": "الفصول المقروءة مخفية. أظهرها لترى القائمة كاملة.",
+  "Show read chapters": "اعرض الفصول المقروءة",
+  "You’ve read all 1 chapter": "قرأت الفصل الوحيد",
+  "You’ve read all {n} chapters": "قرأت كل الفصول الـ {n}"
 }
