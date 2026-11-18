@@ -6,12 +6,15 @@ import { join } from 'path';
 
 const read = (p: string) => readFileSync(join(__dirname, '..', p), 'utf8');
 
-test('a chapter row offers Replace from another source to an admin when another source has a copy, and the compare leads to the confirm', () => {
+test('Replace from another source is gone: a copy is endorsed from its version row or the versions sheet (2026-11-18)', () => {
+  // The owner retired the row's "Replace from another source…" and its compare: the version rows' menu endorses a copy instead
+  // (bff lib/endorse.ts), and the versions sheet's key is Endorse. The compare dialog stays, unused by the series page.
   const src = read('app/series/page.tsx');
-  assert.match(src, /onReplaceFrom=\{isAdmin && b\.owned !== false && versionsOf\.get\(b\.number\)\?\.some\(\(c\) => !c\.onDisk\)/);
-  assert.match(src, /tr\('Replace from another source…'\)/);
-  assert.match(src, /<CompareCopiesDialog [^>]*seriesId=\{id\}/);
-  assert.match(src, /setComparing\(null\); setReplacing\(\{ book: b, copy \}\)/, 'the compare closes, then the existing confirm opens');
+  assert.doesNotMatch(src, /Replace from another source/);
+  assert.doesNotMatch(src, /<CompareCopiesDialog /);
+  assert.match(src, /label: tr\('Endorse this version'\)/);
+  assert.match(src, /onReplace=\{\(copy\) => \{ const n = chapterSheet\.number; setChapterSheet\(null\); void endorse\(n, copy\.source\); \}\}/);
+  assert.match(read('components/ChapterVersionsSheet.tsx'), /data-endorse-version>\{tr\('Endorse'\)\}/);
 });
 
 test('the dialog reads the copy through the admin routes and changes nothing itself', () => {

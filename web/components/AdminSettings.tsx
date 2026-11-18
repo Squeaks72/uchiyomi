@@ -40,6 +40,7 @@ import { NotificationsSection } from '@/components/AdminNotifications';
 import { NetworkSettings } from '@/components/NetworkSettings';
 import { SlowArchiveRow } from '@/components/ArchiveSettings';
 import { PolitenessRow } from '@/components/PolitenessSettings';
+import { VersionCleanupRow } from '@/components/VersionCleanup';
 import { TranslateRow } from '@/components/TranslateSettings';
 import { isDesktop } from '@/lib/desktop';
 import { ssoOnly, useAuthConfig } from '@/lib/authConfig';
@@ -643,6 +644,7 @@ function SchedulesSection({ data, save }: { data: any; save: Save }) {
 
       <RowGroup title={tr('Disk space')}>
         <HousekeepingSection data={data} save={save} />
+        <VersionCleanupRow />
       </RowGroup>
     </>
   );

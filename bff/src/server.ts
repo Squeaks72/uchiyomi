@@ -5,6 +5,7 @@ import './lib/desktop';
 import { uploadSeriesRoutes } from './routes/upload';
 import versionRoutes from './routes/versions';
 import { scheduleVersionKeeper } from './lib/versionKeeper';
+import { scheduleEndorser } from './lib/endorse';
 import Fastify from 'fastify';
 import { APP_ROUTER_OPTIONS } from './lib/httpLimits';
 import cookie from '@fastify/cookie';
@@ -581,6 +582,7 @@ async function main() {
   scheduleVolumes(app.log);
   // Series that keep every source's copy of a chapter (lib/versionKeeper.ts): a pass every half hour.
   if (OWNED) scheduleVersionKeeper(app.log);
+  if (OWNED) scheduleEndorser(app.log);
 
   // Opt-in discovery continues across the whole library and after restart, without needing page views.
   const stopTitleLogoScan = startTitleLogoScan(app.log);

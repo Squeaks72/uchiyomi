@@ -21,9 +21,14 @@ export const COLORED_KEY = '@colored';
 export interface ChosenVersion { file: string; root: string; pages: number; sourceId: string }
 export interface HeldVersion { sourceId: string; pages: number; scanlator: string | null; publishedAt: string | null; size: number | null }
 
-/** The folder, under the series' own, that a source's kept copies live in. Dot-led, so the scanner never sees it. */
+/**
+ * The folder a source's kept copies of a series live in: `.versions/<series folder>/<source>` at the TOP of the download root, a tree
+ * of its own beside the library. So every series folder holds its endorsed chapters and nothing else -- one clean library, copyable as
+ * it is -- and the unendorsed copies are one folder to leave out (or delete). Dot-led, so the scanner never walks it (library.ts SKIP_DIR).
+ */
+export const VERSIONS_ROOT = '.versions';
 export const versionsFolder = (seriesFolder: string, sourceId: string): string =>
-  posix.join(seriesFolder, '.versions', sourceId.replace(/[^A-Za-z0-9._-]+/g, '_').slice(0, 80) || 'source');
+  posix.join(VERSIONS_ROOT, seriesFolder, sourceId.replace(/[^A-Za-z0-9._-]+/g, '_').slice(0, 80) || 'source');
 
 /** The per-chapter pick that means "the endorsed file", even when the account reads the series from another source. */
 export const ENDORSED_KEY = '@endorsed';

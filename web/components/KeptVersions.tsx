@@ -23,6 +23,8 @@ interface Kept {
   held: Record<string, { sourceId: string; pages: number; scanlator?: string | null }[]>;
   /** This account's pick of one chapter's copy, by book id ('@endorsed': the endorsed file). Absent from an older server. */
   picks?: Record<string, string>;
+  /** An admin's endorsement of a chapter's copy, by chapter number, where it is not the main source's. */
+  endorsements?: Record<string, string>;
   sources: { sourceId: string; name: string; primary: boolean; kept: number }[];
 }
 
