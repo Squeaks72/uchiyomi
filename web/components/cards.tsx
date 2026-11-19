@@ -28,7 +28,7 @@ import { publicCoverFallback } from '@/lib/coverFallback';
 import { anilistNumbers, type SortValue } from '@/lib/sortValue';
 import { coverProgress, seriesProgress } from '@/lib/seriesProgress';
 import { seriesTypeKey } from '@/lib/seriesTypes';
-import { BLURRED_COVER, useBlurAdult } from '@/lib/blurPref';
+import { ADULT_BLUR, BLURRED_COVER, useBlurAdult } from '@/lib/blurPref';
 import type { SeriesType } from '@/lib/types';
 
 /**
@@ -708,7 +708,7 @@ export function SourceCard({ item, providers, altCovers, onAdd, onSearch, eager 
         {/* alt="" on purpose: the title is right there as text, so naming the cover too makes a screen reader say it twice. */}
         <Img src={sourceCover(item.source, item.coverUrl)} alt="" eager={eager}
           fallbackSrc={publicCoverFallback(item.coverUrl)} altSrcs={altCovers}
-          className="h-full w-full" imgClassName={blurred ? 'blur-xl scale-110 transition duration-300 group-hover:blur-0 group-hover:scale-100 group-focus-within:blur-0 group-focus-within:scale-100' : 'transition-transform duration-500 group-hover:scale-[1.07]'} />
+          className="h-full w-full" imgClassName={blurred ? ADULT_BLUR : 'transition-transform duration-500 group-hover:scale-[1.07]'} />
 
         {/* The icons overlap the way the source chip's do (SourcePicker), each ringed in the box's own ground so the
             overlap reads. One box, one row: with "+2" it is about 60 px on a 110-px phone tile. The "+2" is isolated left to

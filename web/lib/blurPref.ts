@@ -27,5 +27,11 @@ export function useBlurAdult(): [boolean, (on: boolean) => void] {
   return [on, setBlurAdultOn];
 }
 
-/** A cover's classes in place of its usual ones while blurred: no hover zoom, the blur lifts when the card (`group`) is hovered or focused. */
-export const BLURRED_COVER = 'h-full w-full blur-xl scale-110 transition duration-300 group-hover:blur-0 group-hover:scale-100 group-focus-within:blur-0 group-focus-within:scale-100';
+/** The blur itself, on the <img>: `.adult-blur` in app/globals.css lifts it while the card (`group`) is hovered, focused or pressed by a finger. */
+export const ADULT_BLUR = 'adult-blur';
+/** A cover's classes in place of its usual ones while blurred: no hover zoom. */
+export const BLURRED_COVER = `h-full w-full ${ADULT_BLUR}`;
+
+// iOS Safari only applies :active to an element when some touchstart listener exists; a passive no-op on the document is the
+// standard way to turn it on, and it is what lets a finger resting on a card lift the blur (.adult-blur in app/globals.css).
+if (typeof document !== 'undefined') document.addEventListener('touchstart', () => {}, { passive: true });
