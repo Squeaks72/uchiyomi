@@ -1,4 +1,7 @@
-// #71, "laggy on a modest PC": the Reduce effects switch, and the look it must never cost anyone else.
+// #71, "laggy on a modest PC". FORK, 2026-11-19: the effects are now off for everyone and the switch is gone (choppy even on a
+// gaming PC with them on). The Reduce effects CSS and the reduced paths in every consumer are what everyone gets; the
+// rules below that still pin the old .fx-* layers guard dead CSS kept so upstream syncs stay painless.
+//
 //
 // The owner's rule for this issue was explicit: the app does not get plainer because one machine is slow.
 // So the fix is a switch, and the finish -- the drifting mesh, the grain's overlay blend, the vignette over
@@ -158,15 +161,18 @@ test('prefers-reduced-motion does exactly what it did before the switch existed'
   ], 'the reduced-motion block changed');
 });
 
-test('the app shell still mounts all three layers, and only the switch removes them', () => {
-  // Reintroduce by returning null from CinematicFX on a slow-machine guess, or dropping one layer:
-  // "CinematicFX no longer renders the three layers" / "CinematicFX has a second way to render nothing" fails.
+test('the app shell mounts one still backdrop and nothing over the content (2026-11-19)', () => {
+  // Effects are off for everyone: the drifting mesh, the grain and the over-content vignette are gone. What remains is one
+  // fixed layer BEHIND the content with no animation, filter or blend. Reintroduce a layer over the content, or animate it: fails.
   const fx = code(read('components/CinematicFX.tsx'));
-  assert.match(fx, /<>\s*<div className="fx-mesh" \/>\s*<div className="fx-grain" \/>\s*<div className="fx-vignette" \/>\s*<\/>/,
-    'CinematicFX no longer renders the three layers, in order');
-  assert.match(fx, /const reduced = useReduceEffects\(\);\s*if \(reduced\) return null;/, 'CinematicFX does not step aside for the switch');
-  assert.equal((fx.match(/return null/g) || []).length, 1, 'CinematicFX has a second way to render nothing');
+  assert.match(fx, /return <div className="fx-backdrop" \/>;/, 'CinematicFX no longer renders the one still backdrop');
+  assert.doesNotMatch(fx, /fx-(mesh|grain|vignette)/, 'an animated or over-content layer is back');
   assert.match(code(read('components/AppShell.tsx')), /<CinematicFX \/>/, 'the app shell no longer mounts CinematicFX');
+  const rule = CSS().find((r) => r.ctx.length === 0 && r.sel === '.fx-backdrop');
+  assert.ok(rule, 'no .fx-backdrop rule');
+  assert.match(rule!.body, /position: fixed;/);
+  assert.match(rule!.body, /z-index: 0;/, 'the backdrop must sit under the content');
+  assert.doesNotMatch(rule!.body, /animation|filter|mix-blend-mode|transition|will-change/, 'the backdrop is no longer still');
 });
 
 test("the reader's cover washes are its look by default, and only their own switch takes them away (#170)", () => {
@@ -365,23 +371,11 @@ test("the series page's new motion and glow (v0.60.0) are the default look, and 
 
 /* ================================================================ the setting itself */
 
-test('the Appearance section has the Reduce effects switch, and it saves to the account', () => {
-  // Reintroduce by saving only locally (dropping the PUT): "the switch does not save reduceEffects to the
-  // account" fails -- and the setting would stop following the person to their other devices.
-  const src = code(read('components/ProfileSettings.tsx'));
-  const start = src.indexOf('function AppearanceSection()');
-  const end = src.indexOf('function ReadingSection(');
-  assert.ok(start > 0 && end > start, 'AppearanceSection or ReadingSection moved');
-  const slice = src.slice(start, end);
-  assert.match(slice, /<SwitchRow id="reduce-effects" label=\{tr\('Reduce effects'\)\}\s*help=\{tr\('Turns off the animated background, blur, smooth scrolling and transitions\. Try it if scrolling feels slow\.'\)\}\s*on=\{reduceEffects\} onChange=\{saveReduceEffects\} \/>/,
-    'the Reduce effects row is not in Appearance');
-  assert.match(slice, /const \[reduceEffects, saveReduceEffects\] = useReduceEffects\(\);/, 'the row does not read the account setting');
-  // The hook is shared with the profile's quick settings (components/ProfileMenu.tsx), so it is read where it lives.
-  const hook = code(read('lib/useReduceEffects.ts'));
-  assert.match(hook, /user\?\.settings\?\.reduceEffects === true;/, 'the row does not read the account setting');
-  assert.match(hook, /setSettings\(\{ reduceEffects: next \}\);/, 'the switch is not applied the moment it is flipped');
-  assert.match(hook, /json: \{ reduceEffects: next \}/, 'the switch does not save reduceEffects to the account');
-  assert.match(hook, /catch \(e\) \{ setSettings\(\{ reduceEffects: prev \}\); throw e; \}/, 'a refused save leaves the switch applied');
+test('there is no Reduce effects switch any more: plain is the only mode (2026-11-19)', () => {
+  for (const f of ['components/ProfileSettings.tsx', 'components/ProfileMenu.tsx', 'lib/settingsIndex.profile.ts']) {
+    assert.doesNotMatch(read(f), /id="reduce-effects"|id: 'reduce-effects'|label={tr('Reduce effects')}|useReduceEffects/, `${f} still offers the switch`);
+  }
+  assert.match(read('app/layout.tsx'), /<html lang="en" className=\{`reduce-effects /, 'the class is not on <html> from the first byte');
 });
 
 test('the class is applied before the app shell renders, and follows the account both ways', () => {
@@ -450,55 +444,14 @@ const mm = (q: string) => ({ matches: /prefers-reduced-motion/.test(q) ? prefers
 (globalThis as any).window = { matchMedia: mm };
 const reset = () => { classes.clear(); store = {}; storageThrows = false; prefersReduced = false; applyReduceEffects(false); };
 
-test('turning the switch on sets the class and the device copy, and off clears both', () => {
-  // Reintroduce by only ever adding the class (`classList.add`): "turning it off leaves the class" fails.
+test('the mode is on whatever an account or device says', () => {
+  // An old account still holds `reduceEffects: false`; it must not bring the effects back.
   reset();
-  applyReduceEffects(true);
-  assert.ok(classes.has('reduce-effects'), 'turning it on does not set html.reduce-effects');
-  assert.equal(store['uchiyomi.reduceEffects'], '1', 'turning it on does not write the device copy');
-  assert.equal(effectsReduced(), true);
   applyReduceEffects(false);
-  assert.ok(!classes.has('reduce-effects'), 'turning it off leaves the class');
-  assert.ok(!('uchiyomi.reduceEffects' in store), 'turning it off leaves the device copy');
-  assert.equal(effectsReduced(), false);
-});
-
-test('an offline launch restores the device copy', () => {
-  // Reintroduce by making restoreReduceEffects a no-op: "the device copy is not restored" fails.
-  reset();
-  store['uchiyomi.reduceEffects'] = '1';
+  assert.ok(classes.has('reduce-effects'), 'an account saying false took the class away');
+  assert.equal(effectsReduced(), true);
   restoreReduceEffects();
-  assert.ok(classes.has('reduce-effects') && effectsReduced(), 'the device copy is not restored');
-  store = {};
-  restoreReduceEffects();
-  assert.ok(!classes.has('reduce-effects') && !effectsReduced(), 'an empty device copy leaves the switch on');
-});
-
-test('storage that refuses does not break the switch', () => {
-  // A private window, or a browser with site data blocked, throws on every localStorage call. The switch
-  // must still work for the session; only the offline launch forgets it. Reintroduce by removing the
-  // try/catch around the storage write: the call throws and "a refusing storage breaks the switch" fails.
-  reset();
-  storageThrows = true;
-  assert.doesNotThrow(() => applyReduceEffects(true), 'a refusing storage breaks the switch');
-  assert.ok(classes.has('reduce-effects'), 'a refusing storage breaks the switch');
-  assert.equal(readReduceEffectsMirror(), false);
-  storageThrows = false;
-});
-
-test('prefers-reduced-motion does not turn Reduce effects on', () => {
-  // The owner's rule: the system setting keeps its old behaviour and gains no new visual change. Reintroduce
-  // by OR-ing `matchMedia('(prefers-reduced-motion: reduce)').matches` into the snapshot: "reduced motion
-  // turned the switch on" fails.
-  reset();
-  prefersReduced = true;
-  restoreReduceEffects();
-  assert.equal(effectsReduced(), false, 'reduced motion turned the switch on');
-  assert.ok(!classes.has('reduce-effects'), 'reduced motion turned the switch on');
-  const lib = code(read('lib/effects.ts'));
-  assert.doesNotMatch(lib, /matchMedia|prefers-reduced-motion/, 'reduced motion turned the switch on (lib/effects.ts reads the media query)');
-  assert.match(lib, /useSyncExternalStore\(subscribe, effectsReduced, \(\) => false\)/, 'useReduceEffects reads something other than the setting');
-  prefersReduced = false;
+  assert.ok(classes.has('reduce-effects') && effectsReduced() && readReduceEffectsMirror());
 });
 
 test('the perf rig sets the switch off for its baseline instead of inheriting it', () => {

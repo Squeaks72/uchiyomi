@@ -384,6 +384,16 @@
 }
 
 /* ============ cinematic FX ============ */
+/* The still backdrop (components/CinematicFX.tsx): the mesh's glow and the vignette's edges, painted once BEHIND the content.
+   Fixed, no animation, no filter, no blend, no transparency over anything that moves -- the compositor keeps it as one texture. */
+.fx-backdrop {
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background:
+    radial-gradient(125% 100% at 50% 0%, transparent 52%, rgba(0,0,0,0.5) 100%),
+    radial-gradient(30% 34% at 22% 30%, rgb(var(--accent) / 0.11), transparent 70%),
+    radial-gradient(32% 40% at 78% 20%, rgba(34, 211, 238, 0.055), transparent 70%),
+    radial-gradient(42% 44% at 60% 88%, rgb(var(--accent) / 0.08), transparent 70%);
+}
 .fx-grain {
   position: fixed; inset: 0; z-index: 2; pointer-events: none;
   opacity: 0.02;

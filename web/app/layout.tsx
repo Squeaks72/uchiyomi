@@ -63,7 +63,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     // suppressHydrationWarning: TONE_BOOT may have put `data-tone` on <html> before React hydrates it, on purpose.
-    <html lang="en" className={`${display.variable} ${sans.variable} ${brand.variable} ${titleAction.variable} ${titleFantasy.variable}`} suppressHydrationWarning>
+    <html lang="en" className={`reduce-effects ${display.variable} ${sans.variable} ${brand.variable} ${titleAction.variable} ${titleFantasy.variable}`} suppressHydrationWarning>
       <head>
         {/* The reader's background tone from the device's copy, and the browser bar's colour, while the page is still
             being parsed: without it a Graphite or Midnight reader saw true black until the app booted (lib/tone.ts). */}

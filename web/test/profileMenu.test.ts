@@ -31,9 +31,8 @@ test('it offers only switches Settings already has, from the same hooks', () => 
   const menu = code(read('components/ProfileMenu.tsx'));
   assert.match(menu, /useIncognito\(\)/);
   assert.match(menu, /INCOGNITO_TEXT\[0\]/);
-  assert.match(menu, /useReduceEffects\(\)/);
-  assert.match(code(read('components/ProfileSettings.tsx')), /useReduceEffects\(\)/);
-  assert.equal((menu.match(/<SwitchRow /g) ?? []).length, 2, 'Incognito and Reduce effects, plus the conditional Show 18+ row');
+  assert.doesNotMatch(menu, /useReduceEffects|Reduce effects/, 'Reduce effects is gone (effects are always off)');
+  assert.equal((menu.match(/<SwitchRow /g) ?? []).length, 2, 'Incognito and the conditional Blur 18+ covers row, plus the Show 18+ row');
   // 18+ renders nothing for an account with no 18+ library or filter, as AdultToggle does.
   assert.match(menu, /showAdult && \(/);
   assert.match(menu, /\.some\(\(l\) => l\.adult\)/);

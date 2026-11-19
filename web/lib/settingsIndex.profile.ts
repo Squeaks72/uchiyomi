@@ -56,8 +56,6 @@ export const PROFILE_SETTINGS: SettingsIndex = {
     { id: 'accent', cat: 'appearance', label: 'Accent', keywords: ['colour', 'color', 'theme colour'] },
     { id: 'avatar', cat: 'appearance', label: 'Avatar', keywords: ['emoji', 'profile picture', 'face'] },
     { id: 'avatar-frame', cat: 'appearance', label: 'Frame', editor: 'avatar', keywords: ['avatar frame', 'badge frame', 'ring', 'border', 'decoration', 'reward', 'badges'] },
-    { id: 'reduce-effects', cat: 'appearance', label: 'Reduce effects', keywords: ['motion', 'animations', 'blur', 'performance', 'slow', 'battery'],
-      help: 'Turns off the animated background, blur, smooth scrolling and transitions. Try it if scrolling feels slow.' },
 
     { id: 'blur-adult', cat: 'appearance', label: 'Blur 18+ covers', keywords: ['nsfw', 'adult', 'censor', 'hide covers', 'privacy', 'blur'],
       help: 'Covers of 18+ series are blurred on cards until you point at one. This device only.' },

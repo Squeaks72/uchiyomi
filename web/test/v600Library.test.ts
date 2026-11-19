@@ -353,7 +353,7 @@ test('the card\'s ⋯: a mouse\'s way to the card menu, beside the link (never i
     assert.match(shown, /\blg:pointer-fine:(?:block|grid)\b/, `${name}: the ⋯ shows without a fine pointer`);
     assert.match(more![1], /\bopacity-0 group-hover:opacity-100\b/, `${name}: the ⋯ is not a hover reveal`);
     assert.match(more![1], /\bfocus-visible:opacity-100\b/, `${name}: the ⋯ cannot be reached from the keyboard`);
-    assert.match(more![1], /\btransition-opacity\b/);
+    // No transition-opacity: effects are always off on the fork (lib/effects.ts), so the reveal is instant.
     // Home's card has no select mode; the Library's tile and row do.
     if (name !== 'card') {
       const picking = mounted(createElement(el as typeof SeriesTile, { series: series(), selectable: true }));

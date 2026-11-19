@@ -43,11 +43,10 @@ export interface ProgressRingProps {
 }
 
 export function ProgressRing({ progress, size = 'row', tone = 'accent', label, valueText, className, onCover, static: isStatic }: ProgressRingProps) {
-  // Both hooks on every render and in this order: `a() || b()` would skip the second whenever the first is
-  // true, and a hook that is sometimes not called breaks every hook after it.
-  const plain = useReduceEffects();
+  // Effects are always off now (lib/effects.ts), but a working ring still turns: one small rotating SVG is a compositor
+  // transform, not what made scrolling choppy, and a still ring stops saying "this is working". Reduced motion still stills it.
   const still = useReducedMotion();
-  const anim = ringMotion(plain, !!still, isStatic);
+  const anim = ringMotion(false, !!still, isStatic);
   const { px, stroke } = ringDims(size);
   const { r, c, center } = ringGeometry(px, stroke);
   const spin = progress === 'spin';

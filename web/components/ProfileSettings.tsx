@@ -40,7 +40,6 @@ import { useIncognito } from '@/components/IncognitoBanner';
 import { INCOGNITO_TEXT } from '@/lib/incognito';
 import { COMMENTS_TEXT, talkWantedOf } from '@/lib/comments';
 import { TONES, toneOf, type Tone } from '@/lib/tone';
-import { useReduceEffects } from '@/lib/useReduceEffects';
 import { PrivateLibraryDefaults } from '@/components/ContentScopePicker';
 
 /**
@@ -497,12 +496,6 @@ function AppearanceSection() {
     catch (e) { setSettings({ tone: prev }); throw e; }
   };
 
-  // Reduce effects (#71): the performance mode. Stored on the account like the accent, so it follows the
-  // person to another device, and applied the moment it is flipped -- `setSettings` sets html.reduce-effects
-  // and its mirror (lib/effects.ts) -- then put back if the server refuses, so the switch never shows a
-  // state the account does not hold.
-  const [reduceEffects, saveReduceEffects] = useReduceEffects();
-
   return (
     <>
       <RowGroup>
@@ -538,9 +531,6 @@ function AppearanceSection() {
       <RowGroup>
         <SummaryRow id="avatar" ref={avatarEditor.row} label={tr('Avatar')} onClick={avatarEditor.show}
           value={<span className="inline-block align-middle"><Avatar avatar={av} size={30} /></span>} />
-        <SwitchRow id="reduce-effects" label={tr('Reduce effects')}
-          help={tr('Turns off the animated background, blur, smooth scrolling and transitions. Try it if scrolling feels slow.')}
-          on={reduceEffects} onChange={saveReduceEffects} />
         {/* This device only (lib/blurPref.ts): an 18+ cover is blurred on its card until the card is pointed at or focused. */}
         <SwitchRow id="blur-adult" device label={tr('Blur 18+ covers')}
           help={tr('Covers of 18+ series are blurred on cards until you point at one. This device only.')}

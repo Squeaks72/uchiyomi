@@ -136,8 +136,9 @@ test('ProgressRing reads both motion settings, unconditionally, and feeds them t
   // writing `const plain = false` or `useReduceEffects() || useReducedMotion()`: this fails.
   const src = code(readFileSync(join(ROOT, 'components/ProgressRing.tsx'), 'utf8'));
   const body = src.slice(src.indexOf('export function ProgressRing('), src.indexOf('export function RingIcon('));
-  assert.match(body, /const plain = useReduceEffects\(\);\s*const still = useReducedMotion\(\);\s*const anim = ringMotion\(plain, !!still, isStatic\);/,
-    'ProgressRing does not feed both settings to ringMotion');
+  // Fork 2026-11-19: effects are always off, but a working ring still turns; only reduced motion stills it.
+  assert.match(body, /const still = useReducedMotion\(\);\s*const anim = ringMotion\(false, !!still, isStatic\);/,
+    'ProgressRing does not feed reduced motion to ringMotion');
   assert.equal((body.match(/animate-ring/g) || []).length, 1, 'animate-ring is applied somewhere without asking ringMotion');
   assert.match(body, /spin && anim\.turn \? 'animate-ring' : ''/, 'animate-ring is applied without asking ringMotion');
   assert.match(body, /anim\.glow \? \{ filter:/, 'the glow is not gated on ringMotion');
