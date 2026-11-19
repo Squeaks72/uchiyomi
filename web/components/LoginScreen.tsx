@@ -212,8 +212,6 @@ const inputCls = `w-full rounded-2xl border bg-black/40 px-4 py-3.5 text-lg text
         <div className="absolute inset-0" style={{ background: 'radial-gradient(58% 46% at 50% 42%, rgb(0 0 0 / 0.72), transparent 72%)' }} />
         <div className="absolute inset-0" style={{ background: 'radial-gradient(60% 50% at 50% 18%, rgb(var(--accent) / 0.18), transparent 70%)' }} />
       </div>
-      <div className="fx-grain" />
-      <div className="fx-vignette" />
 
       <motion.div
         initial={{ opacity: 0, y: 22 }}

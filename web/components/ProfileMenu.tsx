@@ -9,7 +9,6 @@ import { adultShown, setAdultShown } from '@/lib/adult';
 import { isDesktop } from '@/lib/desktop';
 import { arrival } from '@/lib/destinations';
 import { openInConsole } from '@/lib/consoleOnScreen';
-import { useReduceEffects } from '@/lib/useReduceEffects';
 import { useBlurAdult } from '@/lib/blurPref';
 import { Avatar } from './Avatar';
 import { ProfileSwitcher } from './ProfileSwitcher';
@@ -29,7 +28,6 @@ export function QuickSettings({ onClose, onSwitch }: { onClose: () => void; onSw
   const { user, logout } = useAuth();
   const qc = useQueryClient();
   const incognito = useIncognito();
-  const [reduceEffects, saveReduceEffects] = useReduceEffects();
   const { data: libs } = useLibraries();
   const filterConfigured = useAdultFilterConfigured();
   const adultOn = useAdultShown();
@@ -69,7 +67,6 @@ export function QuickSettings({ onClose, onSwitch }: { onClose: () => void; onSw
         )}
         {/* Only while 18+ is showing: with it off no 18+ cover is on screen to blur. The same device switch as Settings → Appearance (lib/blurPref.ts). */}
         {showAdult && adultOn && <SwitchRow label={tr('Blur 18+ covers')} on={blurAdult} onChange={setBlurAdult} />}
-        <SwitchRow label={tr('Reduce effects')} on={reduceEffects} onChange={saveReduceEffects} />
       </div>
       <div className="mt-2 flex items-center justify-between gap-2 border-t border-ink-800/70 pt-3">
         <a href="/profile/?tab=general" onClick={go('/profile/?tab=general')} data-profile-settings-link className={link}>{tr('Profile settings')}</a>

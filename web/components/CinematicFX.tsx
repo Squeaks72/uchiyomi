@@ -1,20 +1,9 @@
 'use client';
-import { useReduceEffects } from '@/lib/effects';
 
-// Global cinematic finish: animated accent mesh (behind), film grain + vignette (above).
-//
-// ⚠️ This is the look, and it is the default on purpose (#71). The fix for a slow machine is the Reduce
-// effects switch -- under it these three layers are not rendered at all, and html.reduce-effects hides them
-// too for the one frame a stale store could leave them in -- never a cheaper version of the layers
-// themselves. web/test/effects.test.ts pins this markup and the three CSS rules behind it.
+// The app's background: one STILL layer under the content -- the accent glow the mesh used to drift, plus the
+// vignette's darkened edges -- drawn once and never animated, filtered or blended. Nothing sits over the content,
+// so scrolling costs what a plain page does. (The animated mesh, grain and over-content vignette were removed
+// 2026-11-19; see lib/effects.ts.)
 export function CinematicFX() {
-  const reduced = useReduceEffects();
-  if (reduced) return null;
-  return (
-    <>
-      <div className="fx-mesh" />
-      <div className="fx-grain" />
-      <div className="fx-vignette" />
-    </>
-  );
+  return <div className="fx-backdrop" />;
 }
