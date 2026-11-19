@@ -589,8 +589,8 @@ const total = async (ctx: ViewCtx, where = 'TRUE', p = new Params(), cte = '', f
 
 export const owned = {
   libraries: async (ctx: ViewCtx) => {
-    const rows = await q<{ id: string; name: string; age_rating: number | null; owner_user_id: string | null; default_visible: boolean }>(
-      'SELECT id, name, age_rating, owner_user_id, default_visible FROM libraries ORDER BY sort_order, name');
+    const rows = await q<{ id: string; name: string; age_rating: number | null; owner_user_id: string | null; default_visible: boolean; kind: string | null; auto_genres: string[] | null }>(
+      'SELECT id, name, age_rating, owner_user_id, default_visible, kind, auto_genres FROM libraries ORDER BY sort_order, name');
     // A restricted viewer is told about the libraries they hold, not all of them: the list itself would
     // otherwise leak the existence and names of everything they cannot open.
     const held = rows.filter(r => (ctx.system || !r.owner_user_id || r.owner_user_id === ctx.userId)
@@ -605,7 +605,10 @@ export const owned = {
     // `adult` rides along rather than being filtered out here: the web app needs to know an 18+ library
     // EXISTS in order to offer the button that reveals it, and it hides those tabs itself while the filter
     // is on. What must not leak is the CONTENT, and that is `browsable()`'s job, not this list's.
-    return allowed.map((r) => ({ id: r.id, name: r.name, adult: (r.age_rating ?? 0) >= ADULT_RATING, defaultVisible: r.id === 'lib' || r.default_visible, private: !!r.owner_user_id }));
+    return allowed.map((r) => ({ id: r.id, name: r.name, adult: (r.age_rating ?? 0) >= ADULT_RATING, defaultVisible: r.id === 'lib' || r.default_visible,
+      // What the library holds (Admin → Libraries "When adding with Automatic"): the cover tag says Ecchi / Hentai /
+      // Pornhwa from it (web lib/contentTag.ts), since the admin's filing is a better word for a series than its format.
+      kind: r.kind ?? null, autoGenres: r.auto_genres ?? [], private: !!r.owner_user_id }));
   },
 
   /**
