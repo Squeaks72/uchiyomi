@@ -782,3 +782,20 @@ html.lenis, html.lenis body { height: auto; }
   html:has([role='dialog'][aria-modal='true']) { overflow: hidden; }
   [role='dialog'][aria-modal='true'] { overscroll-behavior: contain; }
 }
+
+/* 18+ cover blur (lib/blurPref.ts). Plain CSS, not Tailwind: `blur-0` is not a Tailwind v4 utility (v4 calls it `blur-none`), so
+   the old `group-hover:blur-0` never made a rule and the blur never lifted; and v4's `group-hover:` only fires under
+   `@media (hover: hover)`, which a finger never matches. Here the blur lifts while the card (`.group`) is pointed at, focused,
+   or pressed: a mouse over it, Tab onto it, or a finger resting on it (:active; the press-and-hold that opens the card menu keeps
+   it sharp while the menu decides). The touchstart listener in blurPref.ts is what makes iOS Safari honour :active at all. */
+.adult-blur {
+  filter: blur(24px);
+  transform: scale(1.1);
+  transition: filter 300ms ease, transform 300ms ease;
+}
+.group:hover .adult-blur,
+.group:focus-within .adult-blur,
+.group:active .adult-blur {
+  filter: none;
+  transform: none;
+}
