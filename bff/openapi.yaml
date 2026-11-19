@@ -1932,7 +1932,7 @@ paths:
     get:
       tags:
         - library
-      summary: The libraries the caller may see; adult:true marks an 18+ one the client can reveal.
+      summary: The libraries the caller may see; adult:true marks an 18+ one the client can reveal; kind/autoGenres say what each holds.
       operationId: getApiLibraries
       security:
         - bearer: []

@@ -28,6 +28,7 @@ import { publicCoverFallback } from '@/lib/coverFallback';
 import { anilistNumbers, type SortValue } from '@/lib/sortValue';
 import { coverProgress, seriesProgress } from '@/lib/seriesProgress';
 import { seriesTypeKey } from '@/lib/seriesTypes';
+import { contentTag, type TagLibrary } from '@/lib/contentTag';
 import { ADULT_BLUR, BLURRED_COVER, useBlurAdult } from '@/lib/blurPref';
 import type { SeriesType } from '@/lib/types';
 
@@ -136,27 +137,35 @@ const noteOf = (note: CardNote): { kind?: SortValue['kind']; text: string; hint:
  * type draws nothing: a tag that says "unknown" on half the library is noise, not information.
  */
 export function TypeTag({ type, libraryId, className = '' }: { type?: SeriesType | null; libraryId?: string | null; className?: string }) {
-  const label = useTagLabel(type, libraryId);
-  if (!label) return null;
+  const tag = useTag(type, libraryId);
+  if (!tag) return null;
+  const { label } = tag;
   return (
-    <span data-type-tag={type && type !== 'unknown' ? type : 'library'}
+    <span data-type-tag={tag.kind}
       className={`inline-block rounded-[4px] border border-ink-600/70 px-1.5 py-px text-[9px] font-semibold uppercase leading-snug tracking-wider text-fog-400 ${className}`}>
       {label}
     </span>
   );
 }
 
-/** The library names, for a card whose type is not known (one shared query; no refetch on every card that mounts). */
-function useLibraryNames(): Map<string, string> {
-  const { data } = useQuery({ queryKey: ['libraries'], queryFn: () => api<Array<{ id: string; name: string }>>('/api/libraries'), staleTime: 5 * 60 * 1000 });
-  return useMemo(() => new Map((data ?? []).map((l) => [l.id, l.name])), [data]);
+/** The filed-as tags read at a glance over any cover: Ecchi pink, Hentai/Pornhwa red; the rest the plain dark chip. */
+const TAG_TONE: Record<string, string> = { genre: 'bg-pink-600/85 text-white', adult: 'bg-red-700/85 text-white' };
+
+/** The libraries by id (one shared query; no refetch on every card that mounts). */
+function useLibraryMap(): Map<string, TagLibrary> {
+  const { data } = useQuery({ queryKey: ['libraries'], queryFn: () => api<Array<TagLibrary & { id: string }>>('/api/libraries'), staleTime: 5 * 60 * 1000 });
+  return useMemo(() => new Map((data ?? []).map((l) => [l.id, l])), [data]);
 }
 
-/** A card's tag (2026-11-18): its type when known, else the name of the library it is in -- so every card says what it is. */
-function useTagLabel(type?: SeriesType | null, libraryId?: string | null): string | null {
-  const names = useLibraryNames();
-  if (type && type !== 'unknown') return tr(seriesTypeKey(type));
-  return (libraryId && names.get(libraryId)) || null;
+/**
+ * A card's tag: what the admin filed it as (Ecchi, Hentai, Pornhwa -- lib/contentTag.ts, 2026-11-19), else its type, else
+ * the name of the library it is in -- so every card says what it is.
+ */
+function useTag(type?: SeriesType | null, libraryId?: string | null): { label: string; kind: string } | null {
+  const libs = useLibraryMap();
+  const t = contentTag(type, libraryId ? libs.get(libraryId) : null, seriesTypeKey);
+  if (!t) return null;
+  return { label: t.kind === 'adult' || t.kind === 'type' ? tr(t.label) : t.label, kind: t.kind === 'type' ? type! : t.kind };
 }
 
 /**
@@ -164,14 +173,14 @@ function useTagLabel(type?: SeriesType | null, libraryId?: string | null): strin
  * corner. `below` moves the stack under the select bubble.
  */
 export function CoverCorner({ series, compact, below }: { series: Series; compact?: boolean; below?: boolean }) {
-  const label = useTagLabel(series.seriesType, series.libraryId);
-  if (!label && !series.yomi?.favorite) return null;
+  const tag = useTag(series.seriesType, series.libraryId);
+  if (!tag && !series.yomi?.favorite) return null;
   return (
     <span className={`pointer-events-none absolute start-1.5 ${below ? 'top-9' : 'top-1.5'} z-10 flex max-w-[calc(100%-3.5rem)] flex-col items-start gap-1`}>
-      {label && (
-        <span data-type-tag={series.seriesType && series.seriesType !== 'unknown' ? series.seriesType : 'library'}
-          className={`max-w-full truncate rounded-[4px] bg-black/65 font-semibold uppercase leading-snug tracking-wider text-fog-100 backdrop-blur ${compact ? 'px-1 text-[8px] pointer-coarse:text-[10px]' : 'px-1.5 py-px text-[9px] pointer-coarse:text-[10px]'}`}>
-          {label}
+      {tag && (
+        <span data-type-tag={tag.kind}
+          className={`max-w-full truncate rounded-[4px] ${TAG_TONE[tag.kind] ?? 'bg-black/65 text-fog-100'} font-semibold uppercase leading-snug tracking-wider backdrop-blur ${compact ? 'px-1 text-[8px] pointer-coarse:text-[10px]' : 'px-1.5 py-px text-[9px] pointer-coarse:text-[10px]'}`}>
+          {tag.label}
         </span>
       )}
       {series.yomi?.favorite && (
