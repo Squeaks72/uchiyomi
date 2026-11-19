@@ -10,6 +10,7 @@ import { isDesktop } from '@/lib/desktop';
 import { arrival } from '@/lib/destinations';
 import { openInConsole } from '@/lib/consoleOnScreen';
 import { useReduceEffects } from '@/lib/useReduceEffects';
+import { useBlurAdult } from '@/lib/blurPref';
 import { Avatar } from './Avatar';
 import { ProfileSwitcher } from './ProfileSwitcher';
 import { useIncognito } from './IncognitoBanner';
@@ -22,7 +23,7 @@ import { OnBody, Sheet, useRtl } from './ui';
  * The quick settings behind the profile photo: the switches reached for most, each one the SAME state as its row in
  * Profile -> Settings (the same hooks and the same endpoint), so flipping one here moves the other there.
  * Show 18+ is the session's reveal (lib/adult.ts) and, as AdultToggle does, renders nothing for an account
- * with no 18+ library or filter to reveal.
+ * with no 18+ library or filter to reveal. Blur 18+ covers appears under it while Show 18+ is on.
  */
 export function QuickSettings({ onClose, onSwitch }: { onClose: () => void; onSwitch?: () => void }) {
   const { user, logout } = useAuth();
@@ -32,6 +33,7 @@ export function QuickSettings({ onClose, onSwitch }: { onClose: () => void; onSw
   const { data: libs } = useLibraries();
   const filterConfigured = useAdultFilterConfigured();
   const adultOn = useAdultShown();
+  const [blurAdult, setBlurAdult] = useBlurAdult();
   // Never on a server that hides nothing (#406).
   const showAdult = useAdultHiding() && (filterConfigured || (libs ?? []).some((l) => l.adult));
   const link = 'rounded-lg px-2 py-1.5 text-sm text-fog-200 hover:bg-ink-800/70 hover:text-fog-50';
@@ -65,6 +67,8 @@ export function QuickSettings({ onClose, onSwitch }: { onClose: () => void; onSw
             <Switch on={adultOn} label={tr('Show 18+')} onChange={() => { setAdultShown(!adultShown()); qc.invalidateQueries(); }} />
           </Row>
         )}
+        {/* Only while 18+ is showing: with it off no 18+ cover is on screen to blur. The same device switch as Settings → Appearance (lib/blurPref.ts). */}
+        {showAdult && adultOn && <SwitchRow label={tr('Blur 18+ covers')} on={blurAdult} onChange={setBlurAdult} />}
         <SwitchRow label={tr('Reduce effects')} on={reduceEffects} onChange={saveReduceEffects} />
       </div>
       <div className="mt-2 flex items-center justify-between gap-2 border-t border-ink-800/70 pt-3">
