@@ -237,6 +237,8 @@ export async function switchMainSource(seriesId: string, to: string, opts: Switc
   scheduleHealthSummaryRefresh();
   // The new main's copy becomes every chapter's endorsed copy, except where an admin endorsed another (lib/endorse.ts).
   await q('UPDATE lib_series SET endorse_pending = true WHERE id = $1', [seriesId]).catch(() => {});
+  // ...and starts on it now, not at the next pass. Imported lazily: lib/endorse.ts reaches routes/admin.ts, which reaches this file.
+  void import('./endorse.js').then((m) => m.kickEndorser()).catch(() => {});
   return out.r;
 }
 

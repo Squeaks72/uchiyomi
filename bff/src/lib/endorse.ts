@@ -130,19 +130,36 @@ export async function endorseChapter(seriesId: string, number: number, sourceId:
 const failedAt = new Map<string, number>();
 const RETRY_MS = 24 * 3600_000;
 
+/** The scheduler's pending pass, once scheduleEndorser has run: kickEndorser calls it. */
+let pendingNow: (() => Promise<void>) | null = null;
+
 /**
- * Every 30 minutes: the series whose main source changed (endorse_pending, a job at a time until done), then the chapters added in the
- * last three days across the library. Idle when everything already matches.
+ * Start a main-source switch's endorse NOW rather than at the next pass (2026-11-20: Tim switched Chainsaw Man's main source and saw
+ * nothing change -- the first pass was up to 30 minutes away). A no-op until the scheduler is running; a pass already in flight
+ * simply makes this one find the series busy, and the next tick takes it.
  */
-export function scheduleEndorser(log: Log, delayMs = 12 * 60_000, everyMs = 30 * 60_000): void {
+export function kickEndorser(): void {
+  if (pendingNow) setTimeout(() => { void pendingNow?.(); }, 1500).unref?.();
+}
+
+/**
+ * Two passes. Every 2 minutes: the series whose main source changed (endorse_pending), one job (JOB_MAX chapters) at a time until
+ * done -- a series busy with the previous job is a 409 and waits for the next tick, so the jobs follow each other closely without
+ * overlapping. Every 30 minutes: the chapters added in the last three days across the library. Idle when everything already matches.
+ */
+export function scheduleEndorser(log: Log, delayMs = 12 * 60_000, everyMs = 30 * 60_000, pendingEveryMs = 2 * 60_000): void {
   const fresh = (steps: EndorseStep[]) => steps.filter((t) => (failedAt.get(`${t.bookId}|${t.source}`) ?? 0) < Date.now() - RETRY_MS);
   const run = async (id: string, steps: EndorseStep[]) => {
     const r = await runEndorse(id, steps, null);
     for (const sk of r.skipped) { const t = steps.find((x) => x.bookId === sk.id); if (t) failedAt.set(`${t.bookId}|${t.source}`, Date.now()); }
     if (r.started) log.info(`endorse: ${id}: putting the endorsed copy on ${r.started} chapter${r.started === 1 ? '' : 's'}`);
+    else if (r.busy) log.info(`endorse: ${id}: a download for the series is running; next pass`);
     return r;
   };
-  const tick = async () => {
+  let pendingBusy = false;
+  const pending = async () => {
+    if (pendingBusy) return;
+    pendingBusy = true;
     try {
       for (const { id } of await q<{ id: string }>('SELECT id FROM lib_series WHERE endorse_pending AND deleted_at IS NULL')) {
         if (runtime.stopping) break;
@@ -150,6 +167,13 @@ export function scheduleEndorser(log: Log, delayMs = 12 * 60_000, everyMs = 30 *
         if (!steps.length) { await q('UPDATE lib_series SET endorse_pending = false WHERE id = $1', [id]); continue; }
         await run(id, steps);
       }
+    } catch (e) { log.warn(`endorse: ${(e as Error)?.message || e}`); }
+    finally { pendingBusy = false; }
+  };
+  pendingNow = pending;
+  const pendingTick = async () => { await pending(); setTimeout(pendingTick, pendingEveryMs).unref?.(); };
+  const tick = async () => {
+    try {
       const since = new Date(Date.now() - 3 * 24 * 3600_000);
       for (const { id } of await q<{ id: string }>(
         `SELECT DISTINCT b.series_id AS id FROM lib_books b WHERE b.created_at > $1 AND b.pruned_at IS NULL`, [since])) {
@@ -160,5 +184,7 @@ export function scheduleEndorser(log: Log, delayMs = 12 * 60_000, everyMs = 30 *
     } catch (e) { log.warn(`endorse: ${(e as Error)?.message || e}`); }
     setTimeout(tick, everyMs).unref?.();
   };
+  // A switch left pending across a restart is picked up within a minute; the library-wide sweep keeps its long start delay.
+  setTimeout(pendingTick, Math.min(delayMs, 60_000)).unref?.();
   setTimeout(tick, delayMs).unref?.();
 }
