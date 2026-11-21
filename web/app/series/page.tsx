@@ -454,6 +454,16 @@ function RowCaption({ group, via, versions, tone = 'text-fog-500', pruned, lead,
  * language but English says the sentence through Intl ("vor 3 Tagen"), where the cut matched nothing and
  * the grid showed the whole of it.
  */
+/** A phone row's date: "3h ago" / "5d ago" while recent, then "Mar 14", and "Mar 14, 2025" only for another year. */
+function rowDateShort(iso: string): string {
+  const rel = relativeTime(iso);
+  const d = new Date(iso);
+  if (!Number.isFinite(d.getTime()) || Date.now() - d.getTime() < 30 * 86_400_000) return rel;
+  const sameYear = d.getFullYear() === new Date().getFullYear();
+  try { return d.toLocaleDateString(undefined, sameYear ? { month: 'short', day: 'numeric' } : { month: 'short', day: 'numeric', year: 'numeric' }); }
+  catch { return rel; }
+}
+
 function RowDate({ iso, className = '' }: { iso: string; className?: string }) {
   // Under the title and its "translated by" line, not in a column of its own beside them: that column took ~50 px
   // from every row, and in the columns layout the title is what is read first and what got cut. With the whole width
@@ -579,7 +589,7 @@ function ChapterRow({ book, downloaded, sourceNames, primarySource, versions, gr
       <button type="button" onClick={selectable ? (e) => onToggle?.(e.shiftKey) : onReader} onMouseDown={selectable ? keepSelection : undefined} disabled={pruned && !selectable} aria-pressed={selectable ? !!selected : undefined}
         // The same hover as the versions key beside it (2026-11-18): the opener lights as one surface, so it reads as a button. The negative
         // margins give the light room around the thumb and title without moving either.
-        className="-mx-1.5 -my-1 flex min-w-0 flex-1 items-center gap-3 rounded-lg px-1.5 py-1 text-start transition-colors hover:bg-white/[0.06] disabled:cursor-default disabled:hover:bg-transparent">
+        className="-mx-1.5 -my-1 flex min-w-0 flex-1 items-center gap-3 max-lg:gap-2.5 rounded-lg px-1.5 py-1 text-start transition-colors hover:bg-white/[0.06] disabled:cursor-default disabled:hover:bg-transparent">
         <div className={`relative h-14 w-10 shrink-0${thumbHide(!!compact, !!selectable)} overflow-hidden rounded-lg border ${state === 'read' ? 'border-ink-800 opacity-45' : 'border-ink-700'} ${book.pruned && !downloaded ? 'border-dashed border-ink-600' : ''}`}>
           {/* A tombstone has no file to draw a thumbnail from; asking would be a 404 per row on every visit.
               The dashed empty box is the ghost row's, so "no pages here" reads the same in both places. */}
@@ -587,7 +597,7 @@ function ChapterRow({ book, downloaded, sourceNames, primarySource, versions, gr
           {state === 'reading' && <span className="absolute inset-x-0 bottom-0 h-0.5 bg-accent" />}
           {selectable && <SelectBubble selected={!!selected} />}
         </div>
-        <span aria-hidden className={`h-2 w-2 shrink-0 rounded-full${dotHide(!!compact)} ${state === 'read' ? 'bg-ink-600' : state === 'reading' ? 'bg-accent' : 'bg-accent/40'}`} />
+        <span aria-hidden className={`h-2 w-2 shrink-0 rounded-full max-lg:hidden${dotHide(!!compact)} ${state === 'read' ? 'bg-ink-600' : state === 'reading' ? 'bg-accent' : 'bg-accent/40'}`} />
         <div className="min-w-0 flex-1">
           {/* Two lines (mangadot's density): the title with the group's tag, then the caption with where the reader got to. The date
               and the versions key sit at the row's end, outside this opener -- a key inside a <button> is invalid DOM. */}
@@ -606,18 +616,27 @@ function ChapterRow({ book, downloaded, sourceNames, primarySource, versions, gr
             {state === 'reading' && rp && (
               <span className="shrink-0 text-[11px] text-accent">{tr('Page {n} of {m}', { n: rp.page, m: book.media.pagesCount })}</span>
             )}
+            {/* Phones (2026-11-20): the date lives on this line, not in a column of its own -- beside the versions key and two
+                buttons that column left the title ~50 px, and the chapter number vanished. */}
+            {book.metadata?.releaseDate && <span data-row-date-inline className="min-w-0 truncate text-[11px] text-fog-500 lg:hidden">{rowDateShort(book.metadata.releaseDate)}</span>}
           </div>
         </div>
       </button>
       {!selectable && onToggleCopies && versions && versions >= 2 && (
         <button type="button" onClick={onToggleCopies} aria-expanded={!!expanded} data-copies-toggle
           // As tall as the row (self-stretch), bordered like the row's other keys: a key, plainly, and an easy one to hit.
-          className={`flex min-h-9 shrink-0 items-center gap-1.5 self-stretch rounded-lg border px-3 text-xs font-medium transition-colors hover:bg-white/[0.06] ${expanded ? 'border-accent/50 bg-accent/[0.07] text-accent' : 'border-ink-700 text-fog-300 hover:text-fog-100'}`}>
-          {tr('{n} versions', { n: versions })}
+          aria-label={tr('{n} versions', { n: versions })}
+          // On a phone the key is a stack and the count ("⧉ 3"), not the words: the words took the title's room (2026-11-20).
+          className={`flex min-h-9 shrink-0 items-center gap-1.5 self-stretch rounded-lg border px-3 text-xs font-medium transition-colors hover:bg-white/[0.06] max-lg:gap-1 max-lg:px-2 ${expanded ? 'border-accent/50 bg-accent/[0.07] text-accent' : 'border-ink-700 text-fog-300 hover:text-fog-100'}`}>
+          <span className="max-lg:hidden">{tr('{n} versions', { n: versions })}</span>
+          <span aria-hidden className="flex items-center gap-1 tabular-nums lg:hidden">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"><rect x="8" y="8" width="12" height="12" rx="2" /><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" /></svg>
+            {versions}
+          </span>
           <IcChevronRight aria-hidden width={14} height={14} className={`transition-transform ${expanded ? 'rotate-90' : 'rtl:-scale-x-100'}`} />
         </button>
       )}
-      {book.metadata?.releaseDate && <RowDate iso={book.metadata.releaseDate} className="w-auto shrink-0 text-end" />}
+      {book.metadata?.releaseDate && <RowDate iso={book.metadata.releaseDate} className="w-auto shrink-0 text-end max-lg:hidden" />}
       {!selectable && <ButtonsWrap compact={!!compact} menuOpen={menu.open}>
       {fresh && (
         <span role="img" aria-label={tr('Fetched')} data-fetched

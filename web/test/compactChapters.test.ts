@@ -13,7 +13,7 @@ import { buttonsClass, compactChaptersOn, dotHide, rowClass, setCompactChaptersO
 
 test('off, every class is exactly the row that shipped before', () => {
   // Reintroduce #88's default by returning the compact strings unconditionally: all four fail.
-  assert.equal(rowClass(false), 'flex items-center gap-3 py-2.5 lg:gap-2.5');
+  assert.equal(rowClass(false), 'flex items-center gap-3 max-lg:gap-2 py-2.5 lg:gap-2.5');
   assert.equal(thumbHide(false, false), '');
   assert.equal(thumbHide(false, true), '');
   assert.equal(dotHide(false), '');

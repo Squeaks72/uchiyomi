@@ -22,8 +22,8 @@ export function setCompactChaptersOn(on: boolean): void {
 /** The row's own line: tighter on a pointer, and a hover group for the buttons. */
 export function rowClass(compact: boolean): string {
   return compact
-    ? 'group flex items-center gap-3 py-2.5 lg:gap-2.5 lg:pointer-fine:py-1.5'
-    : 'flex items-center gap-3 py-2.5 lg:gap-2.5';
+    ? 'group flex items-center gap-3 max-lg:gap-2 py-2.5 lg:gap-2.5 lg:pointer-fine:py-1.5'
+    : 'flex items-center gap-3 max-lg:gap-2 py-2.5 lg:gap-2.5';
 }
 
 /** What hides the thumbnail box on a pointer. Never in select mode: the box carries the selection bubble there. */

@@ -167,7 +167,11 @@ test('a row caption carries its text as a title; a chapter row is two lines with
   assert.match(cap, /<p className=\{`mt-0\.5 truncate[^>]*title=\{title\}/, 'the caption has a title');
   const date = page.slice(page.indexOf('function RowDate('), page.indexOf('function ChapterRow('));
   assert.match(date, /<p className=\{`truncate text-\[11px\] text-fog-500 \$\{className\}`\}>\{relativeTime\(iso\)\}<\/p>/, 'the date is not a line of text');
-  assert.match(page, /<\/button>\s*\{!selectable && onToggleCopies[\s\S]*?\{book\.metadata\?\.releaseDate && <RowDate iso=\{book\.metadata\.releaseDate\} className="w-auto shrink-0 text-end" \/>\}/, 'a chapter\'s date is not at the row\'s end');
+  assert.match(page, /<\/button>\s*\{!selectable && onToggleCopies[\s\S]*?\{book\.metadata\?\.releaseDate && <RowDate iso=\{book\.metadata\.releaseDate\} className="w-auto shrink-0 text-end max-lg:hidden" \/>\}/, 'a chapter\'s date is not at the row\'s end');
+  // Phones (2026-11-20): the end column left the title ~50 px and the chapter number vanished, so below lg the date is on the
+  // caption line instead, and the versions key is a stack + count. Drop the inline date: "a phone row has no date" fails.
+  assert.match(page, /data-row-date-inline className="[^"]*\blg:hidden\b[^"]*">\{rowDateShort\(book\.metadata\.releaseDate\)\}/, 'a phone row has no date');
+  assert.match(page, /<span className="max-lg:hidden">\{tr\('\{n\} versions', \{ n: versions \}\)\}<\/span>/, 'the versions key keeps its words on a wide screen');
   assert.match(page, /\{ghost\.publishedAt && <RowDate iso=\{ghost\.publishedAt\}[^>]*\/>\}\s*<\/div>\s*<\/button>/, 'a ghost\'s date is not under its caption');
 });
 
