@@ -889,6 +889,7 @@ function ReaderInner() {
     (async () => {
       const map = blobUrls.current;
       for (const i of activeSet) {
+        if (!alive) return;
         const it = flat[i];
         const ch = chapters[it.ci];
         if (ch?.offline && !map.has(it.key)) {
@@ -1400,11 +1401,20 @@ function ReaderInner() {
   // ---- wake lock ----
   useEffect(() => {
     let lock: any = null;
-    const req = async () => { try { lock = await (navigator as any).wakeLock?.request('screen'); } catch {} };
+    let alive = true;
+    // A lock that is granted AFTER the reader closed is released at once: the request is asynchronous, and the cleanup below used to
+    // run while `lock` was still null, leaving the screen held awake after the reader was gone.
+    const req = async () => {
+      try {
+        const got = await (navigator as any).wakeLock?.request('screen');
+        if (!alive) { try { got?.release(); } catch {} return; }
+        lock = got;
+      } catch {}
+    };
     req();
     const onVis = () => { if (document.visibilityState === 'visible') req(); };
     document.addEventListener('visibilitychange', onVis);
-    return () => { try { lock?.release(); } catch {}; document.removeEventListener('visibilitychange', onVis); };
+    return () => { alive = false; try { lock?.release(); } catch {}; document.removeEventListener('visibilitychange', onVis); };
   }, []);
 
   // ---- navigation helpers ----
