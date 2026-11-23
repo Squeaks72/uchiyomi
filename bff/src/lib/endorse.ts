@@ -107,6 +107,9 @@ export async function runEndorse(seriesId: string, steps: EndorseStep[], by: str
     beforeSetAside: async (rows) => { for (const row of rows) await keepCurrent(row.id, row.abs).catch(() => {}); },
     // The source just endorsed may have had a kept copy of this chapter: it IS the endorsed file now, so the kept one goes.
     onLanded: async (bookId) => { const src = target.get(bookId); if (src) await dropVersion(bookId, src).catch(() => false); },
+    // The refetch job runs detached, so `skipped` only covers what was refused up front. A chapter that fails LATER lands here, and
+    // gets the same one-day back-off; without it the 2-minute pending pass redid it forever (set aside, tombstoned, downloaded again).
+    onFailed: (bookId) => { const src = target.get(bookId); if (src) failedAt.set(`${bookId}|${src}`, Date.now()); },
   });
   if (r.code === 200) return { started: r.body.total ?? take.length, skipped: r.body.skipped ?? [] };
   return { started: 0, skipped: r.body?.skipped ?? [], busy: r.body?.error === 'busy' };
@@ -148,7 +151,13 @@ export function kickEndorser(): void {
  * overlapping. Every 30 minutes: the chapters added in the last three days across the library. Idle when everything already matches.
  */
 export function scheduleEndorser(log: Log, delayMs = 12 * 60_000, everyMs = 30 * 60_000, pendingEveryMs = 2 * 60_000): void {
-  const fresh = (steps: EndorseStep[]) => steps.filter((t) => (failedAt.get(`${t.bookId}|${t.source}`) ?? 0) < Date.now() - RETRY_MS);
+  const fresh = (steps: EndorseStep[]) => {
+    // The map only ever needs the entries still inside the back-off window.
+    const cutoff = Date.now() - RETRY_MS;
+    for (const [k, t] of failedAt) if (t < cutoff) failedAt.delete(k);
+    return freshOf(steps);
+  };
+  const freshOf = (steps: EndorseStep[]) => steps.filter((t) => (failedAt.get(`${t.bookId}|${t.source}`) ?? 0) < Date.now() - RETRY_MS);
   const run = async (id: string, steps: EndorseStep[]) => {
     const r = await runEndorse(id, steps, null);
     for (const sk of r.skipped) { const t = steps.find((x) => x.bookId === sk.id); if (t) failedAt.set(`${t.bookId}|${t.source}`, Date.now()); }
