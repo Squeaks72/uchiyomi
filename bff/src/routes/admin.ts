@@ -1005,6 +1005,34 @@ export default async function adminRoutes(app: FastifyInstance) {
       if(!current?.automatic_cover_titles&&!(await titleExtractionCapabilities()).automaticAvailable)
         return reply.code(409).send({error:'automatic_unavailable',message:'Automatic cover titles need the verified local OCR profile.'});
     }
+    // FIRST of the writes, because it is the one that can refuse after it began (the blocklist re-apply, 503): anything saved before it
+    // would stay saved while the admin is told the save failed. It is one transaction of its own; nothing else is written until it holds.
+    const nextGlobalSources = b.sourcePrefs === undefined
+      ? undefined
+      : { priority: cleanSourceOrder(b.sourcePrefs.priority) };
+    if (b.scanlatorPrefs !== undefined || nextGlobalSources !== undefined) {
+      try {
+        await tx(async (qq) => {
+          // Global saves take the settings row first, then every affected series in stable id order inside
+          // reapplyBlocklistInTransaction. A listing refresh takes each series row then its advisory lock, so the
+          // two paths cannot publish a choice calculated from the preferences the save just replaced.
+          await qq('SELECT id FROM server_settings WHERE id = 1 FOR UPDATE');
+          if (b.scanlatorPrefs !== undefined) {
+            await qq('UPDATE server_settings SET scanlator_prefs = $1::jsonb, updated_at = now() WHERE id = 1',
+              [JSON.stringify(b.scanlatorPrefs)]);
+          }
+          if (nextGlobalSources !== undefined) {
+            await qq('UPDATE server_settings SET source_prefs = $1::jsonb, updated_at = now() WHERE id = 1',
+              [JSON.stringify(nextGlobalSources)]);
+          }
+          await reapplyBlocklistInTransaction(qq);
+        });
+      } catch (e) {
+        console.warn(`[prefs] applying the global blocklist failed: ${(e as Error)?.message || e}`);
+        return reply.code(503).send({ error: 'blocklist_apply_failed' });
+      }
+      if (nextGlobalSources !== undefined) invalidateSourcePrefs();
+    }
     if (b.serverName !== undefined) await q('UPDATE server_settings SET server_name = $1, updated_at = now() WHERE id = 1', [b.serverName]);
     if (b.allowRegistration !== undefined) await q('UPDATE server_settings SET allow_registration = $1, updated_at = now() WHERE id = 1', [b.allowRegistration]);
     if (b.localPick !== undefined) await q('UPDATE server_settings SET local_pick = $1, updated_at = now() WHERE id = 1', [b.localPick]);
@@ -1035,32 +1063,6 @@ export default async function adminRoutes(app: FastifyInstance) {
       }
     }
     if (b.installPing !== undefined) await setInstallPing(b.installPing);
-    const nextGlobalSources = b.sourcePrefs === undefined
-      ? undefined
-      : { priority: cleanSourceOrder(b.sourcePrefs.priority) };
-    if (b.scanlatorPrefs !== undefined || nextGlobalSources !== undefined) {
-      try {
-        await tx(async (qq) => {
-          // Global saves take the settings row first, then every affected series in stable id order inside
-          // reapplyBlocklistInTransaction. A listing refresh takes each series row then its advisory lock, so the
-          // two paths cannot publish a choice calculated from the preferences the save just replaced.
-          await qq('SELECT id FROM server_settings WHERE id = 1 FOR UPDATE');
-          if (b.scanlatorPrefs !== undefined) {
-            await qq('UPDATE server_settings SET scanlator_prefs = $1::jsonb, updated_at = now() WHERE id = 1',
-              [JSON.stringify(b.scanlatorPrefs)]);
-          }
-          if (nextGlobalSources !== undefined) {
-            await qq('UPDATE server_settings SET source_prefs = $1::jsonb, updated_at = now() WHERE id = 1',
-              [JSON.stringify(nextGlobalSources)]);
-          }
-          await reapplyBlocklistInTransaction(qq);
-        });
-      } catch (e) {
-        console.warn(`[prefs] applying the global blocklist failed: ${(e as Error)?.message || e}`);
-        return reply.code(503).send({ error: 'blocklist_apply_failed' });
-      }
-      if (nextGlobalSources !== undefined) invalidateSourcePrefs();
-    }
     if (b.cleanupRead !== undefined) await q('UPDATE server_settings SET cleanup_read = $1, updated_at = now() WHERE id = 1', [b.cleanupRead]);
     if (b.cleanupReadDays !== undefined) await q('UPDATE server_settings SET cleanup_read_days = $1, updated_at = now() WHERE id = 1', [b.cleanupReadDays]);
     if (b.repairEnabled !== undefined) await q('UPDATE server_settings SET repair_enabled = $1, updated_at = now() WHERE id = 1', [b.repairEnabled]);
