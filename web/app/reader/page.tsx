@@ -355,6 +355,8 @@ function ReaderInner() {
   const [onCard, setOnCard] = useState(false);
   /** Panel view: the panel the next page opens on -- its last when the page was reached by turning back. */
   const panelFrom = useRef<'first' | 'last'>('first');
+  /** Panel view's own step, while it is on screen (components/PanelView.tsx stepRef). */
+  const panelStep = useRef<((d: 1 | -1) => void) | null>(null);
 
   const seriesId0 = chapters[0]?.seriesId || '';
   const setPref = (p: Partial<ReaderPrefs>) => {
@@ -865,12 +867,20 @@ function ReaderInner() {
   // `flat.length` the set never changes, so an expanded page of a DOWNLOADED chapter would sit on its number
   // placeholder forever. Invisible online, where the image URL always works.
   // Paged keeps its window of pages; the webtoon column's is by screens (above).
-  const activeSet = useMemo(
+  const windowSet_ = useMemo(
     () => (prefs.mode === 'vertical'
       ? windowSet(flat, win, current, MAX_WINDOW_PAGES)
       : renderWindow(flat, current, WINDOW_BEHIND, WINDOW_AHEAD)),
     [flat, current, win, prefs.mode],
   );
+  // Panel view draws its own strip of the page and its two neighbours over the track, so the track keeps a short window while it is
+  // on: the long one decoded nine full-size images beneath an overlay that decoded three more.
+  const activeSet = useMemo(() => {
+    if (!device.panelView || prefs.mode === 'vertical') return windowSet_;
+    const s = new Set<number>();
+    for (const i of windowSet_) if (i >= current - 1 && i <= current + 2) s.add(i);
+    return s;
+  }, [windowSet_, device.panelView, prefs.mode, current]);
 
   // ---- offline blob URLs within window ----
   const [, force] = useState(0);
@@ -1690,10 +1700,18 @@ function ReaderInner() {
     goChapter(prevId, true);
     return true;
   };
-  const perform = (action: ReaderAction, o: { tap?: boolean } = {}) => {
+  const perform = (action: ReaderAction, o: { tap?: boolean; track?: boolean } = {}) => {
     const el = scrollRef.current;
     if (PAGE_ACTIONS.has(action)) {
       if (!el) return;
+      // Panel view is laid over the track and owns the steps: a key or the controller moves one PANEL, over a page's edge to the next
+      // page (and back to the last panel of the one before), exactly as a tap on the screen's sides does. Turning the page underneath
+      // skipped every panel of it, and going back opened the previous page on its first panel.
+      // `track` is Panel view asking for the page underneath to turn (its own step ran out), which must not come back to it.
+      if (panelPage && panelStep.current && !o.track) {
+        panelStep.current((action === 'next' ? 1 : action === 'prev' ? -1 : (action === 'pageRight' ? 1 : -1) * trackSign) as 1 | -1);
+        return;
+      }
       // Vertical reading keys finish a tall page first; physical left/right and tap zones still turn its slide.
       if (prefs.mode === 'paged' && prefs.pagedFitWidth && !o.tap) {
         const pane = el.querySelector<HTMLElement>(`[data-paged-scroll="${slideNow()}"]`);
@@ -2440,7 +2458,7 @@ function ReaderInner() {
   })();
   const panelTurn = (d: 1 | -1) => {
     panelFrom.current = d < 0 ? 'last' : 'first';
-    perform(d > 0 ? 'next' : 'prev', { tap: true });
+    perform(d > 0 ? 'next' : 'prev', { tap: true, track: true });
   };
   useEffect(() => { panelFrom.current = 'first'; }, [current]);
   const upNextCard = (
@@ -2688,7 +2706,7 @@ function ReaderInner() {
       )}
 
       {panelPage && (
-        <PanelView pages={panelPage} current={current} rtl={rightFirst} filter={imgFilter} from={panelFrom.current}
+        <PanelView pages={panelPage} current={current} rtl={rightFirst} filter={imgFilter} from={panelFrom.current} stepRef={panelStep}
           reduceMotion={behavior !== 'smooth'} comfortPx={device.textComfort} onTurn={panelTurn} onChrome={() => setChrome((c) => !c)} onRetry={refreshEditedPages} />
       )}
 
