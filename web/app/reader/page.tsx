@@ -1302,7 +1302,7 @@ function ReaderInner() {
   const prevPos = useRef<{ ci: number } | null>(null);
   /** Bumped when a tap's page turn can no longer be taken back, so the progress below is read again. */
   const [turnSettled, setTurnSettled] = useState(0);
-  const sendProgress = useCallback((chId: string, sId: string, page: number, completed: boolean) => {
+  const sendProgress = useCallback((chId: string, sId: string, page: number, completed: boolean, keepalive = false) => {
     const actor=user?.id;if(!actor || getCurrentUser()!==actor)return;
     // `at` is what lets the server refuse a stale write. The offline outbox always sent it; the live path
     // never did, so every live ping took the "no timestamp" leg of the guard and applied unconditionally --
@@ -1310,11 +1310,30 @@ function ReaderInner() {
     const payload = { page, completed, seriesId: sId, deviceId: deviceId(), at: Date.now(), ...(incognitoRef.current ? { incognito: true } : {}) };
     // Alongside the write, not instead of it: this is what a downloaded chapter resumes from with no network.
     void noteOfflineProgress(chId, page, completed,actor);
-    api(`/api/books/${chId}/progress`, { method: 'PUT', json: payload,expectedOwnerId:actor }).catch(error=>{
+    api(`/api/books/${chId}/progress`, { method: 'PUT', json: payload,expectedOwnerId:actor, keepalive }).catch(error=>{
       if(!offlineAccountChanged(error)&&getCurrentUser()===actor)return queueProgress({ bookId: chId, ...payload },actor);
     });
   }, [user?.id]);
+  /** The page the 600 ms timer below has not sent yet. Leaving (or hiding the tab) inside that window used to lose it. */
+  const pendingProgress = useRef<{ chId: string; sId: string; page: number; tag: string } | null>(null);
+  const sendProgressRef = useRef(sendProgress);
+  sendProgressRef.current = sendProgress;
   useEffect(() => {
+    const flush = () => {
+      const p = pendingProgress.current;
+      if (!p) return;
+      pendingProgress.current = null;
+      lastSent.current = p.tag;
+      sendProgressRef.current(p.chId, p.sId, p.page, false, true);
+    };
+    const onVis = () => { if (document.visibilityState === 'hidden') flush(); };
+    window.addEventListener('pagehide', flush);
+    document.addEventListener('visibilitychange', onVis);
+    return () => { window.removeEventListener('pagehide', flush); document.removeEventListener('visibilitychange', onVis); flush(); };
+  }, []);
+  useEffect(() => {
+    // Whatever this effect's last run left unsent is superseded by what it works out now (a completion must not be followed by an older page).
+    pendingProgress.current = null;
     if (!ready || !flat.length) return;
     // A tap's page turn is not reading until a double-click can no longer take it back (lib/readerGesture.ts).
     // ⚠️ Completion goes out the moment a chapter's last page shows, so a slow mouse double-click whose first
@@ -1356,7 +1375,9 @@ function ReaderInner() {
       sendProgress(ch.id, ch.seriesId, ch.pages[ch.pages.length - 1]?.number ?? it.number, true);
       return;
     }
+    pendingProgress.current = { chId: ch.id, sId: ch.seriesId, page: it.number, tag };
     const t = setTimeout(() => {
+      pendingProgress.current = null;
       lastSent.current = tag;
       sendProgress(ch.id, ch.seriesId, it.number, false);
     }, 600);
@@ -1787,6 +1808,9 @@ function ReaderInner() {
     const t = setTimeout(() => {
       const el = scrollRef.current;
       if (!el) return;
+      // A hidden tab is not reading: turning on regardless ran the chapter to its end (and marked it read) behind the reader's back.
+      // The timer is re-armed instead, so it carries on from where it was once the tab is back.
+      if (document.hidden) { setAutoTick((n) => n + 1); return; }
       // The last slide is Up Next (or the failure card): the run ends there, paused, for the reader to decide.
       if (slideNow() >= Math.max(0, el.children.length - 1)) { setAutoPlaying(false); return; }
       performRef.current('next');

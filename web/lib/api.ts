@@ -169,6 +169,8 @@ interface Opts {
   /** A body sent as it is, for a route that takes the bytes themselves (a chapter upload): ignored beside `json`. */
   body?: BodyInit;
   signal?: AbortSignal;
+  /** Let the request outlive the page (a small write sent as the tab closes or goes to the background). */
+  keepalive?: boolean;
   headers?: Record<string, string>;
   /** Bind delayed or multi-request work to the account that started it. Never sent to the server. */
   expectedOwnerId?: string | null;
@@ -208,6 +210,7 @@ async function raw(path: string, opts: Opts, retry: boolean,
     body,
     credentials: 'include',
     signal: opts.signal,
+    ...(opts.keepalive ? { keepalive: true } : {}),
   });
   assertAccount(owner, epoch);
 
