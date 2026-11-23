@@ -438,3 +438,28 @@ test('blocked deleted chapters hide by id while their history and live files rem
     assert.deepEqual((await listingFor(id, { floor:null,admin:false })).blockedDeletedBookIds, [], 'unblock restores display immediately');
   } finally { await q('DELETE FROM lib_series WHERE id=$1', [id]); }
 });
+
+test('a listing that has not changed is not rewritten; any change is', { skip }, async () => {
+  // replaceListing used to delete and re-insert every row on every check, rewriting two jsonb columns per chapter to put the same bytes
+  // back. Postgres' xmin (the writing transaction) is the witness: untouched rows keep it. Reintroduce by always deleting: xmin moves.
+  const { replaceListing } = await import('../src/lib/seriesListing');
+  const G = 's_lst_same';
+  const copy = (n: number) => ({ sourceId: `g/${n}`, source: PRI, groups: ['A'], scanlator: 'A', lang: 'en', pages: 10, publishedAt: '2026-01-01T00:00:00.000Z' });
+  const row = (n: number, title = `Chapter ${n}`) => ({ number: n, title, publishedAt: '2026-01-01T00:00:00.000Z', scanlator: 'A', groups: ['A'], sourceId: PRI,
+    chosen: { sourceId: `g/${n}`, number: n, title }, copies: [copy(n)], status: 'available' as const });
+  await q('DELETE FROM lib_series WHERE id = $1', [G]);
+  await q(`INSERT INTO lib_series (id, source, title, folder, books_count, library_id) VALUES ($1,'T!lst','Same Series','T!lst/Same Series',0,$2)`, [G, LIB]);
+  try {
+    await replaceListing(G, [row(1), row(2.5)]);
+    const xmins = async () => (await q<{ x: string }>('SELECT xmin::text AS x FROM series_listing WHERE series_id = $1 ORDER BY number', [G])).map((r) => r.x).join();
+    const before = await xmins();
+    await replaceListing(G, [row(2.5), row(1)]);
+    assert.equal(await xmins(), before, 'the same listing wrote nothing');
+    await replaceListing(G, [row(1), row(2.5, 'A new title')]);
+    assert.notEqual(await xmins(), before, 'a changed title rewrote the listing');
+    const t = (await q<{ title: string }>('SELECT title FROM series_listing WHERE series_id = $1 AND number = 2.5', [G]))[0].title;
+    assert.equal(t, 'A new title');
+  } finally {
+    await q('DELETE FROM lib_series WHERE id = $1', [G]);
+  }
+});

@@ -15,6 +15,7 @@
 // A number's row is also the authorisation for a manual fetch: a client names numbers, and only a number
 // the sources listed at the last check can be asked for -- the same footing as the fill plan, and the
 // same reason (a chapter URL never crosses the wire).
+import { isDeepStrictEqual } from 'node:util';
 import { q, one, tx } from './db';
 import { getSource, type SourceChapter } from './sources';
 import { chooseReleases, groupsOf, mergePrefs, normGroup, releaseOrder, type ChooseOpts, type ReleasePrefs, type StoredPrefs } from './releases';
@@ -340,6 +341,32 @@ const CHUNK = 500;
  * listing: the DELETE and the INSERTs commit together or not at all. Chunked because a long-running series
  * lists a thousand numbers and one VALUES list of that size is past what the driver should be handed.
  */
+type ListingQ = <R = any>(text: string, params?: any[]) => Promise<R[]>;
+const dateOf = (v: unknown): string | null => {
+  if (v == null) return null;
+  const t = v instanceof Date ? v.getTime() : Date.parse(String(v));
+  return Number.isFinite(t) ? new Date(t).toISOString() : null;
+};
+async function sameListing(qq: ListingQ, seriesId: string, resolved: ReadonlyArray<ListingRow>): Promise<boolean> {
+  const have = await qq<any>(
+    `SELECT number, title, published_at, scanlator, groups, source_id, chosen, status, copies, unblocked_status
+       FROM series_listing WHERE series_id = $1 ORDER BY number`, [seriesId]);
+  if (have.length !== resolved.length) return false;
+  const mine = [...resolved].sort((a, b) => a.number - b.number);
+  for (let i = 0; i < mine.length; i++) {
+    const r = mine[i], h = have[i];
+    if (Math.fround(Number(h.number)) !== Math.fround(r.number)) return false;
+    if ((h.title ?? null) !== (r.title ?? null) || (h.scanlator ?? null) !== (r.scanlator ?? null) || h.source_id !== r.sourceId
+      || h.status !== r.status || (h.unblocked_status ?? null) !== (r.unblockedStatus ?? null)) return false;
+    if (dateOf(h.published_at) !== dateOf(r.publishedAt)) return false;
+    if (!isDeepStrictEqual(h.groups ?? [], r.groups ?? [])) return false;
+    // JSON round trip on our side too: undefined fields vanish in the stored jsonb, so they must vanish here.
+    if (!isDeepStrictEqual(h.chosen, JSON.parse(JSON.stringify(r.chosen)))) return false;
+    if (!isDeepStrictEqual(h.copies, JSON.parse(JSON.stringify(r.copies)))) return false;
+  }
+  return true;
+}
+
 export async function replaceListing(seriesId: string, rows: ListingRow[]): Promise<void> {
   await tx(async (qq) => {
     // ⚠️ The series row first, then its listing rows: the order a delete of the series takes them in (the row,
@@ -355,8 +382,12 @@ export async function replaceListing(seriesId: string, rows: ListingRow[]): Prom
     const decision = await lockedDecision(qq, seriesId);
     if (!decision) return;
     const resolved = rows.map((r) => resolveListingRow(r, decision.prefs, decision.opts));
-    await qq('DELETE FROM series_listing WHERE series_id = $1', [seriesId]);
-    for (let i = 0; i < resolved.length; i += CHUNK) {
+    // Most checks find the listing exactly as it was. Deleting and re-inserting it then rewrote every row's two jsonb columns (TOAST and
+    // WAL churn, and table bloat on the most-read table) to put the same bytes back. The comparison is by value, key order ignored (jsonb
+    // does not keep it); any difference at all falls through to the whole replacement as before.
+    const unchanged = await sameListing(qq, seriesId, resolved);
+    if (!unchanged) await qq('DELETE FROM series_listing WHERE series_id = $1', [seriesId]);
+    for (let i = 0; !unchanged && i < resolved.length; i += CHUNK) {
       const params: any[] = [seriesId];
       const tuples: string[] = [];
       for (const r of resolved.slice(i, i + CHUNK)) {
