@@ -21,7 +21,18 @@ export type KeepResult = 'kept' | 'already' | 'is_endorsed' | 'no_book' | 'not_f
  * (its own or an extra, lib/seriesSources.ts) and list the chapter. A copy the endorsed file already is -- the source the
  * endorsed chapter came from -- is not stored twice. Throws what the downloader throws.
  */
+const keeping = new Set<string>();
 export async function keepVersion(seriesId: string, number: number, sourceId: string, listings?: ListingCache): Promise<KeepResult> {
+  // One keeper per copy at a time: a double click on the version row, or the 30-minute pass meeting a click, would otherwise both
+  // download the same file into the same place (the second as a replace of the first). The second caller's answer is 'already': what
+  // it asked for is being done.
+  const key = `${seriesId}|${number}|${sourceId}`;
+  if (keeping.has(key)) return 'already';
+  keeping.add(key);
+  try { return await keepVersionNow(seriesId, number, sourceId, listings); } finally { keeping.delete(key); }
+}
+
+async function keepVersionNow(seriesId: string, number: number, sourceId: string, listings?: ListingCache): Promise<KeepResult> {
   const s = await one<{ folder: string; title: string; colored_ref_source: string | null; colored_ref_series: string | null }>(
     'SELECT folder, title, colored_ref_source, colored_ref_series FROM lib_series WHERE id = $1', [seriesId]);
   if (!s) return 'no_book';
