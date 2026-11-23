@@ -11,6 +11,7 @@ import { z } from 'zod';
 import { authenticate, requireAdmin, userIdOf } from '../lib/auth';
 import { one, q } from '../lib/db';
 import { nameKey } from '../lib/onlineMatch';
+import { browsableIds, viewCtxFor } from '../lib/visibility';
 import { notifyAdmins, notifyUser } from '../lib/push';
 import { emailUser } from '../lib/notify/readerEmail';
 
@@ -24,14 +25,22 @@ async function reconcile(): Promise<void> {
   const series = await q<{ id: string; title: string; anilist_id: string | null; english: string | null; romaji: string | null }>(
     `SELECT s.id, s.title, o.anilist_id, o.english, o.romaji FROM lib_series s LEFT JOIN series_other_titles o ON o.series_id = s.id
       WHERE s.deleted_at IS NULL AND s.merged_into IS NULL`).catch(() => []);
-  const byAniList = new Map<string, string>();
-  const byKey = new Map<string, string>();
+  // Every series that could answer a request, by AniList entry and by folded title -- not just the first: the first may be one the
+  // reader cannot see (a private library, above their age cap), and a request must never be answered with, or tell its reader about, that.
+  const byAniList = new Map<string, string[]>();
+  const byKey = new Map<string, string[]>();
+  const push = (m: Map<string, string[]>, k: string, id: string) => { const l = m.get(k); if (!l) m.set(k, [id]); else if (!l.includes(id)) l.push(id); };
   for (const s of series) {
-    if (s.anilist_id) byAniList.set(String(s.anilist_id), s.id);
-    for (const t of [s.title, s.english, s.romaji]) { const k = nameKey(t); if (k && !byKey.has(k)) byKey.set(k, s.id); }
+    if (s.anilist_id) push(byAniList, String(s.anilist_id), s.id);
+    for (const t of [s.title, s.english, s.romaji]) { const k = nameKey(t); if (k) push(byKey, k, s.id); }
   }
+  const candidates = (r: Row): string[] => [...(r.anilist_id != null ? byAniList.get(String(r.anilist_id)) ?? [] : []), ...(byKey.get(r.title_key) ?? [])];
+  const roles = new Map((await q<{ id: string; role: string }>('SELECT id, role FROM users WHERE id = ANY($1)', [[...new Set(open.map((r) => r.user_id))]]).catch(() => [])).map((u) => [u.id, u.role]));
   for (const r of open) {
-    const hit = (r.anilist_id != null ? byAniList.get(String(r.anilist_id)) : undefined) ?? byKey.get(r.title_key);
+    const cand = candidates(r);
+    if (!cand.length) continue;
+    const allowed = await browsableIds(cand, await viewCtxFor(r.user_id, roles.get(r.user_id) ?? 'user')).catch(() => new Set<string>());
+    const hit = cand.find((id) => allowed.has(id));
     if (!hit) continue;
     const done = await one<{ id: string }>(
       `UPDATE series_requests SET status = 'added', series_id = $2, resolved_at = now() WHERE id = $1 AND status = 'open' RETURNING id`, [r.id, hit]);
@@ -41,6 +50,8 @@ async function reconcile(): Promise<void> {
     }
   }
 }
+
+const MAX_OPEN_PER_READER = 50;
 
 const dto = (r: Row) => ({
   id: r.id, title: r.title, anilistId: r.anilist_id, coverUrl: r.cover_url, note: r.note, status: r.status, seriesId: r.series_id,
@@ -66,6 +77,9 @@ export default async function requestRoutes(app: FastifyInstance) {
       `SELECT * FROM series_requests WHERE user_id = $1 AND status = 'open' AND (title_key = $2 OR ($3::int IS NOT NULL AND anilist_id = $3::int))`,
       [uid, key, b.data.anilistId ?? null]);
     if (mine) return { request: dto(mine), already: true };
+    // Each new request tells every admin by push, so one account cannot make an unbounded number of them.
+    const openCount = await one<{ n: number }>(`SELECT count(*)::int AS n FROM series_requests WHERE user_id = $1 AND status = 'open'`, [uid]);
+    if ((openCount?.n ?? 0) >= MAX_OPEN_PER_READER) return reply.code(429).send({ error: 'too_many_requests', message: 'You have a lot of open requests already. Wait for some to be answered.' });
     const row = await one<Row>(
       `INSERT INTO series_requests (id, user_id, title, title_key, anilist_id, cover_url, note) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
       [`rq_${randomUUID().replace(/-/g, '').slice(0, 20)}`, uid, b.data.title, key, b.data.anilistId ?? null, b.data.coverUrl ?? null, b.data.note || null]);
