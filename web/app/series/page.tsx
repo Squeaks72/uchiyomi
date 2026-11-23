@@ -3166,10 +3166,16 @@ function SelectBarRoom() {
     : <div aria-hidden className="h-40 lg:h-24" />;
 }
 
+/** Keyed by the series: going from one series to another remounts the page, so none of its state (selection, filters, open sheets, in-flight answers) is the previous series'. */
+function KeyedSeries() {
+  const id = useSearchParams().get('id') || '';
+  return <SeriesInner key={id} />;
+}
+
 export default function SeriesPage() {
   return (
     <Suspense fallback={<div className="min-h-screen-d" />}>
-      <SeriesInner />
+      <KeyedSeries />
     </Suspense>
   );
 }
