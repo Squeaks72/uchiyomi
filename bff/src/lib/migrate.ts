@@ -2489,6 +2489,14 @@ CREATE TABLE IF NOT EXISTS user_book_version (
   updated_at timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (user_id, book_id)
 );
+-- Lookups and cascade/RESTRICT checks that arrive by the SECOND key column. The composite primary keys lead with user_id, so
+-- without these every lib_books / lib_series delete (rescan prune, extra-copy removal, Forget) seq-scans these tables.
+CREATE INDEX IF NOT EXISTS idx_rp_book ON read_progress(book_id);
+CREATE INDEX IF NOT EXISTS idx_ubv_book ON user_book_version(book_id);
+CREATE INDEX IF NOT EXISTS idx_fav_series ON favorites(series_id);
+CREATE INDEX IF NOT EXISTS idx_ratings_series ON ratings(series_id);
+CREATE INDEX IF NOT EXISTS idx_collitems_series ON collection_items(series_id);
+CREATE INDEX IF NOT EXISTS idx_audit_event_at ON audit_log(event, at DESC);
 -- An admin's endorsement of one chapter's copy (the version rows' "Endorse this version"): which source's copy is the chapter's file,
 -- where it differs from the series' main source. Without a row, the main source's copy is endorsed (lib/endorse.ts).
 CREATE TABLE IF NOT EXISTS series_chapter_endorse (
