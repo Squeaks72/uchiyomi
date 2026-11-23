@@ -6,6 +6,9 @@ import { one, q } from '../lib/db';
 import { mailTo, newCode, readerAccount } from '../lib/notify/readerEmail';
 
 const MAILBOX = /^[^\s@<>(),;:"]+@[^\s@<>(),;:"]+\.[^\s@<>(),;:"]+$/;
+/** A confirmation code lives this long, and dies after this many wrong guesses (six digits is only a million). */
+const CODE_MINUTES = 15;
+const MAX_TRIES = 5;
 /** At most this many emails a reader may cause in an hour: codes and tests together. */
 const PER_HOUR = 5;
 
@@ -37,7 +40,7 @@ export default async function readerEmailRoutes(app: FastifyInstance) {
     const uid = userIdOf(req);
     if (!(await spend(uid))) return reply.code(429).send({ error: 'rate_limited', message: 'Too many emails this hour. Try again later.' });
     const code = newCode();
-    await q('UPDATE users SET notify_email = $2, notify_email_verified_at = NULL, notify_email_code = $3 WHERE id = $1', [uid, b.data.address, code]);
+    await q('UPDATE users SET notify_email = $2, notify_email_verified_at = NULL, notify_email_code = $3, notify_email_code_issued_at = now(), notify_email_code_tries = 0 WHERE id = $1', [uid, b.data.address, code]);
     const res = await mailTo(b.data.address, `Your code: ${code}`, `Enter ${code} in Uchiyomi to confirm this address for notifications.\n\nIf you did not ask for this, ignore this email.`);
     if (!res.ok) return reply.code(502).send({ error: 'send_failed', message: 'The email could not be sent. Check the address, or ask the admin.' });
     return { sent: true };
@@ -47,9 +50,20 @@ export default async function readerEmailRoutes(app: FastifyInstance) {
   app.post('/api/me/email/verify', async (req, reply) => {
     const b = z.object({ code: z.string().trim().regex(/^\d{6}$/) }).safeParse(req.body);
     if (!b.success) return reply.code(400).send({ error: 'bad_code' });
-    const r = await q(`UPDATE users SET notify_email_verified_at = now(), notify_email_code = NULL
-                        WHERE id = $1 AND notify_email_code = $2 RETURNING id`, [userIdOf(req), b.data.code]);
-    if (!r.length) return reply.code(400).send({ error: 'wrong_code', message: 'That code is not right.' });
+    const uid = userIdOf(req);
+    // Every guess is counted BEFORE it is compared, in one statement, so parallel guesses cannot out-run the limit.
+    const t = await one<{ code: string; tries: number; fresh: boolean }>(
+      `UPDATE users SET notify_email_code_tries = notify_email_code_tries + 1
+        WHERE id = $1 AND notify_email_code IS NOT NULL
+        RETURNING notify_email_code AS code, notify_email_code_tries AS tries,
+                  (notify_email_code_issued_at IS NOT NULL AND notify_email_code_issued_at > now() - make_interval(mins => $2::int)) AS fresh`, [uid, CODE_MINUTES]);
+    if (!t) return reply.code(400).send({ error: 'wrong_code', message: 'That code is not right.' });
+    if (!t.fresh || t.tries > MAX_TRIES) {
+      await q('UPDATE users SET notify_email_code = NULL WHERE id = $1', [uid]);
+      return reply.code(400).send({ error: 'code_expired', message: 'That code has expired. Ask for a new one.' });
+    }
+    if (t.code !== b.data.code) return reply.code(400).send({ error: 'wrong_code', message: 'That code is not right.' });
+    await q('UPDATE users SET notify_email_verified_at = now(), notify_email_code = NULL WHERE id = $1', [uid]);
     return { verified: true };
   });
 
