@@ -1406,8 +1406,8 @@ export default async function catalogRoutes(app: FastifyInstance) {
 
   // Mark or un-mark one page by hand. A person's call outranks the heuristic in both directions.
   app.put('/api/books/:id/pages/:n/junk', async (req, reply) => {
-    // The flag is shared by every account, so only an admin may set it.
-    if (roleOf(req) !== 'admin') return reply.code(403).send({ error: 'forbidden' });
+    // The flag is shared by every account, so only an admin may set it (and a write-scoped API token of theirs is not enough).
+    if (!actsAsAdmin(req)) return reply.code(403).send({ error: 'forbidden' });
     const { id, n } = req.params as { id: string; n: string };
     const page = Number(n);
     const body = (req.body ?? {}) as { junk?: boolean | null };
