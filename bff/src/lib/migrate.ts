@@ -2541,6 +2541,9 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS notify_email text;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS notify_email_verified_at timestamptz;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS notify_email_code text;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS notify_email_code_at timestamptz;
+-- When the code was issued and how many guesses it has taken: a six-digit code is guessable without both (it expires, and dies after a few misses).
+ALTER TABLE users ADD COLUMN IF NOT EXISTS notify_email_code_issued_at timestamptz;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS notify_email_code_tries int NOT NULL DEFAULT 0;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS notify_email_sends int NOT NULL DEFAULT 0;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS notify_email_on boolean NOT NULL DEFAULT true;
 ALTER TABLE server_settings ADD COLUMN IF NOT EXISTS reader_email_target uuid REFERENCES notify_targets(id) ON DELETE SET NULL;
