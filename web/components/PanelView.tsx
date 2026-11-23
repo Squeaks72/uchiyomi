@@ -50,7 +50,7 @@ export interface PanelPage {
   textH?: number | null;
 }
 
-export function PanelView({ pages, current, rtl, filter, from, reduceMotion, comfortPx = DEFAULT_COMFORT_PX, onTurn, onChrome, onRetry }: {
+export function PanelView({ pages, current, rtl, filter, from, reduceMotion, comfortPx = DEFAULT_COMFORT_PX, onTurn, onChrome, onRetry, stepRef }: {
   /** The current page and the ones either side that exist, by index in the reading flow. */
   pages: PanelPage[];
   current: number;
@@ -66,6 +66,8 @@ export function PanelView({ pages, current, rtl, filter, from, reduceMotion, com
   onTurn: (dir: 1 | -1) => void;
   onChrome: () => void;
   onRetry?: ReaderImageRetry;
+  /** Filled with this view's own step (forward 1, back -1), so the reader's keys and controller move panel by panel as a tap does, not a page at a time. */
+  stepRef?: { current: ((d: 1 | -1) => void) | null };
 }) {
   const [sizes, setSizes] = useState<Record<string, { w: number; h: number }>>({});
   const [results, setResults] = useState<Record<string, Found>>({});
@@ -91,6 +93,10 @@ export function PanelView({ pages, current, rtl, filter, from, reduceMotion, com
   const dirKey = rtl ? 'r' : 'l';
   // Pages the server has already answered for: not read again here.
   const served = useRef(new Set<string>());
+  const alive = useRef(true);
+  useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
+  /** The page on screen, for `loaded` below (declared before `cur`). */
+  const curKey = useRef<string | null>(null);
   served.current = new Set(pages.filter((p) => p.panels !== undefined).map((p) => p.key));
   const loaded = useCallback((key: string, img: HTMLImageElement) => {
     if (img.naturalWidth && img.naturalHeight) {
@@ -98,17 +104,26 @@ export function PanelView({ pages, current, rtl, filter, from, reduceMotion, com
     }
     if (served.current.has(key)) return;
     const ck = `${key}|${dirKey}`;
-    let f = found.get(ck);
-    if (!f) {
-      f = panelsOfImage(img, rtl);
-      if (found.size > 400) found.delete(found.keys().next().value as string);
-      found.set(ck, f);
-    }
-    const got = f;
-    setResults((m) => (m[ck] === got ? m : { ...m, [ck]: got }));
+    const analyse = () => {
+      if (!alive.current) return;
+      let f = found.get(ck);
+      if (!f) {
+        f = panelsOfImage(img, rtl);
+        if (found.size > 400) found.delete(found.keys().next().value as string);
+        found.set(ck, f);
+      }
+      const got = f;
+      setResults((m) => (m[ck] === got ? m : { ...m, [ck]: got }));
+    };
+    // The page on screen is read at once -- its frames are what the camera is waiting for. A neighbour's read (a canvas readback and a
+    // flood fill of the whole page) waits for an idle moment, so it never lands in the middle of a page turn's pan.
+    if (found.has(ck) || key === curKey.current) { analyse(); return; }
+    const ric = (window as unknown as { requestIdleCallback?: (f: () => void, o?: { timeout: number }) => number }).requestIdleCallback;
+    if (ric) ric(analyse, { timeout: 400 }); else setTimeout(analyse, 80);
   }, [dirKey, rtl]);
 
   const cur = pages.find((p) => p.i === current);
+  curKey.current = cur?.key ?? null;
   const sizeOf = (p: PanelPage) => sizes[p.key] ?? (p.width && p.height ? { w: p.width, h: p.height } : null);
   // A page whose shape is not known yet is drawn as a typical one, and laid out again once it loads.
   const worldOf = (p: PanelPage) => {
@@ -151,6 +166,9 @@ export function PanelView({ pages, current, rtl, filter, from, reduceMotion, com
     if (n < 0 || n >= frames.length) { onTurn(d); return; }
     setPick({ key: cur.key, i: n });
   };
+
+  if (stepRef) stepRef.current = step;
+  useEffect(() => () => { if (stepRef) stepRef.current = null; }, [stepRef]);
 
   // ---- gestures ----
   const down = useRef<{ x: number; y: number; t: number } | null>(null);
