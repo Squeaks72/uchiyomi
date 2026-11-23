@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { q } from '../lib/db';
 import { content as komga } from '../lib/backend';
 import { viewCtxFor, type ViewCtx, hideAdult } from '../lib/visibility';
-import { authenticate, userIdOf, roleOf } from '../lib/auth';
+import { actsAsAdmin, authenticate, userIdOf, roleOf } from '../lib/auth';
 import { TIER_ORDER, TIERS, modelReady, type Tier } from '../lib/panelDetect';
 import { nextTier, panelRows, panelState, requestDetect, requestHarder } from '../lib/panelJob';
 
@@ -21,7 +21,7 @@ export default async function panelRoutes(app: FastifyInstance) {
     (req as any).viewCtx = await viewCtxFor(userIdOf(req), roleOf(req), { hideAdult: hideAdult(req) });
   });
   const vc = (req: any): ViewCtx => req.viewCtx as ViewCtx;
-  const adminOnly = (req: any, reply: any) => (roleOf(req) === 'admin' ? false : (reply.code(403).send({ error: 'forbidden' }), true));
+  const adminOnly = (req: any, reply: any) => (actsAsAdmin(req) ? false : (reply.code(403).send({ error: 'forbidden' }), true));
 
   /** The chapter's page count when the caller may open it -- the same gate as the page list; 0 otherwise. */
   const openable = async (req: any, id: string): Promise<number> => {
