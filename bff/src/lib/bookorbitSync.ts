@@ -298,7 +298,11 @@ export async function runSync(opts: { full?: boolean } = {}): Promise<Result | n
   } catch (e) {
     res.error = (e as Error).message;
     res.ms = Date.now() - t0;
-    await q('UPDATE bookorbit_link SET last_error = $1, last_result = $2 WHERE user_id = $3', [res.error, JSON.stringify(res), link.user_id]).catch(() => {});
+    // A FULL pass that failed would otherwise stay "due" and run again on the very next tick (every 30 s), each time reading every
+    // chapter of both sides. Stamp it as if it had run 5h50m ago: the next full pass is ten minutes away, and the ticks between are
+    // the cheap incremental ones.
+    await q(`UPDATE bookorbit_link SET last_error = $1, last_result = $2${res.full ? ", full_at = now() - interval '5 hours 50 minutes'" : ''} WHERE user_id = $3`,
+      [res.error, JSON.stringify(res), link.user_id]).catch(() => {});
     return res;
   } finally {
     running = false;
