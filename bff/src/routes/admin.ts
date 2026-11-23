@@ -6155,6 +6155,8 @@ export interface RefetchOpts {
   beforeSetAside?: (rows: Array<{ id: string; number: number; abs: string; source: string }>) => Promise<void>;
   /** Called per row whose new copy landed. */
   onLanded?: (bookId: string) => Promise<void>;
+  /** Called per row whose copy did NOT land (failed, or cancelled), after the old file is put back. The job runs detached, so this is the only way a caller learns of it. */
+  onFailed?: (bookId: string) => Promise<void> | void;
 }
 
 /**
@@ -6347,6 +6349,7 @@ export async function refetchChapters(
           const exists = (p: string) => stat(p).then(() => true, () => false);
           if (await exists(bak) && !(await exists(r.abs))) await rename(bak, r.abs).catch(() => {});
           if (await exists(r.abs)) await q('UPDATE lib_books SET pruned_at = NULL WHERE id = $1', [r.id]).catch(() => {});
+          if (opts.onFailed) await Promise.resolve(opts.onFailed(r.id)).catch(() => {});
         },
       }, claim);
       return done(200, { ok: true, started: true, folder: s.folder, total, skipped });
