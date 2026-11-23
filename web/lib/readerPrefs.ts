@@ -254,6 +254,29 @@ function allSeriesPrefs(): Record<string, SeriesPrefs> {
 
 const SOURCE_KEY = 'yomi_rp_';
 
+const OWNER_KEY = 'yomi_prefs_owner';
+/**
+ * The reader settings held in this browser belong to ONE account: they are synced to its settings row. On a shared device another
+ * profile that signed in used to inherit the previous one's global settings and per-series and per-source looks, and then pushed them
+ * into ITS OWN row. Called at every sign-in with the account's id: when the browser's copy was last claimed by someone else it is
+ * emptied (the server's copy for the account arrives with the next sync); the first claim after an update just records the owner.
+ */
+export function claimReaderPrefs(userId: string): void {
+  if (typeof window === 'undefined' || !userId) return;
+  try {
+    const owner = localStorage.getItem(OWNER_KEY);
+    if (owner && owner !== userId) {
+      const drop: string[] = [KEY];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && (k.startsWith('yomi_rs_') || k.startsWith(SOURCE_KEY))) drop.push(k);
+      }
+      for (const k of drop) localStorage.removeItem(k);
+    }
+    if (owner !== userId) localStorage.setItem(OWNER_KEY, userId);
+  } catch { /* storage unavailable: nothing is kept here to mix up */ }
+}
+
 // ---- per-series memory (mode/theme/zoom remembered per title) ----
 export interface SeriesPrefs {
   mode?: ReaderPrefs['mode'];
