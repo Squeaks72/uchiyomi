@@ -126,7 +126,13 @@ async function session(tier: Tier): Promise<Session> {
   return s;
 }
 /** Drop the loaded models (a model is tens of MB of WebAssembly memory; the nightly pass ends with this). */
-export function releaseModels(): void { sessions.clear(); }
+export function releaseModels(): void {
+  // Forgetting the Session is not enough: onnxruntime-web keeps its WebAssembly heap until `release()` is called on it, so every
+  // load after the first used to pile a fresh copy on top of the last. Release each one, whenever it finishes loading.
+  const old = [...sessions.values()];
+  sessions.clear();
+  for (const p of old) void p.then((s) => s.release()).catch(() => {});
+}
 
 function iou(a: Box, b: Box): number {
   const w = Math.max(0, Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x));
