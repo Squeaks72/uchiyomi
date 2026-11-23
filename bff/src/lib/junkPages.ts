@@ -37,26 +37,38 @@ export async function sourceAdHashes(sourceId: string): Promise<Set<string>> {
   return hashes;
 }
 
+/**
+ * The series' repeated-page hashes (pageHash.ts junkHashes), kept for two minutes. It reads EVERY hashed page of the series -- tens of
+ * thousands of rows for a long one -- and used to be redone on each chapter open. A person's own mark never goes through this (it is
+ * read per chapter below), and the hash job only adds rows, so a stale set can at worst skip a new repeat two minutes late.
+ */
+const SERIES_JUNK_TTL_MS = 2 * 60_000;
+const SERIES_JUNK_MAX = 200;
+const seriesJunk = new Map<string, { at: number; junk: Set<string> }>();
+export function forgetSeriesJunk(seriesId?: string): void { if (seriesId) seriesJunk.delete(seriesId); else seriesJunk.clear(); }
+async function junkOfSeries(seriesId: string): Promise<Set<string>> {
+  const hit = seriesJunk.get(seriesId);
+  if (hit && Date.now() - hit.at < SERIES_JUNK_TTL_MS) return hit.junk;
+  const rows = await q<{ book_id: string; page: number; hash: string }>(
+    `SELECT p.book_id, p.page, p.hash FROM page_hashes p JOIN lib_books b ON b.id = p.book_id WHERE b.series_id = $1 AND p.hash IS NOT NULL`, [seriesId]);
+  const junk = junkHashes(rows.map((r) => ({ bookId: r.book_id, page: r.page, hash: r.hash })));
+  if (seriesJunk.size >= SERIES_JUNK_MAX) seriesJunk.delete(seriesJunk.keys().next().value as string);
+  seriesJunk.set(seriesId, { at: Date.now(), junk });
+  return junk;
+}
+
 export async function junkPagesFor(bookId: string): Promise<Set<number>> {
   const bySource = await sourceGifPages(bookId);
-  const me = await q<{ source_id: string | null; pages: number }>('SELECT source_id, pages FROM lib_books WHERE id = $1', [bookId]).catch(() => []);
+  const me = await q<{ series_id: string; source_id: string | null; pages: number }>('SELECT series_id, source_id, pages FROM lib_books WHERE id = $1', [bookId]).catch(() => []);
   const ads = me[0]?.source_id ? await sourceAdHashes(me[0].source_id) : new Set<string>();
   // A chapter whose page count is not stored yet (0) has its last page from its own hashed rows.
   let total = me[0]?.pages ?? 0;
   const edge = (page: number) => page <= 2 || (total > 4 && page >= total - 1);
   const rows = await q<{ book_id: string; page: number; hash: string | null; override: boolean | null }>(
-    `SELECT p.book_id, p.page, p.hash, p.override
-       FROM page_hashes p
-       JOIN lib_books b ON b.id = p.book_id
-      WHERE b.series_id = (SELECT series_id FROM lib_books WHERE id = $1)`,
-    [bookId],
-  ).catch(() => []);
+    'SELECT book_id, page, hash, override FROM page_hashes WHERE book_id = $1', [bookId]).catch(() => []);
   if (!rows.length) return bySource;
-  if (!total) total = rows.reduce((m, r) => (r.book_id === bookId && r.page > m ? r.page : m), 0);
-
-  const junk = junkHashes(
-    rows.filter((r) => r.hash).map((r) => ({ bookId: r.book_id, page: r.page, hash: r.hash as string })),
-  );
+  if (!total) total = rows.reduce((m, r) => (r.page > m ? r.page : m), 0);
+  const junk = me[0] ? await junkOfSeries(me[0].series_id).catch(() => new Set<string>()) : new Set<string>();
 
   const byHand = new Set<number>();
   const rescued = new Set<number>();
