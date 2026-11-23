@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ReaderImg } from '@/components/ReaderPage';
 import { t as tr } from '@/lib/i18n';
-import { DEFAULT_COMFORT_PX, WHOLE_PAGE, cameraOf, framingPanels, legibleCap, panelsOfImage, serverPanels, type Box } from '@/lib/readerPanels';
+import { DEFAULT_COMFORT_PX, WHOLE_PAGE, cameraOf, framingPanels, legibleCap, serverPanels, type Box } from '@/lib/readerPanels';
 import type { ReaderImageRetry } from '@/lib/readerImageRetry';
 
 /**
@@ -21,20 +21,16 @@ import type { ReaderImageRetry } from '@/lib/readerImageRetry';
  * would, and `current` follows. The camera then glides to the next page's first frame (or the previous page's last, going
  * back, `from`). Only the current page and its two neighbours are drawn.
  *
- * A page's frames are its panels (lib/readerPanels.ts, found once it has loaded, kept for the session) -- preceded by the
+ * A page's frames are its panels (the server's, bff panel detection, carried in the page list) -- preceded by the
  * whole page when something on it is bigger than a panel: a double-page spread, a figure across the gutters, one panel that
- * is most of the page (`analyzePage`'s `overview`). No panels -- a splash, full-bleed art, no clear gutters -- and the page
- * is its own single frame, and a tap on an edge turns it.
+ * is most of the page (`serverPanels`' `overview`). No panels -- a splash, full-bleed art, no clear gutters, or a page the server has
+ * not looked at yet -- and the page is its own single frame, and a tap on an edge turns it.
  *
  * Gestures, all here since this sits over the track: a tap on the forward side steps on, the back side steps back, the
  * middle toggles the controls; a swipe steps; a double tap in the middle shows the whole page and again returns to the
  * panels. ⚠️ A double tap is only ever read in the middle -- the edges act at once, or a quick run of taps to catch up
  * on a page would wait out the double-tap window on every one.
  */
-
-interface Found { panels: Box[]; overview: boolean }
-/** What was found, by page and direction, for the session: stepping back to a page does not read its pixels again. */
-const found = new Map<string, Found>();
 
 const DOUBLE_MS = 280;
 const SWIPE_PX = 48;
@@ -70,7 +66,6 @@ export function PanelView({ pages, current, rtl, filter, from, reduceMotion, com
   stepRef?: { current: ((d: 1 | -1) => void) | null };
 }) {
   const [sizes, setSizes] = useState<Record<string, { w: number; h: number }>>({});
-  const [results, setResults] = useState<Record<string, Found>>({});
   const [view, setView] = useState({ w: 0, h: 0 });
   const [pick, setPick] = useState<{ key: string; i: number } | null>(null);
   const [whole, setWhole] = useState(false);
@@ -90,40 +85,14 @@ export function PanelView({ pages, current, rtl, filter, from, reduceMotion, com
   // The whole-page look is for the page it was asked on.
   useEffect(() => { setWhole(false); }, [current]);
 
-  const dirKey = rtl ? 'r' : 'l';
-  // Pages the server has already answered for: not read again here.
-  const served = useRef(new Set<string>());
-  const alive = useRef(true);
-  useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
-  /** The page on screen, for `loaded` below (declared before `cur`). */
-  const curKey = useRef<string | null>(null);
-  served.current = new Set(pages.filter((p) => p.panels !== undefined).map((p) => p.key));
+  // A page's real size, once its image has loaded: the strip lays pages out by shape, and a page whose shape is not yet known is a typical one.
   const loaded = useCallback((key: string, img: HTMLImageElement) => {
     if (img.naturalWidth && img.naturalHeight) {
       setSizes((s) => (s[key]?.w === img.naturalWidth && s[key]?.h === img.naturalHeight ? s : { ...s, [key]: { w: img.naturalWidth, h: img.naturalHeight } }));
     }
-    if (served.current.has(key)) return;
-    const ck = `${key}|${dirKey}`;
-    const analyse = () => {
-      if (!alive.current) return;
-      let f = found.get(ck);
-      if (!f) {
-        f = panelsOfImage(img, rtl);
-        if (found.size > 400) found.delete(found.keys().next().value as string);
-        found.set(ck, f);
-      }
-      const got = f;
-      setResults((m) => (m[ck] === got ? m : { ...m, [ck]: got }));
-    };
-    // The page on screen is read at once -- its frames are what the camera is waiting for. A neighbour's read (a canvas readback and a
-    // flood fill of the whole page) waits for an idle moment, so it never lands in the middle of a page turn's pan.
-    if (found.has(ck) || key === curKey.current) { analyse(); return; }
-    const ric = (window as unknown as { requestIdleCallback?: (f: () => void, o?: { timeout: number }) => number }).requestIdleCallback;
-    if (ric) ric(analyse, { timeout: 400 }); else setTimeout(analyse, 80);
-  }, [dirKey, rtl]);
+  }, []);
 
   const cur = pages.find((p) => p.i === current);
-  curKey.current = cur?.key ?? null;
   const sizeOf = (p: PanelPage) => sizes[p.key] ?? (p.width && p.height ? { w: p.width, h: p.height } : null);
   // A page whose shape is not known yet is drawn as a typical one, and laid out again once it loads.
   const worldOf = (p: PanelPage) => {
@@ -137,10 +106,7 @@ export function PanelView({ pages, current, rtl, filter, from, reduceMotion, com
   const latch = useRef<{ key: string; start: 'first' | 'last' } | null>(null);
   if (cur && latch.current?.key !== cur.key) latch.current = { key: cur.key, start: from };
   const curSize = cur ? sizeOf(cur) : null;
-  const res = cur
-    ? cur.panels !== undefined ? serverPanels(cur.panels, rtl, curSize ? curSize.w / curSize.h : null)
-      : results[`${cur.key}|${dirKey}`] ?? found.get(`${cur.key}|${dirKey}`) ?? null
-    : null;
+  const res = cur ? serverPanels(cur.panels, rtl, curSize ? curSize.w / curSize.h : null) : null;
   // Only the panels the camera zooms in on: a strip the full width of the screen would just slide up and down a page that is
   // in view already. Any left out, and the page opens whole first so it is still seen before it is gone into.
   // How far to zoom is bounded by how big the lettering is: legible already, and there is nothing to zoom for.
