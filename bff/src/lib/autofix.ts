@@ -39,6 +39,7 @@
  *   The record is a row of repair_runs, kind `autofix` -- no new table -- with the summary and the log as said codes
  *   (lib/said.ts `autofix.*`), which the web words: never English from the server.
  */
+import { fileState } from './extraCopies';
 import { randomUUID } from 'node:crypto';
 import type { FastifyRequest } from 'fastify';
 import { q, one } from './db';
@@ -1365,12 +1366,31 @@ async function settle(a: Run, inst: Installed, missed: string[] = []): Promise<v
  * delete's own guards hold (libraryAdmin.ts deleteChapterFiles: the download folder only, never a bookmarked chapter).
  * Then the chapters with an impossible number, the same way. What is skipped is Needs you.
  */
+/**
+ * True only when every one of these rows is a live, whole chapter whose file is on the disk NOW. The database columns alone
+ * (pages, missing_pages, pruned_at) can be stale -- an unmounted or failed disk, a cleanup in flight -- and deleting the later
+ * copy on that word could remove the only real file, so the file itself is looked at (the same fileState the held-twice path uses).
+ */
+async function wholeOnDisk(ids: string[]): Promise<boolean> {
+  if (!ids.length) return false;
+  const rows = await q<{ id: string; root: string | null; file: string; pages: number; missing: number[] | null; pruned: boolean }>(
+    'SELECT id, root, file, pages, missing_pages AS missing, pruned_at IS NOT NULL AS pruned FROM lib_books WHERE id = ANY($1::text[])', [ids]).catch(() => []);
+  if (rows.length !== ids.length) return false;
+  for (const r of rows) {
+    if (r.pruned || r.pages <= 0 || (r.missing?.length ?? 0) > 0 || !r.root) return false;
+    const st = await fileState({ id: r.id, seriesId: '', root: r.root, file: r.file, number: 0, partial: false, pages: r.pages });
+    if (st.kind !== 'present' || st.size <= 0) return false;
+  }
+  return true;
+}
+
 async function files(a: Run): Promise<void> {
   await held(async () => {
     now(a, say('autofix.now.files'));
     for (const series of await savedTwiceGroups().catch(() => [])) {
       if (halted(a)) return;
       const ids: string[] = [];
+      const earlierIds: string[] = [];
       for (const g of series.groups) {
         const facts = new Map((await q<{ id: string; pages: number; missing: number[] | null; root: string | null; pruned: boolean }>(
           'SELECT id, pages, missing_pages AS missing, root, pruned_at IS NOT NULL AS pruned FROM lib_books WHERE id = ANY($1::text[])',
@@ -1384,7 +1404,9 @@ async function files(a: Run): Promise<void> {
         // Reintroduce by dropping it: "a later copy is deleted only when the kept copy is complete" in autofix.int.test.ts
         // deletes the longer later copy.
         if (kept < gone) continue;
+        if (!(await wholeOnDisk(g.earlier.map((b) => b.id)))) continue;
         ids.push(...g.later.map((b) => b.id));
+        earlierIds.push(...g.earlier.map((b) => b.id));
       }
       if (!ids.length) continue;
       now(a, say('autofix.now.files'), { title: series.title, seriesIds: [series.seriesId] });
@@ -1393,6 +1415,9 @@ async function files(a: Run): Promise<void> {
         ? claimWriterFolders([row.folder], folderBusy, () => runsInside(series.seriesId) > 0) : null;
       if (!claim) continue;
       try {
+        // The folder is ours now: look once more, so a cleanup that ran between the first look and the claim cannot have
+        // taken the copy this delete depends on.
+        if (!(await wholeOnDisk([...new Set(earlierIds)]))) continue;
         const r = await deleteChapterFiles(series.seriesId, ids, { userId: a.by, via: 'autofix', runId: a.id });
         if ('applied' in r && r.applied) {
           did(a, 'deletedTwice', r.applied, say('autofix.item.deleted', { title: series.title, n: r.applied, seriesIds: [series.seriesId] }));
