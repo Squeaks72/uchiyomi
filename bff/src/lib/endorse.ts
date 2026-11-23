@@ -16,7 +16,7 @@ import { q, one } from './db';
 import { DL_ROOT } from './library';
 import { runtime } from './runtime';
 import { versionsFolder } from './bookVersionsRead';
-import { refetchChapters } from '../routes/admin';
+import { refetchChapters } from './refetch';
 
 type Log = { info: (m: string) => void; warn: (m: string) => void };
 
