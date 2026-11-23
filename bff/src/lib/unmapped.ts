@@ -11,7 +11,7 @@
 // passed, and only then does `purgeExpiredRecycle` remove it. A file that is a library chapter (a lib_books row, or inside
 // a chapter that is a folder) is refused by name, whatever the caller asked: the library's own files are never this
 // feature's to move. Reintroduce by dropping the `isLibraryFile` check in `recycleFiles`: unmapped.test.ts finds a chapter recycled.
-import { mkdir, rename, stat, lstat, copyFile, unlink } from 'fs/promises';
+import { mkdir, rename, stat, lstat, copyFile, unlink, link } from 'fs/promises';
 import { randomUUID } from 'crypto';
 import { basename, dirname, extname, posix, join } from 'path';
 import { q, one } from './db';
@@ -137,16 +137,40 @@ async function isLibraryFile(rel: string): Promise<boolean> {
   return !!(await one('SELECT 1 FROM lib_books WHERE root = $1 AND file = ANY($2) LIMIT 1', [DL_ROOT, prefixes]));
 }
 
-/** Moves a file, falling back to copy + unlink across filesystems. Never overwrites. */
+/**
+ * Moves a file, falling back to copy + unlink across filesystems. Never overwrites: a plain rename() replaces an existing target
+ * without a word, so on one filesystem the file is hard-linked into place (link() refuses an existing name) and the original removed;
+ * where links are not offered it is renamed after one more look. Across filesystems the copy goes to a `.part` beside the target
+ * and is renamed into place only once whole, so a failed copy can never leave a truncated file under a chapter's name.
+ */
 async function moveFile(from: string, to: string): Promise<void> {
   await mkdir(dirname(to), { recursive: true });
   try {
+    await link(from, to);
+    await unlink(from);
+    return;
+  } catch (e) {
+    const code = (e as NodeJS.ErrnoException).code;
+    if (code === 'EEXIST') throw e;
+    if (code !== 'EXDEV' && code !== 'EPERM' && code !== 'ENOTSUP' && code !== 'ENOSYS' && code !== 'EMLINK') throw e;
+  }
+  const exists = await lstat(to).then(() => true, () => false);
+  if (exists) throw Object.assign(new Error(`EEXIST: ${to} already exists`), { code: 'EEXIST' });
+  try {
     await rename(from, to);
+    return;
   } catch (e) {
     if ((e as NodeJS.ErrnoException).code !== 'EXDEV') throw e;
-    await copyFile(from, to, 1 /* COPYFILE_EXCL */);
-    await unlink(from);
   }
+  const part = `${to}.part`;
+  try {
+    await copyFile(from, part, 1 /* COPYFILE_EXCL */);
+    await rename(part, to);
+  } catch (e) {
+    await unlink(part).catch(() => {});
+    throw e;
+  }
+  await unlink(from);
 }
 
 export interface ItemResult { path: string; ok: boolean; reason?: string; to?: string }
@@ -211,8 +235,15 @@ export async function recycleFiles(paths: string[], by: string | null): Promise<
     const id = randomUUID();
     const stored = posix.join(RECYCLE_DIR, `${id}-${basename(p)}`);
     try {
-      await moveFile(from, join(DL_ROOT, stored));
+      // The bin's row first, then the move: a row with no file is harmless (the purge skips a missing one), but a file with no row is
+      // never listed, never purged, and hidden from the scan -- it would sit in the bin for ever.
       await q('INSERT INTO unmapped_recycle (id, orig, stored, size, by_user) VALUES ($1,$2,$3,$4,$5)', [id, p, stored, st.size, by]);
+      try {
+        await moveFile(from, join(DL_ROOT, stored));
+      } catch (e) {
+        await q('DELETE FROM unmapped_recycle WHERE id = $1', [id]).catch(() => {});
+        throw e;
+      }
       out.push({ path: p, ok: true });
     } catch (e) {
       refuse(`Could not move it to the bin: ${(e as Error).message}`);
