@@ -227,7 +227,7 @@ export function scheduleEdgeMarks(delayMs = 20 * 60_000, everyMs = 6 * 60 * 60_0
 // Cutting a strip off as a page is served, for the sources the admin turned it on for.
 
 let trimSources: { at: number; set: Set<string> } | null = null;
-export function forgetTrimSources(): void { trimSources = null; }
+export function forgetTrimSources(): void { trimSources = null; forgetTrimRows(); }
 async function trimOn(sourceId: string): Promise<boolean> {
   if (!trimSources || Date.now() - trimSources.at > 60_000) {
     const rows = await q<{ source_id: string }>('SELECT source_id FROM source_trim').catch(() => []);
@@ -240,9 +240,27 @@ async function trimOn(sourceId: string): Promise<boolean> {
  * The strips to cut off a file's pages as they are served, and a tag for the cache key: null when there are none -- the file is
  * clean, its source is not trimmed, or it changed since it was looked at.
  */
-export async function trimFor(abs: string, mtimeMs: number): Promise<{ marks: EdgeMark[]; tag: string } | null> {
-  const row = await one<{ source_id: string | null; mtime: string | null; marks: EdgeMark[] }>(
+type TrimRow = { source_id: string | null; mtime: string | null; marks: EdgeMark[] } | null;
+/**
+ * The edge_marks row for a file, kept 30 seconds (including "there is none", which is nearly every file): this ran one query per PAGE
+ * served, cached or not. A strip found by the pass shows up within the half minute, and marks are written by that pass alone.
+ */
+const trimRows = new Map<string, { at: number; row: TrimRow }>();
+const TRIM_ROWS_TTL_MS = 30_000;
+const TRIM_ROWS_MAX = 5000;
+export function forgetTrimRows(): void { trimRows.clear(); }
+async function trimRowOf(abs: string): Promise<TrimRow> {
+  const hit = trimRows.get(abs);
+  if (hit && Date.now() - hit.at < TRIM_ROWS_TTL_MS) return hit.row;
+  const row = await one<NonNullable<TrimRow>>(
     `SELECT source_id, mtime::text, marks FROM edge_marks WHERE path = $1 AND marks <> '[]'::jsonb`, [abs]).catch(() => null);
+  if (trimRows.size >= TRIM_ROWS_MAX) trimRows.delete(trimRows.keys().next().value as string);
+  trimRows.set(abs, { at: Date.now(), row });
+  return row;
+}
+
+export async function trimFor(abs: string, mtimeMs: number): Promise<{ marks: EdgeMark[]; tag: string } | null> {
+  const row = await trimRowOf(abs);
   if (!row?.source_id || !row.marks.length) return null;
   if (row.mtime && Number(row.mtime) !== Math.round(mtimeMs)) return null;
   if (!(await trimOn(row.source_id))) return null;
