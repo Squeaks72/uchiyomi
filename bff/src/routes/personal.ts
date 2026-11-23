@@ -1122,16 +1122,27 @@ export default async function personalRoutes(app: FastifyInstance) {
     return { ok: true };
   });
 
+  /**
+   * The series the VIEWER may see, by the comparison key a saved title carries (normTitle: the one rule wants and imports are stored under;
+   * the SQL this replaces folded to a-z0-9 only, so an accented or CJK title never matched, and it matched series in libraries the viewer
+   * cannot see -- adding one to their list and deleting their want, which also told them it exists). Of two series sharing a key, the lowest id.
+   */
+  async function heldByKey(req: any, keys: string[]): Promise<Map<string, string>> {
+    const want = new Set(keys);
+    const p = new Params();
+    const out = new Map<string, string>();
+    const rows = await q<{ id: string; title: string }>(
+      `SELECT s.id, s.title FROM lib_series s WHERE ${visible('s', vc(req), p)} ORDER BY s.id`, p.values as any[]);
+    for (const r of rows) { const k = normTitle(r.title); if (want.has(k) && !out.has(k)) out.set(k, r.id); }
+    return out;
+  }
+
   /** The saved titles still not in the library; any it has gained since move into the list proper. */
   async function promoteWants(collectionId: string, req: any) {
     const wants = await q<{ title_key: string; title: string; cover_url: string | null }>(
       'SELECT title_key, title, cover_url FROM collection_wants WHERE collection_id = $1 ORDER BY position, created_at', [collectionId]);
     if (!wants.length) return [];
-    const held = await q<{ id: string; k: string }>(
-      `SELECT DISTINCT ON (k) s.id, k FROM (
-         SELECT s.id, regexp_replace(lower(s.title), '[^a-z0-9]+', '', 'g') AS k FROM lib_series s WHERE ${visibleToAll('s')}
-       ) s WHERE k = ANY($1) ORDER BY k, id`, [wants.map((w) => w.title_key)]);
-    const byKey = new Map(held.map((h) => [h.k, h.id]));
+    const byKey = await heldByKey(req, wants.map((w) => w.title_key));
     for (const w of wants) {
       const sid = byKey.get(w.title_key);
       if (!sid) continue;
@@ -1228,31 +1239,39 @@ export default async function personalRoutes(app: FastifyInstance) {
     const seen = new Map<string, { title: string; coverUrl: string | null; sources: ListSource[] }>();
     for (const it of list.items) { const k = normTitle(it.title); if (k && !seen.has(k)) seen.set(k, { title: it.title, coverUrl: it.coverUrl ?? null, sources: (it.sources ?? []).map((x) => ({ source: x.source, sourceId: x.sourceId, name: x.name ?? null, pkgName: x.pkgName ?? null })) }); }
     const keys = [...seen.keys()];
-    const held = keys.length ? await q<{ id: string; k: string }>(
-      `SELECT DISTINCT ON (k) s.id, k FROM (
-         SELECT s.id, regexp_replace(lower(s.title), '[^a-z0-9]+', '', 'g') AS k FROM lib_series s WHERE ${visibleToAll('s')}
-       ) s WHERE k = ANY($1) ORDER BY k, id`, [keys]) : [];
-    const byKey = new Map(held.map((h) => [h.k, h.id]));
+    const byKey = keys.length ? await heldByKey(req, keys) : new Map<string, string>();
     let added = 0; let saved = 0;
     const toAdd: Array<{ title: string; sources: ListSource[] }> = [];
+    const links: string[] = [];
+    const saves: Array<{ k: string; v: { title: string; coverUrl: string | null; sources: ListSource[] } }> = [];
     for (const [k, v] of seen) {
       const sid = byKey.get(k);
-      if (sid) {
-        const r = await q(
-          `INSERT INTO collection_items (collection_id, series_id, position)
-           VALUES ($1, $2, COALESCE((SELECT max(position) + 1 FROM collection_items WHERE collection_id = $1), 0))
-           ON CONFLICT DO NOTHING RETURNING 1`, [id, sid]);
-        added += r.length;
-      } else {
-        const r = await q(
-          `INSERT INTO collection_wants (collection_id, title_key, title, cover_url, sources, position)
-           VALUES ($1, $2, $3, $4, $5, COALESCE((SELECT max(position) + 1 FROM collection_wants WHERE collection_id = $1), 0))
-           ON CONFLICT (collection_id, title_key) DO UPDATE SET sources = COALESCE(collection_wants.sources, EXCLUDED.sources)
-           RETURNING (xmax = 0) AS fresh`, [id, k, v.title, v.coverUrl, v.sources.length ? JSON.stringify(v.sources) : null]);
-        saved += r.filter((x: any) => x.fresh).length;
-        if (v.sources.length) toAdd.push({ title: v.title, sources: v.sources });
-      }
+      if (sid) links.push(sid);
+      else { saves.push({ k, v }); if (v.sources.length) toAdd.push({ title: v.title, sources: v.sources }); }
     }
+    // One transaction, two statements: a list is either imported or not (a failure used to leave a half-filled list), and a
+    // 5000-title file is two round trips, not ten thousand.
+    await tx(async (qq) => {
+      if (links.length) {
+        const r = await qq(
+          `INSERT INTO collection_items (collection_id, series_id, position)
+           SELECT $1, t.s, COALESCE((SELECT max(position) + 1 FROM collection_items WHERE collection_id = $1), 0) + t.ord - 1
+             FROM unnest($2::text[]) WITH ORDINALITY AS t(s, ord)
+           ON CONFLICT DO NOTHING RETURNING 1`, [id, links]);
+        added += r.length;
+      }
+      if (saves.length) {
+        const r = await qq(
+          `INSERT INTO collection_wants (collection_id, title_key, title, cover_url, sources, position)
+           SELECT $1, t.k, t.title, t.cover, t.sources::jsonb, COALESCE((SELECT max(position) + 1 FROM collection_wants WHERE collection_id = $1), 0) + t.ord - 1
+             FROM unnest($2::text[], $3::text[], $4::text[], $5::text[]) WITH ORDINALITY AS t(k, title, cover, sources, ord)
+           ON CONFLICT (collection_id, title_key) DO UPDATE SET sources = COALESCE(collection_wants.sources, EXCLUDED.sources)
+           RETURNING (xmax = 0) AS fresh`,
+          [id, saves.map((x) => x.k), saves.map((x) => x.v.title), saves.map((x) => x.v.coverUrl),
+            saves.map((x) => (x.v.sources.length ? JSON.stringify(x.v.sources) : null))]);
+        saved += r.filter((x: any) => x.fresh).length;
+      }
+    });
     // Sources this server has no adapter for (an extension it lacks) go last, and are listed once so an admin can be
     // offered the extensions that would supply them.
     const missing = new Map<string, { source: string; name: string | null; pkgName: string | null; titles: number }>();
