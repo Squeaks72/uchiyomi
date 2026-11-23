@@ -1,6 +1,6 @@
 import { join } from 'path';
 import { pool, q } from './db';
-import { cbzPageAt, LIBRARY_ROOT } from './library';
+import { eachChapterPage, LIBRARY_ROOT } from './library';
 import { catalogRootUnavailable } from './catalogRootGuard';
 import { pageHash } from './pageHash';
 
@@ -65,24 +65,27 @@ async function pool_<T>(items: T[], n: number, worker: (t: T) => Promise<void>):
 
 interface Row { id: string; root: string | null; file: string }
 
+const TRANSIENT = new Set(['EBUSY', 'EIO', 'EMFILE', 'ENFILE', 'EAGAIN', 'ETIMEDOUT', 'ENOMEM', 'ESTALE', 'EINTR']);
+
 /** Hash every page of one chapter. Returns how many pages were read and how many could not be. */
-async function hashChapter(b: Row): Promise<{ ok: number; bad: number }> {
+async function hashChapter(b: Row): Promise<{ ok: number; bad: number; retry?: boolean }> {
   const abs = join(b.root || LIBRARY_ROOT, b.file);
   let ok = 0;
   let bad = 0;
   const rows: Array<[string, number, string | null]> = [];
-  for (let i = 0; ; i++) {
-    let page: Awaited<ReturnType<typeof cbzPageAt>> = null;
-    try {
-      page = await cbzPageAt(abs, i);
-    } catch {
-      break; // the archive itself is unreadable; stop rather than spin
+  try {
+    let i = 0;
+    for await (const page of eachChapterPage(abs)) {
+      const h = await pageHash(page.bytes);
+      rows.push([b.id, ++i, h]);
+      if (h) ok++; else bad++;
     }
-    if (!page) break;
-    const h = await pageHash(page.bytes);
-    rows.push([b.id, i + 1, h]);
-    if (h) ok++; else bad++;
-    if (i + 1 >= page.total) break;
+  } catch (e) {
+    // A read that FAILED because the machine was busy or unwell is not a chapter that was looked at: stamping the mark would retire it
+    // from the junk rule for good (healthFiles.ts made the same mistake and documents it). Those errors pass without a mark, so the
+    // next run tries again. A file that is not there, or an archive that is not readable, IS stamped as before -- it would only fail the
+    // same way on every run, and the count would never reach zero.
+    if (TRANSIENT.has((e as NodeJS.ErrnoException)?.code ?? '')) return { ok, bad: bad + 1, retry: true };
   }
   // ⚠️ EVERY chapter gets the page-0 mark, whether or not it produced anything. That row is what "this
   // chapter has been looked at" MEANS, and the queue below asks for exactly that -- so the two can never

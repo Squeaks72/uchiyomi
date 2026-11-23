@@ -398,6 +398,28 @@ export async function cbzPageAt(
   }
 }
 
+/**
+ * Every page of a chapter in reading order, one at a time. A zip is opened and listed ONCE (cbzPageAt opens and lists it per page,
+ * which for a 60-page chapter is sixty opens); the other kinds go through cbzPageAt. Throws what opening or reading throws.
+ */
+export async function* eachChapterPage(path: string): AsyncGenerator<{ name: string; bytes: Buffer; total: number }> {
+  if (chapterKind(path) !== 'zip') {
+    for (let i = 0; ; i++) {
+      const page = await cbzPageAt(path, i);
+      if (!page) return;
+      yield page;
+      if (i + 1 >= page.total) return;
+    }
+  }
+  const zip = new StreamZip.async({ file: path });
+  try {
+    const names = zipPageNames(await zip.entries());
+    for (const name of names) yield { name, bytes: await zipEntryCapped(zip, name), total: names.length };
+  } finally {
+    await zip.close();
+  }
+}
+
 /** Real pixel dimensions of every page (CBZ/CBR/folder). The reader needs these to reserve the right height
  *  per page — without them, tall webtoon pages overlap. Cached in lib_books.page_dims after first read. */
 export async function cbzPageDims(path: string): Promise<Array<{ name: string; width: number | null; height: number | null }>> {

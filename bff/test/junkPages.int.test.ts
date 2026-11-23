@@ -24,6 +24,8 @@ const SERIES = 's_junk_test';
 
 let q: typeof import('../src/lib/db').q;
 let junkPagesFor: typeof import('../src/lib/junkPages').junkPagesFor;
+// The series' repeated-page hashes are cached for two minutes (lib/junkPages.ts); these tests write page_hashes directly, so each read starts clean.
+let forgetSeriesJunk: typeof import('../src/lib/junkPages').forgetSeriesJunk;
 let setPageOverride: typeof import('../src/lib/junkPages').setPageOverride;
 
 before(async () => {
@@ -63,7 +65,9 @@ beforeEach(async () => {
       [`b_junk${c}`, CREDIT, `a1b2c3d4e5f6000${c}`, `b2c3d4e5f6a7100${c}`, `c3d4e5f6a7b8200${c}`],
     );
   }
-  ({ junkPagesFor, setPageOverride } = await import('../src/lib/junkPages'));
+  ({ junkPagesFor, setPageOverride, forgetSeriesJunk } = await import('../src/lib/junkPages'));
+  const realJunkFor = junkPagesFor;
+  junkPagesFor = (id: string) => { forgetSeriesJunk(); return realJunkFor(id); };
 });
 
 test('the page that repeats in every chapter is the one skipped', { skip }, async () => {
