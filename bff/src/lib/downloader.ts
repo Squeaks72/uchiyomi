@@ -344,6 +344,9 @@ export const underGate = <T>(sourceId: string, fn: () => Promise<T>): Promise<T>
     minGapMs: () => DL_MIN_GAP_MS * 2 ** paceLevel(sourceId),
   });
 
+/** The files being fetched right now, by absolute path (downloadChapter): a second plain download of one of them has nothing to do. */
+const inFlight = new Map<string, Promise<void>>();
+
 /**
  * Download one chapter into <DL_ROOT>/<seriesFolder>/Chapter <n>.cbz.
  *
@@ -377,35 +380,50 @@ export async function downloadChapter(
   // this here is deliberate; `replace` is what the admin refetch and the completion pass (lib/partial.ts)
   // use to write over a file they know to be stale or partial, and those paths never consult the have-set.
   if (!opts.replace && (await stat(abs).then(() => true).catch(() => false) || await spelledOtherwise(abs, input.chapter.number))) return null;
-  await assertFreeSpace();
-
-  // Recorded HERE, the one function every download path ends in, so the downloads view sees all of them --
-  // an add, a Fetch, a followed source's check, the nightly sweep, the repair (lib/downloadActivity.ts).
-  const act = beginDownload({
-    folder: input.seriesFolder, title: input.meta?.series || input.seriesFolder.split('/').pop() || input.seriesFolder,
-    number: input.chapter.number, source: input.sourceId,
-  });
-  try {
-    const r = await underGate(input.sourceId, async () => {
-      // The queue can be minutes deep. Re-read every mutable admission decision only after its slot opens,
-      // directly beside the first source operation, so an unfollow/disable/cooldown/pause that lands while
-      // waiting wins the race and the source is never contacted.
-      await assertDownloadPreflight(opts.preflight);
-      startedDownload(act);
-      return fetchChapter(src, input, rel, act);
+  // One download of a file at a time. The have-check above is a bare stat, so two callers that reach it before either has written (the
+  // sweep, a job card, the version keeper, the completion pass) all passed it, all fetched the whole chapter, and the last rename won --
+  // "84.3 twice" in the comment above is that happening once. A plain download that finds the file already being fetched has nothing
+  // to do; a REPLACE waits for it and then runs, since the file it replaces is the one just written.
+  const running = inFlight.get(abs);
+  if (running) {
+    if (!opts.replace) return null;
+    await running.catch(() => {});
+  }
+  // Registered synchronously, before any await, so two callers cannot both pass the check above.
+  const go = async () => {
+    await assertFreeSpace();
+    // Recorded HERE, the one function every download path ends in, so the downloads view sees all of them --
+    // an add, a Fetch, a followed source's check, the nightly sweep, the repair (lib/downloadActivity.ts).
+    const act = beginDownload({
+      folder: input.seriesFolder, title: input.meta?.series || input.seriesFolder.split('/').pop() || input.seriesFolder,
+      number: input.chapter.number, source: input.sourceId,
     });
-    endDownload(act, { status: 'done', pages: r.pages });
-    return r;
-  } catch (e) {
-    if (e instanceof DownloadPreflightError) {
-      endDownload(act, 'skipped');
+    try {
+      const r = await underGate(input.sourceId, async () => {
+        // The queue can be minutes deep. Re-read every mutable admission decision only after its slot opens,
+        // directly beside the first source operation, so an unfollow/disable/cooldown/pause that lands while
+        // waiting wins the race and the source is never contacted.
+        await assertDownloadPreflight(opts.preflight);
+        startedDownload(act);
+        return fetchChapter(src, input, rel, act);
+      });
+      endDownload(act, { status: 'done', pages: r.pages });
+      return r;
+    } catch (e) {
+      if (e instanceof DownloadPreflightError) {
+        endDownload(act, 'skipped');
+        throw e;
+      }
+      const hold = (e as Partial<ChapterShortfall>)?.partial;
+      if (hold) holdPartial(act, hold);
+      else endDownload(act, { status: 'failed', reason: String((e as Error)?.message || e).slice(0, 160) });
       throw e;
     }
-    const hold = (e as Partial<ChapterShortfall>)?.partial;
-    if (hold) holdPartial(act, hold);
-    else endDownload(act, { status: 'failed', reason: String((e as Error)?.message || e).slice(0, 160) });
-    throw e;
-  }
+  };
+  const mine = go();
+  const token = mine.then(() => undefined, () => undefined);
+  inFlight.set(abs, token);
+  try { return await mine; } finally { if (inFlight.get(abs) === token) inFlight.delete(abs); }
 }
 
 export interface PageCtx {
