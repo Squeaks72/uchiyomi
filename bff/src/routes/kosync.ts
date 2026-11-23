@@ -41,7 +41,6 @@ export default async function kosync(app:FastifyInstance){
     (req as any).kosync={token,ctx};
     (req as any).viewCtx=ctx;
     (req as any).user={sub:token.userId,role:token.role,tokenScopes:token.scopes};
-    if(process.env.LIBRARY_BACKEND==='komga')return reply.code(503).send({code:2000,message:'Use the library server’s KOReader endpoint.'});
   });
   app.get(BASE+'/users/auth',{config:{rateLimit:{max:30,timeWindow:'1 minute'}}},async()=>({authorized:'OK'}));
   app.post(BASE+'/users/create',async(_req,reply)=>reply.code(403).send({code:2005,message:'Create an API token in Uchiyomi, then choose Login.'}));
@@ -84,6 +83,6 @@ export default async function kosync(app:FastifyInstance){
   let closed=false;
   let timer:ReturnType<typeof setTimeout>|null=null;
   const schedule=(delay:number)=>{if(closed)return;timer=setTimeout(()=>{backfillKoreaderHashes().then(n=>schedule(n===100?1000:600000)).catch(()=>schedule(600000));},delay);timer.unref();};
-  app.addHook('onReady',async()=>{if(process.env.LIBRARY_BACKEND==='komga')return;schedule(1000);onUnprintedFiles(()=>{if(!closed){if(timer)clearTimeout(timer);schedule(60000);}});});
+  app.addHook('onReady',async()=>{schedule(1000);onUnprintedFiles(()=>{if(!closed){if(timer)clearTimeout(timer);schedule(60000);}});});
   app.addHook('onClose',async()=>{closed=true;if(timer)clearTimeout(timer);});
 }

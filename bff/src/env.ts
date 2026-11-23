@@ -121,7 +121,7 @@ const schema = z.object({
   TITLE_LOGO_LIBRARY_URL: z.string().optional(),
   DATABASE_URL: z.string().min(1),
   KOMGA_BASE_URL: z.string().url().default('http://komga:25600'),
-  KOMGA_API_KEY: z.string().default(''), // only needed when LIBRARY_BACKEND=komga; owned mode ignores it
+  KOMGA_API_KEY: z.string().default(''), // legacy: the external-Komga backend is no longer selectable (lib/backend.ts); only lib/komga.ts's dormant client reads these
   JWT_SECRET: z.string().min(16),
   // Optional: legacy pre-seed of the admin (base64 argon2 hash). If unset, the first-run web setup creates the
   // admin instead. argon2 hashes contain '$' which breaks compose ${} interpolation -> carried base64-encoded.

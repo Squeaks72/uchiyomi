@@ -64,7 +64,7 @@ const person = (r: { uid: string; display_name: string | null; username?: string
   avatar: publicAvatar(r.avatar),
 });
 
-const OWNED = () => process.env.LIBRARY_BACKEND !== 'komga';
+const OWNED = () => true;
 const ON_TTL_MS = 60_000;
 let onCache: { at: number; on: boolean } | null = null;
 /** Forget the cached answer: a test that adds or disables a member, and nothing else. */

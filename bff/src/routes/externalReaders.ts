@@ -9,10 +9,9 @@ export default async function externalReaders(app: FastifyInstance) {
   app.get('/api/external-readers', async req => {
     const uid=userIdOf(req);
     const counts=await externalReaderCounts(uid);
-    return {...await externalReaderSettings(uid),supported:process.env.LIBRARY_BACKEND!=='komga',byReader:counts};
+    return {...await externalReaderSettings(uid),supported:true,byReader:counts};
   });
   app.put('/api/external-readers', async (req,reply) => {
-    if(process.env.LIBRARY_BACKEND==='komga')return reply.code(409).send({error:'external_readers_unsupported'});
     const body=z.object({externalReadingStats:z.boolean().optional(),opdsEstimatedBookmarks:z.boolean().optional()}).strict().safeParse(req.body);
     if(!body.success)return reply.code(400).send({error:'bad_request'});
     await q(`INSERT INTO app_settings(user_id,data) VALUES($1,$2::jsonb)

@@ -499,13 +499,6 @@ export async function viewCtxFor(
   // Through the server's switch too (#406), for the callers that decide without a request's query: OPDS's own
   // Show 18+, /api/adult-filter's question.
   const hideAdultLibraries = !!opts?.hideAdult && adultHiding;
-  // Komga mode has its own libraries and its own restrictions, enforced by Komga. Do not pretend to enforce
-  // a model this backend does not have. Only an EXPLICIT 'komga' takes this branch: with `!== 'owned'` an
-  // unset or misspelled variable handed every account an unrestricted context on the path that governs page
-  // bytes and OPDS downloads. Fail closed, into the restricted model below.
-  if (process.env.LIBRARY_BACKEND === 'komga') {
-    return { userId, libraryIds: null, maxAgeRating: null, hideAdultLibraries: false, adultGenres: [], adultSources: [] };
-  }
   // Loaded even for an admin: the 18+ switch is a surfacing preference everyone has, not a restriction
   // only capped accounts carry, and an admin is exactly who turns it on to tidy their own home screen.
   const { genres: adultGenres, sources: adultSources } = hideAdultLibraries
