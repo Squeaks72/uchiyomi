@@ -13,7 +13,7 @@ export class ContentScopeError extends Error {
   constructor(public readonly statusCode: number, public readonly code: string) { super(code); }
 }
 const deny = (code = 'forbidden'): never => { throw new ContentScopeError(403, code); };
-export const privateBackendSupported = () => process.env.LIBRARY_BACKEND !== 'komga';
+export const privateBackendSupported = () => true;
 export const privateFolderOwner = (folder: string): string | null => {
   const match = /^_private\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:\/|$)/i.exec(folder);
   return match?.[1].toLowerCase() ?? null;

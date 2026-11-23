@@ -1021,7 +1021,7 @@ async function main() {
    * there lives in Komga rather than in read_progress, so the rule this job applies would be reading the
    * wrong table about the wrong files.
    */
-  if (process.env.LIBRARY_BACKEND !== 'komga') {
+  if (OWNED) {
     const HOUR = 60 * 60 * 1000;
     const tick = async () => {
       try {
@@ -1083,15 +1083,15 @@ async function main() {
   // everything tells a moved or renamed file from a gone one, and LIBRARY_REMATCH a moved folder, only by a
   // fingerprint taken BEFORE the move. So besides a pass a minute after boot and every six hours, a scan that meets
   // files with no fingerprint arms one a few minutes on (lib/fingerprintJob.ts, v0.55.7).
-  if (process.env.LIBRARY_BACKEND !== 'komga') scheduleFingerprintBackfill();
+  if (OWNED) scheduleFingerprintBackfill();
 
   // Page hashes, for skipping the pages that are not the story. Started later than the fingerprint job and
   // deliberately last: it decodes every page in the library, which is the heaviest thing this process ever
   // does. Nothing breaks while it is unfinished -- an un-hashed page is simply never skipped.
-  if (process.env.LIBRARY_BACKEND !== 'komga') schedulePageHashBackfill();
-  if (process.env.LIBRARY_BACKEND !== 'komga') scheduleEdgeMarks();
+  if (OWNED) schedulePageHashBackfill();
+  if (OWNED) scheduleEdgeMarks();
   // Panel detection (Admin -> Panel detection): nightly and on import, each only if an admin switched it on.
-  stopPanelJobs = process.env.LIBRARY_BACKEND !== 'komga' ? schedulePanelJobs() : () => {};
+  stopPanelJobs = OWNED ? schedulePanelJobs() : () => {};
 }
 
 main().catch((e) => {

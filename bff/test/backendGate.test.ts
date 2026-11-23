@@ -54,5 +54,5 @@ test('the scheduled check and the nightly repair start on an install that never 
   assert.equal(openerOf(sweep), 'if (OWNED)', `the sweep is gated by ${openerOf(sweep)}`);
   assert.equal(openerOf(repair), 'if (OWNED)', `the repair is gated by ${openerOf(repair)}`);
   const backend = readFileSync(join(SRC, 'lib', 'backend.ts'), 'utf8');
-  assert.match(backend, /export const OWNED = process\.env\.LIBRARY_BACKEND !== 'komga';/);
+  assert.match(backend, /export const OWNED = true;/, 'the backend is the owned library, whatever LIBRARY_BACKEND says');
 });

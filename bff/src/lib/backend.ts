@@ -1,12 +1,14 @@
-// Selects the content backend: our owned CBZ-library backend (the default), or the legacy Komga client.
-// Only LIBRARY_BACKEND=komga selects Komga. The old rule was `=== 'owned'`, which meant an unset or
-// misspelled variable silently chose the backend whose visibility model is "Komga enforces it", i.e. no
-// restriction at all on the path that governs page bytes and OPDS. The default must be the safe one.
+// The content backend: the owned CBZ library. (The external-Komga backend that once sat beside it is no longer selectable; see OWNED below.)
 import { komga } from './komga';
 import { owned } from './ownedCatalog';
 import type { ViewCtx } from './visibility';
 
-export const OWNED = process.env.LIBRARY_BACKEND !== 'komga';
+/**
+ * Always true. The external-Komga backend (LIBRARY_BACKEND=komga) is no longer selectable here: this fork has only ever run the owned library, and
+ * a variable that could switch the visibility model to "Komga enforces it" -- no restriction at all on the path that governs page bytes and OPDS --
+ * was a foot-gun for no user. Kept as a constant, not deleted, because the gates that read it are upstream's lines (a smaller diff to rebase).
+ */
+export const OWNED = true;
 
 /**
  * v0.100.0 (#338): the Library's `authorName` leaf (lib/ownedCatalog.ts resolveAuthorNames) in the words Komga has for
@@ -99,4 +101,4 @@ const komgaAdapter = (k: any): ContentBackend => ({
   seriesThumbPath: (id: string) => k.seriesThumbPath?.(id),
 });
 
-export const content: ContentBackend = OWNED ? (owned as unknown as ContentBackend) : komgaAdapter(komga);
+export const content: ContentBackend = owned as unknown as ContentBackend;
