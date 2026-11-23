@@ -3,12 +3,16 @@ import { stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { q, one } from './db';
 import { DL_ROOT } from './library';
-import { getSource } from './sources';
+import { getSource, withTimeout } from './sources';
 import { downloadChapter } from './downloader';
 import { seriesSourcesFor } from './seriesSources';
 import { numKey } from './postingOrder';
 import { versionsFolder, COLORED_KEY } from './bookVersionsRead';
 export * from './bookVersionsRead';
+
+/** A pass's chapter listings, by source and the source's own series id: filled by the first chapter that needs one. */
+export type ListingCache = Map<string, Promise<Awaited<ReturnType<NonNullable<ReturnType<typeof getSource>>['listChapters']>>>>;
+const LIST_TIMEOUT_MS = 60_000;
 
 export type KeepResult = 'kept' | 'already' | 'is_endorsed' | 'no_book' | 'not_followed' | 'not_listed';
 
@@ -17,7 +21,7 @@ export type KeepResult = 'kept' | 'already' | 'is_endorsed' | 'no_book' | 'not_f
  * (its own or an extra, lib/seriesSources.ts) and list the chapter. A copy the endorsed file already is -- the source the
  * endorsed chapter came from -- is not stored twice. Throws what the downloader throws.
  */
-export async function keepVersion(seriesId: string, number: number, sourceId: string): Promise<KeepResult> {
+export async function keepVersion(seriesId: string, number: number, sourceId: string, listings?: ListingCache): Promise<KeepResult> {
   const s = await one<{ folder: string; title: string; colored_ref_source: string | null; colored_ref_series: string | null }>(
     'SELECT folder, title, colored_ref_source, colored_ref_series FROM lib_series WHERE id = $1', [seriesId]);
   if (!s) return 'no_book';
@@ -34,7 +38,15 @@ export async function keepVersion(seriesId: string, number: number, sourceId: st
   const sourceSeriesId = colored ? s.colored_ref_series : follow?.sourceSeriesId;
   const adapter = fetchFrom ? getSource(fetchFrom) : null;
   if ((!colored && !follow) || !sourceSeriesId || !adapter || !fetchFrom) return 'not_followed';
-  const listed = (await adapter.listChapters(sourceSeriesId)).filter((c) => numKey(c.number) === numKey(number));
+  // One listing per (source, series) for a whole pass when the caller passes a cache: a 1000-chapter series is otherwise 1000 listing calls.
+  const lkey = `${fetchFrom}|${sourceSeriesId}`;
+  let all = listings?.get(lkey);
+  if (!all) {
+    const fresh = withTimeout(adapter.listChapters(sourceSeriesId), LIST_TIMEOUT_MS);
+    listings?.set(lkey, fresh);
+    all = fresh;
+  }
+  const listed = (await all).filter((c) => numKey(c.number) === numKey(number));
   const chapter = listed[0];
   if (!chapter) return 'not_listed';
   const folder = versionsFolder(s.folder, sourceId);
