@@ -14,6 +14,7 @@ import { isDesktop, serverReachableHint, untilReachable } from './desktop';
 import { t as tr } from './i18n';
 import type { AvatarFrame } from './badges';
 import { readableAccent } from './theme';
+import { claimReaderPrefs } from './readerPrefs';
 
 /** `frame` since v0.89.0 (#267): the frame one of the account's badges unlocked (lib/badges.ts). */
 export interface Avatar { emoji?: string; color?: string; frame?: AvatarFrame }
@@ -181,6 +182,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     shownUser.current = u.id;
     void tellWorkerUser(u.id);
     writeOfflineIdentity(u, exp);
+    // The reader settings kept in this browser are the previous account's, if it was another one (lib/readerPrefs.ts).
+    claimReaderPrefs(u.id);
     setUser(u);
     applyAccent(u.settings);
     // ⚠️ Before setStatus, never in an effect after it: `authed` is what mounts CinematicFX, and a class that

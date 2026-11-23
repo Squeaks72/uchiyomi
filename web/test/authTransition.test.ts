@@ -42,7 +42,7 @@ function provider(options:{flush?:()=>Promise<number>;previous?:typeof A|null;pu
     './downloads':{flushOutbox:async()=>{events.push(`flush:${client.getCurrentUser()}:${client.getAccessToken()}`);return options.flush?options.flush():0;}},
     './adult':{setAdultShown:()=>events.push('adult-hidden')},
     './native':{usesNativeCache:()=>options.native===true},
-    './theme':{readableAccent:()=>null},
+    './theme':{readableAccent:()=>null},'./readerPrefs':{claimReaderPrefs:()=>{}},
     './desktop':{isDesktop:()=>false,serverReachableHint:()=>true,untilReachable:(fn:any)=>fn()},'./i18n':{t:(text:string)=>text},
   };
   const module={exports:{} as any};
