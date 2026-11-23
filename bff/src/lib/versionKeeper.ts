@@ -8,7 +8,9 @@
 import { q, one } from './db';
 import { runtime } from './runtime';
 import { seriesSourcesFor } from './seriesSources';
-import { keepVersion, refreshColoredListing } from './bookVersions';
+import { keepVersion, refreshColoredListing, type ListingCache } from './bookVersions';
+import { blockedNow, isDisabled } from './sourceHealth';
+import { seriesIsMonitored } from './updater';
 import { COLORED_KEY } from './bookVersionsRead';
 
 type Log = { info: (m: string) => void; warn: (m: string) => void };
@@ -30,6 +32,15 @@ export async function keepAllVersions(seriesId: string, log: Log, budget = 25): 
       .filter((s) => s.registered && (flags?.keep_versions || s.sourceId === flags?.colored_source)).map((s) => s.sourceId);
     if (flags?.colored_source === COLORED_KEY && flags.colored_ref_source) targets.push(COLORED_KEY);
     if (!targets.length) return { kept, failed, left };
+    // The sweep's own gates: a series nobody monitors is left alone, and a source that is switched off or resting is not asked.
+    if (!(await seriesIsMonitored(seriesId))) return { kept, failed, left };
+    for (let i = targets.length - 1; i >= 0; i--) {
+      const t = targets[i];
+      if (t === COLORED_KEY) continue;
+      if (await isDisabled(t).catch(() => false) || await blockedNow(t).catch(() => null)) targets.splice(i, 1);
+    }
+    if (!targets.length) return { kept, failed, left: true };
+    const listings: ListingCache = new Map();
     const books = await q<{ number: number; source_id: string | null }>(
       `SELECT number::float8 AS number, source_id FROM lib_books WHERE series_id = $1 AND pruned_at IS NULL ORDER BY number`, [seriesId]);
     const have = new Set((await q<{ number: number; source_id: string }>(
@@ -43,7 +54,7 @@ export async function keepAllVersions(seriesId: string, log: Log, budget = 25): 
         if (b.source_id === target || have.has(key) || failedOnce.has(target + '|' + b.number)) continue;
         if (kept + failed >= budget) { left = true; return { kept, failed, left }; }
         try {
-          const r = await keepVersion(seriesId, b.number, target);
+          const r = await keepVersion(seriesId, b.number, target, listings);
           if (r === 'kept') kept++;
         } catch (e) {
           failed++;
