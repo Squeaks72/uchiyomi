@@ -50,7 +50,10 @@ export function VolumeList({ seriesId, books, isAdmin, onRead, onMarkRead }: {
   const [open, setOpen] = useState<ReadonlySet<string>>(new Set());
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
-  const units = mode === 'arc' ? data?.arcs ?? [] : data?.volumes ?? [];
+  // The grouping shown: Arcs only while the series has arcs. The switch is only offered then, so after arcs are removed (Look again, a
+  // manual save) a remembered 'arc' left the list on "No arcs" with no way back.
+  const shown: 'volume' | 'arc' = mode === 'arc' && (data?.arcs?.length ?? 0) > 0 ? 'arc' : 'volume';
+  const units = shown === 'arc' ? data?.arcs ?? [] : data?.volumes ?? [];
   const groups = useMemo(() => groupByUnits(units, books), [units, books]);
   const set = (v: SeriesVolumes) => qc.setQueryData(['series-volumes', seriesId], v);
 
@@ -92,7 +95,7 @@ export function VolumeList({ seriesId, books, isAdmin, onRead, onMarkRead }: {
 
       <div className="mb-2 flex flex-wrap items-center gap-2">
         {data.arcs.length > 0 && (
-          <Segmented label={tr('Group by')} value={mode} onChange={(m) => setMode(m)}
+          <Segmented label={tr('Group by')} value={shown} onChange={(m) => setMode(m)}
             options={[{ value: 'volume', label: tr('Volumes') }, { value: 'arc', label: tr('Arcs') }]} />
         )}
         <p className="me-auto text-[11px] text-fog-500">{sourceLine(data)}</p>
@@ -110,7 +113,7 @@ export function VolumeList({ seriesId, books, isAdmin, onRead, onMarkRead }: {
 
       {!units.length ? (
         <p className="max-w-prose py-3 text-sm text-fog-500">
-          {mode === 'arc' ? tr('No arcs are set for this series.') : tr('No volumes are known for this series yet.')}
+          {shown === 'arc' ? tr('No arcs are set for this series.') : tr('No volumes are known for this series yet.')}
           {isAdmin ? ` ${tr('Use Edit volumes to write them yourself.')}` : ''}
         </p>
       ) : (
