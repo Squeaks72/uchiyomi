@@ -245,6 +245,8 @@ const ANILIST_BAD_TOKEN = /invalid token|unauthorized/i;
  */
 const PUSH_WAIT: AniListFetchOptions = { maxWaitMs: WAIT_BACKGROUND_MS, retries: 5, timeoutMs: 15_000 };
 const ASK_WAIT: AniListFetchOptions = { maxWaitMs: WAIT_INTERACTIVE_MS, retries: 1, timeoutMs: 15_000 };
+/** The recommendation builder's reads: background work, so it waits its turn like a push, and a batch of aliases is allowed a little longer. */
+const REC_WAIT: AniListFetchOptions = { maxWaitMs: WAIT_BACKGROUND_MS, retries: 3, timeoutMs: 20_000 };
 
 async function anilistCall(token: string, query: string, variables: Record<string, unknown>, wait = ASK_WAIT): Promise<any> {
   const r = await anilistFetch(ANILIST_API, {
@@ -928,12 +930,11 @@ export async function anilistRecommendations(ids: string[], perSeed = 12): Promi
   const body = wanted.map((id, n) =>
     `m${n}: Media(id:${Number(id)}, type:MANGA){ id recommendations(sort:RATING_DESC, perPage:${perSeed}){ nodes{ rating mediaRecommendation{ ${ANILIST_MEDIA} } } } }`,
   ).join('\n');
-  const r = await fetch(ANILIST_API, {
+  const r = await anilistFetch(ANILIST_API, {
     method: 'POST',
     headers: { 'content-type': 'application/json', accept: 'application/json' },
     body: JSON.stringify({ query: `query{ ${body} }` }),
-    signal: AbortSignal.timeout(20000),
-  });
+  }, REC_WAIT);
   if (!r.ok && r.status !== 404) throw new Error(`anilist ${r.status}`);
   const j: any = await r.json().catch(() => null);
   // A seed that no longer exists answers a per-alias "Not Found" error next to the aliases that worked; only
@@ -991,15 +992,14 @@ export async function anilistByMalIds(malIds: string[]): Promise<Map<string, Rec
   const out = new Map<string, RecItem>();
   const ids = malIds.filter((i) => /^\d+$/.test(i)).slice(0, 50).map(Number);
   if (!ids.length) return out;
-  const r = await fetch(ANILIST_API, {
+  const r = await anilistFetch(ANILIST_API, {
     method: 'POST',
     headers: { 'content-type': 'application/json', accept: 'application/json' },
     body: JSON.stringify({
       query: `query($ids:[Int]){ Page(perPage:50){ media(idMal_in:$ids, type:MANGA){ ${ANILIST_MEDIA} } } }`,
       variables: { ids },
     }),
-    signal: AbortSignal.timeout(20000),
-  });
+  }, REC_WAIT);
   if (!r.ok) throw new Error(`anilist ${r.status}`);
   const j: any = await r.json().catch(() => null);
   for (const m of j?.data?.Page?.media ?? []) {
