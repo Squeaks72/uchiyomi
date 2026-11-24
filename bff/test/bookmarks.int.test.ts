@@ -129,8 +129,27 @@ test('page bookmarks', { skip }, async (t) => {
     });
 
     await t.test('a nonsense page is refused', async () => {
-      assert.equal((await put(`b_${OPEN}`, 0)).statusCode, 400);
       assert.equal((await put(`b_${OPEN}`, -1)).statusCode, 400);
+      assert.equal((await put(`b_${OPEN}`, 1.5)).statusCode, 400);
+    });
+
+    // Page 0 is the whole chapter (fork 2026-11-24, web/lib/chapterStars.ts). It must stay out of the default listing:
+    // kouchiyomi and anything else written before the stars opens `page` as a page number.
+    await t.test('a starred chapter is page 0, listed only when asked for', async () => {
+      const before = (await list(OPEN)).json().content.length;
+      assert.equal((await put(`b_${OPEN}`, 0, 'all of it')).statusCode, 200);
+      assert.equal((await list(OPEN)).json().content.length, before, 'the default listing grew a page 0');
+      assert.ok((await list(OPEN)).json().content.every((r: { page: number }) => r.page > 0));
+      const kind = async (k: string) => (await app.inject({ method: 'GET', headers: auth,
+        url: `/api/bookmarks?seriesId=${OPEN}&kind=${k}` })).json().content as Array<{ page: number; note: string | null }>;
+      const stars = await kind('chapter');
+      assert.equal(stars.length, 1);
+      assert.equal(stars[0].page, 0);
+      assert.equal(stars[0].note, 'all of it');
+      assert.equal((await kind('all')).length, before + 1);
+      const del = await app.inject({ method: 'DELETE', url: `/api/bookmarks/b_${OPEN}/0`, headers: auth });
+      assert.equal(del.statusCode, 200);
+      assert.equal((await kind('chapter')).length, 0);
     });
 
     await t.test('a book that does not exist is a 404, not a crash', async () => {

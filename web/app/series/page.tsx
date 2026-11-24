@@ -27,7 +27,7 @@ import { SeriesPrivacyControls } from '@/components/SeriesPrivacyControls';
 import { seedMeta, metaBody } from '@/lib/seriesMeta';
 import { GenreTagInput } from '@/components/GenreTagInput';
 import { useAuth, canDownload } from '@/lib/auth';
-import { IcChevronLeft, IcChevronRight, IcUser, IcDownload, IcCloudDownload, IcCheck, IcTrash, IcHourglass, IcGrid, IcRows, IcComment, IcRefresh } from '@/components/icons';
+import { IcChevronLeft, IcChevronRight, IcUser, IcDownload, IcCloudDownload, IcCheck, IcTrash, IcHourglass, IcGrid, IcRows, IcComment, IcRefresh, IcStar } from '@/components/icons';
 import { commentsLine, seriesTalkKey, talkWantedOf, type ChapterTalkCount } from '@/lib/comments';
 import { ChapterTalkSheet } from '@/components/ChapterTalk';
 import { AuthorLinks } from '@/components/AuthorLinks';
@@ -58,6 +58,7 @@ import { PhoneHeroCover } from '@/components/PhoneHeroCover';
 import { HeroTitle } from '@/components/HeroTitle';
 import { useTitleArtPolling } from '@/lib/useTitleArtPolling';
 import { Segmented } from '@/components/settings';
+import { useChapterStars } from '@/lib/chapterStars';
 import { seriesBooksQuery, seriesQuery } from '@/lib/seriesPrefetch';
 import { fetchAllBooks } from '@/lib/seriesBooks';
 import { fetchingToast } from '@/lib/jobs';
@@ -485,8 +486,11 @@ function ButtonsWrap({ compact, menuOpen, children }: { compact: boolean; menuOp
 /** Shift+click in select mode picks a range; without this the browser also paints a text selection across it. */
 const keepSelection = (e: { shiftKey: boolean; preventDefault: () => void }) => { if (e.shiftKey) e.preventDefault(); };
 
-function ChapterRow({ book, downloaded, sourceNames, primarySource, versions, group, thumbKey, expanded, onToggleCopies, below, onReader, onToggleDownload, onMark, onEdit, onVersions, onCopyPath, onHide, onRefetch, onDelete, fresh, selectable, selected, onToggle, compact, lit, talk, onTalk }: {
+function ChapterRow({ book, downloaded, sourceNames, primarySource, versions, group, thumbKey, expanded, onToggleCopies, below, onReader, onToggleDownload, onMark, onEdit, onVersions, onCopyPath, onHide, onRefetch, onDelete, fresh, selectable, selected, onToggle, compact, lit, talk, onTalk, starred, onStar }: {
   book: Book;
+  /** fork 2026-11-24: this account starred the whole chapter (a page-0 bookmark, routes/personal.ts); the menu stars and unstars it. */
+  starred?: boolean;
+  onStar?: () => void;
   /** The group the file on disk came from (lib/chapterCopies.ts endorsedOrigin): the tag beside the title. Null when nobody said. */
   group?: string | null;
   /**
@@ -552,6 +556,7 @@ function ChapterRow({ book, downloaded, sourceNames, primarySource, versions, gr
     ...(state !== 'read' ? [{ label: tr('Mark read'), onSelect: () => onMark('read') }] : []),
     ...(state !== 'unread' ? [{ label: tr('Mark unread'), onSelect: () => onMark('unread') }] : []),
     { label: tr('Mark previous as read'), onSelect: () => onMark('previous') },
+    ...(onStar ? [{ label: starred ? tr('Unstar this chapter') : tr('Star this chapter'), divider: true, onSelect: onStar }] : []),
     ...(onTalk ? [{ label: talk?.comments ? `${tr('Comments')} · ${talk.comments}` : tr('Comments'), divider: true, hook: 'comments', onSelect: onTalk }] : []),
     ...(onVersions ? [{ label: tr('Versions'), divider: true, onSelect: onVersions }] : []),
     ...(onEdit ? [{ label: tr('Edit number & title'), divider: true, onSelect: onEdit }] : []),
@@ -603,6 +608,8 @@ function ChapterRow({ book, downloaded, sourceNames, primarySource, versions, gr
               and the versions key sit at the row's end, outside this opener -- a key inside a <button> is invalid DOM. */}
           <p className={`flex min-w-0 items-center gap-2 text-sm ${state === 'read' ? 'text-fog-500' : 'text-fog-100'}`}>
             <span className="min-w-0 truncate">
+              {/* A starred chapter says so before its number: the star is a status here, the menu is the switch. */}
+              {starred && <IcStar data-chapter-starred role="img" aria-label={tr('Starred chapter')} width={13} height={13} fill="currentColor" className="me-1 inline-block align-[-1px] text-accent" />}
               {chapterLabel(book)}
               {/* The chapter's own name, when the source gave one that is not just the number again. */}
               {chapterName(book) && <span className="text-fog-500"> · {chapterName(book)}</span>}
@@ -1188,7 +1195,8 @@ function SeriesInner() {
   useEffect(() => { setAskedNotes(false); }, [id]);
   const { data: moments } = useQuery({
     queryKey: ['bookmarks', id],
-    queryFn: () => api<{ content: unknown[] }>(`/api/bookmarks?seriesId=${encodeURIComponent(id)}`),
+    // kind=all: a starred chapter is a moment as much as a saved page is.
+    queryFn: () => api<{ content: unknown[] }>(`/api/bookmarks?seriesId=${encodeURIComponent(id)}&kind=all`),
     enabled: !!id && askedNotes,
   });
   const { data: seriesNotes } = useQuery({
@@ -1196,6 +1204,8 @@ function SeriesInner() {
     queryFn: () => api<{ content: unknown[] }>(`/api/notes?seriesId=${encodeURIComponent(id)}`),
     enabled: !!id && askedNotes,
   });
+  // fork 2026-11-24: the chapters this account starred, for the rows' star and their menus' Star / Unstar (lib/chapterStars.ts).
+  const { stars, toggle: toggleStar } = useChapterStars(id);
   const notesCounts = moments && seriesNotes ? { moments: moments.content?.length ?? 0, notes: seriesNotes.content?.length ?? 0 } : null;
 
   const [fav, setFav] = useState(false);
@@ -2450,6 +2460,7 @@ function SeriesInner() {
                 onReader={() => router.push(`/reader/?book=${b.id}`)}
                 onToggleDownload={() => toggleDownload(b.id)}
                 onMark={(mode) => markChapter(b, mode)}
+                starred={stars.has(b.id)} onStar={() => void toggleStar(b.id)}
                 fresh={landed.has(b.number)}
                 onEdit={isAdmin ? () => setEditChapter(b) : undefined}
                 onCopyPath={isAdmin && b.path ? () => void copyPath(b.path!, toast) : undefined}

@@ -21,23 +21,28 @@ import { t as tr } from '@/lib/i18n';
  * between panels -- the same reason the cover tiles pass it.
  */
 export function PageTile({
-  bookId, page, chapter, note, seriesTitle, className = '',
+  bookId, page, chapter, note, seriesTitle, showSeries, className = '',
 }: {
   bookId: string;
+  /** 0 is a starred chapter (lib/chapterStars.ts): the tile draws its first page and opens it from the start. */
   page: number;
+  /** Name the series under the caption -- Moments' starred row mixes series, where the section title cannot. */
+  showSeries?: boolean;
   /** Chapter number as the API reports it -- a string, because "10.5" is a real chapter. */
   chapter?: string | number | null;
   note?: string | null;
   seriesTitle?: string | null;
   className?: string;
 }) {
+  const whole = page === 0;
+  const shown = whole ? 1 : page;
   return (
     <Link
-      href={`/reader/?book=${encodeURIComponent(bookId)}&page=${page}`}
+      href={`/reader/?book=${encodeURIComponent(bookId)}&page=${shown}`}
       className={`group relative block overflow-hidden rounded-2xl border border-ink-800 bg-ink-900 ${className}`}
     >
       <Img
-        src={img.page(bookId, page, 400)}
+        src={img.page(bookId, shown, 400)}
         alt={seriesTitle || ''}
         className="aspect-[2/3] w-full"
         imgClassName="object-top transition-transform duration-500 ease-out group-hover:scale-[1.03]"
@@ -48,10 +53,13 @@ export function PageTile({
         {/* One key, not "Ch." + number + "p." glued together: a translator needs the whole phrase to reorder
             it, and in RTL the fragments would run in source order regardless of the surrounding direction. */}
         <p className="truncate text-[11px] font-medium text-white/95">
-          {chapter != null && chapter !== ''
-            ? tr('Ch. {c} · p.{n}', { c: String(chapter), n: page })
-            : tr('p.{n}', { n: page })}
+          {whole
+            ? (chapter != null && chapter !== '' ? tr('Ch. {c} · whole chapter', { c: String(chapter) }) : tr('Whole chapter'))
+            : chapter != null && chapter !== ''
+              ? tr('Ch. {c} · p.{n}', { c: String(chapter), n: page })
+              : tr('p.{n}', { n: page })}
         </p>
+        {showSeries && seriesTitle ? <p className="truncate text-[11px] text-white/70">{seriesTitle}</p> : null}
         {note ? <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-white/65">{note}</p> : null}
       </div>
     </Link>

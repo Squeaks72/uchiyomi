@@ -266,6 +266,27 @@ test("a dropped copy's comments and reactions follow the chapter", { skip }, asy
   }
 });
 
+test("a starred chapter does not hold its copy back: the star follows the chapter to the kept copy", { skip }, async () => {
+  // Fork 2026-11-24: a starred chapter is the bookmark of page 0 (web/lib/chapterStars.ts). It names no page of the file,
+  // so removeCopy moves it to the kept copy, where a page bookmark still refuses the fold. A reader who starred both keeps
+  // one star. Reintroduce by counting every bookmark in removeCopy: 2 then stays listed twice.
+  await series(KEEP, 'Keep Tale', KEEP_DIR);
+  await series(GONE, 'Gone Tale', GONE_DIR);
+  await book('xc_k2', KEEP, DL, KEEP_DIR, 'Chapter 2.cbz', 2, { pages: 8 });
+  await book('xc_g2', GONE, DL, GONE_DIR, 'Chapter 2.cbz', 2, { pages: 8 });
+  await book('xc_k3', KEEP, DL, KEEP_DIR, 'Chapter 3.cbz', 3, { pages: 8 });
+  await book('xc_g3', GONE, DL, GONE_DIR, 'Chapter 3.cbz', 3, { pages: 8 });
+  await q(`INSERT INTO bookmarks (user_id, book_id, series_id, page, note) VALUES ($1, 'xc_g2', $2, 0, 'all of it'),
+           ($1, 'xc_g3', $2, 0, NULL), ($1, 'xc_k3', $3, 0, 'kept one')`, [user, GONE, KEEP]);
+  const r = await admin.mergeSeries(GONE, KEEP, { keepOnce: { userId: user } });
+  assert.equal(r.duplicates, 2, 'both starred duplicates are folded');
+  assert.deepEqual(await rowsAt(2), ['xc_k2']);
+  assert.deepEqual(await rowsAt(3), ['xc_k3']);
+  const stars = await q(`SELECT book_id, series_id, note FROM bookmarks WHERE user_id = $1 AND page = 0 ORDER BY book_id`, [user]);
+  assert.deepEqual(stars.map((b: any) => [b.book_id, b.series_id, b.note]), [['xc_k2', KEEP, 'all of it'], ['xc_k3', KEEP, 'kept one']],
+    'the star (and its note) moved onto the kept copy; one already there is the one kept');
+});
+
 test('a merge that does not ask keeps both copies (Rescan everything\'s merges)', { skip }, async () => {
   await series(KEEP, 'Keep Tale', KEEP_DIR);
   await series(GONE, 'Gone Tale', GONE_DIR);

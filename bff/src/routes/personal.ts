@@ -586,12 +586,20 @@ export default async function personalRoutes(app: FastifyInstance) {
   //
   // Kept behind the visibility rule like every other read: a bookmark names a book id, and listing them has
   // to go through the same predicate or it becomes a way to learn that a series you cannot see exists.
+  //
+  // Page 0 is the whole chapter (fork, 2026-11-24): a starred chapter -- "all of this was worth keeping" -- is a
+  // bookmark with no page, so it is carried through every merge, rescan, copy fold and cleanup guard that already
+  // carries page bookmarks, instead of a second table each of those places would have to learn. Real pages start
+  // at 1, so nothing collides. `kind` says which a listing wants: `page` (the default, and all any client written
+  // before the stars knows -- kouchiyomi opens `page` as a page number, and page 0 is none), `chapter`, or `all`.
+  // Reintroduce the old shape by dropping the default filter: kouchiyomi's bookmark list then offers "page 0".
   app.get('/api/bookmarks', async (req) => {
-    const { seriesId } = req.query as { seriesId?: string };
+    const { seriesId, kind } = req.query as { seriesId?: string; kind?: string };
     const p = new Params();
     const ctx = vc(req);
     const uid = p.add(userIdOf(req));
-    const extra = seriesId ? ` AND bm.series_id = ${p.add(seriesId)}` : '';
+    const pages = kind === 'all' ? '' : kind === 'chapter' ? ' AND bm.page = 0' : ' AND bm.page > 0';
+    const extra = (seriesId ? ` AND bm.series_id = ${p.add(seriesId)}` : '') + pages;
     // The join to lib_series is what carries every series-level rule -- soft delete, merge, library access
     // and the age cap -- through to a bookmark. Listing them without it would let someone learn that a
     // series they cannot see exists, and what they once read of it.
@@ -613,7 +621,8 @@ export default async function personalRoutes(app: FastifyInstance) {
   app.put('/api/bookmarks/:bookId/:page', async (req, reply) => {
     const { bookId, page } = req.params as { bookId: string; page: string };
     const n = Number(page);
-    if (!Number.isInteger(n) || n < 1) return reply.code(400).send({ error: 'bad_page' });
+    // 0 = the whole chapter (see GET above); a page is 1 or more.
+    if (!Number.isInteger(n) || n < 0) return reply.code(400).send({ error: 'bad_page' });
     const b = z.object({ note: z.string().max(500).nullish() }).safeParse(req.body ?? {});
     if (!b.success) return reply.code(400).send({ error: 'bad_request' });
     // Resolve the book through the backend so a bookmark cannot be created against a series the viewer
