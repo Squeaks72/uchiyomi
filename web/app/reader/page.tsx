@@ -43,7 +43,7 @@ import { PageCleanupPanel } from '@/components/PageCleanupPanel';
 import { ChapterSheet } from '@/components/ChapterSheet';
 import { SeriesCard } from '@/components/cards';
 import { NextInStory } from '@/components/RelatedRail';
-import { IcChevronLeft, IcChevronRight, IcSliders, IcGrid, IcComment } from '@/components/icons';
+import { IcChevronLeft, IcChevronRight, IcSliders, IcGrid, IcComment, IcStar } from '@/components/icons';
 import { SEAM_H, useChapterTalk, useTalkOn } from '@/lib/comments';
 import { ChapterTalkSheet, TalkKey, TalkStrip } from '@/components/ChapterTalk';
 import { PanelView } from '@/components/PanelView';
@@ -2298,7 +2298,8 @@ function ReaderInner() {
   const bookmarked = activeChapter ? marks.has(markKey(activeChapter.id, pageInChapter)) : false;
   useEffect(() => {
     if (!seriesId) return;
-    api<{ content: Array<{ book_id: string; page: number }> }>(`/api/bookmarks?seriesId=${encodeURIComponent(seriesId)}`)
+    // kind=all: the chapter stars too, which are page 0 (routes/personal.ts) -- so `marks` answers both questions.
+    api<{ content: Array<{ book_id: string; page: number }> }>(`/api/bookmarks?seriesId=${encodeURIComponent(seriesId)}&kind=all`)
       .then((r) => setMarks(new Set(r.content.map((b) => markKey(b.book_id, b.page)))))
       .catch(() => {});
   }, [seriesId]);
@@ -2311,21 +2312,27 @@ function ReaderInner() {
     const t = setTimeout(() => setMarkFlash(null), 1300);
     return () => clearTimeout(t);
   }, [markFlash]);
-  const toggleBookmark = async () => {
-    if (!activeChapter || !pageInChapter) return;
-    const k = markKey(activeChapter.id, pageInChapter);
+  // A starred chapter (fork, 2026-11-24) is the bookmark of page 0: the whole chapter was worth keeping. It lists in Moments above
+  // the saved pages, and rides every merge and rescan a page bookmark does.
+  const chapterStarred = activeChapter ? marks.has(markKey(activeChapter.id, 0)) : false;
+  const toggleChapterStar = () => toggleMark(0);
+  const toggleBookmark = () => toggleMark(pageInChapter);
+  const toggleMark = async (page: number) => {
+    if (!activeChapter || (page !== 0 && !pageInChapter)) return;
+    const k = markKey(activeChapter.id, page);
     const on = marks.has(k);
-    setMarkFlash({ on: !on, page: pageInChapter, at: Date.now() });
+    setMarkFlash({ on: !on, page, at: Date.now() });
     // Optimistic: the star is a one-tap control in a reader, and waiting on a round-trip to redraw it makes
     // it feel broken. Reverted if the write fails.
     setMarks((prev) => { const n = new Set(prev); on ? n.delete(k) : n.add(k); return n; });
     try {
-      await api(`/api/bookmarks/${encodeURIComponent(activeChapter.id)}/${pageInChapter}`,
+      await api(`/api/bookmarks/${encodeURIComponent(activeChapter.id)}/${page}`,
         { method: on ? 'DELETE' : 'PUT', json: on ? undefined : {} });
+      if (page === 0) { void qc.invalidateQueries({ queryKey: ['chapterStars'] }); void qc.invalidateQueries({ queryKey: ['bookmarks'] }); }
     } catch {
       setMarks((prev) => { const n = new Set(prev); on ? n.add(k) : n.delete(k); return n; });
       setMarkFlash(null);
-      toast(tr('Could not change the bookmark'), 'error');
+      toast(page === 0 ? tr('Could not change the star') : tr('Could not change the bookmark'), 'error');
     }
   };
   const chapterPageCount = activeChapter?.pages.length ?? 0;
@@ -2339,6 +2346,7 @@ function ReaderInner() {
     const items: MenuItem[] = [
       { label: zoom > 1 ? tr('Reset zoom') : tr('Zoom in'), onSelect: () => applyZoom(zoom > 1 ? 1 : 2) },
       { label: bookmarked ? tr('Remove bookmark') : tr('Bookmark this page'), onSelect: () => { void toggleBookmark(); }, disabled: !activeChapter || !pageInChapter },
+      { label: chapterStarred ? tr('Unstar this chapter') : tr('Star this chapter'), onSelect: () => { void toggleChapterStar(); }, disabled: !activeChapter },
       { label: tr('Jump to a page'), onSelect: () => setShowPages(true) },
       { label: tr('Next chapter'), onSelect: () => goNextChapter(), disabled: !nextId, divider: true },
       { label: tr('Previous chapter'), onSelect: () => goChapter(prevId, true), disabled: !prevId },
@@ -2521,10 +2529,14 @@ function ReaderInner() {
         className="pointer-events-none absolute inset-x-0 top-[16%] z-[60] flex justify-center px-4">
         {markFlash && (
           <div key={markFlash.at} className="flex animate-fade-up items-center gap-2 rounded-full bg-black/75 px-4 py-2 text-sm font-medium text-white shadow-lg ring-1 ring-white/15 backdrop-blur motion-reduce:animate-none">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill={markFlash.on ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className={markFlash.on ? 'text-accent' : 'text-white/70'}>
-              <path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1z" />
-            </svg>
-            <span>{markFlash.on ? tr('Bookmarked · page {n}', { n: markFlash.page }) : tr('Bookmark removed · page {n}', { n: markFlash.page })}</span>
+            {markFlash.page === 0
+              ? <IcStar width={18} height={18} strokeWidth={2} fill={markFlash.on ? 'currentColor' : 'none'} className={markFlash.on ? 'text-accent' : 'text-white/70'} />
+              : <svg width="18" height="18" viewBox="0 0 24 24" fill={markFlash.on ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className={markFlash.on ? 'text-accent' : 'text-white/70'}>
+                  <path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1z" />
+                </svg>}
+            <span>{markFlash.page === 0
+              ? (markFlash.on ? tr('Chapter starred') : tr('Star removed'))
+              : markFlash.on ? tr('Bookmarked · page {n}', { n: markFlash.page }) : tr('Bookmark removed · page {n}', { n: markFlash.page })}</span>
           </div>
         )}
       </div>
@@ -2758,6 +2770,14 @@ function ReaderInner() {
                   <IcGrid width={18} height={18} />
                 </button>
               )}
+              {/* The chapter's star, on a wide screen: a phone's bar has no room left, and there the last page offers it instead. */}
+              {activeChapter && (
+                <button onClick={() => void toggleChapterStar()} aria-label={chapterStarred ? tr('Unstar this chapter') : tr('Star this chapter')}
+                  aria-pressed={chapterStarred} title={chapterStarred ? tr('Unstar this chapter') : tr('Star this chapter')} data-chapter-star
+                  className={`hidden h-10 w-10 shrink-0 place-items-center rounded-full bg-black/45 backdrop-blur lg:grid ${chapterStarred ? 'text-accent' : 'text-white'}`}>
+                  <IcStar width={20} height={20} fill={chapterStarred ? 'currentColor' : 'none'} />
+                </button>
+              )}
               <button onClick={toggleBookmark} aria-label={bookmarked ? tr('Remove bookmark') : tr('Bookmark this page')}
                 aria-pressed={bookmarked}
                 className={`grid h-10 w-10 shrink-0 place-items-center rounded-full bg-black/45 backdrop-blur ${bookmarked ? 'text-accent' : 'text-white'}`}>
@@ -2860,6 +2880,20 @@ function ReaderInner() {
             className="pointer-events-none fixed inset-x-0 bottom-28 z-50 mx-auto w-fit rounded-full bg-black/80 px-3 py-1.5 text-[11px] text-fog-200 backdrop-blur">
             {tr('Tap again to skip to the next chapter')}
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* The last page of a chapter, controls showing: the moment one knows whether the whole chapter was worth a star, and
+          the phone's way to give it one (its top bar has no room for the button). Not while the repeated-pages pill or the skip notice holds the spot. */}
+      <AnimatePresence>
+        {chrome && activeChapter && chapterPageCount > 0 && pageInChapter === chapterPageCount && hiddenHere === 0 && armedNext == null && (
+          <motion.button type="button" data-chapter-star-end
+            initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }}
+            onClick={() => void toggleChapterStar()} aria-pressed={chapterStarred}
+            className={`fixed inset-x-0 bottom-28 z-50 mx-auto flex w-fit items-center gap-1.5 rounded-full bg-black/75 px-3.5 py-2 text-xs font-medium backdrop-blur ring-1 ${chapterStarred ? 'text-accent ring-accent/40' : 'text-fog-100 ring-white/15'}`}>
+            <IcStar width={16} height={16} fill={chapterStarred ? 'currentColor' : 'none'} />
+            {chapterStarred ? tr('Starred chapter') : tr('Star this chapter')}
+          </motion.button>
         )}
       </AnimatePresence>
 

@@ -141,8 +141,16 @@ export function chooseCopy(pair: CopyPair, kept: FileState, other: FileState): {
  */
 async function removeCopy(keep: Copy, drop: Copy, dropFile: FileState): Promise<'removed' | 'bookmarked'> {
   return tx(async (qq) => {
-    const marked = await qq<{ n: number }>('SELECT count(*)::int AS n FROM bookmarks WHERE book_id = $1', [drop.id]);
+    const marked = await qq<{ n: number }>('SELECT count(*)::int AS n FROM bookmarks WHERE book_id = $1 AND page > 0', [drop.id]);
     if (Number(marked[0]?.n) > 0) return 'bookmarked' as const;
+    // A starred chapter (a bookmark on page 0, routes/personal.ts) names no page of this copy, so it goes to the kept
+    // one, as a comment or reaction does; a reader who starred both copies keeps the one star. Only a PAGE bookmark
+    // still refuses the fold, checked first: a refusal
+    // returns, and a returned value COMMITS. Reintroduce by counting every bookmark: a starred duplicate is never folded.
+    await qq(`UPDATE bookmarks bm SET book_id = $2 WHERE bm.book_id = $1 AND bm.page = 0
+                AND NOT EXISTS (SELECT 1 FROM bookmarks k WHERE k.user_id = bm.user_id AND k.book_id = $2 AND k.page = 0)`,
+      [drop.id, keep.id]);
+    await qq('DELETE FROM bookmarks WHERE book_id = $1 AND page = 0', [drop.id]);
     // Explicit external sync uses this same account lock. Folding two already-counted physical copies must
     // not race a retry into a duplicate completion, and must leave ordinary web page-turn history intact.
     const readers=await qq<{user_id:string}>(`SELECT DISTINCT user_id FROM reading_events

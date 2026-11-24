@@ -11,7 +11,8 @@ import { EmptyState } from '@/components/EmptyState';
 import { useToast } from '@/components/Toast';
 import { Modal, actionFailure } from '@/components/ConfirmDialog';
 import { ART } from '@/lib/art';
-import { IcX, IcTrash, IcPlus, IcPencil } from '@/components/icons';
+import { IcX, IcTrash, IcPlus, IcPencil, IcStar } from '@/components/icons';
+import { STAR_PAGE } from '@/lib/chapterStars';
 import { t as tr } from '@/lib/i18n';
 
 interface Bookmark {
@@ -40,16 +41,19 @@ function Moments() {
   const qc = useQueryClient();
   const toast = useToast();
 
+  // kind=all: the saved pages and the starred chapters (page 0, lib/chapterStars.ts) in one list, split below.
   const { data: bm, isLoading: loadingMarks } = useQuery({
     queryKey: ['bookmarks', seriesId],
-    queryFn: () => api<{ content: Bookmark[] }>(`/api/bookmarks${qs}`),
+    queryFn: () => api<{ content: Bookmark[] }>(`/api/bookmarks${qs ? `${qs}&` : '?'}kind=all`),
   });
   const { data: nt, isLoading: loadingNotes } = useQuery({
     queryKey: ['notes', seriesId],
     queryFn: () => api<{ content: Note[] }>(`/api/notes${qs}`),
   });
 
-  const marks = bm?.content ?? [];
+  const all = bm?.content ?? [];
+  const stars = useMemo(() => all.filter((m) => m.page === STAR_PAGE), [all]);
+  const marks = useMemo(() => all.filter((m) => m.page !== STAR_PAGE), [all]);
   const notes = nt?.content ?? [];
   const loading = loadingMarks || loadingNotes;
 
@@ -66,7 +70,7 @@ function Moments() {
   }, [marks]);
 
   const filterTitle = seriesId
-    ? groups[0]?.title || notes.find((n) => n.series_id === seriesId)?.series_title || ''
+    ? groups[0]?.title || stars[0]?.series_title || notes.find((n) => n.series_id === seriesId)?.series_title || ''
     : '';
 
   // Confirmed, unlike the single-chapter delete on /downloads. That one throws away bytes you can fetch
@@ -92,11 +96,17 @@ function Moments() {
   const unsave = useMutation({
     mutationFn: (m: Bookmark) =>
       api(`/api/bookmarks/${encodeURIComponent(m.book_id)}/${m.page}`, { method: 'DELETE' }),
-    onSuccess: () => { toast(tr('Removed from Moments'), 'success'); qc.invalidateQueries({ queryKey: ['bookmarks'] }); },
-    onError: (error) => toast(actionFailure(error, tr('Could not remove that page')), 'error'),
+    onSuccess: (_r, m) => {
+      toast(m.page === STAR_PAGE ? tr('Star removed') : tr('Removed from Moments'), 'success');
+      qc.invalidateQueries({ queryKey: ['bookmarks'] });
+      qc.invalidateQueries({ queryKey: ['chapterStars'] });
+    },
+    onError: (error, m) => toast(actionFailure(error, m.page === STAR_PAGE ? tr('Could not change the star') : tr('Could not remove that page')), 'error'),
   });
   const confirmUnsave = (m: Bookmark) => {
-    if (m.note && !window.confirm(tr('Remove this page? The note on it goes too, and that cannot be undone.'))) return;
+    if (m.note && !window.confirm(m.page === STAR_PAGE
+      ? tr('Unstar this chapter? The note on it goes too, and that cannot be undone.')
+      : tr('Remove this page? The note on it goes too, and that cannot be undone.'))) return;
     unsave.mutate(m);
   };
 
@@ -104,7 +114,26 @@ function Moments() {
   // caption on a tile could render a note that was impossible to create. This is the missing half.
   const [editing, setEditing] = useState<Bookmark | null>(null);
 
-  const empty = !loading && !marks.length && !notes.length;
+  // One tile: a saved page, or a starred chapter (its first page, captioned with the chapter and, across series, the series).
+  const tile = (m: Bookmark, withSeries: boolean) => (
+    <li key={`${m.book_id}:${m.page}`} className="relative">
+      <PageTile bookId={m.book_id} page={m.page}
+        chapter={m.number} note={m.note} seriesTitle={m.series_title} showSeries={withSeries} />
+      {/* Over the tile rather than inside PageTile: the tile is one big link, and a button
+          nested in an <a> is not a valid or clickable control. */}
+      <button type="button" onClick={() => setEditing(m)} aria-haspopup="dialog" aria-label={m.note ? tr('Edit note') : tr('Add a note')}
+        className="absolute end-1.5 top-1.5 grid h-7 w-7 place-items-center pointer-coarse:h-10 pointer-coarse:w-10 rounded-full bg-black/55 text-white/85 backdrop-blur transition hover:bg-black/75 hover:text-white">
+        <IcPencil width={13} height={13} />
+      </button>
+      <button type="button" onClick={() => confirmUnsave(m)} disabled={unsave.isPending}
+        aria-label={m.page === STAR_PAGE ? tr('Unstar this chapter') : tr('Remove from Moments')}
+        className="absolute end-1.5 top-10 pointer-coarse:start-1.5 pointer-coarse:end-auto pointer-coarse:top-1.5 grid h-7 w-7 place-items-center pointer-coarse:h-10 pointer-coarse:w-10 rounded-full bg-black/55 text-white/85 backdrop-blur transition hover:bg-black/75 hover:text-white disabled:opacity-40">
+        <IcTrash width={13} height={13} />
+      </button>
+    </li>
+  );
+
+  const empty = !loading && !all.length && !notes.length;
 
   return (
     <div className="min-h-screen-d">
@@ -132,7 +161,7 @@ function Moments() {
         </div>
       ) : empty ? (
         <EmptyState art={ART.emptyUpdates} title={tr('No moments yet')}
-          sub={tr('Tap the bookmark in the reader to save a page. Saved pages show up here as the panel itself.')}
+          sub={tr('Tap the bookmark in the reader to save a page, or star a whole chapter from its menu. Both show up here.')}
           cta={{ href: '/library', label: tr('Browse library') }} />
       ) : (
         <div className="px-4 pb-10 pt-2 lg:px-0">
@@ -159,6 +188,21 @@ function Moments() {
             </section>
           )}
 
+          {/* Starred chapters first, newest first, every series in one row of tiles: a whole chapter is the bigger thing kept. */}
+          {stars.length > 0 && (
+            <section className="mb-6" data-starred-chapters>
+              <h2 className="flex items-baseline gap-2 py-2">
+                <span className="flex min-w-0 items-center gap-1.5 truncate font-display text-base font-semibold text-fog-100">
+                  <IcStar width={15} height={15} fill="currentColor" className="shrink-0 text-accent" />{tr('Starred chapters')}
+                </span>
+                <span className="shrink-0 text-[11px] text-fog-500">{stars.length}</span>
+              </h2>
+              <ul className="grid grid-cols-3 gap-x-3 gap-y-4 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8">
+                {stars.map((m) => tile(m, !seriesId))}
+              </ul>
+            </section>
+          )}
+
           {groups.map((g) => (
             <section key={g.id} className="mb-6">
               <h2 className="flex items-baseline gap-2 py-2">
@@ -169,23 +213,7 @@ function Moments() {
                 <span className="shrink-0 text-[11px] text-fog-500">{g.items.length === 1 ? tr('1 saved') : tr('{n} saved', { n: g.items.length })}</span>
               </h2>
               <ul className="grid grid-cols-3 gap-x-3 gap-y-4 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8">
-                {g.items.map((m) => (
-                  <li key={`${m.book_id}:${m.page}`} className="relative">
-                    <PageTile bookId={m.book_id} page={m.page}
-                      chapter={m.number} note={m.note} seriesTitle={m.series_title} />
-                    {/* Over the tile rather than inside PageTile: the tile is one big link, and a button
-                        nested in an <a> is not a valid or clickable control. */}
-                    <button type="button" onClick={() => setEditing(m)} aria-haspopup="dialog" aria-label={m.note ? tr('Edit note') : tr('Add a note')}
-                      className="absolute end-1.5 top-1.5 grid h-7 w-7 place-items-center pointer-coarse:h-10 pointer-coarse:w-10 rounded-full bg-black/55 text-white/85 backdrop-blur transition hover:bg-black/75 hover:text-white">
-                      <IcPencil width={13} height={13} />
-                    </button>
-                    <button type="button" onClick={() => confirmUnsave(m)} disabled={unsave.isPending}
-                      aria-label={tr('Remove from Moments')}
-                      className="absolute end-1.5 top-10 pointer-coarse:start-1.5 pointer-coarse:end-auto pointer-coarse:top-1.5 grid h-7 w-7 place-items-center pointer-coarse:h-10 pointer-coarse:w-10 rounded-full bg-black/55 text-white/85 backdrop-blur transition hover:bg-black/75 hover:text-white disabled:opacity-40">
-                      <IcTrash width={13} height={13} />
-                    </button>
-                  </li>
-                ))}
+                {g.items.map((m) => tile(m, false))}
               </ul>
             </section>
           ))}
@@ -208,13 +236,13 @@ function PageNoteEditor({ mark, onClose }: { mark: Bookmark; onClose: () => void
     // An empty box clears the note rather than storing '', which is what the route's `nullish()` is for.
     mutationFn: () => api(`/api/bookmarks/${encodeURIComponent(mark.book_id)}/${mark.page}`,
       { method: 'PUT', json: { note: body.trim() || null } }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['bookmarks'] }); onClose(); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['bookmarks'] }); qc.invalidateQueries({ queryKey: ['chapterStars'] }); onClose(); },
     onError: (error) => toast(actionFailure(error, tr('Could not save that note')), 'error'),
   });
   return (
-    <Modal title={tr('Note on this page')} onClose={onClose}>
+    <Modal title={mark.page === STAR_PAGE ? tr('Note on this chapter') : tr('Note on this page')} onClose={onClose}>
       <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={4} maxLength={500}
-        aria-label={tr('Note on this page')} placeholder={tr('What do you want to remember?')} className="field w-full resize-y text-sm" />
+        aria-label={mark.page === STAR_PAGE ? tr('Note on this chapter') : tr('Note on this page')} placeholder={tr('What do you want to remember?')} className="field w-full resize-y text-sm" />
       <div className="mt-3 flex justify-end gap-2">
         <button type="button" onClick={onClose} className="chip text-xs text-fog-500">{tr('Cancel')}</button>
         <button type="button" disabled={save.isPending} onClick={() => save.mutate()}
