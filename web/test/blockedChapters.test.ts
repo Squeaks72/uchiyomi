@@ -28,8 +28,18 @@ test('asked under the Sources sheet\'s group rows and in the Scanlation groups e
 
 test('removing is a confirmed step with the ids that were shown, asked inline (a dialog under a Sheet cannot be tapped)', () => {
   const ask = read('components/BlockedChapters.tsx');
-  assert.match(ask, /'\/api\/admin\/blocked-chapters\/purge', \{\s*method: 'POST', json: \{ bookIds: data\.books\.map\(\(b\) => b\.id\) \}/);
+  // The fork's kept copies ride along: the blocked groups' copies the count listed, by bookId|sourceId.
+  assert.match(ask, /'\/api\/admin\/blocked-chapters\/purge', \{\s*method: 'POST', json: \{ bookIds: data!\.books\.map\(\(b\) => b\.id\), copies: copyKeys \}/);
   assert.match(ask, /role="alertdialog"/);
   assert.doesNotMatch(ask, /<ConfirmDialog|<Modal/);
   assert.match(ask, /setKept\(asked\)/, 'Keep answers for the chapters asked about only');
+});
+
+test('fork: kept copies -- a chapter with another group\'s copy is said to switch, and blocked kept copies are counted', () => {
+  const swap = blockedChaptersText({ chapters: 2, series: 1, readers: 0, endorsing: 1, copies: [] }, false);
+  assert.match(swap, /^2 downloaded chapters .* 1 chapter keeps another group's copy: that copy is used instead\./);
+  const onlyCopies = blockedChaptersText({ chapters: 0, series: 1, readers: 0, endorsing: 0,
+    copies: [{ bookId: 'b', sourceId: 's', seriesId: 'x', number: 1, scanlator: 'Bad' }, { bookId: 'c', sourceId: 's', seriesId: 'x', number: 2, scanlator: 'Bad' }] }, false);
+  assert.match(onlyCopies, /^2 kept copies come from a blocked group\. Remove them completely/);
+  assert.doesNotMatch(onlyCopies, /downloaded chapter/, 'no chapter goes: none is named');
 });

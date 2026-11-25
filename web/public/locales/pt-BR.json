@@ -2,7 +2,7 @@
   "_meta": {
     "language": "pt-BR",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 6121
+    "strings": 6129
   },
   "1 check found something": "1 verificação encontrou algo",
   "1 member": "1 membro",
@@ -6124,5 +6124,13 @@
   "Stamped": "Marcado",
   "This source put its banner or logo on the pages": "Esta fonte colocou sua faixa ou logotipo nas páginas",
   "Hentai": "Hentai",
-  "Pornhwa": "Pornhwa"
+  "Pornhwa": "Pornhwa",
+  "1 chapter keeps another group's copy: that copy is used instead.": "1 capítulo tem a cópia de outro grupo: essa cópia é usada no lugar.",
+  "{n} chapters keep another group's copy: that copy is used instead.": "{n} capítulos têm a cópia de outro grupo: essa cópia é usada no lugar.",
+  "1 kept copy comes from a blocked group.": "1 cópia guardada vem de um grupo bloqueado.",
+  "{n} kept copies come from a blocked group.": "{n} cópias guardadas vêm de um grupo bloqueado.",
+  "1 chapter switched to another group's copy": "1 capítulo passou para a cópia de outro grupo",
+  "{n} chapters switched to another group's copy": "{n} capítulos passaram para a cópia de outro grupo",
+  "1 chapter left unchanged: another group's copy cannot be fetched now.": "1 capítulo sem alteração: a cópia do outro grupo não pode ser baixada agora.",
+  "{n} chapters left unchanged: another group's copy cannot be fetched now.": "{n} capítulos sem alteração: a cópia do outro grupo não pode ser baixada agora."
 }

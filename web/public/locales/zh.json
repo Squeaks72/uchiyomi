@@ -2,7 +2,7 @@
   "_meta": {
     "language": "zh",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 6121
+    "strings": 6129
   },
   "1 check found something": "1 项检查发现问题",
   "1 member": "1 位成员",
@@ -6124,5 +6124,13 @@
   "Stamped": "有水印",
   "This source put its banner or logo on the pages": "此来源在页面上加了横幅或标志",
   "Hentai": "成人漫画",
-  "Pornhwa": "成人韩漫"
+  "Pornhwa": "成人韩漫",
+  "1 chapter keeps another group's copy: that copy is used instead.": "1 章有其他组的副本：改用该副本。",
+  "{n} chapters keep another group's copy: that copy is used instead.": "{n} 章有其他组的副本：改用该副本。",
+  "1 kept copy comes from a blocked group.": "1 个保留副本来自已屏蔽的组。",
+  "{n} kept copies come from a blocked group.": "{n} 个保留副本来自已屏蔽的组。",
+  "1 chapter switched to another group's copy": "1 章已切换到其他组的副本",
+  "{n} chapters switched to another group's copy": "{n} 章已切换到其他组的副本",
+  "1 chapter left unchanged: another group's copy cannot be fetched now.": "1 章未更改：其他组的副本暂时无法获取。",
+  "{n} chapters left unchanged: another group's copy cannot be fetched now.": "{n} 章未更改：其他组的副本暂时无法获取。"
 }

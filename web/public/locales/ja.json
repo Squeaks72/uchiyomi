@@ -2,7 +2,7 @@
   "_meta": {
     "language": "ja",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 6121
+    "strings": 6129
   },
   "1 check found something": "1 件のチェックで問題を検出",
   "1 member": "メンバー 1 人",
@@ -6124,5 +6124,13 @@
   "Stamped": "刻印あり",
   "This source put its banner or logo on the pages": "このソースはページにバナーやロゴを入れています",
   "Hentai": "成人向け",
-  "Pornhwa": "成人向けマンファ"
+  "Pornhwa": "成人向けマンファ",
+  "1 chapter keeps another group's copy: that copy is used instead.": "1話に別グループのコピーがあります：代わりにそのコピーを使います。",
+  "{n} chapters keep another group's copy: that copy is used instead.": "{n}話に別グループのコピーがあります：代わりにそのコピーを使います。",
+  "1 kept copy comes from a blocked group.": "保存済みコピー1件がブロック中のグループのものです。",
+  "{n} kept copies come from a blocked group.": "保存済みコピー{n}件がブロック中のグループのものです。",
+  "1 chapter switched to another group's copy": "1話を別グループのコピーに切り替えました",
+  "{n} chapters switched to another group's copy": "{n}話を別グループのコピーに切り替えました",
+  "1 chapter left unchanged: another group's copy cannot be fetched now.": "1話は変更なし：別グループのコピーを今は取得できません。",
+  "{n} chapters left unchanged: another group's copy cannot be fetched now.": "{n}話は変更なし：別グループのコピーを今は取得できません。"
 }

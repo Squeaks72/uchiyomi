@@ -2,7 +2,7 @@
   "_meta": {
     "language": "ru",
     "note": "Machine-assisted translation, reviewed for tone but not by a native speaker. Corrections are very welcome: edit this file and open a pull request. Keys are the English source strings, so a missing entry falls back to English.",
-    "strings": 6121
+    "strings": 6129
   },
   "1 check found something": "1 проверка нашла проблему",
   "1 member": "1 участник",
@@ -6124,5 +6124,13 @@
   "Stamped": "С меткой",
   "This source put its banner or logo on the pages": "Этот источник поставил свой баннер или логотип на страницы",
   "Hentai": "Хентай",
-  "Pornhwa": "Порнхва"
+  "Pornhwa": "Порнхва",
+  "1 chapter keeps another group's copy: that copy is used instead.": "У 1 главы есть копия другой группы: вместо неё используется эта копия.",
+  "{n} chapters keep another group's copy: that copy is used instead.": "Глав с копией другой группы: {n} — вместо них используется эта копия.",
+  "1 kept copy comes from a blocked group.": "1 сохранённая копия — от заблокированной группы.",
+  "{n} kept copies come from a blocked group.": "Сохранённых копий от заблокированной группы: {n}.",
+  "1 chapter switched to another group's copy": "1 глава переключена на копию другой группы",
+  "{n} chapters switched to another group's copy": "Глав переключено на копию другой группы: {n}",
+  "1 chapter left unchanged: another group's copy cannot be fetched now.": "1 глава без изменений: копию другой группы сейчас нельзя загрузить.",
+  "{n} chapters left unchanged: another group's copy cannot be fetched now.": "Глав без изменений: {n} — копию другой группы сейчас нельзя загрузить."
 }

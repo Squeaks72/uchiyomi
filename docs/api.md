@@ -883,6 +883,11 @@ chapters included. `POST /api/admin/blocked-chapters/purge {bookIds}` removes, p
 row locks, those of the given ids still eligible -- file, row, progress, bookmarks/offline records and the by-number
 marks/failures no other row holds -- and answers `{ok, removed, bytes, left[], busy[]}`. A series being changed is
 skipped (`busy`); an unwritable download folder is 409 `refused`. The audit event is `series.blocked_purge`.
+With kept copies (Keep every source's copy): a chapter with another group's kept copy is never removed -- the count
+marks it `keptCopy` (and `endorsing`), and the purge endorses that copy in its place (`endorsed`), the blocked file
+dropped once it lands, or leaves it as it is (`left`, `kept_copy`) when that source no longer lists it. The count's
+`copies[]` are blocked groups' kept copies beside chapters that stay; `copies: ["bookId|sourceId"]` in the purge drops
+them (`copiesDropped`, which also counts a removed chapter's kept copies, whose files go with it).
 
 **Failed chapters follow the series** (since v0.55.3). A failed chapter (one row of the ledger Health's
 `chapter-failures` check reads) that is filed under a source its series no longer uses -- neither its main source nor

@@ -837,6 +837,13 @@ they stay readable, and a chapter of theirs you had already deleted stays off th
 reads. Only a file the group's copy put in the download folder goes: a chapter an unblocked group also released, a
 file holding several chapters, and a library you built by hand are never touched.
 
+With **Keep every source's copy** on, a chapter is its file plus the copies kept beside it, and the question counts
+them too. A blocked group's chapter that has another group's copy kept is never removed: that copy is endorsed in its
+place (as **Endorse this version** would), so the chapter, its progress and its star stay, and the blocked group's file
+goes once the new copy lands. If that copy's source no longer lists the chapter, nothing can be endorsed and the
+chapter is left as it is. Kept copies from a blocked group beside a chapter that stays are removed on their own, and a
+removed chapter's kept copies go with it (no file is left behind in `.versions/`).
+
 **In the series' language** (since v0.62.0). A copy known to be in another language than the series' is never
 taken, exactly like a blocked group's: a Spanish copy never fills a chapter of an English series, whichever source
 ranks first. A copy's language is known when its source names it — MangaDex for each chapter, an extension or a site

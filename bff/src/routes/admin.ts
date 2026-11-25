@@ -2263,7 +2263,11 @@ export default async function adminRoutes(app: FastifyInstance) {
     const p = z.object({ seriesId: z.string().min(1).max(64).optional() }).safeParse(req.query ?? {});
     if (!p.success) return reply.code(400).send({ error: 'bad_request' });
     const found = await blockedChaptersOf(p.data.seriesId ?? null);
-    return { chapters: found.books.length, series: found.series, readers: found.readers, books: found.books };
+    // `copies`: kept copies by blocked groups beside chapters that stay; `endorsing`: chapters whose other group's kept copy replaces them.
+    return {
+      chapters: found.books.length, series: found.series, readers: found.readers, books: found.books,
+      copies: found.copies, endorsing: found.books.filter((x) => x.keptCopy).length,
+    };
   });
 
   /**
@@ -2272,12 +2276,15 @@ export default async function adminRoutes(app: FastifyInstance) {
    * task is changing is skipped and named in `busy`.
    */
   app.post('/api/admin/blocked-chapters/purge', async (req, reply) => {
-    const b = z.object({ bookIds: z.array(z.string().min(1).max(128)).min(1).max(5000) }).strict().safeParse(req.body);
+    const b = z.object({
+      bookIds: z.array(z.string().min(1).max(128)).max(5000).default([]),
+      copies: z.array(z.string().min(1).max(260)).max(5000).default([]),
+    }).strict().refine((v) => v.bookIds.length + v.copies.length > 0).safeParse(req.body);
     if (!b.success) return reply.code(400).send({ error: 'bad_request', message: 'Which chapters?' });
     try {
       const out = await purgeBlockedChapters(b.data.bookIds, {
         userId: userIdOf(req), req, claim: (id, folder) => claimSeriesWriter([id], [folder]),
-      });
+      }, b.data.copies);
       return { ok: out.left.length === 0 && out.busy.length === 0, ...out };
     } catch (e) {
       if (e instanceof BlockedPurgeRefused) return reply.code(409).send({ error: e.reason, message: e.message, ...(e.fix ? { fix: e.fix } : {}) });

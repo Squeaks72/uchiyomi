@@ -98,7 +98,7 @@ async function keepCurrent(bookId: string, abs: string): Promise<void> {
 export type EndorseRun = { started: number; skipped: Array<{ id: string; reason: string }>; busy?: boolean };
 
 /** Put the planned copies on their chapters' rows (one refetch job), keeping each current file as a version first. */
-export async function runEndorse(seriesId: string, steps: EndorseStep[], by: string | null): Promise<EndorseRun> {
+export async function runEndorse(seriesId: string, steps: EndorseStep[], by: string | null, extra: { onLanded?: (bookId: string) => Promise<void> } = {}): Promise<EndorseRun> {
   const take = steps.slice(0, JOB_MAX);
   if (!take.length) return { started: 0, skipped: [] };
   const target = new Map(take.map((t) => [t.bookId, t.source]));
@@ -106,7 +106,11 @@ export async function runEndorse(seriesId: string, steps: EndorseStep[], by: str
     by,
     beforeSetAside: async (rows) => { for (const row of rows) await keepCurrent(row.id, row.abs).catch(() => {}); },
     // The source just endorsed may have had a kept copy of this chapter: it IS the endorsed file now, so the kept one goes.
-    onLanded: async (bookId) => { const src = target.get(bookId); if (src) await dropVersion(bookId, src).catch(() => false); },
+    onLanded: async (bookId) => {
+      const src = target.get(bookId);
+      if (src) await dropVersion(bookId, src).catch(() => false);
+      if (extra.onLanded) await extra.onLanded(bookId).catch(() => {});
+    },
     // The refetch job runs detached, so `skipped` only covers what was refused up front. A chapter that fails LATER lands here, and
     // gets the same one-day back-off; without it the 2-minute pending pass redid it forever (set aside, tombstoned, downloaded again).
     onFailed: (bookId) => { const src = target.get(bookId); if (src) failedAt.set(`${bookId}|${src}`, Date.now()); },
@@ -116,7 +120,9 @@ export async function runEndorse(seriesId: string, steps: EndorseStep[], by: str
 }
 
 /** An admin's endorsement of one chapter's copy (null: the main source's again), applied at once. */
-export async function endorseChapter(seriesId: string, number: number, sourceId: string | null, by: string): Promise<EndorseRun & { already?: boolean }> {
+export async function endorseChapter(
+  seriesId: string, number: number, sourceId: string | null, by: string | null, extra: { onLanded?: (bookId: string) => Promise<void> } = {},
+): Promise<EndorseRun & { already?: boolean }> {
   if (sourceId) {
     await q(`INSERT INTO series_chapter_endorse (series_id, number, source_id, set_by) VALUES ($1, $2, $3, $4)
              ON CONFLICT (series_id, number) DO UPDATE SET source_id = EXCLUDED.source_id, set_by = EXCLUDED.set_by, set_at = now()`,
@@ -126,7 +132,7 @@ export async function endorseChapter(seriesId: string, number: number, sourceId:
   }
   const plan = await endorsePlan(seriesId, { numbers: [number] });
   if (!plan.length) return { started: 0, skipped: [], already: true };
-  return runEndorse(seriesId, plan, by);
+  return runEndorse(seriesId, plan, by, extra);
 }
 
 /** Chapters whose endorse failed recently are left alone for a day, so a copy that will not download is not asked for every pass. */

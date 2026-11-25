@@ -395,3 +395,64 @@ test('a blocked group\'s downloaded chapters are counted, and removed completely
     await patchSeries([]).catch(() => {});
   }
 });
+
+test('a blocked group\'s chapter with another group\'s kept copy is never removed, and blocked kept copies go on their own (fork: Keep every source\'s copy)', { skip }, async () => {
+  // A chapter is its file plus the other sources' copies kept beside it (lib_book_versions, under .versions/). Removing the
+  // row would cascade those copies away and strand their files. So: another group's kept copy keeps the chapter (endorsed in
+  // its place when that source lists it; left as it is when not), and a blocked group's kept copy is dropped by itself.
+  const { mkdirSync, writeFileSync, existsSync } = await import('node:fs');
+  const DL = process.env.DL_ROOT!;
+  const ALT = 'blk-alt';
+  const ids = { swap: 'b_blkv_340', gone: 'b_blkv_341', good: 'b_blkv_4' };
+  const file = (n: string) => `${S}/${n}.cbz`;
+  const vfile = (n: string) => `.versions/${S}/${ALT}/${n}.cbz`;
+  const book = async (id: string, n: number, scanlator: string) => {
+    mkdirSync(join(DL, S), { recursive: true }); writeFileSync(join(DL, file(id)), 'x');
+    await q(`INSERT INTO lib_books (id, series_id, source, file, title, number, scanlator, root, source_id) VALUES ($1,$2,'T!blk',$3,$4,$5,$6,$7,$8)`,
+      [id, S, file(id), `Chapter ${n}`, n, scanlator, DL, SRC]);
+  };
+  const kept = async (id: string, scanlator: string) => {
+    mkdirSync(join(DL, `.versions/${S}/${ALT}`), { recursive: true }); writeFileSync(join(DL, vfile(id)), 'v');
+    await q(`INSERT INTO lib_book_versions (book_id, source_id, file, root, pages, scanlator, size) VALUES ($1,$2,$3,$4,10,$5,1)`, [id, ALT, vfile(id), DL, scanlator]);
+  };
+  for (const n of [340, 341]) {
+    const c = copy(n, ['Bad']);
+    await q(`INSERT INTO series_listing (series_id, number, title, scanlator, groups, source_id, chosen, status, copies)
+             VALUES ($1,$2,$3,'Bad',ARRAY['Bad'],$4,$5::jsonb,'available',$6::jsonb)`,
+      [S, n, `Chapter ${n}`, SRC, JSON.stringify({ ...c, number: n }), JSON.stringify([c])]);
+  }
+  await book(ids.swap, 340, 'Bad'); await kept(ids.swap, 'Good');   // Good's copy kept from another source
+  await book(ids.gone, 341, 'Bad'); await kept(ids.gone, 'Bad');    // its only kept copy is Bad's too
+  await book(ids.good, 4, 'Good');  await kept(ids.good, 'Bad');    // a good chapter with Bad's copy beside it
+  const adminId = (await q('SELECT id FROM users WHERE username = $1', [ADMIN]))[0].id;
+  await q(`INSERT INTO bookmarks (user_id, book_id, series_id, page) VALUES ($1,$2,$3,0)`, [adminId, ids.swap, S]); // a starred chapter
+  const count = async () => (await app.inject({ method: 'GET', url: `/api/admin/blocked-chapters?seriesId=${S}`, headers: { authorization: tok } })).json();
+  const purge = (payload: unknown) => app.inject({ method: 'POST', url: '/api/admin/blocked-chapters/purge', headers: { authorization: tok }, payload });
+  try {
+    assert.equal((await patchSeries(['Bad'])).statusCode, 200);
+    const found = await count();
+    const mine = found.books.filter((b: any) => Object.values(ids).includes(b.id));
+    assert.deepEqual(mine.map((b: any) => [b.id, b.keptCopy]), [[ids.swap, ALT], [ids.gone, null]]);
+    assert.equal(found.endorsing, 1);
+    assert.deepEqual(found.copies.map((c: any) => `${c.bookId}|${c.sourceId}`), [`${ids.good}|${ALT}`]);
+    const r = await purge({ bookIds: [ids.swap, ids.gone], copies: [`${ids.good}|${ALT}`] });
+    assert.equal(r.statusCode, 200, r.body);
+    const out = r.json();
+    assert.equal(out.removed, 1, 'only the chapter with no other group\'s copy goes');
+    assert.deepEqual(out.left, [{ id: ids.swap, reason: 'kept_copy' }], 'ALT does not list 340: nothing can be endorsed, so it stays as it is');
+    assert.equal(out.copiesDropped, 2, 'Bad\'s copy beside 341, and Bad\'s copy beside the good chapter');
+    const rows = (await q('SELECT id FROM lib_books WHERE id = ANY($1) ORDER BY id', [Object.values(ids)])).map((x: any) => x.id);
+    assert.deepEqual(rows, [ids.swap, ids.good].sort());
+    assert.ok(existsSync(join(DL, file(ids.swap))) && existsSync(join(DL, vfile(ids.swap))), 'the kept chapter and its good copy are untouched');
+    assert.equal((await q('SELECT count(*)::int AS n FROM lib_book_versions WHERE book_id = $1', [ids.swap]))[0].n, 1);
+    assert.equal((await q('SELECT count(*)::int AS n FROM bookmarks WHERE book_id = $1', [ids.swap]))[0].n, 1, 'its star stays');
+    assert.equal((await q('SELECT count(*)::int AS n FROM series_chapter_endorse WHERE series_id = $1', [S]))[0].n, 0, 'no endorsement written when none can run');
+    assert.ok(!existsSync(join(DL, vfile(ids.gone))), 'a removed chapter\'s blocked kept copy leaves no stranded file');
+    assert.ok(!existsSync(join(DL, vfile(ids.good))) && existsSync(join(DL, file(ids.good))), 'Bad\'s copy goes, the good chapter stays');
+  } finally {
+    await q('DELETE FROM bookmarks WHERE book_id = ANY($1)', [Object.values(ids)]).catch(() => {});
+    await q('DELETE FROM lib_books WHERE id = ANY($1)', [Object.values(ids)]).catch(() => {});
+    await q('DELETE FROM series_listing WHERE series_id = $1 AND number = ANY($2)', [S, [340, 341]]).catch(() => {});
+    await patchSeries([]).catch(() => {});
+  }
+});

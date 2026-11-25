@@ -11134,16 +11134,29 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [chapters, series, readers, books]
+                required: [chapters, series, readers, books, copies, endorsing]
                 properties:
                   chapters: { type: integer }
                   series: { type: integer }
                   readers: { type: integer }
+                  endorsing: { type: integer, description: "Of chapters, how many have another group's kept copy, endorsed in their place instead of being removed." }
+                  copies:
+                    type: array
+                    description: Kept copies (lib_book_versions) stamped with a blocked group, beside chapters that stay.
+                    items:
+                      type: object
+                      required: [bookId, sourceId, seriesId, number, scanlator]
+                      properties:
+                        bookId: { type: string }
+                        sourceId: { type: string }
+                        seriesId: { type: string }
+                        number: { type: number }
+                        scanlator: { type: [string, "null"] }
                   books:
                     type: array
                     items:
                       type: object
-                      required: [id, seriesId, seriesTitle, number, scanlator, pruned]
+                      required: [id, seriesId, seriesTitle, number, scanlator, pruned, keptCopy]
                       properties:
                         id: { type: string }
                         seriesId: { type: string }
@@ -11151,6 +11164,7 @@ paths:
                         number: { type: number }
                         scanlator: { type: [string, "null"] }
                         pruned: { type: boolean }
+                        keptCopy: { type: [string, "null"], description: "Source key of another group's kept copy: the chapter is endorsed to it, not removed." }
         "400":
           description: bad_request
         "401":
@@ -11166,17 +11180,21 @@ paths:
         Requires an admin account and admin token scope. Takes the ids the count showed and removes only those still
         eligible, per series under its writer claim and row locks: the file, the row, its reading progress, bookmarks
         and offline records, and the by-number marks and failures of numbers no other row holds. A series another
-        task is changing is skipped and named in busy. Audited per series as series.blocked_purge.
+        task is changing is skipped and named in busy. Audited per series as series.blocked_purge. A chapter with
+        another group's kept copy (keptCopy) is never removed: that copy is endorsed in its place, and the blocked
+        group's file dropped once it lands (endorsed); when its source no longer lists the chapter, it is left as it
+        is (left, kept_copy). copies drops the listed blocked kept copies beside chapters that stay (copiesDropped,
+        which also counts the kept copies of removed chapters).
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [bookIds]
               additionalProperties: false
               properties:
-                bookIds: { type: array, minItems: 1, maxItems: 5000, items: { type: string, minLength: 1, maxLength: 128 } }
+                bookIds: { type: array, maxItems: 5000, items: { type: string, minLength: 1, maxLength: 128 } }
+                copies: { type: array, maxItems: 5000, items: { type: string, minLength: 1, maxLength: 260, description: "bookId|sourceId" } }
       security:
         - bearer: []
       responses:
@@ -11186,10 +11204,12 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [ok, removed, bytes, left, busy]
+                required: [ok, removed, bytes, left, busy, endorsed, copiesDropped]
                 properties:
                   ok: { type: boolean }
                   removed: { type: integer }
+                  endorsed: { type: integer }
+                  copiesDropped: { type: integer }
                   bytes: { type: integer }
                   left:
                     type: array
@@ -11198,7 +11218,7 @@ paths:
                       required: [id, reason]
                       properties:
                         id: { type: string }
-                        reason: { type: string, enum: [unlink_failed, outside_root, unreachable] }
+                        reason: { type: string, enum: [unlink_failed, outside_root, unreachable, kept_copy] }
                   busy: { type: array, items: { type: string } }
         "400":
           description: bad_request

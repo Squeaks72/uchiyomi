@@ -20,6 +20,17 @@
 //    chapter the sources can fetch again, like any other not downloaded yet.
 //  - CONFIRMED: the purge takes the ids the admin was shown and removes only those still eligible under the series'
 //    writer claim and row locks, so nothing that changed since the count can go.
+//  - KEPT COPIES (the fork's "Keep every source's copy", lib/bookVersionsRead.ts): a chapter is a file plus the other
+//    sources' copies kept beside it (lib_book_versions, under `.versions/`), and deleting the row would cascade those
+//    copies away and strand their files. So, per chapter:
+//      · another group's copy is kept (stamped with a group that is not blocked, or with none): the chapter is NOT
+//        removed. That copy is endorsed in its place (lib/endorse.ts endorseChapter -- the same path as the version row's
+//        "Endorse this version": the row, its progress, bookmarks and stars stay), and the blocked group's file, kept as a
+//        version by the endorse, is dropped once the new copy lands. Where the endorse cannot fetch that copy (its source
+//        no longer lists it), the chapter is left as it is and reported in `left` as `kept_copy`.
+//      · no such copy: the chapter goes as above, and so do the files of its (blocked) kept copies.
+//    A kept copy stamped with a blocked group on any other chapter is listed in `copies` and dropped on its own
+//    (lib/endorse.ts dropVersion); the chapter it sits beside is untouched.
 import type { FastifyRequest } from 'fastify';
 import { q, tx } from './db';
 import { DL_ROOT } from './library';
@@ -28,6 +39,7 @@ import { readGlobalPrefs } from './scanlatorPrefs';
 import { purgeBooks, purgeRefusal, type LeftoverBook, type PurgeResult } from './sourceLeftovers';
 import { heldBy } from './chapterRanges';
 import { numKey } from './postingOrder';
+import { dropVersion, endorseChapter } from './endorse';
 
 type Query = typeof q;
 
@@ -40,10 +52,23 @@ export interface BlockedBook {
   number: number;
   scanlator: string | null;
   pruned: boolean;
+  /** Another group's copy of this chapter kept beside it (its source key): endorsed in its place instead of removing it. */
+  keptCopy: string | null;
+}
+
+/** A kept copy (lib_book_versions) stamped with a blocked group, beside a chapter that itself stays. */
+export interface BlockedCopy {
+  bookId: string;
+  sourceId: string;
+  seriesId: string;
+  number: number;
+  scanlator: string | null;
 }
 
 export interface BlockedChapters {
   books: BlockedBook[];
+  /** Kept copies by blocked groups beside chapters that stay (see the header). */
+  copies: BlockedCopy[];
   /** Series with at least one such chapter. */
   series: number;
   /** Readers with progress on one of them. */
@@ -63,6 +88,11 @@ const ownPrefs = (v: unknown): StoredPrefs | null => {
   if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
   const o = v as Record<string, unknown>;
   return { priority: strings(o.priority), blocked: strings(o.blocked), patienceDays: null };
+};
+
+const isBlockedStamp = (scanlator: string | null, blocked: Set<string>): boolean => {
+  const keys = groupsOf({ scanlator: scanlator ?? undefined }).map(normGroup).filter(Boolean);
+  return keys.length > 0 && keys.every((k) => blocked.has(k));
 };
 
 /**
@@ -88,10 +118,22 @@ export async function blockedChaptersOf(seriesId?: string | null, query: Query =
       ORDER BY s.title, b.series_id, COALESCE(ov.number, b.number), b.file`,
     [seriesId ?? null, DL_ROOT],
   );
-  if (!rows.length) return { books: [], series: 0, readers: 0 };
+  // Every kept copy in scope, with its series' prefs: the ones beside a candidate decide its fate, the blocked ones elsewhere are listed.
+  const versions = await query<{ book_id: string; source_id: string; scanlator: string | null; series_id: string; number: number; series_prefs: unknown }>(
+    `SELECT v.book_id, v.source_id, v.scanlator, b.series_id, COALESCE(ov.number, b.number)::float8 AS number, s.scanlator_prefs AS series_prefs
+       FROM lib_book_versions v
+       JOIN lib_books b ON b.id = v.book_id
+       JOIN lib_series s ON s.id = b.series_id
+       LEFT JOIN book_overrides ov ON ov.book_id = b.id
+      WHERE ($1::text IS NULL OR b.series_id = $1)
+        AND s.numbering_pending IS NULL AND s.renumber_plan IS NULL
+      ORDER BY b.series_id, b.id, v.source_id`,
+    [seriesId ?? null],
+  );
+  if (!rows.length && !versions.length) return { books: [], copies: [], series: 0, readers: 0 };
   const global = await readGlobalPrefs();
   const blockedFor = new Map<string, Set<string>>();
-  const blockedOf = (r: Row) => {
+  const blockedOf = (r: { series_id: string; series_prefs: unknown }) => {
     let set = blockedFor.get(r.series_id);
     if (!set) {
       set = new Set(mergePrefs(global, ownPrefs(r.series_prefs)).blocked.map(normGroup).filter(Boolean));
@@ -99,6 +141,8 @@ export async function blockedChaptersOf(seriesId?: string | null, query: Query =
     }
     return set;
   };
+  const versionsOf = new Map<string, typeof versions>();
+  for (const v of versions) versionsOf.set(v.book_id, [...(versionsOf.get(v.book_id) ?? []), v]);
   const books: BlockedBook[] = [];
   for (const r of rows) {
     const keys = groupsOf({ scanlator: r.scanlator ?? undefined }).map(normGroup).filter(Boolean);
@@ -106,21 +150,36 @@ export async function blockedChaptersOf(seriesId?: string | null, query: Query =
     const stampBlocked = keys.length > 0 && keys.every((k) => blocked.has(k));
     // Stamped with no group: the file is one of the listed copies, all blocked -- only when the listing says so.
     if (!(stampBlocked || (keys.length === 0 && r.listed === 'blocked'))) continue;
-    books.push({ id: r.id, seriesId: r.series_id, seriesTitle: r.series_title, number: Number(r.number), scanlator: r.scanlator, pruned: !!r.pruned });
+    // A kept copy not stamped blocked (another group, or none named) is a reason to keep the chapter: never lost to a block.
+    const kept = (versionsOf.get(r.id) ?? []).find((v) => !isBlockedStamp(v.scanlator, blocked));
+    books.push({
+      id: r.id, seriesId: r.series_id, seriesTitle: r.series_title, number: Number(r.number), scanlator: r.scanlator, pruned: !!r.pruned,
+      keptCopy: kept?.source_id ?? null,
+    });
   }
-  if (!books.length) return { books: [], series: 0, readers: 0 };
+  const going = new Set(books.filter((b) => !b.keptCopy).map((b) => b.id));
+  const copies: BlockedCopy[] = versions
+    .filter((v) => !going.has(v.book_id) && isBlockedStamp(v.scanlator, blockedOf(v)))
+    .map((v) => ({ bookId: v.book_id, sourceId: v.source_id, seriesId: v.series_id, number: Number(v.number), scanlator: v.scanlator }));
+  if (!books.length && !copies.length) return { books: [], copies: [], series: 0, readers: 0 };
+  // Readers lose history only on the chapters that go; a chapter whose kept copy is endorsed keeps its progress.
   const [readers] = await query<{ n: number }>(
-    'SELECT count(DISTINCT user_id)::int AS n FROM read_progress WHERE book_id = ANY($1::text[])', [books.map((b) => b.id)]);
-  return { books, series: new Set(books.map((b) => b.seriesId)).size, readers: Number(readers?.n) || 0 };
+    'SELECT count(DISTINCT user_id)::int AS n FROM read_progress WHERE book_id = ANY($1::text[])', [[...going]]);
+  return { books, copies, series: new Set([...books.map((b) => b.seriesId), ...copies.map((c) => c.seriesId)]).size, readers: Number(readers?.n) || 0 };
 }
 
 export class BlockedPurgeRefused extends Error {
   constructor(public readonly reason: 'busy' | 'refused', message: string, public readonly fix?: string) { super(message); }
 }
 
-export interface BlockedPurgeResult extends PurgeResult {
+export interface BlockedPurgeResult extends Omit<PurgeResult, 'left'> {
   /** Series skipped because another task was changing them. */
   busy: string[];
+  /** Chapters whose other group's kept copy is being endorsed in their place (see the header). */
+  endorsed: number;
+  /** Kept copies by blocked groups dropped. */
+  copiesDropped: number;
+  left: Array<{ id: string; reason: PurgeResult['left'][number]['reason'] | 'kept_copy' }>;
 }
 
 /**
@@ -132,9 +191,23 @@ export interface BlockedPurgeResult extends PurgeResult {
 export async function purgeBlockedChapters(
   bookIds: readonly string[],
   o: { userId: string | null; req?: FastifyRequest; claim: (seriesId: string, folder: string) => { release: () => void } | null },
+  /** Kept copies by blocked groups to drop, as `copies` listed them (`bookId|sourceId`). */
+  copyKeys: readonly string[] = [],
 ): Promise<BlockedPurgeResult> {
-  const out: BlockedPurgeResult = { removed: 0, bytes: 0, left: [], busy: [] };
+  const out: BlockedPurgeResult = { removed: 0, bytes: 0, left: [], busy: [], endorsed: 0, copiesDropped: 0 };
   const wanted = new Set(bookIds);
+  const wantedCopies = new Set(copyKeys);
+  if (wantedCopies.size) {
+    // Re-read: only what is still a blocked group's copy beside a chapter that stays.
+    const ids = [...new Set([...wantedCopies].map((k) => k.split('|')[0]))];
+    const series = (await q<{ series_id: string }>('SELECT DISTINCT series_id FROM lib_books WHERE id = ANY($1::text[])', [ids])).map((r) => r.series_id);
+    for (const sid of series) {
+      for (const c of (await blockedChaptersOf(sid)).copies) {
+        if (!wantedCopies.has(`${c.bookId}|${c.sourceId}`)) continue;
+        if (await dropVersion(c.bookId, c.sourceId).catch(() => false)) out.copiesDropped++;
+      }
+    }
+  }
   if (!wanted.size) return out;
   const series = await q<{ id: string; folder: string }>(
     `SELECT DISTINCT s.id, s.folder FROM lib_books b JOIN lib_series s ON s.id = b.series_id
@@ -142,6 +215,8 @@ export async function purgeBlockedChapters(
   for (const s of series) {
     const claim = o.claim(s.id, s.folder);
     if (!claim) { out.busy.push(s.id); continue; }
+    // Chapters with another group's kept copy: endorsed once the claim is released (the endorse takes the series' download claim).
+    const swaps: Array<{ id: string; number: number; keptCopy: string; blockedSource: string | null }> = [];
     try {
       const done = await tx(async (qq) => {
         const [locked] = await qq<{ folder: string; title: string }>('SELECT folder, title FROM lib_series WHERE id = $1 FOR UPDATE', [s.id]);
@@ -152,7 +227,16 @@ export async function purgeBlockedChapters(
         await qq('SELECT id FROM lib_books WHERE series_id = $1 ORDER BY id FOR UPDATE', [s.id]);
         await qq(`SELECT ov.book_id FROM book_overrides ov JOIN lib_books b ON b.id = ov.book_id
                    WHERE b.series_id = $1 ORDER BY ov.book_id FOR UPDATE OF ov`, [s.id]);
-        const eligible = (await blockedChaptersOf(s.id, qq)).books.filter((b) => wanted.has(b.id));
+        const found = (await blockedChaptersOf(s.id, qq)).books.filter((b) => wanted.has(b.id));
+        if (found.some((b) => b.keptCopy)) {
+          const raw = await qq<{ id: string; number: number; source_id: string | null }>(
+            'SELECT id, number::float8 AS number, source_id FROM lib_books WHERE id = ANY($1::text[])', [found.filter((b) => b.keptCopy).map((b) => b.id)]);
+          for (const r of raw) {
+            const b = found.find((x) => x.id === r.id)!;
+            swaps.push({ id: r.id, number: Number(r.number), keptCopy: b.keptCopy!, blockedSource: r.source_id });
+          }
+        }
+        const eligible = found.filter((b) => !b.keptCopy);
         if (!eligible.length) return null;
         const ids = eligible.map((b) => b.id);
         const rows = await qq<{ id: string; number: number; override: number | null; root: string; file: string; pruned: boolean }>(
@@ -177,6 +261,10 @@ export async function purgeBlockedChapters(
         for (const b of books) for (const n of [b.number, ...(b.override == null ? [] : [b.override])]) {
           if (!kept.has(n)) numbers.set(numKey(n), n);
         }
+        // Their kept copies are all blocked groups' (else they would be swaps): the rows cascade with the chapter, the files go here.
+        const keptFiles = await qq<{ book_id: string; source_id: string }>(
+          'SELECT book_id, source_id FROM lib_book_versions WHERE book_id = ANY($1::text[])', [ids]);
+        for (const v of keptFiles) if (await dropVersion(v.book_id, v.source_id).catch(() => false)) out.copiesDropped++;
         const { out: purged, numbers: gone } = await purgeBooks(s.id, books, [...numbers.values()].sort((a, b) => a - b), qq);
         await qq('INSERT INTO audit_log (user_id, event, detail, ip, user_agent) VALUES ($1,$2,$3,$4,$5)', [
           o.userId, 'series.blocked_purge',
@@ -191,6 +279,20 @@ export async function purgeBlockedChapters(
         out.left.push(...done.left);
       }
     } finally { claim.release(); }
+    for (const w of swaps) {
+      // The endorse fetches the kept copy's source's listed copy (lib/endorse.ts endorsePlan). A source that no longer lists the
+      // chapter cannot: then nothing is written at all, not even the endorsement, and the chapter stays as it is.
+      const [listed] = await q<{ ok: boolean }>(
+        `SELECT EXISTS (SELECT 1 FROM series_listing l, jsonb_array_elements(COALESCE(l.copies, '[]'::jsonb)) c
+                         WHERE l.series_id = $1 AND l.number = $2 AND c->>'source' = $3) AS ok`, [s.id, w.number, w.keptCopy]);
+      if (!listed?.ok) { out.left.push({ id: w.id, reason: 'kept_copy' }); continue; }
+      // Once the kept copy is the chapter's file, the blocked group's file (kept as a version by the endorse) goes.
+      const r = await endorseChapter(s.id, w.number, w.keptCopy, o.userId, {
+        onLanded: async () => { if (w.blockedSource) await dropVersion(w.id, w.blockedSource).catch(() => false); },
+      }).catch(() => null);
+      if (r && r.started > 0) out.endorsed++;
+      else out.left.push({ id: w.id, reason: 'kept_copy' });
+    }
   }
   return out;
 }
